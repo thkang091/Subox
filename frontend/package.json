@@ -10,10 +10,11 @@
   },
   "dependencies": {
     "@radix-ui/react-slot": "^1.2.0",
-    "firebase": "^11.6.1",
-    "next": "15.3.1",
-    "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "autoprefixer": "^10.4.21",
+    "firebase": "^11.7.3",
+    "next": "^15.3.1",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
