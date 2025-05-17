@@ -3,11 +3,13 @@
 import { useState } from "react";
 import { auth } from "@/lib/firebase";
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from "firebase/auth";
+import { useRouter } from "next/navigation"; // App Router version
 
 export default function AuthPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLogin, setIsLogin] = useState(true); 
+  const router = useRouter();
 
   const handleAuth = async () => {
     try {
@@ -18,12 +20,13 @@ export default function AuthPage() {
         await createUserWithEmailAndPassword(auth, email, password);
         alert("Account created successfully!");
       }
+      router.push("/select"); 
     } catch (error) {
       console.error(error);
       alert("Authentication failed. Check console.");
     }
   };
-
+  
   return (
     <div className="flex flex-col items-center justify-center min-h-screen p-4">
       <h1 className="text-3xl font-bold mb-6">{isLogin ? "Login" : "Sign Up"}</h1>
