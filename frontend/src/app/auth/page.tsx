@@ -5,6 +5,7 @@ import { auth } from "@/lib/firebase";
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged } from "firebase/auth";
 import { useEffect } from "react";
 import { sendPasswordResetEmail } from "firebase/auth";
+import { sendEmailVerification } from "firebase/auth";
 
 
 
@@ -60,7 +61,14 @@ export default function AuthPage() {
     setLoading(true);
     try {
       if (isLogin) {
-        await signInWithEmailAndPassword(auth, email, password);
+        const userCredential = await signInWithEmailAndPassword(auth, email, password);
+        const user = userCredential.user;
+
+        if (!user.emailVerified) {
+          alert("Please verify your email before logging in");
+          return;
+        }
+
         if (rememberMe) {
           localStorage.setItem("savedEmail", email);
           localStorage.setItem("savedPassword", password);
@@ -70,8 +78,13 @@ export default function AuthPage() {
         }
         alert("Logged in successfully!");
       } else {
-        await createUserWithEmailAndPassword(auth, email, password);
-        alert("Account created successfully!");
+        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+        const user = userCredential.user;
+
+        await sendEmailVerification(user);
+        alert("Verification email sent!")
+
+        setIsLogin(true);
       }
     } catch (error) {
       console.error(error);
