@@ -1,11 +1,16 @@
 "use client"
 
-import { useState } from "react";
+import { 
+  useState,
+  useEffect
+} from "react";
 import { auth } from "@/lib/firebase";
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged } from "firebase/auth";
-import { useEffect } from "react";
-import { sendPasswordResetEmail } from "firebase/auth";
-import { sendEmailVerification } from "firebase/auth";
+import { 
+  sendPasswordResetEmail, 
+  sendEmailVerification,
+} from "firebase/auth";
+import { useRouter } from "next/navigation";
 
 
 
@@ -15,21 +20,35 @@ export default function AuthPage() {
   const [isLogin, setIsLogin] = useState(true); 
   const [loading, setLoading] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
+  const router = useRouter();
+
 
   useEffect(() => {
-    const savedEmail = localStorage.getItem("savedEmail");
-    const savedPassword = localStorage.getItem("savedPassword");
-    if (savedEmail && savedPassword) {
-      setEmail(savedEmail);
-      setPassword(savedPassword);
-      setRememberMe(true);
+  const savedEmail = localStorage.getItem("savedEmail");
+  const savedPassword = localStorage.getItem("savedPassword");
 
-      signInWithEmailAndPassword(auth, email, password);
+  if (savedEmail && savedPassword) {
+    setEmail(savedEmail);
+    setPassword(savedPassword);
+    setRememberMe(true);
 
-      alert("Auto logged in!")
-      
-    }
-  }, []);
+    signInWithEmailAndPassword(auth, savedEmail, savedPassword)
+      .then((userCredential) => {
+        const user = userCredential.user;
+
+        if (user.emailVerified) {
+          alert("Auto logged in!");
+        } else {
+          alert("Please verify your email before logging in.");
+        }
+      })
+      .catch((error) => {
+        console.error("Auto login failed:", error);
+        localStorage.removeItem("savedEmail");
+        localStorage.removeItem("savedPassword");
+      });
+  }
+}, [router]);
 
   const forgotPassword = async () => {
     if (!email) {
@@ -107,6 +126,12 @@ export default function AuthPage() {
       setLoading(false);
     }
   };
+
+  const unsubscribe = onAuthStateChanged(auth, (user) => {
+    if (user && user.emailVerified) {
+      router.push("/temp");
+    }
+  });
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen p-4">
