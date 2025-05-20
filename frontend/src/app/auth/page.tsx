@@ -4,13 +4,27 @@ import {
   useState,
   useEffect
 } from "react";
-import { auth } from "@/lib/firebase";
-import { createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged } from "firebase/auth";
 import { 
+  auth,
+  db,
+  storage
+ } from "@/lib/firebase";
+import { createUserWithEmailAndPassword, 
+  signInWithEmailAndPassword, 
+  onAuthStateChanged ,
   sendPasswordResetEmail, 
-  sendEmailVerification,
+  sendEmailVerification
 } from "firebase/auth";
 import { useRouter } from "next/navigation";
+import { 
+  doc,
+  setDoc
+} from "firebase/firestore"
+import { 
+  uploadBytes, 
+  ref, 
+  getDownloadURL } from "firebase/storage";
+
 
 
 
@@ -20,35 +34,38 @@ export default function AuthPage() {
   const [isLogin, setIsLogin] = useState(true); 
   const [loading, setLoading] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
+  const [fullName, setFullName] = useState("");
+  const [dob, setDob] = useState("");
+  const [phoneNumber, setPhoneNumber] = useState("");
   const router = useRouter();
-
-
+  const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null);
+  
   useEffect(() => {
-  const savedEmail = localStorage.getItem("savedEmail");
-  const savedPassword = localStorage.getItem("savedPassword");
+    const savedEmail = localStorage.getItem("savedEmail");
+    const savedPassword = localStorage.getItem("savedPassword");
 
-  if (savedEmail && savedPassword) {
-    setEmail(savedEmail);
-    setPassword(savedPassword);
-    setRememberMe(true);
+    if (savedEmail && savedPassword) {
+      setEmail(savedEmail);
+      setPassword(savedPassword);
+      setRememberMe(true);
 
-    signInWithEmailAndPassword(auth, savedEmail, savedPassword)
-      .then((userCredential) => {
-        const user = userCredential.user;
+      signInWithEmailAndPassword(auth, savedEmail, savedPassword)
+        .then((userCredential) => {
+          const user = userCredential.user;
 
-        if (user.emailVerified) {
-          alert("Auto logged in!");
-        } else {
-          alert("Please verify your email before logging in.");
-        }
-      })
-      .catch((error) => {
-        console.error("Auto login failed:", error);
-        localStorage.removeItem("savedEmail");
-        localStorage.removeItem("savedPassword");
-      });
-  }
-}, [router]);
+          if (user.emailVerified) {
+            alert("Auto logged in!");
+          } else {
+            alert("Please verify your email before logging in.");
+          }
+        })
+        .catch((error) => {
+          console.error("Auto login failed:", error);
+          localStorage.removeItem("savedEmail");
+          localStorage.removeItem("savedPassword");
+        });
+    }
+  }, [router]);
 
   const forgotPassword = async () => {
     if (!email) {
@@ -70,7 +87,7 @@ export default function AuthPage() {
       }
     }
   }
-
+  
   const handleAuth = async () => {
     if (!email || !password) {
       alert("Please enter both email and password.");
@@ -99,8 +116,26 @@ export default function AuthPage() {
       } else {
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
         const user = userCredential.user;
+        const file = selectedImageFile;
+        const storageRef = ref(storage, 'profilePictures/${user.uid}');
+        const photoURL = await getDownloadURL(storageRef);
+
+        await uploadBytes(storageRef, file);
+
+        if (!fullName || !dob || !phoneNumber) {
+          alert("Please complete all required fields");
+          return;
+        }
 
         await sendEmailVerification(user);
+        await setDoc(doc(db, "users", user.uid), {
+          fullName: fullName,
+          dob: dob,
+          email: email,
+          phoneNumber: phoneNumber,
+          photoURL: photoURL,
+          createdAt: new Date()
+        });
         alert("Verification email sent!")
 
         setIsLogin(true);
@@ -136,6 +171,19 @@ export default function AuthPage() {
   return (
     <div className="flex flex-col items-center justify-center min-h-screen p-4">
       <h1 className="text-3xl font-bold mb-6">{isLogin ? "Login" : "Sign Up"}</h1>
+      {!isLogin && (
+        <>
+        <input
+          type="file"
+          accept="image/*"
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            if (file) setSelectedImageFile(file);
+          }}
+          className="mb-4 p-2 border rounded"
+        />
+        </>
+      )}
       <input
         type="email"
         placeholder="Email"
@@ -150,6 +198,32 @@ export default function AuthPage() {
         value={password}
         onChange={(e) => setPassword(e.target.value)}
       />
+      {!isLogin && (
+        <>
+        <input
+          type="text"
+          placeholder="Full Name"
+          value={fullName}
+          onChange={(e) => setFullName(e.target.value)}
+          className="mb-4 p-2 border rounded"
+        />
+
+        <input
+          type="date"
+          value={dob}
+          onChange={(e) => setDob(e.target.value)}
+          className="mb-4 p-2 border rounded"
+        />
+
+        <input
+          type="tel"
+          placeholder="Phone Number"
+          value={phoneNumber}
+          onChange={(e) => setPhoneNumber(e.target.value)}
+          className="mb-4 p-2 border rounded"
+        />
+        </>
+      )}
       <button onClick={handleAuth} disabled={loading} className="bg-blue-500 text-white p-2 rounded mb-2">
         {loading ? (
           <div className="flex items-center space-x-2">
