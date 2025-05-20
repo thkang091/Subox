@@ -29,6 +29,9 @@ const SearchPage = () => {
   const [isSearching, setIsSearching] = useState(false);
   const [savedSearches, setSavedSearches] = useState([]);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  //찜 목록
+  const [favoriteListings, setFavoriteListings] = useState([]);
+  const [activeTab, setActiveTab] = useState('favorites');
 
   // =========================
   // Mock Data
@@ -271,6 +274,37 @@ const SearchPage = () => {
     }
   };
 
+  //찜 목록
+  const toggleFavorite = (listing) => {
+  // 이미 찜한 리스팅인지 확인
+  const isFavorited = favoriteListings.some(item => item.id === listing.id);
+  
+  if (isFavorited) {
+    // 이미 찜했다면 제거
+    setFavoriteListings(favoriteListings.filter(item => item.id !== listing.id));
+  } else {
+    // 새로 찜하기
+    const favoriteItem = {
+      id: listing.id,
+      title: listing.title || 'Untitled Listing',
+      location: listing.location || 'Unknown Location',
+      price: listing.price || 0,
+      bedrooms: listing.bedrooms || 1,
+      // bathrooms가 있으면 사용, 없으면 생략
+      ...(listing.bathrooms !== undefined && { bathrooms: listing.bathrooms }),
+      image: listing.image || '/api/placeholder/800/500',
+      // dateRange가 있으면 사용, 없으면 생략
+      ...(listing.dateRange && { dateRange: listing.dateRange })
+    };
+    
+    setFavoriteListings([...favoriteListings, favoriteItem]);
+    // 사이드바 열기
+    setIsSidebarOpen(true);
+    // 탭을 favorites로 변경
+    setActiveTab('favorites');
+    }
+  };
+
   // =========================
   // Render Components
   // =========================
@@ -288,7 +322,7 @@ const SearchPage = () => {
                 className={`p-3 rounded-lg border cursor-pointer transition ${location === loc ? 'bg-indigo-50 border-indigo-300' : 'hover:bg-gray-50'}`}
                 onClick={() => setLocation(loc)}
               >
-                <div className="font-medium">{loc}</div>
+                <div className="font-semibold text-gray-400">{loc}</div>
               </div>
             ))}
           </div>
@@ -763,26 +797,79 @@ const SearchPage = () => {
   );
 
   // Saved Searches Sidebar
-  const renderSavedSearchesSidebar = () => (
-    <div className={`fixed right-0 top-0 h-full w-80 bg-white shadow-xl z-50 transform transition-transform duration-300 ease-in-out ${isSidebarOpen ? 'translate-x-0' : 'translate-x-full'}`}>
-      <div className="p-4 border-b">
-        <div className="flex justify-between items-center">
-          <h2 className="font-bold text-lg">Saved Searches</h2>
-          <button 
-            onClick={() => setIsSidebarOpen(false)}
-            className="p-2 rounded-full hover:bg-gray-100"
-          >
-            <X size={20} />
-          </button>
-        </div>
+const renderSavedSearchesSidebar = () => (
+  <div className={`fixed right-0 top-0 h-full w-80 bg-white shadow-xl z-50 transform transition-transform duration-300 ease-in-out ${isSidebarOpen ? 'translate-x-0' : 'translate-x-full'} overflow-auto`}>
+    <div className="p-4 border-b">
+      <div className="flex justify-between items-center">
+        <h2 className="font-bold text-lg">Saved Items</h2>
+        <button 
+          onClick={() => setIsSidebarOpen(false)}
+          className="p-2 rounded-full hover:bg-gray-100"
+        >
+          <X size={20} />
+        </button>
       </div>
-      
-      <div className="p-4">
-        {savedSearches.length === 0 ? (
+    </div>
+    
+    {/* 탭 메뉴 */}
+    <div className="flex border-b">
+      <button 
+        className={`flex-1 py-3 font-medium ${activeTab === 'favorites' ? 'text-indigo-600 border-b-2 border-indigo-600' : 'text-gray-500'}`}
+        onClick={() => setActiveTab('favorites')}
+      >
+        Favorite Listings
+      </button>
+      <button 
+        className={`flex-1 py-3 font-medium ${activeTab === 'searches' ? 'text-indigo-600 border-b-2 border-indigo-600' : 'text-gray-500'}`}
+        onClick={() => setActiveTab('searches')}
+      >
+        Saved Searches
+      </button>
+    </div>
+    
+    <div className="p-4">
+      {/* 찜한 리스팅 (activeTab이 'favorites'일 때) */}
+      {activeTab === 'favorites' && (
+        favoriteListings.length === 0 ? (
           <div className="text-center py-8 text-gray-500">
             <Bookmark size={40} className="mx-auto mb-2 opacity-50" />
+            <p>No favorite listings yet</p>
+            <p className="text-sm mt-2">Click the bookmark icon on listings to save them here</p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {favoriteListings.map(listing => (
+              <div key={listing.id} className="border rounded-lg overflow-hidden hover:shadow-md transition cursor-pointer">
+                <div className="flex">
+                  <div 
+                    className="w-20 h-20 bg-gray-200 flex-shrink-0" 
+                    style={{backgroundImage: `url(${listing.image})`, backgroundSize: 'cover', backgroundPosition: 'center'}}
+                  ></div>
+                  <div className="p-3 flex-1">
+                    <div className="font-medium text-gray-700">{listing.title}</div>
+                    <div className="text-sm text-gray-500">{listing.location}</div>
+                    <div className="text-sm font-bold text-indigo-600 mt-1">${listing.price}/mo</div>
+                  </div>
+                  <button 
+                    className="p-2 text-gray-400 hover:text-red-500 self-start"
+                    onClick={() => toggleFavorite(listing)}
+                  >
+                    <X size={16} />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )
+      )}
+      
+      {/* 저장된 검색 (activeTab이 'searches'일 때) */}
+      {activeTab === 'searches' && (
+        savedSearches.length === 0 ? (
+          <div className="text-center py-8 text-gray-500">
+            <Search size={40} className="mx-auto mb-2 opacity-50" />
             <p>No saved searches yet</p>
-            <p className="text-sm mt-2">Save your search criteria for quick access later</p>
+            <p className="text-sm mt-2">Save your search filters for quick access later</p>
           </div>
         ) : (
           <div className="space-y-4">
@@ -799,10 +886,11 @@ const SearchPage = () => {
               </div>
             ))}
           </div>
-        )}
-      </div>
+        )
+      )}
     </div>
-  );
+  </div>
+);
 
   // Featured Listings Section
   const renderFeaturedListings = () => (
@@ -819,9 +907,27 @@ const SearchPage = () => {
               className="h-48 bg-gray-200 relative" 
               style={{backgroundImage: `url(${listing.image})`, backgroundSize: 'cover', backgroundPosition: 'center'}}
             >
+              {/*price*/}
               <div className="absolute top-2 right-2 bg-white px-2 py-1 rounded-lg text-xs font-bold">
                 ${listing.price}/mo
               </div>
+              {/*찜 버튼 추가 */}
+              <button 
+                className={`absolute top-2 left-2 p-2 rounded-full transition-all cursor-pointer ${
+                  favoriteListings.some(item => item.id === listing.id) 
+                    ? 'bg-red-500 text-white' 
+                    : 'bg-white text-gray-500 hover:text-red-500'
+                }`}
+                onClick={(e) => {
+                  e.stopPropagation(); // 카드 클릭 이벤트가 발생하지 않도록 합니다
+                  toggleFavorite(listing);
+                }}
+              >
+                <Bookmark 
+                  size={18} 
+                  className={favoriteListings.some(item => item.id === listing.id) ? 'fill-current' : ''} 
+                />
+              </button>
             </div>
             <div className="p-4">
               <div className="flex justify-between items-start">
@@ -987,16 +1093,16 @@ const SearchPage = () => {
               <span className="font-bold text-xl">CampusSubleases</span>
             </div>
             <div className="flex items-center space-x-4">
-              <button className="bg-white bg-opacity-20 hover:bg-opacity-30 px-4 py-2 rounded-lg font-medium transition">
+              <button className="bg-opacity-20 hover:bg-opacity-30 px-4 py-2 rounded-lg font-medium transition cursor-pointer">
                 List Your Space
               </button>
               <button 
                 onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-                className="bg-white bg-opacity-20 hover:bg-opacity-30 p-2 rounded-lg transition"
+                className="bg-opacity-20 hover:bg-opacity-30 p-2 rounded-lg transition cursor-pointer"
               >
                 <Bookmark size={20} />
               </button>
-              <button className="bg-white bg-opacity-20 hover:bg-opacity-30 p-2 rounded-lg transition">
+              <button className="bg-opacity-20 hover:bg-opacity-30 p-2 rounded-lg transition cursor-pointer">
                 <LogIn size={20} />
               </button>
             </div>
