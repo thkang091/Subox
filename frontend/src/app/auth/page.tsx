@@ -114,28 +114,34 @@ export default function AuthPage() {
         }
         alert("Logged in successfully!");
       } else {
-        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-        const user = userCredential.user;
-        const file = selectedImageFile;
-        const storageRef = ref(storage, 'profilePictures/${user.uid}');
-        const photoURL = await getDownloadURL(storageRef);
 
-        await uploadBytes(storageRef, file);
+        let photoURL = "https://yourapp.com/default-profile.png";
 
         if (!fullName || !dob || !phoneNumber) {
           alert("Please complete all required fields");
+          setLoading(false);
           return;
         }
 
-        await sendEmailVerification(user);
+        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+        const user = userCredential.user;
+
+        if (selectedImageFile) {
+          const storageRef = ref(storage, `profilePictures/${user.uid}`);
+          await uploadBytes(storageRef, selectedImageFile);
+          photoURL = await getDownloadURL(storageRef);
+        }
+        console.log("saving")
         await setDoc(doc(db, "users", user.uid), {
-          fullName: fullName,
-          dob: dob,
-          email: email,
-          phoneNumber: phoneNumber,
-          photoURL: photoURL,
+          fullName,
+          dob,
+          email,
+          phoneNumber,
+          photoURL,
           createdAt: new Date()
         });
+        console.log("saved")
+        await sendEmailVerification(user);
         alert("Verification email sent!")
 
         setIsLogin(true);
@@ -162,11 +168,15 @@ export default function AuthPage() {
     }
   };
 
-  const unsubscribe = onAuthStateChanged(auth, (user) => {
-    if (user && user.emailVerified) {
-      router.push("/temp");
-    }
-  });
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user && user.emailVerified) {
+        router.push("/temp");
+      }
+    });
+
+    return () => unsubscribe();
+  }, []);
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen p-4">
