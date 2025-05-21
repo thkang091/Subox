@@ -36,7 +36,6 @@ export default function AuthPage() {
   const [rememberMe, setRememberMe] = useState(false);
   const [fullName, setFullName] = useState("");
   const [dob, setDob] = useState("");
-  const [phoneNumber, setPhoneNumber] = useState("");
   const router = useRouter();
   const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null);
   
@@ -69,7 +68,7 @@ export default function AuthPage() {
 
   const forgotPassword = async () => {
     if (!email) {
-      alert("Plase enter your eamil first");
+      alert("Plase enter your email first");
       return;
     }
 
@@ -113,11 +112,20 @@ export default function AuthPage() {
           localStorage.removeItem("savedPassword");
         }
         alert("Logged in successfully!");
+
+
+        const unsubscribe = onAuthStateChanged(auth, (user) => { //next page
+          if (user && user.emailVerified) {
+          router.push("/temp");
+        }
+    });
+
+    return () => unsubscribe();
       } else {
 
         let photoURL = "https://yourapp.com/default-profile.png";
 
-        if (!fullName || !dob || !phoneNumber) {
+        if (!fullName || !dob) {
           alert("Please complete all required fields");
           setLoading(false);
           return;
@@ -131,20 +139,19 @@ export default function AuthPage() {
           await uploadBytes(storageRef, selectedImageFile);
           photoURL = await getDownloadURL(storageRef);
         }
-        console.log("saving")
-        await setDoc(doc(db, "users", user.uid), {
-          fullName,
-          dob,
-          email,
-          phoneNumber,
-          photoURL,
-          createdAt: new Date()
-        });
-        console.log("saved")
         await sendEmailVerification(user);
         alert("Verification email sent!")
 
         setIsLogin(true);
+        /*console.log("saving")
+        await setDoc(doc(db, "users", user.uid), {
+          fullName,
+          dob,
+          email,
+          photoURL,
+          createdAt: new Date()
+        });
+        console.log("saved") */
       }
     } catch (error) {
       console.error(error);
@@ -168,15 +175,6 @@ export default function AuthPage() {
     }
   };
 
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      if (user && user.emailVerified) {
-        router.push("/temp");
-      }
-    });
-
-    return () => unsubscribe();
-  }, []);
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen p-4">
@@ -222,14 +220,6 @@ export default function AuthPage() {
           type="date"
           value={dob}
           onChange={(e) => setDob(e.target.value)}
-          className="mb-4 p-2 border rounded"
-        />
-
-        <input
-          type="tel"
-          placeholder="Phone Number"
-          value={phoneNumber}
-          onChange={(e) => setPhoneNumber(e.target.value)}
           className="mb-4 p-2 border rounded"
         />
         </>
