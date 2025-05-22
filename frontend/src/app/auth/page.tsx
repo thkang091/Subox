@@ -24,7 +24,12 @@ import {
   uploadBytes, 
   ref, 
   getDownloadURL } from "firebase/storage";
-
+import {
+  GoogleAuthProvider,
+  FacebookAuthProvider,
+  signInWithPopup,
+  getAdditionalUserInfo
+} from "firebase/auth";
 
 
 
@@ -68,7 +73,7 @@ export default function AuthPage() {
 
   const forgotPassword = async () => {
     if (!email) {
-      alert("Plase enter your email first");
+      alert("Please enter your email first");
       return;
     }
 
@@ -94,6 +99,53 @@ export default function AuthPage() {
       return;
     }
     setLoading(true);
+    const handleGoogleLogin = async () => {
+    const provider = new GoogleAuthProvider();
+      try {
+        const result = await signInWithPopup(auth, provider);
+        const user = result.user;
+
+        const additionalInfo = getAdditionalUserInfo(result);
+        if (additionalInfo?.isNewUser) {
+          await setDoc(doc(db, "users", user.uid), {
+            fullName: user.displayName || "",
+            dob: "",
+            email: user.email || "",
+            photoURL: user.photoURL || "",
+            createdAt: new Date(),
+          });
+        }
+
+        router.push("/temp");
+      } catch (error) {
+        console.error("Google login error:", error);
+        alert("Google login failed");
+      }
+    };
+
+    const handleFacebookLogin = async () => {
+      const provider = new FacebookAuthProvider();
+      try {
+        const result = await signInWithPopup(auth, provider);
+        const user = result.user;
+
+        const additionalInfo = getAdditionalUserInfo(result);
+        if (additionalInfo?.isNewUser) {
+          await setDoc(doc(db, "users", user.uid), {
+            fullName: user.displayName || "",
+            dob: "",
+            email: user.email || "",
+            photoURL: user.photoURL || "",
+            createdAt: new Date(),
+          });
+        }
+
+        router.push("/temp");
+      } catch (error) {
+        console.error("Facebook login error:", error);
+        alert("Facebook login failed");
+      }
+    };
     try {
       if (isLogin) {
         const userCredential = await signInWithEmailAndPassword(auth, email, password);
@@ -117,41 +169,59 @@ export default function AuthPage() {
         const unsubscribe = onAuthStateChanged(auth, (user) => { //next page
           if (user && user.emailVerified) {
           router.push("/temp");
-        }
-    });
+          }
+        });
 
-    return () => unsubscribe();
+        return () => unsubscribe();
       } else {
 
         let photoURL = "https://yourapp.com/default-profile.png";
 
-        if (!fullName || !dob) {
+        if (!fullName || !dob) {                        // checking if all the required fields are written
           alert("Please complete all required fields");
           setLoading(false);
           return;
+        } else if (new Date(dob) >= new Date()) {
+          alert("Date of birth must be in the past");
+          return;
         }
-
+        
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
         const user = userCredential.user;
 
-        if (selectedImageFile) {
+        try {
+          if (selectedImageFile) {
           const storageRef = ref(storage, `profilePictures/${user.uid}`);
           await uploadBytes(storageRef, selectedImageFile);
           photoURL = await getDownloadURL(storageRef);
+          }
+        } catch (uploadError) {
+          console.error("Image upload failed:", uploadError);
+          alert("Failed to upload profile picture. Please try again later");
         }
-        await sendEmailVerification(user);
-        alert("Verification email sent!")
-
-        setIsLogin(true);
-        /*console.log("saving")
-        await setDoc(doc(db, "users", user.uid), {
+        console.log("saving")
+        try {
+          await setDoc(doc(db, "users", user.uid), {
           fullName,
           dob,
           email,
           photoURL,
           createdAt: new Date()
-        });
-        console.log("saved") */
+          });
+        } catch (dbError) {
+          console.error("Error saving user to Firestore:", dbError);
+          alert("Failed to save user profile. Try again");
+        }
+        console.log("saved")
+        try {
+          await sendEmailVerification(user);
+          alert("Verification email sent!");
+        } catch (emailError) {
+          console.error("Failed to send verification email:", emailError);
+          alert("Could not send verification email. Try again later");
+        }
+
+        setIsLogin(true);
       }
     } catch (error) {
       console.error(error);
@@ -167,9 +237,12 @@ export default function AuthPage() {
         alert("This email is already registered");
       } else if (error.code == "auth/weak-password") {
         alert("The password is too weak. Password should be at least 6 characters.");
+      } else if (error.code == "auth/network-request-failed") {
+        alert("Network error. Please check your internet connection and try again.");
       } else {
+        console.error("Unhandled error:", error.code, error.message);
         alert("Authentication failed. Please try again.");
-    }
+      }
     } finally {
       setLoading(false);
     }
