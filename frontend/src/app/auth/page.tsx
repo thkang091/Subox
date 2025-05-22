@@ -99,53 +99,6 @@ export default function AuthPage() {
       return;
     }
     setLoading(true);
-    const handleGoogleLogin = async () => {
-    const provider = new GoogleAuthProvider();
-      try {
-        const result = await signInWithPopup(auth, provider);
-        const user = result.user;
-
-        const additionalInfo = getAdditionalUserInfo(result);
-        if (additionalInfo?.isNewUser) {
-          await setDoc(doc(db, "users", user.uid), {
-            fullName: user.displayName || "",
-            dob: "",
-            email: user.email || "",
-            photoURL: user.photoURL || "",
-            createdAt: new Date(),
-          });
-        }
-
-        router.push("/temp");
-      } catch (error) {
-        console.error("Google login error:", error);
-        alert("Google login failed");
-      }
-    };
-
-    const handleFacebookLogin = async () => {
-      const provider = new FacebookAuthProvider();
-      try {
-        const result = await signInWithPopup(auth, provider);
-        const user = result.user;
-
-        const additionalInfo = getAdditionalUserInfo(result);
-        if (additionalInfo?.isNewUser) {
-          await setDoc(doc(db, "users", user.uid), {
-            fullName: user.displayName || "",
-            dob: "",
-            email: user.email || "",
-            photoURL: user.photoURL || "",
-            createdAt: new Date(),
-          });
-        }
-
-        router.push("/temp");
-      } catch (error) {
-        console.error("Facebook login error:", error);
-        alert("Facebook login failed");
-      }
-    };
     try {
       if (isLogin) {
         const userCredential = await signInWithEmailAndPassword(auth, email, password);
@@ -247,7 +200,53 @@ export default function AuthPage() {
       setLoading(false);
     }
   };
+  const handleGoogleLogin = async () => {
+  const provider = new GoogleAuthProvider();
+    try {
+      const result = await signInWithPopup(auth, provider);
+      const user = result.user;
 
+      const additionalInfo = getAdditionalUserInfo(result);
+      if (additionalInfo?.isNewUser) {
+        await setDoc(doc(db, "users", user.uid), {
+          fullName: user.displayName || "",
+          dob: "",
+          email: user.email || "",
+          photoURL: user.photoURL || "",
+          createdAt: new Date(),
+        });
+      }
+
+      router.push("/temp");
+    } catch (error) {
+      console.error("Google login error:", error);
+      alert("Google login failed");
+    }
+  };
+
+  const handleFacebookLogin = async () => {
+    const provider = new FacebookAuthProvider();
+    try {
+      const result = await signInWithPopup(auth, provider);
+      const user = result.user;
+
+      const additionalInfo = getAdditionalUserInfo(result);
+      if (additionalInfo?.isNewUser) {
+        await setDoc(doc(db, "users", user.uid), {
+          fullName: user.displayName || "",
+          dob: "",
+          email: user.email || "",
+          photoURL: user.photoURL || "",
+          createdAt: new Date(),
+        });
+      }
+
+      router.push("/temp");
+    } catch (error) {
+      console.error("Facebook login error:", error);
+      alert("Facebook login failed");
+    }
+  };
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen p-4">
@@ -316,6 +315,20 @@ export default function AuthPage() {
         />
         <span className="text-sm">Remember Me</span>
       </label>
+      <div className="flex flex-col gap-2 mt-4">
+        <button
+          onClick={handleGoogleLogin}
+          className="bg-red-500 text-white p-2 rounded"
+        >
+          Continue with Google
+        </button>
+        <button
+          onClick={handleFacebookLogin}
+          className="bg-blue-700 text-white p-2 rounded"
+        >
+          Continue with Facebook
+        </button>
+      </div>
       <button onClick={() => setIsLogin(!isLogin)} className="text-blue-500 underline text-sm">
         {isLogin ? "Create new account" : "Already have an account?"}
       </button>
