@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { ArrowLeft, Send, Plus } from "lucide-react";
 
 // Types
 type ListingType = "Sublet" | "Lease Takeover" | "Room in Shared Unit" | null;
@@ -41,8 +42,10 @@ interface ListingData {
 }
 
 interface ChatMessage {
+  id: number;
   text: string;
   isUser: boolean;
+  timestamp: Date;
   options?: {
     value: string;
     label: string;
@@ -60,12 +63,15 @@ export default function ListingFormPage() {
   const router = useRouter();
   const chatEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
   
   // State
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [currentStep, setCurrentStep] = useState(1);
   const [inputValue, setInputValue] = useState("");
   const [isTyping, setIsTyping] = useState(false);
+  const [showInput, setShowInput] = useState(false);
+  const [messageIdCounter, setMessageIdCounter] = useState(1);
   
   const [formData, setFormData] = useState<ListingData>({
     listingType: null,
@@ -117,7 +123,7 @@ export default function ListingFormPage() {
   useEffect(() => {
     // Initialize chat with first message
     addSystemMessage(
-      "👋 Hi! Let's create a listing for your space. What type of listing are you posting?",
+      "Hi! Let's create a listing for your space 🏠\n\nWhat type of listing are you posting?",
       [
         { value: "Sublet", label: "Sublet", action: () => handleListingTypeSelect("Sublet") },
         { value: "Lease Takeover", label: "Lease Takeover", action: () => handleListingTypeSelect("Lease Takeover") },
@@ -134,9 +140,14 @@ export default function ListingFormPage() {
   }, [messages]);
 
   // Chat Message Functions
-  const addMessage = (message: ChatMessage, delay = 0) => {
+  const addMessage = (message: Omit<ChatMessage, 'id' | 'timestamp'>, delay = 0) => {
     setTimeout(() => {
-      setMessages(prev => [...prev, message]);
+      setMessages(prev => [...prev, {
+        ...message,
+        id: messageIdCounter,
+        timestamp: new Date()
+      }]);
+      setMessageIdCounter(prev => prev + 1);
       if (delay > 0) {
         setIsTyping(false);
       }
@@ -149,7 +160,15 @@ export default function ListingFormPage() {
   
   const addSystemMessage = (text: string, options?: ChatMessage['options'], input?: ChatMessage['input']) => {
     setIsTyping(true);
-    addMessage({ text, isUser: false, options, input }, 700);
+    setShowInput(false);
+    addMessage({ text, isUser: false, options, input }, 1200);
+    
+    if (input && (input.type === "text" || input.type === "number")) {
+      setTimeout(() => {
+        setShowInput(true);
+        setTimeout(() => inputRef.current?.focus(), 100);
+      }, 1300);
+    }
   };
 
   // Navigation Functions
@@ -159,13 +178,8 @@ export default function ListingFormPage() {
 
   // Submit Handler
   const handleSubmitForm = () => {
-    // Here you would submit the form data to your backend
     console.log("Form submitted:", formData);
-    
-    // Show a success message
-    addSystemMessage("Your listing has been successfully created! Redirecting to your dashboard...");
-    
-    // Redirect to dashboard after a short delay
+    addSystemMessage("🎉 Your listing has been successfully created!\n\nRedirecting to your dashboard...");
     setTimeout(() => {
       router.push("/dashboard");
     }, 2000);
@@ -188,6 +202,7 @@ export default function ListingFormPage() {
     }
     
     setInputValue("");
+    setShowInput(false);
   };
 
   // Step 1: Listing Type
@@ -197,36 +212,38 @@ export default function ListingFormPage() {
     goToNextStep();
     
     // Ask about availability
-    addSystemMessage(
-      "📅 When is your place available?",
-      [
-        { 
-          value: "Summer (May–Aug)", 
-          label: "Summer (May–Aug)", 
-          action: () => handleDateOptionSelect("Summer (May–Aug)") 
-        },
-        { 
-          value: "Fall (Sept–Dec)", 
-          label: "Fall (Sept–Dec)", 
-          action: () => handleDateOptionSelect("Fall (Sept–Dec)") 
-        },
-        { 
-          value: "Spring (Jan–Apr)", 
-          label: "Spring (Jan–Apr)", 
-          action: () => handleDateOptionSelect("Spring (Jan–Apr)") 
-        },
-        { 
-          value: "Full Year", 
-          label: "Full Year", 
-          action: () => handleDateOptionSelect("Full Year") 
-        },
-        { 
-          value: "Custom", 
-          label: "Custom", 
-          action: () => handleDateOptionSelect("Custom") 
-        },
-      ]
-    );
+    setTimeout(() => {
+      addSystemMessage(
+        "Perfect! 📅\n\nWhen is your place available?",
+        [
+          { 
+            value: "Summer (May–Aug)", 
+            label: "Summer (May–Aug)", 
+            action: () => handleDateOptionSelect("Summer (May–Aug)") 
+          },
+          { 
+            value: "Fall (Sept–Dec)", 
+            label: "Fall (Sept–Dec)", 
+            action: () => handleDateOptionSelect("Fall (Sept–Dec)") 
+          },
+          { 
+            value: "Spring (Jan–Apr)", 
+            label: "Spring (Jan–Apr)", 
+            action: () => handleDateOptionSelect("Spring (Jan–Apr)") 
+          },
+          { 
+            value: "Full Year", 
+            label: "Full Year", 
+            action: () => handleDateOptionSelect("Full Year") 
+          },
+          { 
+            value: "Custom", 
+            label: "Custom dates", 
+            action: () => handleDateOptionSelect("Custom") 
+          },
+        ]
+      );
+    }, 500);
   };
 
   // Step 2: Availability
@@ -246,7 +263,7 @@ export default function ListingFormPage() {
           }));
           addUserMessage(`From ${dates.start} to ${dates.end}`);
           goToNextStep();
-          askLocation();
+          setTimeout(() => askLocation(), 500);
         }
       });
     } else {
@@ -281,14 +298,14 @@ export default function ListingFormPage() {
       }));
       
       goToNextStep();
-      askLocation();
+      setTimeout(() => askLocation(), 500);
     }
   };
 
   // Step 3: Location
   const askLocation = () => {
     addSystemMessage(
-      "📍 Where is your place located?",
+      "Great! 📍\n\nWhere is your place located?",
       [
         { value: "Dinkytown", label: "Dinkytown", action: () => handleLocationSelect("Dinkytown") },
         { value: "East Bank", label: "East Bank", action: () => handleLocationSelect("East Bank") },
@@ -307,21 +324,23 @@ export default function ListingFormPage() {
     addUserMessage(location as string);
     
     // Ask about showing exact address
-    addSystemMessage(
-      "Do you want to display the exact address or just the neighborhood?",
-      [
-        { 
-          value: "show-address", 
-          label: "Show exact address", 
-          action: () => handleAddressVisibilitySelect(true) 
-        },
-        { 
-          value: "hide-address", 
-          label: "Only show neighborhood", 
-          action: () => handleAddressVisibilitySelect(false) 
-        },
-      ]
-    );
+    setTimeout(() => {
+      addSystemMessage(
+        "Do you want to display the exact address or just the neighborhood?",
+        [
+          { 
+            value: "show-address", 
+            label: "Show exact address", 
+            action: () => handleAddressVisibilitySelect(true) 
+          },
+          { 
+            value: "hide-address", 
+            label: "Only show neighborhood", 
+            action: () => handleAddressVisibilitySelect(false) 
+          },
+        ]
+      );
+    }, 500);
   };
 
   const handleAddressVisibilitySelect = (showExact: boolean) => {
@@ -330,47 +349,51 @@ export default function ListingFormPage() {
     
     if (showExact) {
       // Ask for address input
-      addSystemMessage("Please enter your address:", undefined, {
-        type: "text",
-        placeholder: "Enter your address",
-        action: (address: string) => {
-          setFormData(prev => ({ ...prev, address }));
-          addUserMessage(address);
-          goToNextStep();
-          askRentPrice();
-        }
-      });
+      setTimeout(() => {
+        addSystemMessage("Please enter your address:", undefined, {
+          type: "text",
+          placeholder: "Enter your address",
+          action: (address: string) => {
+            setFormData(prev => ({ ...prev, address }));
+            addUserMessage(address);
+            goToNextStep();
+            setTimeout(() => askRentPrice(), 500);
+          }
+        });
+      }, 500);
     } else {
       goToNextStep();
-      askRentPrice();
+      setTimeout(() => askRentPrice(), 500);
     }
   };
 
   // Step 4: Price
   const askRentPrice = () => {
-    addSystemMessage("💵 How much is the monthly rent?", undefined, {
+    addSystemMessage("How much is the monthly rent? 💰", undefined, {
       type: "number",
-      placeholder: "Enter monthly rent ($)",
+      placeholder: "Enter monthly rent",
       action: (rent: number) => {
         setFormData(prev => ({ ...prev, rent }));
         addUserMessage(`$${rent} per month`);
         
         // Ask about utilities
-        addSystemMessage(
-          "Are utilities included in the rent?",
-          [
-            { 
-              value: "utilities-yes", 
-              label: "Yes, utilities included", 
-              action: () => handleUtilitiesIncluded(true) 
-            },
-            { 
-              value: "utilities-no", 
-              label: "No, utilities not included", 
-              action: () => handleUtilitiesIncluded(false) 
-            },
-          ]
-        );
+        setTimeout(() => {
+          addSystemMessage(
+            "Are utilities included in the rent?",
+            [
+              { 
+                value: "utilities-yes", 
+                label: "Yes, utilities included", 
+                action: () => handleUtilitiesIncluded(true) 
+              },
+              { 
+                value: "utilities-no", 
+                label: "No, utilities not included", 
+                action: () => handleUtilitiesIncluded(false) 
+              },
+            ]
+          );
+        }, 500);
       }
     });
   };
@@ -379,12 +402,12 @@ export default function ListingFormPage() {
     setFormData(prev => ({ ...prev, utilitiesIncluded: included }));
     addUserMessage(included ? "Yes, utilities are included" : "No, utilities are not included");
     goToNextStep();
-    askRoomsDetails();
+    setTimeout(() => askRoomsDetails(), 500);
   };
 
   // Step 5: Rooms
   const askRoomsDetails = () => {
-    addSystemMessage("🛏️ Tell me about the space:", undefined, {
+    addSystemMessage("Tell me about the space 🛏️", undefined, {
       type: "rooms",
       action: (details: {bedrooms: number, bathrooms: number, isPrivate: boolean}) => {
         setFormData(prev => ({ 
@@ -395,7 +418,7 @@ export default function ListingFormPage() {
         }));
         addUserMessage(`${details.bedrooms} bedroom(s), ${details.bathrooms} bathroom(s), ${details.isPrivate ? 'Private' : 'Shared'} room`);
         goToNextStep();
-        askAmenities();
+        setTimeout(() => askAmenities(), 500);
       }
     });
   };
@@ -403,7 +426,7 @@ export default function ListingFormPage() {
   // Step 6: Amenities
   const askAmenities = () => {
     addSystemMessage(
-      "🧰 Which of the following amenities does your place include? (select all that apply)",
+      "Which amenities does your place include? 🏠\n\n(Select all that apply)",
       undefined,
       {
         type: "multiselect",
@@ -423,7 +446,7 @@ export default function ListingFormPage() {
             
           addUserMessage(`Selected amenities: ${selectedAmenities || "None"}`);
           goToNextStep();
-          askRoommates();
+          setTimeout(() => askRoommates(), 500);
         }
       }
     );
@@ -432,7 +455,7 @@ export default function ListingFormPage() {
   // Step 7: Roommates
   const askRoommates = () => {
     addSystemMessage(
-      "👯 Will you have roommates?",
+      "Will you have roommates? 👥",
       [
         { 
           value: "roommates-yes", 
@@ -454,10 +477,10 @@ export default function ListingFormPage() {
     
     if (hasRoommates) {
       // Ask about roommate preferences
-      askRoommatePreferences();
+      setTimeout(() => askRoommatePreferences(), 500);
     } else {
       goToNextStep();
-      askIncludedItems();
+      setTimeout(() => askIncludedItems(), 500);
     }
   };
 
@@ -485,13 +508,15 @@ export default function ListingFormPage() {
     addUserMessage(`Gender preference: ${gender}`);
     
     // Ask about pets
-    addSystemMessage(
-      "Are pets allowed?",
-      [
-        { value: "pets-yes", label: "Yes", action: () => handlePetsPreference(true) },
-        { value: "pets-no", label: "No", action: () => handlePetsPreference(false) },
-      ]
-    );
+    setTimeout(() => {
+      addSystemMessage(
+        "Are pets allowed? 🐕",
+        [
+          { value: "pets-yes", label: "Yes", action: () => handlePetsPreference(true) },
+          { value: "pets-no", label: "No", action: () => handlePetsPreference(false) },
+        ]
+      );
+    }, 500);
   };
 
   const handlePetsPreference = (petsAllowed: boolean) => {
@@ -505,13 +530,15 @@ export default function ListingFormPage() {
     addUserMessage(`Pets allowed: ${petsAllowed ? "Yes" : "No"}`);
     
     // Ask about smoking
-    addSystemMessage(
-      "Is smoking allowed?",
-      [
-        { value: "smoking-yes", label: "Yes", action: () => handleSmokingPreference(true) },
-        { value: "smoking-no", label: "No", action: () => handleSmokingPreference(false) },
-      ]
-    );
+    setTimeout(() => {
+      addSystemMessage(
+        "Is smoking allowed? 🚭",
+        [
+          { value: "smoking-yes", label: "Yes", action: () => handleSmokingPreference(true) },
+          { value: "smoking-no", label: "No", action: () => handleSmokingPreference(false) },
+        ]
+      );
+    }, 500);
   };
 
   const handleSmokingPreference = (smokingAllowed: boolean) => {
@@ -525,14 +552,16 @@ export default function ListingFormPage() {
     addUserMessage(`Smoking allowed: ${smokingAllowed ? "Yes" : "No"}`);
     
     // Ask about noise level
-    addSystemMessage(
-      "Preferred noise level?",
-      [
-        { value: "noise-low", label: "Low", action: () => handleNoisePreference("Low") },
-        { value: "noise-medium", label: "Medium", action: () => handleNoisePreference("Medium") },
-        { value: "noise-high", label: "High", action: () => handleNoisePreference("High") },
-      ]
-    );
+    setTimeout(() => {
+      addSystemMessage(
+        "Preferred noise level? 🔊",
+        [
+          { value: "noise-low", label: "Low", action: () => handleNoisePreference("Low") },
+          { value: "noise-medium", label: "Medium", action: () => handleNoisePreference("Medium") },
+          { value: "noise-high", label: "High", action: () => handleNoisePreference("High") },
+        ]
+      );
+    }, 500);
   };
 
   const handleNoisePreference = (noiseLevel: Level) => {
@@ -546,14 +575,16 @@ export default function ListingFormPage() {
     addUserMessage(`Noise level: ${noiseLevel}`);
     
     // Ask about cleanliness
-    addSystemMessage(
-      "Preferred cleanliness level?",
-      [
-        { value: "clean-low", label: "Low", action: () => handleCleanlinessPreference("Low") },
-        { value: "clean-medium", label: "Medium", action: () => handleCleanlinessPreference("Medium") },
-        { value: "clean-high", label: "High", action: () => handleCleanlinessPreference("High") },
-      ]
-    );
+    setTimeout(() => {
+      addSystemMessage(
+        "Preferred cleanliness level? ✨",
+        [
+          { value: "clean-low", label: "Low", action: () => handleCleanlinessPreference("Low") },
+          { value: "clean-medium", label: "Medium", action: () => handleCleanlinessPreference("Medium") },
+          { value: "clean-high", label: "High", action: () => handleCleanlinessPreference("High") },
+        ]
+      );
+    }, 500);
   };
 
   const handleCleanlinessPreference = (cleanlinessLevel: Level) => {
@@ -567,13 +598,13 @@ export default function ListingFormPage() {
     addUserMessage(`Cleanliness level: ${cleanlinessLevel}`);
     
     goToNextStep();
-    askIncludedItems();
+    setTimeout(() => askIncludedItems(), 500);
   };
 
   // Step 8: Included Items
   const askIncludedItems = () => {
     addSystemMessage(
-      "📦 Are you including any furniture or personal items with the listing? (select all that apply)",
+      "Are you including any furniture or items? 📦\n\n(Select all that apply)",
       undefined,
       {
         type: "multiselect",
@@ -593,7 +624,7 @@ export default function ListingFormPage() {
             
           addUserMessage(`Included items: ${selectedItems || "None"}`);
           goToNextStep();
-          askPhotos();
+          setTimeout(() => askPhotos(), 500);
         }
       }
     );
@@ -602,7 +633,7 @@ export default function ListingFormPage() {
   // Step 9: Photos
   const askPhotos = () => {
     addSystemMessage(
-      "📸 Please upload at least 3 photos (bedroom, bathroom, living space, etc.)",
+      "Please upload at least 3 photos 📸\n\n(bedroom, bathroom, living space, etc.)",
       undefined,
       {
         type: "file",
@@ -610,7 +641,7 @@ export default function ListingFormPage() {
           setFormData(prev => ({ ...prev, photos: files }));
           addUserMessage(`Uploaded ${files.length} photos`);
           goToNextStep();
-          askPartialAvailability();
+          setTimeout(() => askPartialAvailability(), 500);
         }
       }
     );
@@ -619,7 +650,7 @@ export default function ListingFormPage() {
   // Step 10: Partial Availability
   const askPartialAvailability = () => {
     addSystemMessage(
-      "Are you open to renting for just part of the dates? (e.g., if your lease is June to August, would you consider renting just for June?)",
+      "Are you open to renting for just part of the dates? 📅\n\n(e.g., if your lease is June to August, would you consider renting just for June?)",
       [
         { 
           value: "partial-yes", 
@@ -640,7 +671,7 @@ export default function ListingFormPage() {
     addUserMessage(partialOk ? "Yes, I'm flexible with dates" : "No, I need the entire period covered");
     
     // Show summary and confirm
-    showListingSummary();
+    setTimeout(() => showListingSummary(), 500);
   };
 
   // Final Summary
@@ -655,32 +686,30 @@ export default function ListingFormPage() {
       .map(i => i.name)
       .join(", ");
     
-    const summary = `
-      Here's a summary of your listing:
-      
-      📝 Type: ${formData.listingType}
-      📅 Available: ${formData.startDate} to ${formData.endDate}
-      📍 Location: ${formData.location}${formData.showExactAddress ? ` (${formData.address})` : ''}
-      💵 Rent: $${formData.rent}/month (Utilities ${formData.utilitiesIncluded ? 'included' : 'not included'})
-      🛏️ Space: ${formData.bedrooms} bedroom(s), ${formData.bathrooms} bathroom(s), ${formData.isPrivateRoom ? 'Private' : 'Shared'} room
-      🧰 Amenities: ${selectedAmenities || "None"}
-      ${formData.hasRoommates ? `👯 Roommate Preferences: Gender (${formData.roommatePreferences.gender}), Pets (${formData.roommatePreferences.petsAllowed ? 'Yes' : 'No'}), Smoking (${formData.roommatePreferences.smokingAllowed ? 'Yes' : 'No'}), Noise (${formData.roommatePreferences.noiseLevel}), Cleanliness (${formData.roommatePreferences.cleanlinessLevel})` : ''}
-      📦 Included Items: ${selectedItems || "None"}
-      📸 Photos: ${formData.photos.length} uploaded
-      ⏰ Partial availability: ${formData.partialDatesOk ? 'Yes' : 'No'}
-    `;
+    const summary = `Here's your listing summary! ✨
+
+📝 Type: ${formData.listingType}
+📅 Available: ${formData.startDate} to ${formData.endDate}
+📍 Location: ${formData.location}${formData.showExactAddress ? ` (${formData.address})` : ''}
+💵 Rent: $${formData.rent}/month (Utilities ${formData.utilitiesIncluded ? 'included' : 'not included'})
+🛏️ Space: ${formData.bedrooms} bedroom(s), ${formData.bathrooms} bathroom(s), ${formData.isPrivateRoom ? 'Private' : 'Shared'} room
+🏠 Amenities: ${selectedAmenities || "None"}
+${formData.hasRoommates ? `👥 Roommate Preferences: Gender (${formData.roommatePreferences.gender}), Pets (${formData.roommatePreferences.petsAllowed ? 'Yes' : 'No'}), Smoking (${formData.roommatePreferences.smokingAllowed ? 'Yes' : 'No'}), Noise (${formData.roommatePreferences.noiseLevel}), Cleanliness (${formData.roommatePreferences.cleanlinessLevel})` : ''}
+📦 Included Items: ${selectedItems || "None"}
+📸 Photos: ${formData.photos.length} uploaded
+⏰ Partial availability: ${formData.partialDatesOk ? 'Yes' : 'No'}`;
     
     addSystemMessage(
       summary,
       [
         { 
           value: "confirm", 
-          label: "Confirm and publish listing", 
+          label: "✅ Confirm and publish listing", 
           action: handleSubmitForm 
         },
         { 
           value: "edit", 
-          label: "Edit listing", 
+          label: "✏️ Edit listing", 
           action: () => {
             addSystemMessage("What would you like to edit?");
             // Here you could add logic to go back to specific steps
@@ -690,71 +719,41 @@ export default function ListingFormPage() {
     );
   };
 
+  // Format timestamp for messages
+  const formatTime = (date: Date) => {
+    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  };
+
   // Custom Components for different input types
   const renderCustomInput = (input: ChatMessage['input']) => {
     if (!input) return null;
     
     switch (input.type) {
-      case 'text':
-        return (
-          <form onSubmit={handleTextInputSubmit} className="mt-4">
-            <input
-              type="text"
-              value={inputValue}
-              onChange={(e) => setInputValue(e.target.value)}
-              placeholder={input.placeholder || "Type here"}
-              className="w-full p-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-            <button type="submit" className="mt-2 w-full p-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
-              Submit
-            </button>
-          </form>
-        );
-        
-      case 'number':
-        return (
-          <form onSubmit={handleTextInputSubmit} className="mt-4">
-            <div className="flex items-center">
-              <span className="text-xl font-medium mr-2">$</span>
-              <input
-                type="number"
-                value={inputValue}
-                onChange={(e) => setInputValue(e.target.value)}
-                placeholder={input.placeholder || "Enter amount"}
-                className="flex-1 p-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-            <button type="submit" className="mt-2 w-full p-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
-              Submit
-            </button>
-          </form>
-        );
-        
       case 'date-range':
         return (
-          <div className="mt-4 space-y-3">
+          <div className="mt-4 space-y-3 bg-gray-50 p-4 rounded-xl">
             <div>
-              <label className="block mb-1 text-sm text-gray-700">Start Date</label>
+              <label className="block mb-1 text-sm font-medium text-gray-700">Start Date</label>
               <input
                 type="date"
-                className="w-full p-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full p-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 onChange={(e) => {
                   setFormData(prev => ({ ...prev, startDate: e.target.value }));
                 }}
               />
             </div>
             <div>
-              <label className="block mb-1 text-sm text-gray-700">End Date</label>
+              <label className="block mb-1 text-sm font-medium text-gray-700">End Date</label>
               <input
                 type="date"
-                className="w-full p-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full p-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 onChange={(e) => {
                   setFormData(prev => ({ ...prev, endDate: e.target.value }));
                 }}
               />
             </div>
             <button 
-              className="w-full p-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              className="w-full p-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 font-medium transition-colors"
               onClick={() => {
                 if (formData.startDate && formData.endDate) {
                   input.action({ start: formData.startDate, end: formData.endDate });
@@ -768,12 +767,12 @@ export default function ListingFormPage() {
         
       case 'rooms':
         return (
-          <div className="mt-4 space-y-4">
+          <div className="mt-4 space-y-4 bg-gray-50 p-4 rounded-xl">
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block mb-1 text-sm text-gray-700">Bedrooms</label>
+                <label className="block mb-1 text-sm font-medium text-gray-700">Bedrooms</label>
                 <select 
-                  className="w-full p-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full p-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   value={formData.bedrooms}
                   onChange={(e) => setFormData(prev => ({ ...prev, bedrooms: Number(e.target.value) }))}
                 >
@@ -783,9 +782,9 @@ export default function ListingFormPage() {
                 </select>
               </div>
               <div>
-                <label className="block mb-1 text-sm text-gray-700">Bathrooms</label>
+                <label className="block mb-1 text-sm font-medium text-gray-700">Bathrooms</label>
                 <select 
-                  className="w-full p-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full p-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   value={formData.bathrooms}
                   onChange={(e) => setFormData(prev => ({ ...prev, bathrooms: Number(e.target.value) }))}
                 >
@@ -796,23 +795,23 @@ export default function ListingFormPage() {
               </div>
             </div>
             <div>
-              <label className="block mb-1 text-sm text-gray-700">Room Type</label>
+              <label className="block mb-1 text-sm font-medium text-gray-700">Room Type</label>
               <div className="grid grid-cols-2 gap-3">
                 <button
-                  className={`p-3 rounded-lg border ${
+                  className={`p-3 rounded-lg border font-medium transition-colors ${
                     formData.isPrivateRoom === true 
-                      ? "bg-blue-100 border-blue-500 text-blue-700" 
-                      : "border-gray-300 text-gray-700"
+                      ? "bg-blue-500 border-blue-500 text-white" 
+                      : "border-gray-300 text-gray-700 hover:bg-gray-100"
                   }`}
                   onClick={() => setFormData(prev => ({ ...prev, isPrivateRoom: true }))}
                 >
                   Private Room
                 </button>
                 <button
-                  className={`p-3 rounded-lg border ${
+                  className={`p-3 rounded-lg border font-medium transition-colors ${
                     formData.isPrivateRoom === false 
-                      ? "bg-blue-100 border-blue-500 text-blue-700" 
-                      : "border-gray-300 text-gray-700"
+                      ? "bg-blue-500 border-blue-500 text-white" 
+                      : "border-gray-300 text-gray-700 hover:bg-gray-100"
                   }`}
                   onClick={() => setFormData(prev => ({ ...prev, isPrivateRoom: false }))}
                 >
@@ -821,7 +820,7 @@ export default function ListingFormPage() {
               </div>
             </div>
             <button 
-              className="w-full p-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              className="w-full p-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 font-medium transition-colors"
               onClick={() => {
                 if (formData.isPrivateRoom !== null) {
                   input.action({ 
@@ -839,8 +838,8 @@ export default function ListingFormPage() {
         
       case 'multiselect':
         return (
-          <div className="mt-4 space-y-3">
-            <div className="grid grid-cols-2 gap-2">
+          <div className="mt-4 space-y-3 bg-gray-50 p-4 rounded-xl">
+            <div className="grid grid-cols-1 gap-2">
               {input.options?.map((option) => {
                 // For amenities
                 const isAmenitySelected = formData.amenities.some(
@@ -857,10 +856,10 @@ export default function ListingFormPage() {
                 return (
                   <button
                     key={option.value}
-                    className={`p-3 rounded-lg border text-left ${
+                    className={`p-3 rounded-lg border text-left font-medium transition-colors ${
                       isSelected
-                        ? "bg-blue-100 border-blue-500 text-blue-700" 
-                        : "border-gray-300 text-gray-700"
+                        ? "bg-blue-500 border-blue-500 text-white" 
+                        : "border-gray-300 text-gray-700 hover:bg-gray-100"
                     }`}
                     onClick={() => {
                       // Check if this is an amenity
@@ -883,13 +882,13 @@ export default function ListingFormPage() {
                       }
                     }}
                   >
-                    {option.label}
+                    {isSelected ? '✓ ' : ''}{option.label}
                   </button>
                 );
               })}
             </div>
             <button 
-              className="w-full p-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              className="w-full p-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 font-medium transition-colors"
               onClick={() => {
                 // Figure out if we're dealing with amenities or included items
                 if (input.options?.[0]?.value === formData.amenities[0].id) {
@@ -912,7 +911,7 @@ export default function ListingFormPage() {
         
       case 'file':
         return (
-          <div className="mt-4 space-y-3">
+          <div className="mt-4 space-y-3 bg-gray-50 p-4 rounded-xl">
             <input
               type="file"
               multiple
@@ -925,21 +924,19 @@ export default function ListingFormPage() {
               }}
             />
             <button 
-              className="w-full p-3 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 flex items-center justify-center"
+              className="w-full p-4 bg-white border-2 border-dashed border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 flex items-center justify-center transition-colors"
               onClick={() => fileInputRef.current?.click()}
             >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-              </svg>
+              <Plus size={20} className="mr-2" />
               Select Photos
             </button>
             
             {formData.photos.length > 0 && (
               <div>
-                <p className="text-sm text-gray-600 mb-2">{formData.photos.length} photos selected</p>
-                <div className="flex flex-wrap gap-2">
-                  {Array.from(formData.photos).map((file, index) => (
-                    <div key={index} className="w-16 h-16 rounded-md bg-gray-200 flex items-center justify-center overflow-hidden">
+                <p className="text-sm text-gray-600 mb-3 font-medium">{formData.photos.length} photos selected</p>
+                <div className="grid grid-cols-3 gap-2 mb-4">
+                  {Array.from(formData.photos).slice(0, 6).map((file, index) => (
+                    <div key={index} className="aspect-square rounded-lg bg-gray-200 overflow-hidden">
                       <img
                         src={URL.createObjectURL(file)}
                         alt={`Preview ${index}`}
@@ -947,10 +944,15 @@ export default function ListingFormPage() {
                       />
                     </div>
                   ))}
+                  {formData.photos.length > 6 && (
+                    <div className="aspect-square rounded-lg bg-gray-300 flex items-center justify-center text-gray-600 text-sm font-medium">
+                      +{formData.photos.length - 6} more
+                    </div>
+                  )}
                 </div>
                 
                 <button 
-                  className="mt-3 w-full p-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                  className="w-full p-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 font-medium transition-colors"
                   onClick={() => {
                     if (formData.photos.length >= 1) {
                       input.action(formData.photos);
@@ -959,7 +961,7 @@ export default function ListingFormPage() {
                     }
                   }}
                 >
-                  Upload Photos
+                  Upload {formData.photos.length} Photos
                 </button>
               </div>
             )}
@@ -973,46 +975,46 @@ export default function ListingFormPage() {
 
   // Main UI Render
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
-      {/* Header */}
-      <header className="bg-white shadow-sm py-4 px-6">
-        <div className="max-w-4xl mx-auto flex items-center">
-          <button 
-            onClick={() => router.back()}
-            className="mr-4 text-gray-500 hover:text-gray-700"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-            </svg>
-          </button>
-          <h1 className="text-xl font-semibold">Create Your Listing</h1>
-          <div className="ml-auto flex items-center">
-            <span className="text-sm text-gray-500 mr-2">Step {currentStep} of 10</span>
-            <div className="w-32 bg-gray-200 rounded-full h-2">
-              <div 
-                className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                style={{ width: `${(currentStep / 10) * 100}%` }}
-              ></div>
-            </div>
+    <div className="min-h-screen bg-black flex flex-col">
+      {/* iPhone-style Header */}
+      <header className="bg-gray-100 border-b border-gray-200 px-4 py-3 flex items-center">
+        <button 
+          onClick={() => router.back()}
+          className="mr-3 p-2 rounded-full hover:bg-gray-200 transition-colors"
+        >
+          <ArrowLeft size={20} className="text-blue-500" />
+        </button>
+        
+        <div className="flex items-center flex-1">
+          <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center mr-3">
+            <span className="text-white text-sm font-bold">S</span>
           </div>
+          <div>
+            <h1 className="font-semibold text-gray-900">Subox</h1>
+            <p className="text-xs text-gray-500">Creating your listing...</p>
+          </div>
+        </div>
+        
+        <div className="text-xs text-gray-500">
+          {currentStep}/10
         </div>
       </header>
       
-      {/* Main Content - Chat Interface */}
-      <main className="flex-1 flex flex-col p-4 sm:p-6">
-        <div className="max-w-2xl w-full mx-auto flex-1 bg-white rounded-lg shadow-sm overflow-hidden flex flex-col">
-          <div className="flex-1 overflow-y-auto p-4 space-y-4">
-            {/* Chat Messages */}
-            {messages.map((message, index) => (
-              <div 
-                key={index} 
-                className={`flex ${message.isUser ? 'justify-end' : 'justify-start'}`}
-              >
+      {/* Chat Messages Container */}
+      <main className="flex-1 bg-white overflow-hidden flex flex-col">
+        <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
+          {/* Chat Messages */}
+          {messages.map((message) => (
+            <div 
+              key={message.id} 
+              className={`flex ${message.isUser ? 'justify-end' : 'justify-start'}`}
+            >
+              <div className={`max-w-xs ${message.isUser ? 'order-2' : 'order-1'}`}>
                 <div 
-                  className={`max-w-3/4 rounded-lg px-4 py-3 ${
+                  className={`px-4 py-3 rounded-2xl whitespace-pre-line ${
                     message.isUser 
-                      ? 'bg-blue-600 text-white rounded-br-none' 
-                      : 'bg-gray-100 text-gray-800 rounded-bl-none'
+                      ? 'bg-blue-500 text-white rounded-br-md' 
+                      : 'bg-gray-100 text-gray-900 rounded-bl-md'
                   }`}
                 >
                   {message.text}
@@ -1024,7 +1026,7 @@ export default function ListingFormPage() {
                         <button
                           key={option.value}
                           onClick={option.action}
-                          className="block w-full text-left px-4 py-2 bg-white text-gray-800 rounded-md border border-gray-300 hover:bg-gray-50 transition-colors"
+                          className="block w-full text-left px-3 py-2 bg-white text-gray-800 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors text-sm font-medium"
                         >
                           {option.label}
                         </button>
@@ -1035,26 +1037,65 @@ export default function ListingFormPage() {
                   {/* Custom Input UI */}
                   {message.input && renderCustomInput(message.input)}
                 </div>
+                
+                {/* Message timestamp */}
+                <div className={`text-xs text-gray-400 mt-1 ${
+                  message.isUser ? 'text-right' : 'text-left'
+                }`}>
+                  {formatTime(message.timestamp)}
+                </div>
               </div>
-            ))}
-            
-            {/* Typing Indicator */}
-            {isTyping && (
-              <div className="flex justify-start">
-                <div className="bg-gray-100 text-gray-800 rounded-lg rounded-bl-none px-4 py-3">
-                  <div className="flex space-x-2">
+            </div>
+          ))}
+          
+          {/* Typing Indicator */}
+          {isTyping && (
+            <div className="flex justify-start">
+              <div className="max-w-xs">
+                <div className="bg-gray-100 text-gray-800 rounded-2xl rounded-bl-md px-4 py-3">
+                  <div className="flex space-x-1">
                     <div className="w-2 h-2 rounded-full bg-gray-400 animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                    <div className="w-2 h-2 rounded-full bg-gray-400 animate-bounce" style={{ animationDelay: '150ms' }}></div>
                     <div className="w-2 h-2 rounded-full bg-gray-400 animate-bounce" style={{ animationDelay: '300ms' }}></div>
-                    <div className="w-2 h-2 rounded-full bg-gray-400 animate-bounce" style={{ animationDelay: '600ms' }}></div>
                   </div>
                 </div>
               </div>
-            )}
-            
-            {/* Auto-scroll anchor */}
-            <div ref={chatEndRef}></div>
-          </div>
+            </div>
+          )}
+          
+          {/* Auto-scroll anchor */}
+          <div ref={chatEndRef}></div>
         </div>
+        
+        {/* Input Area */}
+        {showInput && (
+          <div className="border-t border-gray-200 bg-white p-4">
+            <form onSubmit={handleTextInputSubmit} className="flex items-center space-x-3">
+              <div className="flex-1 relative">
+                <input
+                  ref={inputRef}
+                  type={messages[messages.length - 1]?.input?.type === "number" ? "number" : "text"}
+                  value={inputValue}
+                  onChange={(e) => setInputValue(e.target.value)}
+                  placeholder={messages[messages.length - 1]?.input?.placeholder || "Type a message..."}
+                  className="w-full px-4 py-3 rounded-full border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-gray-50"
+                />
+                {messages[messages.length - 1]?.input?.type === "number" && (
+                  <span className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-500 pointer-events-none">
+                    $
+                  </span>
+                )}
+              </div>
+              <button
+                type="submit"
+                disabled={!inputValue.trim()}
+                className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center text-white disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+              >
+                <Send size={16} />
+              </button>
+            </form>
+          </div>
+        )}
       </main>
     </div>
   );
