@@ -36,7 +36,7 @@ export default function MoveOutPage() {
     setSubleaseAction(action);
     setTimeout(() => {
       if (action === "write") {
-        router.push("/sublease/write/find");
+        router.push("/sublease/write/options");
       } else {
         router.push("/sublease/search");
       }
