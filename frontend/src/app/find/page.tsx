@@ -47,7 +47,7 @@ export default function MoveOutPage() {
     setSaleAction(action);
     setTimeout(() => {
       if (action === "sell") {
-        router.push("/sale/create");
+        router.push("/sale/create/options");
       } else {
         router.push("/sale/browse");
       }

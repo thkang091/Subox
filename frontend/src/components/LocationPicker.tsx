@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Search, MapPin, X, Navigation, Home, Building, Coffee, ShoppingBag, Map, Truck, Users } from 'lucide-react';
+import { Search, MapPin, X, Navigation, Home, Building, Coffee, ShoppingBag, Map, Truck, Users, AlertCircle } from 'lucide-react';
 
 interface LocationPickerProps {
   onLocationSelect: (location: { 
@@ -15,7 +15,7 @@ interface LocationPickerProps {
     country?: string;
     deliveryZone?: {
       center: { lat: number; lng: number };
-      radius: number; // in meters
+      radius: number;
       type: 'delivery' | 'pickup';
     };
   }) => void;
@@ -33,22 +33,40 @@ interface PlaceSuggestion {
   types: string[];
 }
 
-// Global flag to track if Google Maps is loading
+// Global state for Google Maps loading
 let isGoogleMapsLoading = false;
 let googleMapsLoadPromise: Promise<void> | null = null;
 
-export default function LocationPicker({ onLocationSelect, initialValue, showDeliveryOptions = true }: LocationPickerProps) {
+export default function LocationPicker({ 
+  onLocationSelect, 
+  initialValue, 
+  showDeliveryOptions = true 
+}: LocationPickerProps) {
+  // =====================
+  // STATE MANAGEMENT
+  // =====================
+  
+  // Search state
   const [searchQuery, setSearchQuery] = useState(initialValue || '');
   const [suggestions, setSuggestions] = useState<PlaceSuggestion[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  
+  // Location state
   const [isGettingCurrentLocation, setIsGettingCurrentLocation] = useState(false);
   const [selectedLocation, setSelectedLocation] = useState<any>(null);
+  const [locationError, setLocationError] = useState<string | null>(null);
+  
+  // Google Maps state
   const [isGoogleMapsReady, setIsGoogleMapsReady] = useState(false);
+  const [mapsError, setMapsError] = useState<string | null>(null);
+  
+  // Map display state
   const [showMap, setShowMap] = useState(false);
   const [deliveryType, setDeliveryType] = useState<'delivery' | 'pickup'>('delivery');
-  const [deliveryRadius, setDeliveryRadius] = useState(1000); // meters
+  const [deliveryRadius, setDeliveryRadius] = useState(1000);
   
+  // Refs
   const inputRef = useRef<HTMLInputElement>(null);
   const mapRef = useRef<HTMLDivElement>(null);
   const autocompleteService = useRef<google.maps.places.AutocompleteService | null>(null);
@@ -58,6 +76,10 @@ export default function LocationPicker({ onLocationSelect, initialValue, showDel
   const markerInstance = useRef<google.maps.Marker | null>(null);
   const searchTimeout = useRef<NodeJS.Timeout>();
 
+  // =====================
+  // GOOGLE MAPS FUNCTIONS
+  // =====================
+
   useEffect(() => {
     loadGoogleMaps();
   }, []);
@@ -66,6 +88,7 @@ export default function LocationPicker({ onLocationSelect, initialValue, showDel
     const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
     
     if (!apiKey) {
+      setMapsError('Google Maps API key not configured. Contact support.');
       console.warn('Google Maps API key not found');
       return;
     }
@@ -83,6 +106,7 @@ export default function LocationPicker({ onLocationSelect, initialValue, showDel
         initializeServices();
       } catch (error) {
         console.error('Error waiting for Google Maps to load:', error);
+        setMapsError('Failed to load Google Maps. Please refresh the page.');
       }
       return;
     }
@@ -94,11 +118,10 @@ export default function LocationPicker({ onLocationSelect, initialValue, showDel
       return;
     }
 
-    // Load the script with new Places API
+    // Load the script
     isGoogleMapsLoading = true;
     googleMapsLoadPromise = new Promise((resolve, reject) => {
       const script = document.createElement('script');
-      // Use v=beta to access new Places API features
       script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places,drawing,marker&v=beta`;
       script.async = true;
       script.defer = true;
@@ -111,8 +134,9 @@ export default function LocationPicker({ onLocationSelect, initialValue, showDel
       
       script.onerror = () => {
         isGoogleMapsLoading = false;
-        console.error('Failed to load Google Maps');
-        reject(new Error('Failed to load Google Maps'));
+        const error = 'Failed to load Google Maps. Please check your internet connection and refresh the page.';
+        setMapsError(error);
+        reject(new Error(error));
       };
       
       document.head.appendChild(script);
@@ -128,39 +152,33 @@ export default function LocationPicker({ onLocationSelect, initialValue, showDel
   const initializeServices = () => {
     if (window.google && window.google.maps && window.google.maps.places) {
       try {
-        // Use the new Places API AutocompleteService
         autocompleteService.current = new window.google.maps.places.AutocompleteService();
-        
-        // For PlacesService, we need to create a map element or use a div
         const div = document.createElement('div');
         placesService.current = new window.google.maps.places.PlacesService(div);
-        
         setIsGoogleMapsReady(true);
-        console.log('Google Maps services initialized with new Places API');
+        setMapsError(null);
+        console.log('Google Maps services initialized');
       } catch (error) {
         console.error('Error initializing Google Maps services:', error);
-        // Fallback: still mark as ready for basic functionality
-        setIsGoogleMapsReady(true);
+        setMapsError('Error initializing Google Maps. Some features may not work.');
+        setIsGoogleMapsReady(true); // Still allow basic functionality
       }
     }
   };
+
+  // =====================
+  // MAP FUNCTIONS
+  // =====================
 
   const initializeMap = (lat: number, lng: number) => {
     if (!mapRef.current || !window.google) return;
 
     // Clear existing instances
-    if (circleInstance.current) {
-      circleInstance.current.setMap(null);
-      circleInstance.current = null;
-    }
-    if (markerInstance.current) {
-      markerInstance.current.setMap(null);
-      markerInstance.current = null;
-    }
+    clearMapInstances();
 
     const map = new window.google.maps.Map(mapRef.current, {
       center: { lat, lng },
-      zoom: 14, // Zoom out a bit to see the circle better
+      zoom: 14,
       mapTypeControl: false,
       streetViewControl: false,
       fullscreenControl: false,
@@ -175,95 +193,112 @@ export default function LocationPicker({ onLocationSelect, initialValue, showDel
 
     mapInstance.current = map;
 
-    // Wait for map to be fully loaded before adding elements
+    // Wait for map to be fully loaded
     window.google.maps.event.addListenerOnce(map, 'idle', () => {
-      // Add marker for the location
-      const marker = new window.google.maps.Marker({
-        position: { lat, lng },
-        map: map,
-        title: selectedLocation?.placeName || 'Selected Location',
-        icon: {
-          path: window.google.maps.SymbolPath.CIRCLE,
-          scale: 8,
-          fillColor: '#EF4444',
-          fillOpacity: 1,
-          strokeColor: '#FFFFFF',
-          strokeWeight: 2
-        }
-      });
-
-      markerInstance.current = marker;
-
-      // Add delivery/pickup zone circle with better visibility
-      const circleColor = deliveryType === 'delivery' ? '#10B981' : '#F59E0B';
-      const circle = new window.google.maps.Circle({
-        strokeColor: circleColor,
-        strokeOpacity: 0.9,
-        strokeWeight: 3,
-        fillColor: circleColor,
-        fillOpacity: 0.2,
-        map: map,
-        center: { lat, lng },
-        radius: deliveryRadius,
-        editable: true,
-        draggable: true,
-        clickable: true
-      });
-
-      circleInstance.current = circle;
-
-      // Fit map bounds to include the entire circle
-      const bounds = circle.getBounds();
-      if (bounds) {
-        map.fitBounds(bounds);
-        // Ensure minimum zoom level
-        const listener = window.google.maps.event.addListener(map, 'bounds_changed', () => {
-          if (map.getZoom() && map.getZoom() > 16) {
-            map.setZoom(16);
-          }
-          window.google.maps.event.removeListener(listener);
-        });
-      }
-
-      // Handle circle changes
-      circle.addListener('radius_changed', () => {
-        try {
-          const newRadius = circle.getRadius();
-          if (newRadius && newRadius > 0) {
-            setDeliveryRadius(Math.round(newRadius));
-            updateLocationWithZone(Math.round(newRadius));
-          }
-        } catch (error) {
-          console.error('Error handling radius change:', error);
-        }
-      });
-
-      circle.addListener('center_changed', () => {
-        try {
-          const center = circle.getCenter();
-          if (center) {
-            updateLocationWithZone(deliveryRadius, center.lat(), center.lng());
-          }
-        } catch (error) {
-          console.error('Error handling center change:', error);
-        }
-      });
-
-      // Add info window on circle click
-      circle.addListener('click', () => {
-        const infoWindow = new window.google.maps.InfoWindow({
-          content: `
-            <div style="padding: 8px;">
-              <strong>${deliveryType === 'delivery' ? 'Delivery' : 'Pickup'} Zone</strong><br>
-              Radius: ${(deliveryRadius / 1000).toFixed(1)} km<br>
-              <small>Drag the circle to adjust the area</small>
-            </div>
-          `,
-          position: { lat, lng }
-        });
-        infoWindow.open(map);
-      });
+      addMapElements(map, lat, lng);
     });
+  };
+
+  const addMapElements = (map: google.maps.Map, lat: number, lng: number) => {
+    // Add marker
+    const marker = new window.google.maps.Marker({
+      position: { lat, lng },
+      map: map,
+      title: selectedLocation?.placeName || 'Selected Location',
+      icon: {
+        path: window.google.maps.SymbolPath.CIRCLE,
+        scale: 8,
+        fillColor: '#EF4444',
+        fillOpacity: 1,
+        strokeColor: '#FFFFFF',
+        strokeWeight: 2
+      }
+    });
+
+    markerInstance.current = marker;
+
+    // Add delivery/pickup zone circle
+    const circleColor = deliveryType === 'delivery' ? '#10B981' : '#F59E0B';
+    const circle = new window.google.maps.Circle({
+      strokeColor: circleColor,
+      strokeOpacity: 0.9,
+      strokeWeight: 3,
+      fillColor: circleColor,
+      fillOpacity: 0.2,
+      map: map,
+      center: { lat, lng },
+      radius: deliveryRadius,
+      editable: true,
+      draggable: true,
+      clickable: true
+    });
+
+    circleInstance.current = circle;
+
+    // Fit map bounds to include the circle
+    const bounds = circle.getBounds();
+    if (bounds) {
+      map.fitBounds(bounds);
+      const listener = window.google.maps.event.addListener(map, 'bounds_changed', () => {
+        if (map.getZoom() && map.getZoom() > 16) {
+          map.setZoom(16);
+        }
+        window.google.maps.event.removeListener(listener);
+      });
+    }
+
+    // Add circle event listeners
+    addCircleEventListeners(circle, map, lat, lng);
+  };
+
+  const addCircleEventListeners = (circle: google.maps.Circle, map: google.maps.Map, lat: number, lng: number) => {
+    circle.addListener('radius_changed', () => {
+      try {
+        const newRadius = circle.getRadius();
+        if (newRadius && newRadius > 0) {
+          setDeliveryRadius(Math.round(newRadius));
+          updateLocationWithZone(Math.round(newRadius));
+        }
+      } catch (error) {
+        console.error('Error handling radius change:', error);
+      }
+    });
+
+    circle.addListener('center_changed', () => {
+      try {
+        const center = circle.getCenter();
+        if (center) {
+          updateLocationWithZone(deliveryRadius, center.lat(), center.lng());
+        }
+      } catch (error) {
+        console.error('Error handling center change:', error);
+      }
+    });
+
+    circle.addListener('click', () => {
+      const infoWindow = new window.google.maps.InfoWindow({
+        content: `
+          <div style="padding: 8px;">
+            <strong>${deliveryType === 'delivery' ? 'Delivery' : 'Pickup'} Zone</strong><br>
+            Radius: ${(deliveryRadius / 1000).toFixed(1)} km<br>
+            <small>Drag the circle to adjust the area</small>
+          </div>
+        `,
+        position: { lat, lng }
+      });
+      infoWindow.open(map);
+    });
+  };
+
+  const clearMapInstances = () => {
+    if (circleInstance.current) {
+      circleInstance.current.setMap(null);
+      circleInstance.current = null;
+    }
+    if (markerInstance.current) {
+      markerInstance.current.setMap(null);
+      markerInstance.current = null;
+    }
   };
 
   const updateLocationWithZone = (radius?: number, centerLat?: number, centerLng?: number) => {
@@ -284,42 +319,23 @@ export default function LocationPicker({ onLocationSelect, initialValue, showDel
     onLocationSelect(updatedLocation);
   };
 
-  const parseAddressComponents = (components: google.maps.GeocoderAddressComponent[]) => {
-    const addressInfo: any = {};
-    
-    components.forEach(component => {
-      const types = component.types;
-      
-      if (types.includes('street_number')) {
-        addressInfo.streetNumber = component.long_name;
-      } else if (types.includes('route')) {
-        addressInfo.route = component.long_name;
-      } else if (types.includes('locality')) {
-        addressInfo.city = component.long_name;
-      } else if (types.includes('administrative_area_level_1')) {
-        addressInfo.state = component.short_name;
-      } else if (types.includes('postal_code')) {
-        addressInfo.zipCode = component.long_name;
-      } else if (types.includes('country')) {
-        addressInfo.country = component.long_name;
-      }
-    });
-    
-    return addressInfo;
-  };
+  // =====================
+  // SEARCH FUNCTIONS
+  // =====================
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     setSearchQuery(value);
     setSelectedLocation(null);
     setShowMap(false);
+    setLocationError(null);
 
     if (searchTimeout.current) {
       clearTimeout(searchTimeout.current);
     }
 
     searchTimeout.current = setTimeout(() => {
-      if (isGoogleMapsReady) {
+      if (isGoogleMapsReady && !mapsError) {
         searchPlaces(value);
       }
     }, 300);
@@ -334,12 +350,11 @@ export default function LocationPicker({ onLocationSelect, initialValue, showDel
 
     setIsSearching(true);
 
-    // Use the new Places API AutocompleteService with updated parameters
     const request = {
       input: query,
       componentRestrictions: { country: 'us' },
-      types: ['establishment', 'geocode'], // Removed 'address' as it's legacy
-      fields: ['place_id', 'name', 'formatted_address', 'geometry'] // Specify fields for new API
+      types: ['establishment', 'geocode'],
+      fields: ['place_id', 'name', 'formatted_address', 'geometry']
     };
 
     autocompleteService.current.getPlacePredictions(
@@ -347,7 +362,6 @@ export default function LocationPicker({ onLocationSelect, initialValue, showDel
       (predictions, status) => {
         setIsSearching(false);
         
-        // Handle the response based on new API status codes
         if (status === 'OK' && predictions) {
           setSuggestions(predictions);
           setShowSuggestions(true);
@@ -366,7 +380,6 @@ export default function LocationPicker({ onLocationSelect, initialValue, showDel
   const selectPlace = (suggestion: PlaceSuggestion) => {
     if (!placesService.current || !isGoogleMapsReady) return;
 
-    // Use the new Places API getDetails method with proper field specifications
     const request = {
       placeId: suggestion.place_id,
       fields: [
@@ -380,7 +393,6 @@ export default function LocationPicker({ onLocationSelect, initialValue, showDel
     };
 
     placesService.current.getDetails(request, (place, status) => {
-      // Handle new API status responses
       if (status === 'OK' && place) {
         const addressComponents = parseAddressComponents(place.address_components || []);
         const placeName = place.name !== place.formatted_address ? place.name : '';
@@ -399,7 +411,6 @@ export default function LocationPicker({ onLocationSelect, initialValue, showDel
         setShowSuggestions(false);
         onLocationSelect(locationData);
 
-        // Initialize map if delivery options are shown
         if (showDeliveryOptions) {
           setTimeout(() => {
             initializeMap(locationData.lat, locationData.lng);
@@ -407,7 +418,6 @@ export default function LocationPicker({ onLocationSelect, initialValue, showDel
         }
       } else {
         console.error('Place details request failed with status:', status);
-        // Fallback: use the suggestion data
         const fallbackData = {
           lat: 0,
           lng: 0,
@@ -424,13 +434,18 @@ export default function LocationPicker({ onLocationSelect, initialValue, showDel
     });
   };
 
+  // =====================
+  // LOCATION FUNCTIONS
+  // =====================
+
   const getCurrentLocation = () => {
     if (!navigator.geolocation) {
-      alert('Geolocation is not supported by this browser.');
+      setLocationError('Geolocation is not supported by this browser. Please search for your location manually.');
       return;
     }
 
     setIsGettingCurrentLocation(true);
+    setLocationError(null);
 
     navigator.geolocation.getCurrentPosition(
       (position) => {
@@ -458,12 +473,13 @@ export default function LocationPicker({ onLocationSelect, initialValue, showDel
                 setSelectedLocation(locationData);
                 onLocationSelect(locationData);
 
-                // Initialize map if delivery options are shown
                 if (showDeliveryOptions) {
                   setTimeout(() => {
                     initializeMap(latitude, longitude);
                   }, 100);
                 }
+              } else {
+                setLocationError('Could not determine your address. Please search manually.');
               }
             }
           );
@@ -484,7 +500,24 @@ export default function LocationPicker({ onLocationSelect, initialValue, showDel
       (error) => {
         setIsGettingCurrentLocation(false);
         console.warn('Geolocation error:', error);
-        alert('Could not get your current location. Please search manually.');
+        
+        let errorMessage = 'Could not get your current location. ';
+        switch (error.code) {
+          case error.PERMISSION_DENIED:
+            errorMessage += 'Please enable location permissions in your browser settings and try again.';
+            break;
+          case error.POSITION_UNAVAILABLE:
+            errorMessage += 'Location information is unavailable.';
+            break;
+          case error.TIMEOUT:
+            errorMessage += 'Location request timed out.';
+            break;
+          default:
+            errorMessage += 'Please search for your location manually.';
+            break;
+        }
+        
+        setLocationError(errorMessage);
       },
       {
         enableHighAccuracy: true,
@@ -494,12 +527,41 @@ export default function LocationPicker({ onLocationSelect, initialValue, showDel
     );
   };
 
+  // =====================
+  // UTILITY FUNCTIONS
+  // =====================
+
+  const parseAddressComponents = (components: google.maps.GeocoderAddressComponent[]) => {
+    const addressInfo: any = {};
+    
+    components.forEach(component => {
+      const types = component.types;
+      
+      if (types.includes('street_number')) {
+        addressInfo.streetNumber = component.long_name;
+      } else if (types.includes('route')) {
+        addressInfo.route = component.long_name;
+      } else if (types.includes('locality')) {
+        addressInfo.city = component.long_name;
+      } else if (types.includes('administrative_area_level_1')) {
+        addressInfo.state = component.short_name;
+      } else if (types.includes('postal_code')) {
+        addressInfo.zipCode = component.long_name;
+      } else if (types.includes('country')) {
+        addressInfo.country = component.long_name;
+      }
+    });
+    
+    return addressInfo;
+  };
+
   const clearSearch = () => {
     setSearchQuery('');
     setSelectedLocation(null);
     setSuggestions([]);
     setShowSuggestions(false);
     setShowMap(false);
+    setLocationError(null);
     inputRef.current?.focus();
   };
 
@@ -512,7 +574,7 @@ export default function LocationPicker({ onLocationSelect, initialValue, showDel
 
   const handlePopularLocation = (area: string) => {
     setSearchQuery(area);
-    if (isGoogleMapsReady) {
+    if (isGoogleMapsReady && !mapsError) {
       searchPlaces(area);
     }
   };
@@ -530,7 +592,6 @@ export default function LocationPicker({ onLocationSelect, initialValue, showDel
   const handleDeliveryTypeChange = (type: 'delivery' | 'pickup') => {
     setDeliveryType(type);
     
-    // Update circle color immediately if it exists
     if (circleInstance.current) {
       const color = type === 'delivery' ? '#10B981' : '#F59E0B';
       circleInstance.current.setOptions({
@@ -540,18 +601,69 @@ export default function LocationPicker({ onLocationSelect, initialValue, showDel
         fillOpacity: 0.2
       });
       
-      // Force a redraw
       circleInstance.current.setMap(mapInstance.current);
       updateLocationWithZone();
     }
 
-    // If no circle exists but we have a selected location, reinitialize map
     if (!circleInstance.current && selectedLocation) {
       setTimeout(() => {
         initializeMap(selectedLocation.lat, selectedLocation.lng);
       }, 100);
     }
   };
+
+  // =====================
+  // RENDER COMPONENTS
+  // =====================
+
+  const renderErrorMessage = (message: string) => (
+    <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-start gap-2">
+      <AlertCircle size={20} className="text-red-500 mt-0.5 flex-shrink-0" />
+      <p className="text-red-700 text-sm">{message}</p>
+    </div>
+  );
+
+  const renderPopularCategories = () => (
+    <div className="mt-6">
+      <p className="text-sm font-semibold text-gray-700 mb-3">Search by category:</p>
+      <div className="grid grid-cols-2 gap-2 mb-4">
+        {[
+          { name: 'Restaurants', icon: <Coffee size={16} />, query: 'restaurants near me' },
+          { name: 'Coffee Shops', icon: <Coffee size={16} />, query: 'coffee shops near me' },
+          { name: 'Shopping', icon: <ShoppingBag size={16} />, query: 'shopping centers near me' },
+          { name: 'Universities', icon: <Building size={16} />, query: 'universities near me' }
+        ].map((category) => (
+          <button
+            key={category.name}
+            onClick={() => handlePopularLocation(category.query)}
+            disabled={!!mapsError}
+            className="flex items-center gap-2 px-3 py-2 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors text-sm font-medium text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {category.icon}
+            {category.name}
+          </button>
+        ))}
+      </div>
+      
+      <p className="text-sm font-semibold text-gray-700 mb-3">Popular areas:</p>
+      <div className="flex flex-wrap gap-2">
+        {['Dinkytown, Minneapolis', 'University of Minnesota', 'Downtown Minneapolis', 'Stadium Village'].map((area) => (
+          <button
+            key={area}
+            onClick={() => handlePopularLocation(area)}
+            disabled={!!mapsError}
+            className="px-3 py-2 text-sm bg-orange-50 text-orange-700 rounded-full hover:bg-orange-100 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {area}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+
+  // =====================
+  // MAIN RENDER
+  // =====================
 
   return (
     <div className="relative">
@@ -567,7 +679,8 @@ export default function LocationPicker({ onLocationSelect, initialValue, showDel
           onChange={handleInputChange}
           onFocus={() => searchQuery && setShowSuggestions(suggestions.length > 0)}
           placeholder="Search restaurants, addresses, places..."
-          className="w-full pl-10 pr-10 py-4 border border-gray-300 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-transparent bg-white text-lg"
+          disabled={!!mapsError}
+          className="w-full pl-10 pr-10 py-4 border border-gray-300 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-transparent bg-white text-lg disabled:opacity-50 disabled:cursor-not-allowed"
         />
         {searchQuery && (
           <button
@@ -584,11 +697,15 @@ export default function LocationPicker({ onLocationSelect, initialValue, showDel
         )}
       </div>
 
+      {/* Error Messages */}
+      {mapsError && renderErrorMessage(mapsError)}
+      {locationError && renderErrorMessage(locationError)}
+
       {/* Current Location Button */}
       <button
         type="button"
         onClick={getCurrentLocation}
-        disabled={isGettingCurrentLocation}
+        disabled={isGettingCurrentLocation || !!mapsError}
         className="w-full mt-4 px-4 py-4 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl hover:from-blue-600 hover:to-blue-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3 shadow-lg"
       >
         {isGettingCurrentLocation ? (
@@ -638,7 +755,7 @@ export default function LocationPicker({ onLocationSelect, initialValue, showDel
               </div>
 
               {/* Delivery Zone Controls */}
-              {showDeliveryOptions && (
+              {showDeliveryOptions && !mapsError && (
                 <div className="border-t border-green-200 pt-3 mt-3">
                   <div className="flex items-center justify-between mb-3">
                     <p className="font-medium text-green-800">Delivery/Pickup Zone</p>
@@ -697,7 +814,7 @@ export default function LocationPicker({ onLocationSelect, initialValue, showDel
       )}
 
       {/* Map Display */}
-      {showMap && selectedLocation && (
+      {showMap && selectedLocation && !mapsError && (
         <div className="mt-4 h-64 rounded-xl overflow-hidden shadow-lg border border-gray-200">
           <div ref={mapRef} className="w-full h-full" />
         </div>
@@ -730,45 +847,11 @@ export default function LocationPicker({ onLocationSelect, initialValue, showDel
         </div>
       )}
 
-      {/* Popular Categories */}
-      {!searchQuery && !selectedLocation && (
-        <div className="mt-6">
-          <p className="text-sm font-semibold text-gray-700 mb-3">Search by category:</p>
-          <div className="grid grid-cols-2 gap-2 mb-4">
-            {[
-              { name: 'Restaurants', icon: <Coffee size={16} />, query: 'restaurants near me' },
-              { name: 'Coffee Shops', icon: <Coffee size={16} />, query: 'coffee shops near me' },
-              { name: 'Shopping', icon: <ShoppingBag size={16} />, query: 'shopping centers near me' },
-              { name: 'Universities', icon: <Building size={16} />, query: 'universities near me' }
-            ].map((category) => (
-              <button
-                key={category.name}
-                onClick={() => handlePopularLocation(category.query)}
-                className="flex items-center gap-2 px-3 py-2 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors text-sm font-medium text-gray-700"
-              >
-                {category.icon}
-                {category.name}
-              </button>
-            ))}
-          </div>
-          
-          <p className="text-sm font-semibold text-gray-700 mb-3">Popular areas:</p>
-          <div className="flex flex-wrap gap-2">
-            {['Dinkytown, Minneapolis', 'University of Minnesota', 'Downtown Minneapolis', 'Stadium Village'].map((area) => (
-              <button
-                key={area}
-                onClick={() => handlePopularLocation(area)}
-                className="px-3 py-2 text-sm bg-orange-50 text-orange-700 rounded-full hover:bg-orange-100 transition-colors font-medium"
-              >
-                {area}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
+      {/* Popular Categories and Areas */}
+      {!searchQuery && !selectedLocation && renderPopularCategories()}
 
       {/* Loading Status */}
-      {!isGoogleMapsReady && (
+      {!isGoogleMapsReady && !mapsError && (
         <div className="mt-3 text-center">
           <div className="inline-flex items-center gap-2 px-3 py-1 bg-blue-50 text-blue-600 rounded-full text-xs">
             {isGoogleMapsLoading && <div className="animate-spin rounded-full h-3 w-3 border border-blue-500 border-t-transparent"></div>}
