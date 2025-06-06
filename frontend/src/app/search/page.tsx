@@ -2,11 +2,14 @@
 
 
 import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { 
   Calendar, ChevronLeft, ChevronRight, MapPin, Users, Home, 
   Search, X, Bookmark, Star, Wifi, Droplets, Tv, Sparkles, 
   Filter, BedDouble, DollarSign, LogIn, Heart, User, CircleUser
 } from 'lucide-react';
+
+import { featuredListings, neighborhoods } from '../../data/listings';
 
 // Component for the sublease search interface
 const SearchPage = () => {
@@ -32,160 +35,39 @@ const SearchPage = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [favoriteListings, setFavoriteListings] = useState([]);
   const [activeTab, setActiveTab] = useState('favorites');
+  const router = useRouter(); 
+  const [isMounted, setIsMounted] = useState(false);
 
-  // =========================
-  // Mock Data
-  // =========================
-
-  //added availableFrom, availableTo, and accommodationType
-  const featuredListings = [
-    {
-      id: 1,
-      title: "Modern Studio near Campus",
-      location: "Dinkytown",
-      price: 950,
-      distance: 0.3,
-      dateRange: "Jun 1 - Aug 31",
-      availableFrom: new Date(2025, 5, 1), // June 1
-      availableTo: new Date(2025, 7, 31), // August 31
-      accommodationType: 'entire',
-      bedrooms: 1,
-      bathrooms: 1,
-      image: "/api/placeholder/800/500",
-      rating: 4.8,
-      reviews: 24,
-      amenities: ['wifi', 'laundry', 'furnished']
-    },
-    {
-      id: 2,
-      title: "Spacious 2BR with River View",
-      location: "East Bank",
-      price: 1450,
-      distance: 0.7,
-      dateRange: "May 15 - Sep 15",
-      availableFrom: new Date(2025, 4, 15),
-      availableTo: new Date(2025, 8, 15),
-      accommodationType: 'entire',
-      bedrooms: 2,
-      bathrooms: 1,
-      image: "/api/placeholder/800/500",
-      rating: 4.6,
-      reviews: 18,
-      amenities: ['wifi', 'parking', 'laundry', 'ac']
-    },
-    {
-      id: 3,
-      title: "Cozy Apartment with Balcony",
-      location: "Stadium Village",
-      price: 1100,
-      distance: 0.5,
-      dateRange: "Jun 15 - Aug 15",
-      availableFrom: new Date(2025, 5, 15),
-      availableTo: new Date(2025, 7, 15),
-      accommodationType: 'entire',
-      bedrooms: 1,
-      bathrooms: 1,
-      image: "/api/placeholder/800/500",
-      rating: 4.9,
-      reviews: 32,
-      amenities: ['wifi', 'furnished', 'utilities', 'ac']
-    },
-    {
-      id: 4,
-      title: "Private Room in Shared House",
-      location: "Como",
-      price: 600,
-      distance: 1.2,
-      dateRange: "Available Now",
-      availableFrom: new Date(),
-      availableTo: new Date(2025, 11, 31),
-      bedrooms: 1,
-      bathrooms: 1,
-      accommodationType: 'private',
-      image: "/api/placeholder/800/500",
-      rating: 4.5,
-      reviews: 12,
-      amenities: ['wifi', 'utilities', 'parking']
-    },
-    {
-      id: 5,
-      title: "Luxury 3BR Apartment",
-      location: "East Bank",
-      price: 1800,
-      distance: 0.8,
-      dateRange: "Jul 1 - Dec 31",
-      availableFrom: new Date(2025, 6, 1),
-      availableTo: new Date(2025, 11, 31),
-      bedrooms: 3,
-      bathrooms: 2,
-      accommodationType: 'entire',
-      image: "/api/placeholder/800/500",
-      rating: 4.9,
-      reviews: 8,
-      amenities: ['wifi', 'parking', 'laundry', 'ac', 'gym', 'furnished']
-    },
-    {
-      id: 6,
-      title: "Budget-Friendly Studio",
-      location: "Stadium Village",
-      price: 700,
-      distance: 0.6,
-      dateRange: "Jun 1 - Aug 31",
-      availableFrom: new Date(2025, 5, 1),
-      availableTo: new Date(2025, 7, 31),
-      bedrooms: 1,
-      bathrooms: 1,
-      accommodationType: 'entire',
-      image: "/api/placeholder/800/500",
-      rating: 4.3,
-      reviews: 15,
-      amenities: ['wifi', 'utilities']
-    },
-    {
-      id: 7,
-      title: "Shared Room Near Library",
-      location: "Dinkytown",
-      price: 450,
-      distance: 0.2,
-      dateRange: "Available Now",
-      availableFrom: new Date(),
-      availableTo: new Date(2025, 11, 31),
-      bedrooms: 1,
-      bathrooms: 1,
-      accommodationType: 'shared',
-      image: "/api/placeholder/800/500",
-      rating: 4.1,
-      reviews: 20,
-      amenities: ['wifi', 'utilities', 'laundry']
-    },
-    {
-      id: 8,
-      title: "Pet-Friendly 2BR House",
-      location: "Como",
-      price: 1600,
-      distance: 1.5,
-      dateRange: "May 1 - Oct 31",
-      availableFrom: new Date(2025, 4, 1),
-      availableTo: new Date(2025, 9, 31),
-      bedrooms: 2,
-      bathrooms: 2,
-      accommodationType: 'entire',
-      image: "/api/placeholder/800/500",
-      rating: 4.7,
-      reviews: 28,
-      amenities: ['wifi', 'parking', 'laundry', 'pets', 'furnished', 'ac']
-    }
-  ];
-
-  const neighborhoods = [
-    { name: 'Dinkytown', description: 'Historic student area with cafes and shops', count: 32, image: '/api/placeholder/400/200' },
-    { name: 'Stadium Village', description: 'Close to sports venues and campus', count: 28, image: '/api/placeholder/400/200' },
-    { name: 'Como', description: 'Quiet residential area near campus', count: 15, image: '/api/placeholder/400/200' }
-  ];
-
+ 
   // =========================
   // Helper Functions
   // =========================
+
+
+  useEffect(() => {
+  setIsMounted(true);
+  
+  // get favorites from localStorage
+  try {
+    const savedFavorites = localStorage.getItem('favoriteListings');
+    if (savedFavorites) {
+      setFavoriteListings(JSON.parse(savedFavorites));
+    }
+  } catch (error) {
+    console.error('Error loading favorites from localStorage:', error);
+  }
+}, []);
+
+// update localStorage when favoriteListings is changed
+useEffect(() => {
+  if (isMounted && favoriteListings.length > 0) {
+    try {
+      localStorage.setItem('favoriteListings', JSON.stringify(favoriteListings));
+    } catch (error) {
+      console.error('Error saving favorites to localStorage:', error);
+    }
+  }
+}, [favoriteListings, isMounted]);
 
   useEffect(() => {
     setSearchResults([...featuredListings]);
@@ -614,6 +496,27 @@ const SearchPage = () => {
     updateSelectedDates(startDate, endDate);
   };
 
+  const handleListingClick = (listing) => {
+    router.push(`/search/${listing.id}`);
+  }
+
+  // neighborhood click handler
+  const handleNeighborhoodClick = (neighborhoodName) => {
+    setLocation([neighborhoodName]);
+    
+    setTimeout(() => {
+      handleSearch();
+      window.scrollTo({
+        top: 0,
+        behavior: 'smooth'
+      });
+    }, 100);
+  };
+
+  const getNeighborhoodCount = (neighborhoodName) => {
+    return featuredListings.filter(listing => listing.location === neighborhoodName).length;
+  };
+
   // =========================
   // Render Components
   // =========================
@@ -625,7 +528,7 @@ const SearchPage = () => {
         <div>
           <h3 className="font-bold mb-3 text-gray-800">Campus Neighborhoods</h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {['Dinkytown', 'East Bank', 'Stadium Village', 'Como', 'Other'].map((loc) => (
+            {['Dinkytown', 'East Bank', 'Stadium Village', 'Como', 'St. Paul', 'Other'].map((loc) => (
               <div 
                 key={loc}
                 className={`p-3 rounded-lg border cursor-pointer transition ${location.includes(loc) ? 'bg-orange-50 border-orange-200' : 'hover:bg-gray-50'}`}
@@ -1283,26 +1186,26 @@ const renderFavoritesSidebar = () => (
   );
 
   // Featured Listings Section
-  const renderFeaturedListings = () => {
-    const displayListings = searchResults;
-    const sectionTitle = hasSearchCriteria() ? 'Search Results' : 'All Subleases';
+const renderFeaturedListings = () => {
+  const displayListings = searchResults;
+  const sectionTitle = hasSearchCriteria() ? 'Search Results' : 'All Subleases';
 
-    return (
-      <div className="w-full md:pl-16 px-4 mt-12 mb-16 md:pr-0">
-        <div className="max-w-7xl mx-auto px-4">
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="text-2xl font-bold text-orange-600">
-              {sectionTitle}
-              {hasSearchCriteria() && ` (${displayListings.length} found)`}
-            </h2>
-            <button 
-              onClick={resetSearch} 
-              className="text-gray-700 hover:underline font-medium cursor-pointer"
-            >
-              View all
-            </button>
-          </div>
-        
+  return (
+    <div className="w-full md:pl-16 px-4 mt-12 mb-16 md:pr-0">
+      <div className="max-w-7xl mx-auto px-4">
+        <div className="flex justify-between items-center mb-6">
+          <h2 className="text-2xl font-bold text-orange-600">
+            {sectionTitle}
+            {hasSearchCriteria() && ` (${displayListings.length} found)`}
+          </h2>
+          <button 
+            onClick={resetSearch} 
+            className="text-gray-700 hover:underline font-medium cursor-pointer"
+          >
+            View all
+          </button>
+        </div>
+      
         {displayListings.length === 0 ? (
           <div className="text-center py-12">
             <div className="text-gray-500 mb-4">
@@ -1320,16 +1223,18 @@ const renderFavoritesSidebar = () => (
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {displayListings.map((listing) => (
-              <div key={listing.id} className="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-lg transition-all cursor-pointer transform hover:-translate-y-1">
+              <div 
+                key={listing.id} 
+                onClick={() => handleListingClick(listing)}
+                className="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-lg transition-all cursor-pointer transform hover:-translate-y-1"
+              >
                 <div 
                   className="h-48 bg-gray-200 relative" 
                   style={{backgroundImage: `url(${listing.image})`, backgroundSize: 'cover', backgroundPosition: 'center'}}
                 >
-                  {/*price*/}
                   <div className="absolute top-2 right-2 bg-white px-2 py-1 rounded-lg text-xs font-bold text-gray-700">
                     ${convertPrice(listing.price, priceType)}{getPriceUnit(priceType)}
                   </div>
-                  {/*add favorites button*/}
                   <button 
                     className={`absolute top-2 left-2 p-2 rounded-full transition-all cursor-pointer ${
                       favoriteListings.some(item => item.id === listing.id) 
@@ -1337,7 +1242,7 @@ const renderFavoritesSidebar = () => (
                         : 'bg-white text-gray-500 hover:text-red-500'
                     }`}
                     onClick={(e) => {
-                      e.stopPropagation(); // don't allow the card click event
+                      e.stopPropagation();
                       toggleFavorite(listing);
                     }}
                   >
@@ -1372,7 +1277,7 @@ const renderFavoritesSidebar = () => (
                   </div>
                   
                   <div className="mt-3 flex flex-wrap gap-1">
-                    {listing.amenities.map((amenity, index) => (
+                    {listing.amenities && listing.amenities.map((amenity, index) => (
                       <div key={index} className="bg-orange-50 text-orange-700 text-xs px-2 py-1 rounded-md flex items-center">
                         {getAmenityIcon(amenity)}
                         <span className="ml-1">{amenity.charAt(0).toUpperCase() + amenity.slice(1)}</span>
@@ -1386,8 +1291,10 @@ const renderFavoritesSidebar = () => (
         )}
       </div>
     </div>
-    );
-  };
+  );
+};
+
+
 
   // Neighborhoods Section
   const renderNeighborhoods = () => (
@@ -1396,8 +1303,15 @@ const renderFavoritesSidebar = () => (
         <h2 className="text-2xl font-bold mb-8 text-center text-orange-500">Popular Neighborhoods</h2>
         
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {neighborhoods.map((neighborhood, index) => (
-            <div key={index} className="relative overflow-hidden rounded-xl shadow-md group cursor-pointer">
+          {neighborhoods.map((neighborhood, index) => {
+            const listingCount = getNeighborhoodCount(neighborhood.name);
+
+            return (
+            <div 
+            key={index} 
+            className="relative overflow-hidden rounded-xl shadow-md group cursor-pointer"
+            onClick={() => handleNeighborhoodClick(neighborhood.name)}
+            >
               <div 
                 className="h-64 bg-gray-200 transition-transform duration-500 group-hover:scale-110" 
                 style={{backgroundImage: `url(${neighborhood.image})`, backgroundSize: 'cover', backgroundPosition: 'center'}}
@@ -1406,12 +1320,13 @@ const renderFavoritesSidebar = () => (
               <div className="absolute bottom-0 left-0 right-0 p-4 text-white">
                 <h3 className="text-xl font-bold">{neighborhood.name}</h3>
                 <p className="text-sm opacity-90 mb-2">{neighborhood.description}</p>
-                <span className="text-xs font-medium bg-white bg-opacity-30 rounded-full px-2 py-1">
-                  {neighborhood.count} subleases available
+                <span className="text-xs font-semibold bg-white bg-opacity-30 rounded-full px-2 py-1 text-gray-700">
+                  {listingCount} {listingCount === 1 ? 'sublease' : 'subleases'} available
                 </span>
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
       </div>
     </div>
@@ -1505,7 +1420,7 @@ const renderFavoritesSidebar = () => (
   // Main Render
   // =========================
   return (
-    
+
     <div className="min-h-screen bg-gray-50 flex flex-col">
       {/* Navigation */}
         <nav className="fixed md:left-0 md:top-0 md:bottom-0 md:h-full md:w-16 w-full top-0 left-0 h-16 bg-orange-200 text-white shadow-lg z-50 md:flex md:flex-col">
@@ -1604,7 +1519,9 @@ const renderFavoritesSidebar = () => (
       
       {/* Favorites Sidebar */}
       {renderFavoritesSidebar()}
-      
+
+  <div className="min-h-screen bg-gray-50 flex flex-col">
+
       <div className="md:pl-16 pt-16 md:pt-0">
       {/* Hero Section */}
       <div className="relative bg-white-100 text-orange-500">
@@ -1788,6 +1705,7 @@ const renderFavoritesSidebar = () => (
                     Apply
                   </button>
                 </div>
+              
               ))}
             </div>
           )}
@@ -1846,6 +1764,7 @@ const renderFavoritesSidebar = () => (
         
       `}</style>
     </div>
+  </div>
   );
 };
 
