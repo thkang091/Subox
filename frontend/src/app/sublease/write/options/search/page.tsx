@@ -9,7 +9,7 @@ import {
   Filter, BedDouble, DollarSign, LogIn, Heart, User, CircleUser
 } from 'lucide-react';
 
-import { featuredListings, neighborhoods } from '../../../data/listings';
+import { featuredListings, neighborhoods } from '../../data/listings';
 
 // Component for the sublease search interface
 const SearchPage = () => {

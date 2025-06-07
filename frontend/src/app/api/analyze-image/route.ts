@@ -1,379 +1,275 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { ImageAnnotatorClient } from '@google-cloud/vision';
-import sharp from 'sharp';
+import OpenAI from 'openai';
 
-// ===============================
-// TYPES
-// ===============================
-
-interface DetectedObject {
-  name: string;
-  confidence: number;
-  category?: string;
-  suggestedPrice?: number;
-  boundingBox?: {
-    x: number;
-    y: number;
-    width: number;
-    height: number;
-  };
-}
-
-interface VisionAnalysisResult {
-  objects: DetectedObject[];
-  labels: Array<{
-    description: string;
-    score: number;
-  }>;
-  dominantColors?: Array<{
-    color: { red: number; green: number; blue: number };
-    score: number;
-  }>;
-}
-
-interface ItemSuggestion {
-  itemName: string;
-  category: string;
-  suggestedPrice: number;
-  confidence: number;
-  alternativeNames: string[];
-}
-
-// ===============================
-// GOOGLE CLOUD VISION CLIENT
-// ===============================
-
-const vision = new ImageAnnotatorClient({
-  projectId: process.env.GOOGLE_CLOUD_PROJECT_ID,
-  credentials: {
-    client_email: process.env.GOOGLE_CLOUD_CLIENT_EMAIL,
-    private_key: process.env.GOOGLE_CLOUD_PRIVATE_KEY?.replace(/\\n/g, '\n'),
-  },
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
 });
 
-// ===============================
-// HELPER FUNCTIONS
-// ===============================
-
-function categorizeObject(objectName: string): string {
-  const categories = {
-    'Furniture': [
-      'chair', 'table', 'desk', 'bed', 'sofa', 'couch', 'dresser', 
-      'cabinet', 'shelf', 'bookshelf', 'nightstand', 'ottoman', 
-      'bench', 'stool', 'wardrobe', 'armchair', 'dining table'
-    ],
-    'Electronics': [
-      'laptop', 'computer', 'monitor', 'television', 'tv', 'phone', 
-      'tablet', 'speaker', 'headphones', 'camera', 'gaming', 'xbox', 
-      'playstation', 'nintendo', 'printer', 'router'
-    ],
-    'Appliances': [
-      'refrigerator', 'fridge', 'microwave', 'washer', 'dryer', 
-      'dishwasher', 'oven', 'blender', 'toaster', 'coffee maker',
-      'air conditioner', 'heater', 'vacuum'
-    ],
-    'Clothing': [
-      'shirt', 'pants', 'dress', 'jacket', 'shoes', 'hat', 'bag', 
-      'purse', 'backpack', 'jeans', 'sweater', 'coat'
-    ],
-    'Books & Media': [
-      'book', 'magazine', 'cd', 'dvd', 'vinyl', 'record', 'novel', 'textbook'
-    ],
-    'Sports & Recreation': [
-      'bicycle', 'bike', 'skateboard', 'ball', 'racket', 'weights', 
-      'yoga', 'fitness', 'treadmill', 'exercise'
-    ],
-    'Kitchen & Dining': [
-      'plate', 'cup', 'glass', 'utensil', 'pot', 'pan', 'bowl', 
-      'cutting board', 'knife', 'fork', 'spoon'
-    ],
-    'Home Decor': [
-      'lamp', 'mirror', 'picture', 'frame', 'vase', 'plant', 'clock', 
-      'candle', 'pillow', 'curtain', 'rug', 'artwork'
-    ],
-  };
-
-  const lowerName = objectName.toLowerCase();
-  
-  for (const [category, items] of Object.entries(categories)) {
-    if (items.some(item => lowerName.includes(item))) {
-      return category;
-    }
-  }
-  
-  return 'Other';
-}
-
-function suggestPrice(objectName: string, category: string): number {
-  const priceMap: Record<string, number> = {
-    // Furniture
-    'chair': 25, 'dining chair': 30, 'office chair': 45, 'armchair': 60,
-    'table': 40, 'dining table': 80, 'coffee table': 35, 'desk': 60,
-    'bed': 120, 'sofa': 100, 'couch': 100, 'dresser': 80, 'nightstand': 35,
-    'cabinet': 50, 'shelf': 30, 'bookshelf': 40, 'wardrobe': 90,
-    
-    // Electronics
-    'laptop': 250, 'computer': 200, 'monitor': 90, 'television': 150, 'tv': 150,
-    'tablet': 120, 'phone': 100, 'speaker': 40, 'headphones': 30, 'camera': 80,
-    'gaming console': 180, 'xbox': 180, 'playstation': 180, 'printer': 60,
-    
-    // Appliances
-    'refrigerator': 300, 'fridge': 300, 'microwave': 50, 'washer': 200, 
-    'dryer': 180, 'dishwasher': 150, 'oven': 120, 'coffee maker': 25,
-    'air conditioner': 100, 'vacuum': 40,
-    
-    // Default prices by category
-    'furniture': 45, 'electronics': 80, 'appliances': 70, 'clothing': 15,
-    'books & media': 8, 'sports & recreation': 25, 'kitchen & dining': 12,
-    'home decor': 18, 'other': 20
-  };
-
-  const lowerName = objectName.toLowerCase();
-  
-  // Try to find specific item price
-  for (const [key, price] of Object.entries(priceMap)) {
-    if (lowerName.includes(key)) {
-      return price;
-    }
-  }
-  
-  // Fall back to category-based pricing
-  const categoryPrice = priceMap[category.toLowerCase()];
-  return categoryPrice || 25; // Default fallback price
-}
-
-function generateAlternativeNames(itemName: string): string[] {
-  const alternatives: Record<string, string[]> = {
-    'chair': ['Seat', 'Dining Chair', 'Office Chair', 'Desk Chair'],
-    'table': ['Desk', 'Dining Table', 'Coffee Table', 'Side Table'],
-    'sofa': ['Couch', 'Loveseat', 'Sectional', 'Settee'],
-    'television': ['TV', 'Smart TV', 'Monitor', 'Screen'],
-    'laptop': ['Computer', 'Notebook', 'MacBook', 'PC'],
-    'bicycle': ['Bike', 'Mountain Bike', 'Road Bike', 'Cycling Bike'],
-    'bed': ['Mattress', 'Bed Frame', 'Sleeping Bed', 'Bedroom Furniture'],
-    'dresser': ['Chest of Drawers', 'Bedroom Storage', 'Wardrobe'],
-    'bookshelf': ['Bookcase', 'Shelf', 'Storage Unit', 'Display Case']
-  };
-
-  const lowerName = itemName.toLowerCase();
-  
-  for (const [key, alts] of Object.entries(alternatives)) {
-    if (lowerName.includes(key)) {
-      return alts;
-    }
-  }
-
-  // Generate generic alternatives
-  return [
-    itemName + ' (Used)',
-    itemName + ' (Like New)',
-    itemName + ' (Good Condition)',
-    'Pre-owned ' + itemName
-  ];
-}
-
-function formatItemName(name: string): string {
-  return name
-    .split(' ')
-    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-    .join(' ');
-}
-
-// ===============================
-// VISION ANALYSIS SERVICE
-// ===============================
-
-async function analyzeImageWithVision(imageBuffer: Buffer): Promise<VisionAnalysisResult> {
-  try {
-    // Perform multiple detection types
-    const [objectResult] = await vision.objectLocalization({
-      image: { content: imageBuffer },
-    });
-
-    const [labelResult] = await vision.labelDetection({
-      image: { content: imageBuffer },
-      maxResults: 20,
-    });
-
-    const [propertiesResult] = await vision.imageProperties({
-      image: { content: imageBuffer },
-    });
-
-    // Process detected objects
-    const objects: DetectedObject[] = (objectResult.localizedObjectAnnotations || [])
-      .filter(obj => obj.score && obj.score > 0.4) // Lower threshold for more detections
-      .map(obj => {
-        const name = obj.name || 'Unknown Object';
-        const confidence = obj.score || 0;
-        const category = categorizeObject(name);
-        const suggestedPrice = suggestPrice(name, category);
-        
-        // Extract bounding box coordinates
-        let boundingBox;
-        if (obj.boundingPoly?.normalizedVertices && obj.boundingPoly.normalizedVertices.length >= 4) {
-          const vertices = obj.boundingPoly.normalizedVertices;
-          const xs = vertices.map(v => (v.x || 0) * 100);
-          const ys = vertices.map(v => (v.y || 0) * 100);
-          
-          boundingBox = {
-            x: Math.min(...xs),
-            y: Math.min(...ys),
-            width: Math.max(...xs) - Math.min(...xs),
-            height: Math.max(...ys) - Math.min(...ys),
-          };
-        }
-
-        return {
-          name,
-          confidence,
-          category,
-          suggestedPrice,
-          boundingBox
-        };
-      })
-      .slice(0, 8); // Limit to top 8 objects
-
-    // Process labels
-    const labels = (labelResult.labelAnnotations || [])
-      .filter(label => label.score && label.score > 0.6)
-      .map(label => ({
-        description: label.description || '',
-        score: label.score || 0,
-      }))
-      .slice(0, 15);
-
-    // Process dominant colors
-    const dominantColors = propertiesResult.imagePropertiesAnnotation?.dominantColors?.colors
-      ?.slice(0, 5)
-      .map(colorInfo => ({
-        color: {
-          red: colorInfo.color?.red || 0,
-          green: colorInfo.color?.green || 0,
-          blue: colorInfo.color?.blue || 0,
-        },
-        score: colorInfo.score || 0,
-      }));
-
-    return {
-      objects,
-      labels,
-      dominantColors,
-    };
-
-  } catch (error) {
-    console.error('Google Vision API Error:', error);
-    throw new Error('Failed to analyze image with Vision API');
-  }
-}
-
-function generateItemSuggestions(visionResult: VisionAnalysisResult): ItemSuggestion[] {
-  const suggestions: ItemSuggestion[] = [];
-  
-  // Process detected objects first (higher priority)
-  visionResult.objects.forEach(obj => {
-    const suggestion: ItemSuggestion = {
-      itemName: formatItemName(obj.name),
-      category: obj.category || 'Other',
-      suggestedPrice: obj.suggestedPrice || suggestPrice(obj.name, obj.category || 'Other'),
-      confidence: obj.confidence,
-      alternativeNames: generateAlternativeNames(obj.name),
-    };
-    
-    suggestions.push(suggestion);
-  });
-
-  // Add high-confidence labels as backup suggestions
-  visionResult.labels.forEach(label => {
-    if (label.score > 0.8) {
-      const category = categorizeObject(label.description);
-      
-      // Only add if it's furniture-related and not already detected
-      if (category !== 'Other' && !suggestions.some(s => 
-        s.itemName.toLowerCase().includes(label.description.toLowerCase())
-      )) {
-        const suggestion: ItemSuggestion = {
-          itemName: formatItemName(label.description),
-          category,
-          suggestedPrice: suggestPrice(label.description, category),
-          confidence: label.score,
-          alternativeNames: generateAlternativeNames(label.description),
-        };
-        
-        suggestions.push(suggestion);
-      }
-    }
-  });
-
-  // Sort by confidence and return top suggestions
-  return suggestions
-    .sort((a, b) => b.confidence - a.confidence)
-    .slice(0, 6); // Limit to top 6 suggestions
-}
-
-// ===============================
-// API ROUTE HANDLER
-// ===============================
+// Comprehensive criteria list based on your chat form
+const LISTING_CRITERIA = {
+  essential: [
+    'listingType', // Sublet, Lease Takeover, Room in Shared Unit
+    'availability', // Start and end dates
+    'location', // Address or neighborhood
+    'rent', // Monthly rent amount
+    'utilities', // Included or not
+    'bedrooms', // Number of bedrooms
+    'bathrooms', // Number of bathrooms
+    'contactInfo' // How to contact
+  ],
+  important: [
+    'roomType', // Private or shared room
+    'furnished', // Furnished status
+    'deposit', // Security deposit
+    'rentNegotiable', // If rent is negotiable
+    'amenities', // List of amenities
+    'photos', // Photos of the space
+    'partialDates', // Flexible with partial rental periods
+  ],
+  roommate_related: [
+    'hasRoommates', // Will there be roommates
+    'roommateGender', // Gender preferences
+    'roommatePersonality', // Quiet/loud, smoking, pets
+    'roommatePreferences', // Cleanliness, noise level
+    'currentRoommateInfo' // Info about current occupant
+  ],
+  additional: [
+    'subleaseReason', // Why subletting
+    'includedItems', // Furniture/items included
+    'additionalDetails', // Extra features, neighborhood info
+    'roomTours', // Available for tours
+    'exactAddress', // Show exact address or just neighborhood
+    'priceRange' // If negotiable, what's the range
+  ]
+};
 
 export async function POST(request: NextRequest) {
   try {
-    const { image } = await request.json();
-    
-    if (!image) {
-      return NextResponse.json(
-        { success: false, error: 'No image provided' },
-        { status: 400 }
-      );
+    const { step, description, itemData } = await request.json();
+
+    let systemPrompt = '';
+    let userPrompt = '';
+
+    switch (step) {
+      case 'generate':
+        systemPrompt = `You are a helpful assistant that creates casual, engaging listing descriptions for a student marketplace app. Your job is to:
+
+1. Write casual, one-line descriptions that sound natural and friendly
+2. Include key details: item name, condition, price, and pickup/delivery info
+3. Make it appealing to college students
+4. Keep it concise but engaging
+5. Use a conversational tone like you're texting a friend
+
+Examples:
+- "Great condition IKEA desk for $45 - perfect for studying, pickup only in Dinkytown!"
+- "Selling my barely used microwave for $30 OBO, works perfectly and can deliver!"
+- "Like new textbook for $25, saved me through calculus - pickup available!"
+
+Return only the description, nothing else.`;
+
+        const { itemName, condition, price, priceType, delivery, location } = itemData;
+        userPrompt = `Write a casual one-line listing description for:
+- Item: ${itemName}
+- Condition: ${condition}
+- Price: $${price} ${priceType === 'obo' ? '(OBO)' : ''}
+- ${delivery === 'pickup' ? 'Pickup only' : delivery === 'delivery' ? 'Delivery available' : 'Pickup or delivery'}
+- Location: ${location}`;
+        break;
+
+      case 'cleanup':
+        systemPrompt = `You are a helpful assistant that cleans up rental listing descriptions. Your job is to:
+1. Fix grammar and typos
+2. Translate any non-English text to English
+3. Improve clarity and readability
+4. Maintain the original meaning and tone
+5. Format the text nicely
+
+Return only the cleaned description, nothing else.`;
+        userPrompt = `Clean up this rental listing description:\n\n${description}`;
+        break;
+
+      case 'extract':
+        systemPrompt = `You are a helpful assistant that extracts key information from rental listings. 
+Extract and return a JSON object with the following fields (use null if not found):
+
+ESSENTIAL INFORMATION:
+- listingType: string ("Sublet", "Lease Takeover", "Room in Shared Unit", or null)
+- rent: number (monthly rent amount)
+- bedrooms: number
+- bathrooms: number  
+- location: string (neighborhood or address)
+- availableFrom: string (start date)
+- availableTo: string (end date)
+- utilitiesIncluded: boolean
+- contactInfo: string
+
+IMPORTANT DETAILS:
+- deposit: number (security deposit amount)
+- furnished: boolean
+- isPrivateRoom: boolean (true if private room, false if shared)
+- rentNegotiable: boolean
+- priceRange: object with min/max if negotiable mentioned
+
+ROOMMATE INFORMATION:
+- hasRoommates: boolean (will there be roommates)
+- roommateGender: string (gender preference if mentioned)
+- currentOccupantQuiet: boolean (if current person describes themselves)
+- currentOccupantSmokes: boolean
+- currentOccupantPets: boolean
+- petsAllowed: boolean
+- smokingAllowed: boolean
+
+ADDITIONAL FEATURES:
+- amenities: array of strings (parking, gym, wifi, etc.)
+- includedItems: array of strings (desk, chair, etc.)
+- subleaseReason: string (reason for subletting)
+- partialDatesOk: boolean (flexible with dates)
+- roomToursAvailable: boolean
+- additionalDetails: string (extra info about place/neighborhood)
+
+Return only valid JSON, no other text.`;
+        userPrompt = `Extract information from this description:\n\n${description}`;
+        break;
+
+      case 'questions':
+        systemPrompt = `You are a helpful assistant for a subletting platform called Subox. Your job is to analyze a rental description against comprehensive listing criteria and provide intelligent follow-up questions.
+
+COMPREHENSIVE LISTING CRITERIA TO CHECK:
+
+ESSENTIAL (must have):
+1. Listing Type: Sublet, Lease Takeover, or Room in Shared Unit
+2. Availability: Specific start and end dates
+3. Location: Address or neighborhood
+4. Monthly rent: Exact amount
+5. Utilities: Included or separate
+6. Space details: Number of bedrooms and bathrooms
+7. Contact information: How to reach the person
+
+IMPORTANT:
+8. Room type: Private room or shared room
+9. Furnished status: Furnished, partially furnished, or unfurnished
+10. Security deposit: Amount required
+11. Rent negotiability: Fixed price or negotiable (with range)
+12. Amenities: Parking, WiFi, gym, laundry, etc.
+13. Photos: Visual representation of the space
+14. Date flexibility: Open to partial rental periods
+
+ROOMMATE-RELATED:
+15. Roommate situation: Will there be roommates
+16. Current occupant info: Personality (quiet/social), smoking, pets
+17. Roommate preferences: Gender, pets allowed, smoking allowed
+18. Lifestyle preferences: Noise level, cleanliness expectations
+
+ADDITIONAL DETAILS:
+19. Sublease reason: Why they're subletting
+20. Included items: Furniture or items staying with place
+21. Additional features: Special amenities, neighborhood highlights
+22. Room tours: Available for in-person visits
+23. Address visibility: Show exact address or just neighborhood
+24. Price range: If negotiable, what's acceptable range
+
+Your response should be a JSON object with:
+{
+  "summary": "Brief summary of what you understood",
+  "foundCriteria": ["List of criteria that were clearly mentioned"],
+  "missingEssential": ["Essential criteria that are missing"],
+  "missingImportant": ["Important criteria that are missing"],
+  "missingRoommate": ["Roommate-related criteria that are missing"],
+  "missingAdditional": ["Additional criteria that are missing"],
+  "questions": ["Array of 5-8 conversational questions to get missing info"],
+  "priorityLevel": "high/medium/low based on how much essential info is missing"
+}
+
+Be thorough in your analysis and ask questions in a casual, friendly tone with emojis.`;
+        
+        userPrompt = `Analyze this rental listing description against the comprehensive criteria and identify what's missing:\n\n${description}`;
+        break;
+
+      case 'analyze':
+        systemPrompt = `You are an expert rental listing analyzer. Analyze the given description against comprehensive listing criteria and provide a detailed assessment.
+
+CRITERIA CATEGORIES:
+1. ESSENTIAL: listingType, availability, location, rent, utilities, bedrooms, bathrooms, contactInfo
+2. IMPORTANT: roomType, furnished, deposit, rentNegotiable, amenities, photos, partialDates
+3. ROOMMATE: hasRoommates, roommatePreferences, currentOccupantInfo
+4. ADDITIONAL: subleaseReason, includedItems, additionalDetails, roomTours
+
+Return a JSON object with:
+{
+  "completenessScore": number (0-100),
+  "foundInformation": {
+    "essential": ["criteria found"],
+    "important": ["criteria found"],
+    "roommate": ["criteria found"],
+    "additional": ["criteria found"]
+  },
+  "missingInformation": {
+    "essential": ["criteria missing"],
+    "important": ["criteria missing"], 
+    "roommate": ["criteria missing"],
+    "additional": ["criteria missing"]
+  },
+  "recommendations": ["suggestions for improvement"],
+  "readinessLevel": "ready/needs-work/incomplete"
+}`;
+        
+        userPrompt = `Analyze this listing description comprehensively:\n\n${description}`;
+        break;
+
+      default:
+        return NextResponse.json(
+          { error: 'Invalid step' },
+          { status: 400 }
+        );
     }
 
-    // Validate environment variables
-    if (!process.env.GOOGLE_CLOUD_PROJECT_ID || 
-        !process.env.GOOGLE_CLOUD_CLIENT_EMAIL || 
-        !process.env.GOOGLE_CLOUD_PRIVATE_KEY) {
-      return NextResponse.json(
-        { success: false, error: 'Google Cloud Vision API credentials not configured' },
-        { status: 500 }
-      );
-    }
-
-    // Convert base64 to buffer and optimize
-    const base64Data = image.replace(/^data:image\/\w+;base64,/, '');
-    const imageBuffer = Buffer.from(base64Data, 'base64');
-    
-    // Optimize image for Vision API (max 4MB, reasonable dimensions)
-    const optimizedBuffer = await sharp(imageBuffer)
-      .resize(1024, 1024, { 
-        fit: 'inside', 
-        withoutEnlargement: true 
-      })
-      .jpeg({ quality: 85 })
-      .toBuffer();
-
-    // Analyze with Google Vision
-    const visionResult = await analyzeImageWithVision(optimizedBuffer);
-    
-    // Generate item suggestions
-    const suggestions = generateItemSuggestions(visionResult);
-
-    // Return successful response
-    return NextResponse.json({
-      success: true,
-      analysis: visionResult,
-      suggestions,
-      totalObjects: visionResult.objects.length,
-      totalLabels: visionResult.labels.length,
-      message: `Detected ${visionResult.objects.length} objects and ${suggestions.length} item suggestions`
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4", // Using GPT-4 for better analysis
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt }
+      ],
+      temperature: 0.7,
     });
 
+    const result = completion.choices[0]?.message?.content;
+
+    if (!result) {
+      throw new Error('No response from OpenAI');
+    }
+
+    // Handle different response formats based on step
+    switch (step) {
+      case 'generate':
+        return NextResponse.json({ description: result.trim() });
+      
+      case 'extract':
+      case 'questions':
+      case 'analyze':
+        try {
+          const parsedResult = JSON.parse(result);
+          return NextResponse.json({ [step]: parsedResult });
+        } catch (parseError) {
+          console.error('JSON parsing error:', parseError);
+          console.error('Raw result:', result);
+          return NextResponse.json(
+            { error: 'Invalid JSON response from AI', rawResponse: result },
+            { status: 500 }
+          );
+        }
+      
+      case 'cleanup':
+        return NextResponse.json({ cleaned: result });
+      
+      default:
+        return NextResponse.json({ result });
+    }
+
   } catch (error) {
-    console.error('Analyze Image API Error:', error);
-    
-    // Return detailed error for development, generic for production
-    const isDevelopment = process.env.NODE_ENV === 'development';
-    
-    return NextResponse.json({
-      success: false,
-      error: 'Failed to analyze image',
-      details: isDevelopment ? (error instanceof Error ? error.message : 'Unknown error') : undefined,
-    }, { status: 500 });
+    console.error('API Error:', error);
+    return NextResponse.json(
+      { error: 'Failed to process request' },
+      { status: 500 }
+    );
   }
 }

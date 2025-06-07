@@ -50,24 +50,33 @@ Return only the cleaned description, nothing else.`;
         userPrompt = `Clean up this rental listing description:\n\n${description}`;
         break;
 
-      case 'extract':
-        systemPrompt = `You are a helpful assistant that extracts key information from rental listings. 
-Extract and return a JSON object with the following fields (use null if not found):
-- bedrooms: number
-- bathrooms: number  
-- rent: number (monthly rent amount)
-- deposit: number
-- availableFrom: string (date)
-- availableTo: string (date)
-- location: string
-- furnished: boolean
-- utilitiesIncluded: boolean
-- petFriendly: boolean
-- contactInfo: string
-
-Return only valid JSON, no other text.`;
-        userPrompt = `Extract information from this description:\n\n${description}`;
-        break;
+        case 'extract':
+          systemPrompt = `You are a helpful assistant that extracts key information from rental listings. 
+        Extract and return a JSON object with the following fields (use null if not found):
+        - bedrooms: number
+        - bathrooms: number  
+        - rent: number (monthly rent amount only, exclude utilities)
+        - deposit: number (security deposit amount, use 0 if explicitly stated as no deposit)
+        - availableFrom: string (date)
+        - availableTo: string (date)
+        - location: string
+        - furnished: boolean
+        - utilitiesIncluded: boolean (true if utilities are included in rent or mentioned as additional cost)
+        - petFriendly: boolean
+        - contactInfo: string
+        
+        Important extraction rules:
+        - For rent: Extract only the base monthly rent, not including utilities
+        - For utilities: Set utilitiesIncluded to true if utilities are mentioned as included OR if there's an additional cost for utilities mentioned
+        - For deposit: Look for security deposit, damage deposit, or similar terms. If no deposit is mentioned, use null. If "no deposit" is stated, use 0
+        - For furnished: true if furniture, beds, desks, etc. are mentioned as included
+        - For dates: Extract in readable format (e.g., "January 2025", "Aug 25th")
+        - For contact: Extract email addresses, phone numbers, or contact instructions
+        
+        Return only valid JSON, no other text.`;
+          userPrompt = `Extract information from this description:\n\n${description}`;
+          break;
+          
 
       case 'questions':
         systemPrompt = `You are a helpful assistant for a subletting platform called Subox. Your job is to:

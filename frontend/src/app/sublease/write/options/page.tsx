@@ -93,19 +93,7 @@ export default function SubleaseOptionsPage() {
 
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <motion.div 
-          initial={{ y: -20, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          transition={{ duration: 0.6 }}
-          className="text-center mb-16"
-        >
-          <h1 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
-            How would you like to create your listing?
-          </h1>
-          <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-            Choose the method that works best for you. Both lead to the same great listing!
-          </p>
-        </motion.div>
+    
         
         <motion.div 
           variants={containerVariants}
@@ -350,31 +338,7 @@ export default function SubleaseOptionsPage() {
         </motion.div>
 
         {/* Bottom Info */}
-        <motion.div
-          initial={{ opacity: 0, y: 30 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.8 }}
-          className="text-center mt-16"
-        >
-          <h3 className="text-2xl font-bold text-gray-900 mb-4">All paths lead to the same great result</h3>
-          <p className="text-gray-600 mb-6">
-            No matter which option you choose, you'll end up with a complete, professional listing that attracts the right renters.
-          </p>
-          <div className="flex items-center justify-center space-x-8 text-sm text-gray-500">
-            <div className="flex items-center space-x-2">
-              <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-              <span>Easy iMessage-style process</span>
-            </div>
-            <div className="flex items-center space-x-2">
-              <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
-              <span>Missing info automatically prompted</span>
-            </div>
-            <div className="flex items-center space-x-2">
-              <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
-              <span>Professional listing guaranteed</span>
-            </div>
-          </div>
-        </motion.div>
+      
       </div>
     </div>
   );
