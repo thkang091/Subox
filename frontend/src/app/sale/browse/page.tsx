@@ -198,7 +198,14 @@ export default function MoveOutSalePage() {
   const notifications = [
     { id: 1, type: "price-drop", message: "MacBook Pro price dropped by $50!", time: "2h ago" },
     { id: 2, type: "new-item", message: "New furniture items in Dinkytown", time: "4h ago" },
-    { id: 3, type: "favorite", message: "Your favorited item is ending soon", time: "1d ago" }
+    { id: 3, type: "favorite", message: "Your favorited item is ending soon", time: "1d ago" },
+      { 
+        id: 4, 
+        type: "message from Jordan T.", 
+        productId: 5,
+        message: "Is it okay to have a deal in Quad? I think Quad is right between your place and mine.", 
+        time: "30min ago" 
+    } 
   ];
 
 
@@ -322,7 +329,7 @@ export default function MoveOutSalePage() {
                   {notifications.map(notif => (
                     <button
                       key={notif.id}
-                      onClick={() => router.push(`browse/notificationDetail/${notif.id}`)}
+                      onClick={() => router.push(`browse/notification?id=${notif.id}`)}
                       className="w-full flex items-start space-x-3 p-2 rounded-lg hover:bg-gray-50 text-left"
                     >
                       <div className="w-2 h-2 bg-orange-500 rounded-full mt-2"></div>
@@ -739,8 +746,8 @@ export default function MoveOutSalePage() {
               </div>
             </div>
           {/*Location*/}
-          <div className="absolute top-23 left-6 z-40">
-            <div className="relative inline-block w-64">
+          <div className="fixed top-30 left-6 z-40">
+            <div className="relative inline-block w-53">
               {/* Dropdown Button */}
               <button
                 onClick={() => setShowLocationDropdown(!showLocationDropdown)}

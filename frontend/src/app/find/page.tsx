@@ -10,6 +10,7 @@ export default function MoveOutPage() {
   const [subleaseAction, setSubleaseAction] = useState<string | null>(null);
   const [saleAction, setSaleAction] = useState<string | null>(null);
   const [isSmallScreen, setIsSmallScreen] = useState(false);
+  const [showLogo, setShowLogo] = useState(true);
   const router = useRouter();
 
   // Check screen size for responsive design
@@ -17,7 +18,7 @@ export default function MoveOutPage() {
     const checkScreenSize = () => {
       setIsSmallScreen(window.innerWidth < 768);
     };
-    
+
     checkScreenSize();
     window.addEventListener('resize', checkScreenSize);
     
@@ -25,6 +26,45 @@ export default function MoveOutPage() {
       window.removeEventListener('resize', checkScreenSize);
     };
   }, []);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setShowLogo(false), 1300) //1.3 sec
+    return () => clearTimeout(timer);
+  }, []);
+
+  if (showLogo) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-gradient-to-br from-orange-100 via-white to-gray-100">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          exit={{ opacity: 0, scale: 0.95 }}
+          transition={{ duration: 1 }}
+          className="text-center"
+        >
+          <div className="flex justify-center space-x-4 items-center mb-4">
+            <svg className="w-20 h-20 md:w-28 md:h-28" viewBox="0 0 50 50" fill="none">
+              <path d="M25 5L40 15V35L25 45L10 35V15L25 5Z" fill="#E97451" />
+              <rect x="20" y="20" width="10" height="10" fill="white" />
+            </svg>
+            <svg className="w-14 h-14 md:w-20 md:h-20 -ml-4" viewBox="0 0 40 40" fill="none">
+              <path d="M5 10L20 5L35 10L30 35L15 40L5 35L5 10Z" fill="#E97451" />
+              <circle cx="15" cy="15" r="3" fill="white" />
+            </svg>
+          </div>
+          <motion.h1
+            initial={{ y: 10, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            transition={{ delay: 0.5 }}
+            className="text-5xl md:text-7xl font-bold text-orange-600"
+          >
+            Subox
+          </motion.h1>
+        </motion.div>
+      </div>
+    );
+  }
+
 
   const handleOptionSelect = (option: string) => {
     setSelectedOption(option);

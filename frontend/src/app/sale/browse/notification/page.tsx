@@ -1,71 +1,166 @@
-'use client'
+'use client';
 
-import { useEffect, useState } from "react";
-import { collection, getDocs, orderBy, query } from "firebase/firestore";
-import { db } from "@/lib/firebase";
-import { useRouter } from "next/navigation";
-import { Bell } from "lucide-react";
+import { useSearchParams } from 'next/navigation';
+import { useEffect, useState } from 'react';
+import { notification } from '@/data/notificationlistings';
+import { House, User } from "lucide-react";
+import { useRouter } from 'next/navigation';
+import { motion, AnimatePresence } from "framer-motion";
+import { auth } from "@/lib/firebase";
+import { onAuthStateChanged } from "firebase/auth";
 
-const NotificationListPage = () => {
-  const [notifications, setNotifications] = useState([]);
-  const [loading, setLoading] = useState(true);
+export default function NotificationPage() {
+  const searchParams = useSearchParams();
+  const initialId = searchParams.get('id');
+  const [showProfile, setShowProfile] = useState(false);
+  const [userId, setUserId] = useState<string | null>(null);
   const router = useRouter();
+  
+  let typeNotif;
+
+  const [selectedId, setSelectedId] = useState<number | null>(null);
+
+  const handleTabClick = (tab: string) => {
+    router.push(`browse/profile/${userId}?tab=${tab}/`);
+    setShowProfile(false); // close dropdown
+  };
 
   useEffect(() => {
-    const fetchAll = async () => {
-      try {
-        const q = query(collection(db, "notifications"), orderBy("time", "desc"));
-        const snapshot = await getDocs(q);
-        const items = snapshot.docs.map(doc => {
-          const data = doc.data();
-          return {
-            id: doc.id,
-            ...data,
-            time: data.time?.toDate?.().toLocaleString() || data.time || '',
-          };
-        });
-        setNotifications(items);
-      } catch (error) {
-        console.error("Failed to fetch notifications:", error);
-      } finally {
-        setLoading(false);
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        setUserId(user.uid);
+      } else {
+        setUserId(null);
       }
-    };
-    fetchAll();
+    });
+
+    return () => unsubscribe();
   }, []);
 
-  return (
-    <div className="p-6 max-w-3xl mx-auto">
-      <h1 className="text-2xl font-bold mb-6">Notifications</h1>
+  useEffect(() => {
+    if (initialId) {
+      setSelectedId(Number(initialId));
+    }
+  }, [initialId]);
 
-      {loading ? (
-        <p className="text-gray-500">Loading notifications...</p>
-      ) : notifications.length === 0 ? (
-        <p className="text-gray-500">No notifications yet.</p>
-      ) : (
-        <div className="divide-y divide-gray-200 border border-gray-200 rounded-lg shadow-sm">
-          {notifications.map(n => (
-            <button
-              key={n.id}
-              onClick={() => router.push(`/browse/notificationDetail/${n.id}`)}
-              className="w-full text-left px-5 py-4 flex items-start gap-4 hover:bg-gray-50 transition"
-            >
-              <div className="mt-1">
-                <Bell className="w-6 h-6 text-orange-500" />
-              </div>
-              <div className="flex-1">
-                <div className="flex justify-between items-start">
-                  <h3 className="font-medium text-gray-900">{n.title || "No Title"}</h3>
-                  <span className="text-xs text-gray-500">{n.time}</span>
-                </div>
-                <p className="text-sm text-gray-600 mt-1">{n.message}</p>
-              </div>
-            </button>
-          ))}
+  const selectedNotif = notification.find((n) => n.id === selectedId);
+
+  if (selectedNotif) {
+    if (selectedNotif.type.startsWith("message from")) {
+      typeNotif = (
+                <button
+                  onClick={() => router.push(`product/${selectedNotif.productId}/message`)}
+                  className="text-sm text-gray-500 mb-4"
+                >
+                  {selectedNotif.type}
+                </button>
+                )
+    } else if (selectedNotif.type.startsWith("favorite")) {
+      typeNotif = (
+                <button
+                  onClick={() => router.push(`/sale/browse`)}
+                  className="text-sm text-gray-500 mb-4"
+                >
+                  {selectedNotif.type}
+                </button>
+                )
+    } else if (selectedNotif.type.startsWith("price")) {
+      typeNotif = (
+                <button
+                  onClick={() => router.push(`product/${selectedNotif.productId}`)}
+                  className="text-sm text-gray-500 mb-4"
+                >
+                  {selectedNotif.type}
+                </button>
+                )
+    } else if (selectedNotif.type.startsWith("new")) {
+      typeNotif = (
+                <button
+                  onClick={() => router.push(`product/${selectedNotif.productId}`)}
+                  className="text-sm text-gray-500 mb-4"
+                >
+                  {selectedNotif.type}
+                </button>
+                )
+    }else {
+      typeNotif = <p className="text-sm text-gray-500 mb-4">{selectedNotif.type}</p>;
+    }
+  } else {
+    typeNotif = null;
+  }
+
+  return (
+    <div className="flex min-h-screen">
+      {/* Left: notification list */}
+        <div className="w-1/3 border-r bg-gray-100 mt-16 px-6 py-4 overflow-y-auto">
+          <h2 className="text-xl font-bold mb-4">Notifications</h2>
+          <ul>
+            {notification.map((notif) => (
+              <li
+                key={notif.id}
+                onClick={() => setSelectedId(notif.id)}
+                className={`cursor-pointer px-3 py-2 rounded-md mb-2 hover:bg-gray-200 ${
+                  selectedId === notif.id ? 'bg-white font-semibold' : ''
+                }`}
+              >
+                <p className="text-sm text-gray-900 truncate">{notif.message}</p>
+                <p className="text-xs text-gray-500">{notif.time}</p>
+              </li>
+            ))}
+          </ul>
         </div>
-      )}
+      {/* Right: selected notification */}
+      <div className="w-2/3 mt-16 px-6 py-4 overflow-y-auto">
+        {selectedNotif ? (
+          <div>
+            <h3 className="text-2xl font-semibold mb-2">Notification #{selectedNotif.id}</h3>
+            {typeNotif}
+            <p className="text-sm text-gray-500 mb-4">{selectedNotif.time}</p>
+            <p className="text-lg">{selectedNotif.message}</p>
+          </div>
+        ) : (
+          <div className="text-gray-500 text-lg">Select a notification to read</div>
+        )}
+      </div>
+      <button
+        onClick={() => router.push('/sale/browse')}
+        className="absolute top-4 left-4 px-4 py-2 bg-blue-600 text-white rounded-lg shadow hover:bg-blue-700 transition"
+      >
+        <House/>
+      </button>
+      <div className="relative">
+        <motion.button
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          onClick={() => setShowProfile(!showProfile)}
+          className="p-2 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors mr-4"
+        >
+          <User className="w-8 h-8 text-gray-600" />
+        </motion.button>
+
+        <AnimatePresence>
+          {showProfile && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              className="absolute right-0 mt-2 w-64 bg-white rounded-lg shadow-lg border border-gray-200 z-50"
+            >
+              <div className="p-4 space-y-2">
+                <button onClick={() => handleTabClick("purchased")} className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors">What I Purchased</button>
+                <button onClick={() => handleTabClick("returned")} className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors">What I Returned</button>
+                <button onClick={() => handleTabClick("cancelled")} className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors">What I Cancelled</button>
+                <button onClick={() => handleTabClick("sold")} className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors">What I Sold</button>
+                <button onClick={() => handleTabClick("sublease")} className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors">Sublease</button>
+                <button onClick={() => handleTabClick("reviews")} className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors">Reviews</button>
+                <hr className="my-2" />
+                <button onClick={() => handleTabClick("history")} className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors">History</button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+
     </div>
   );
-};
-
-export default NotificationListPage;
+}

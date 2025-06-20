@@ -9,6 +9,7 @@ import {
   db,
   storage
  } from "@/lib/firebase";
+import { fetchSignInMethodsForEmail } from "firebase/auth";
 import { 
   createUserWithEmailAndPassword, 
   signInWithEmailAndPassword, 
@@ -347,14 +348,25 @@ export default function AuthPage() {
           badges: { socialLinked: true },
           createdAt: new Date(),
         });
-      }
+      } 
 
       router.push("/find");
-    } catch (error) {
+    } catch (error: any) {
+      if (error.code === "auth/account-exists-with-different-credential") {
+        const pendingCred = FacebookAuthProvider.credentialFromError(error);
+        const email = error.customData?.email;
+
+        if (email) {
+          // Get the existing sign-in methods for this email
+          alert("This email is linked with a different method. Please try signing in using that method.");
+        } else {
+          alert("Account exists with different sign-in method.");
+        }
       console.error("Facebook login error:", error);
       alert("Facebook login failed");
-    }
-  };
+      }
+    };
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-gray-50 flex items-center justify-center p-4">
