@@ -31,7 +31,7 @@ import {
 import React from "react";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { auth } from "@/lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
@@ -40,7 +40,9 @@ import { onAuthStateChanged } from "firebase/auth";
 
 
 export default function MoveOutSalePage() {
-  const [searchQuery, setSearchQuery] = useState("");
+  const searchParams = useSearchParams();
+  const query = searchParams.get("q") || "";
+  const [searchQuery, setSearchQuery] = useState(query);
   const [selectedCategory, setSelectedCategory] = useState("All Categories");
   const [selectedCondition, setSelectedCondition] = useState("All Conditions");
   const [priceRange, setPriceRange] = useState([0, 500]);

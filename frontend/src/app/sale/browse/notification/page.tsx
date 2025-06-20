@@ -3,7 +3,7 @@
 import { useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { notification } from '@/data/notificationlistings';
-import { House, User } from "lucide-react";
+import { House, User, Search } from "lucide-react";
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from "framer-motion";
 import { auth } from "@/lib/firebase";
@@ -14,6 +14,9 @@ export default function NotificationPage() {
   const initialId = searchParams.get('id');
   const [showProfile, setShowProfile] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
+  const [searchHistory, setSearchHistory] = useState([]);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [showHistory, setShowHistory] = useState(false);
   const router = useRouter();
   
   let typeNotif;
@@ -42,6 +45,19 @@ export default function NotificationPage() {
       setSelectedId(Number(initialId));
     }
   }, [initialId]);
+  
+  const handleSearchSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!searchQuery.trim()) return;
+
+    router.push(`/sale/browse?q=${encodeURIComponent(searchQuery.trim())}`);
+  };
+
+  useEffect(() => {
+    const stored = JSON.parse(localStorage.getItem("searchHistory") || "[]");
+    setSearchHistory(stored);
+  }, []);
+
 
   const selectedNotif = notification.find((n) => n.id === selectedId);
 
@@ -128,6 +144,21 @@ export default function NotificationPage() {
       >
         <House/>
       </button>
+      {/* Search */}
+      <div className="relative hidden md:block w-full flex justify-center right-25 pt-4">
+        <form onSubmit={handleSearchSubmit}>
+          <Search className="absolute left-3 top-9 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            onFocus={() => setShowHistory(true)}
+            onBlur={() => setTimeout(() => setShowHistory(false), 200)} // Slight delay to allow click
+            placeholder="Search items..."
+            className="pl-10 pr-4 py-2 w-64 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent justify-center"
+          />
+        </form>
+      </div>
       <div className="relative">
         <motion.button
           whileHover={{ scale: 1.05 }}
@@ -160,7 +191,6 @@ export default function NotificationPage() {
           )}
         </AnimatePresence>
       </div>
-
     </div>
   );
 }
