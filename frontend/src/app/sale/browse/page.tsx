@@ -87,7 +87,7 @@ export default function MoveOutSalePage() {
     "Kitchen", "Decor", "Sports", "Textbooks", "Appliances"
   ];
 
-  const conditions = ["All Condition", "New", "Like-new", "Good", "Fair"];
+  const conditions = ["All Conditions", "New", "Like-new", "Good", "Fair"];
   const locations = ["All Locations", "Dinkytown", "Eastbank", "Westbank", "Como", "Marcy-holmes"];
 
   // Sample product data
@@ -100,7 +100,7 @@ export default function MoveOutSalePage() {
       condition: "Good",
       category: "Furniture",
       location: "Dinkytown",
-      image: "/api/placeholder/300/300",
+      image: "https://www.ikea.com/kr/en/images/products/flintan-office-chair-with-armrests-beige__1007238_pe825958_s5.jpg?f=s",
       seller: "Sarah M.",
       availableUntil: "2025-06-20",
       description: "Comfortable office chair, minor wear on armrests",
@@ -117,7 +117,7 @@ export default function MoveOutSalePage() {
       condition: "Like-new",
       category: "Electronics",
       location: "Eastbank",
-      image: "/api/placeholder/300/300",
+      image: "https://www.macking.co.uk/cdn/shop/products/2020MBPSpaceGray1.jpg?v=1668600761",
       seller: "Mike R.",
       availableUntil: "2025-06-05",
       description: "2020 model, barely used, comes with charger",
@@ -134,7 +134,7 @@ export default function MoveOutSalePage() {
       condition: "Good",
       category: "Textbooks",
       location: "Westbank",
-      image: "/api/placeholder/300/300",
+      image: "https://m.media-amazon.com/images/I/71sAlGmgJBL._UF1000,1000_QL80_.jpg",
       seller: "Alex K.",
       availableUntil: "2025-06-14",
       description: "Some highlighting, great for CHEM 2301",
@@ -151,7 +151,7 @@ export default function MoveOutSalePage() {
       condition: "Good",
       category: "Appliances",
       location: "Como",
-      image: "/api/placeholder/300/300",
+      image: "https://www.kroger.com/product/images/large/front/0019639325699",
       seller: "Emma L.",
       availableUntil: "2025-06-01",
       description: "Perfect for dorm room, clean and functional",
@@ -168,7 +168,7 @@ export default function MoveOutSalePage() {
       condition: "Good",
       category: "Clothing",
       location: "Dinkytown",
-      image: "/api/placeholder/300/300",
+      image: "https://www.solereview.com/wp-content/uploads/2025/03/Nike_Vomero_18_on_road.jpg",
       seller: "Jordan T.",
       availableUntil: "2025-06-29",
       description: "Size 9, worn for one semester",
@@ -185,7 +185,7 @@ export default function MoveOutSalePage() {
       condition: "Fair",
       category: "Kitchen",
       location: "Marcy-holmes",
-      image: "/api/placeholder/300/300",
+      image: "https://us.home-appliances.philips/cdn/shop/files/BaristaBrew_LongAmericano_1920x1080_pdp_1500x.jpg?v=1727984512",
       seller: "Lisa H.",
       availableUntil: "2025-06-01",
       description: "Works great, some cosmetic wear",
@@ -842,9 +842,10 @@ export default function MoveOutSalePage() {
                     <div className="cursor-pointer">
                       {/* Product Image */}
                       <div className={`relative ${viewMode === "list" ? "w-48 h-32" : "aspect-square"}`}>
-                        <div className="w-full h-full bg-gray-200 flex items-center justify-center">
-                          <Package className="w-12 h-12 text-gray-400" />
-                        </div>
+                        <img
+                          src={product.image}
+                          className="w-full h-full object-cover"
+                        />
                         {/* Condition Badge */}
                         <div className="absolute bottom-2 left-2">
                           <span className={`px-2 py-1 rounded-full text-xs font-medium ${
@@ -1031,9 +1032,10 @@ export default function MoveOutSalePage() {
                       <div className="cursor-pointer">
                         {/* Product Image */}
                         <div className={`relative ${viewMode === "list" ? "w-48 h-32" : "aspect-square"}`}>
-                          <div className="w-full h-full bg-gray-200 flex items-center justify-center">
-                            <Package className="w-12 h-12 text-gray-400" />
-                          </div>
+                          <img
+                            src={product.image}
+                            className="w-full h-full object-cover"
+                          />
                           {/* Condition Badge */}
                           <div className="absolute bottom-2 left-2">
                             <span className={`px-2 py-1 rounded-full text-xs font-medium ${
@@ -1316,151 +1318,6 @@ export default function MoveOutSalePage() {
           </div>
         </div>
       )}
-
-      {/* Floating Action Button for Mobile */}
-      <div className="fixed bottom-6 right-6 lg:hidden">
-        <motion.button
-          whileHover={{ scale: 1.1 }}
-          whileTap={{ scale: 0.9 }}
-          onClick={() => setShowFilters(!showFilters)}
-          className="w-14 h-14 bg-orange-500 text-white rounded-full shadow-lg flex items-center justify-center"
-        >
-          <Filter className="w-6 h-6" />
-        </motion.button>
-      </div>
-
-      {/* Mobile Filters Modal */}
-      <AnimatePresence>
-        {showFilters && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 z-50 lg:hidden"
-            onClick={() => setShowFilters(false)}
-          >
-            <motion.div
-              initial={{ x: '100%' }}
-              animate={{ x: 0 }}
-              exit={{ x: '100%' }}
-              className="absolute right-0 top-0 h-full w-80 bg-white shadow-xl overflow-y-auto"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="p-4 border-b border-gray-200">
-                <div className="flex items-center justify-between">
-                  <h2 className="text-lg font-semibold text-gray-900">Filters</h2>
-                  <button
-                    onClick={() => setShowFilters(false)}
-                    className="p-2 hover:bg-gray-100 rounded-lg"
-                  >
-                    <X className="w-5 h-5" />
-                  </button>
-                </div>
-              </div>
-              
-              <div className="p-4 space-y-6">
-                {/* Mobile filters content - same as sidebar */}
-                <div>
-                  <h3 className="font-semibold text-gray-900 mb-3">Category</h3>
-                  <div className="space-y-1">
-                    {categories.map(category => (
-                      <button
-                        key={category}
-                        onClick={() => setSelectedCategory(category)}
-                        className={`w-full text-left px-3 py-2 rounded-lg text-sm capitalize transition-colors ${
-                          selectedCategory === category 
-                            ? "bg-orange-100 text-orange-700 font-medium" 
-                            : "hover:bg-gray-50 text-gray-700"
-                        }`}
-                      >
-                        {category === "All Categories" ? "All Categories" : category}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div>
-                  <h3 className="font-semibold text-gray-900 mb-3">Condition</h3>
-                  <div className="space-y-1">
-                    {conditions.map(condition => (
-                      <button
-                        key={condition}
-                        onClick={() => setSelectedCondition(condition)}
-                        className={`w-full text-left px-3 py-2 rounded-lg text-sm capitalize transition-colors ${
-                          selectedCondition === condition 
-                            ? "bg-orange-100 text-orange-700 font-medium" 
-                            : "hover:bg-gray-50 text-gray-700"
-                        }`}
-                      >
-                        {condition === "All Conditions" ? "All Conditions" : condition}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div>
-                  <h3 className="font-semibold text-gray-900 mb-3">Price Range</h3>
-                  <div className="space-y-3">
-                    <div className="flex items-center space-x-2">
-                      <input
-                        type="number"
-                        value={priceRange[0]}
-                        onChange={(e) => setPriceRange([parseInt(e.target.value) || 0, priceRange[1]])}
-                        className="w-20 px-2 py-1 border border-gray-300 rounded text-sm"
-                        placeholder="Min"
-                      />
-                      <span className="text-gray-500">to</span>
-                      <input
-                        type="number"
-                        value={priceRange[1]}
-                        onChange={(e) => setPriceRange([priceRange[0], parseInt(e.target.value) || 500])}
-                        className="w-20 px-2 py-1 border border-gray-300 rounded text-sm"
-                        placeholder="Max"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                <div>
-                  <h3 className="font-semibold text-gray-900 mb-3">Location</h3>
-                  <div className="space-y-1">
-                    {locations.map(location => (
-                      <button
-                        key={location}
-                        onClick={() => setSelectedLocation(location)}
-                        className={`w-full text-left px-3 py-2 rounded-lg text-sm capitalize transition-colors ${
-                          selectedLocation === location 
-                            ? "bg-orange-100 text-orange-700 font-medium" 
-                            : "hover:bg-gray-50 text-gray-700"
-                        }`}
-                      >
-                        {location === "All Locations" ? "All Locations" : location.replace("-", " ")}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              <div className="p-4 border-t border-gray-200">
-                <div className="flex space-x-3">
-                  <button
-                    onClick={() => {
-                      setSearchQuery("");
-                      setSelectedCategory("All Categories");
-                      setSelectedCondition("All Conditions");
-                      setPriceRange([0, 500]);
-                      setSelectedLocation("All Locations");
-                    }}
-                    className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
-                  >
-                    Clear All
-                  </button>
-                </div>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
 
       {/* Toast Notifications */}
       <AnimatePresence>
