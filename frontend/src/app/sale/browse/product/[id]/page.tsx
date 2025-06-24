@@ -26,6 +26,16 @@ const ProductDetailPage = () => {
   const [favorites, setFavorites] = useState(new Set());
   const [cart, setCart] = useState(new Map());
   const [product, setProduct] = useState<any>(null);
+  const [showReportForm, setShowReportForm] = useState(false);
+  const [reportReason, setReportReason] = useState("");
+  const [scamDetails, setScamDetails] = useState("");
+  const [informationDetails, setInformationDetails] = useState("");
+  const [matchDetails, setMatchDetails] = useState<string[]>([]);
+  const [priceDetails, setPriceDetails] = useState("");
+  const [offensiveDetails, setOffensiveDetails] = useState("");
+  const [unsafeDetails, setUnsafeDetails] = useState("");
+  const [sellerProblem, setSellerProblem] = useState("");
+  const [details, setDetails] = useState("");
   const [seller, setSeller] = useState<any>({
     ID : "none",
     name: "seller",
@@ -135,10 +145,68 @@ const ProductDetailPage = () => {
     }
   }, [id]);
 
+  const mismatchOptions = [
+    {value: "reviews", label: "Reviews"},
+    {value: "image", label: "Image"},
+    {value: "title", label: "Title"},
+    {value: "bullet", label: "Bullet Points"},
+    {value: "brand", label: "Brand"},
+    {value: "other-mismatches", label: "Other mismatches"}
+  ]
+
 
   const handleTabClick = (tab: string) => {
     router.push(`browse/profile/${product.id}/`);
     setShowProfile(false); // close dropdown
+  };
+
+  const handleSubmitReport = () => {
+    if (!reportReason) {
+      alert("Please select a reason for reporting.");
+      return;
+    }
+
+    if (!scamDetails && reportReason == "scam") {
+      alert("Please select a scam detail.");
+      return;
+    }
+    else if (!matchDetails && reportReason == "mismatch") {
+      alert("Please select a mismatch detail.");
+      return;
+    }
+    else if (!informationDetails && reportReason == "information") {
+      alert("Please select missing information.");
+      return;
+    }
+    else if (!sellerProblem && reportReason == "seller") {
+      alert("Please select a problem about the seller.");
+      return;
+    }
+    else if (!priceDetails && reportReason == "price") {
+      alert("Please select a price issue.");
+      return;
+    }
+    else if (!unsafeDetails && reportReason == "unsafe") {
+      alert("Please select a reason why it's unsafe.");
+      return;
+    }
+    else if (!offensiveDetails && reportReason == "offensive") {
+      alert("Please select a reason why it's offensive.");
+      return;
+    }
+
+    // Submit logic here, like sending to Firestore or your backend
+    alert("Seller reported. Thank you!");
+    setShowReportForm(false);
+    setReportReason("");
+    setScamDetails("");
+    setMatchDetails([]);
+    setInformationDetails("");
+    setSellerProblem("");
+    setPriceDetails("");
+    setUnsafeDetails("");
+    setOffensiveDetails("");
+    setDetails("");
   };
 
   const navigateToMessage = () => {
@@ -533,15 +601,212 @@ const ProductDetailPage = () => {
         </div>
       </div>
 
-        {/* seller report button */}
-        <button
-          title="report seller"
-          onClick={() => alert('Reported seller')}
-          className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 cursor-pointer"
-        >
-          <Flag size={20} />
-        </button>
+      {/* Main report button */}
+      <button
+        title="Report seller"
+        onClick={() => setShowReportForm((prev) => !prev)}
+        className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 flex items-center gap-1"
+      >
+        <Flag size={18} />
+        <span className="text-sm">Report</span>
+      </button>
+
+      {/* Report form */}
+      {showReportForm && (
+        <div className="mt-2 p-4 bg-white border border-gray-300 rounded-lg shadow-md w-200 absolute z-10">
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Reason for report
+          </label>
+          <select
+            value={reportReason}
+            onChange={(e) => setReportReason(e.target.value)}
+            className="w-full px-3 py-2 border border-gray-300 rounded mb-3"
+          >
+            <option value="">-- Select a reason --</option>
+            <option value="information">Some proudct information is missing, inaccurate or could be improved</option>
+            <option value="mismatch">Parts of this page don't match</option>
+            <option value="price">I have an issue with the price</option>
+            <option value="offensive">This product or content is offensive</option>
+            <option value="unsafe">This product or content is illegal, unsafe or suspicious</option>
+            <option value="seller">I have an issue with a Seller</option>
+            <option value="scam">I think this is a scam</option>
+            <option value="other">Other</option>
+          </select>
+
+          {reportReason === "scam" && (
+            <div className="mb-3">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Scam Details
+              </label>
+              <select
+                value={scamDetails}
+                onChange={(e) => setScamDetails(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded"
+              >
+                <option value="">-- Select scam type --</option>
+                <option value="suspicious-payment">Asked for a suspicious way of payment</option>
+                <option value="fake-listing">Fake product listing</option>
+                <option value="other-scam">Other scam-related issue</option>
+              </select>
+            </div>
+          )}
+
+          {reportReason === "information" && (
+            <div className="mb-3">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Missing information
+              </label>
+              <select
+                value={informationDetails}
+                onChange={(e) => setInformationDetails(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded"
+              >
+                <option value="">-- Select missing information --</option>
+                <option value="image">Images</option>
+                <option value="size">Size</option>
+                <option value="release-info">Release Information</option>
+                <option value="model">Model</option>
+                <option value="brand">Brand</option>
+                <option value="condition">Condition</option>
+                <option value="other-info">Other missing information</option>
+              </select>
+            </div>
+          )}
+
+          {reportReason === "mismatch" && (
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Mismatch Details (Select all that apply)
+              </label>
+              <div className="space-y-2">
+                {mismatchOptions.map((option) => (
+                  <label
+                    key={option.value}
+                    className="flex items-center space-x-2 cursor-pointer"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={matchDetails.includes(option.value)}
+                      onChange={(e) => {
+                        const newValues = e.target.checked
+                          ? [...matchDetails, option.value]
+                          : matchDetails.filter((val) => val !== option.value);
+                        setMatchDetails(newValues);
+                      }}
+                      className="h-4 w-4 text-orange-500 border-gray-300 rounded"
+                    />
+                    <span className="text-sm text-gray-700">{option.label}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {reportReason === "price" && (
+            <div className="mb-3">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Price Issues
+              </label>
+              <select
+                value={priceDetails}
+                onChange={(e) => setPriceDetails(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded"
+              >
+                <option value="">-- Select price issues --</option>
+                <option value="price-disparity">Price disparity between single and multi-pack</option>
+                <option value="discount">Discount error</option>
+                <option value="price-condition">Prices for conditions higher than new</option>
+                <option value="other-price">Other price issue</option>
+              </select>
+            </div>
+          )}
+
+          {reportReason === "offensive" && (
+            <div className="mb-3">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Reason why it's offensive
+              </label>
+              <select
+                value={offensiveDetails}
+                onChange={(e) => setOffensiveDetails(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded"
+              >
+                <option value="">-- Select reason why it's offensive --</option>
+                <option value="sexual">Sexually explicit content</option>
+                <option value="choice">Too offensive word choices</option>
+                <option value="other-scam">Other reasons why it's offensive</option>
+              </select>
+            </div>
+          )}
+
+          {reportReason === "unsafe" && (
+            <div className="mb-3">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Reason why it's unsafe
+              </label>
+              <select
+                value={unsafeDetails}
+                onChange={(e) => setUnsafeDetails(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded"
+              >
+                <option value="">-- Select reason it's unsafe --</option>
+                <option value="counterfeit">It's counterfeit</option>
+                <option value="intellectual">Uses my intellectual property without permission</option>
+                <option value="safety-regulation">Not safe or compliant with product safety regulations</option>
+                <option value="reviews">Reviews and Answers contain illegal content</option>
+                <option value="other-scam">Other  reasons it's unsafe</option>
+              </select>
+            </div>
+          )}
+
+          {reportReason === "seller" && (
+            <div className="mb-3">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Problem about the seller
+              </label>
+              <select
+                value={sellerProblem}
+                onChange={(e) => setSellerProblem(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded"
+              >
+                <option value="">-- Select seller problem --</option>
+                <option value="identity">Using false or misleading identity information</option>
+                <option value="contact">Using false or misleading contact information</option>
+                <option value="reviews">Attempting to manipulate reviews</option>
+                <option value="inappropriate">Engaging in other inappropriate activity</option>
+                <option value="stolen">Selling a potentially stolen product</option>
+                <option value="other-scam">Other scam-related issue</option>
+              </select>
+            </div>
+          )}
+
+          
+
+          <textarea
+            value={details}
+            onChange={(e) => setDetails(e.target.value)}
+            placeholder="Additional details (optional)"
+            className="w-full px-3 py-2 border border-gray-300 rounded mb-3 resize-none"
+            rows={3}
+          />
+
+          <div className="flex justify-between">
+            <button
+              onClick={handleSubmitReport}
+              className="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600 text-sm"
+            >
+              Submit
+            </button>
+            <button
+              onClick={() => setShowReportForm(false)}
+              className="text-gray-500 text-sm hover:underline"
+            >
+              Cancel
+            </button>
+          </div>
         </div>
+      )}
+      </div>
 
       {/* Product Info */}
       <div className="bg-white rounded-lg shadow p-6 mb-6">
@@ -556,9 +821,8 @@ const ProductDetailPage = () => {
           </div>
         </div>
 
-      {/* add favorites and connect */}
-      <div className="space-y-4 ">
-        
+        {/* add favorites and connect */}
+        <div className="space-y-4 ">
           {/* Connect Options - it can be seen when showConnectOptions is true */}
           {showConnectOptions && (
             <div className="grid gap-4 mb-4 ">
@@ -592,7 +856,6 @@ const ProductDetailPage = () => {
             </div>
           </div>
         </div>
-    
       
       
 
@@ -636,54 +899,48 @@ const ProductDetailPage = () => {
       )}
     </div>
 
-  {/* similar product matching */}
+    {/* similar product matching */}
     <div className="bg-white rounded-lg shadow p-6 mt-6">
-  <h3 className="text-xl font-bold mb-4 text-gray-600">Similar Products</h3>
-  
-  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-    {products
-      .filter(item => {
-        if (item.id === product.id) return false;
-        
-        const productWords = product.name.toLowerCase().split(/\s+/);
-        const itemWords = item.name.toLowerCase().split(/\s+/);
-        
-        // find product with same word
-        return productWords.some(word => 
-          word.length > 2 && itemWords.some(itemWord => 
-            itemWord.includes(word) || word.includes(itemWord)
-          )
-        );
-      })
-      .slice(0, 8)
-      .map(item => (
-        <div 
-          key={item.id}
-          onClick={() => router.push(`/sale/browse/product/${item.id}`)}
-          className="cursor-pointer bg-gray-50 rounded-lg overflow-hidden hover:shadow-md transition-shadow"
-        >
-          <img 
-            src={item.image} 
-            alt={item.name}
-            className="w-full h-32 object-cover"
-          />
-          <div className="p-3">
-            <h4 className="font-medium text-sm truncate text-gray-700">{item.name}</h4>
-            <p className="text-orange-600 font-bold text-sm">${item.price}</p>
-            <p className="text-gray-500 text-xs">{item.location}</p>
-          </div>
+      <h3 className="text-xl font-bold mb-4 text-gray-600">Similar Products</h3>
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+        {products
+          .filter(item => {
+            if (item.id === product.id) return false;
+            
+            const productWords = product.name.toLowerCase().split(/\s+/);
+            const itemWords = item.name.toLowerCase().split(/\s+/);
+            
+            // find product with same word
+            return productWords.some(word => 
+              word.length > 2 && itemWords.some(itemWord => 
+                itemWord.includes(word) || word.includes(itemWord)
+              )
+            );
+          })
+          .slice(0, 8)
+          .map(item => (
+            <div 
+              key={item.id}
+              onClick={() => router.push(`/sale/browse/product/${item.id}`)}
+              className="cursor-pointer bg-gray-50 rounded-lg overflow-hidden hover:shadow-md transition-shadow"
+            >
+              <img 
+                src={item.image} 
+                alt={item.name}
+                className="w-full h-32 object-cover"
+              />
+              <div className="p-3">
+                <h4 className="font-medium text-sm truncate text-gray-700">{item.name}</h4>
+                <p className="text-orange-600 font-bold text-sm">${item.price}</p>
+                <p className="text-gray-500 text-xs">{item.location}</p>
+              </div>
+            </div>
+          ))}
         </div>
-      ))}
-  </div>
-</div>
-
-
-</div>
-</div>
-
-
+      </div>
     </div>
-
+    </div>
+    </div>
   );
 }
 
