@@ -62,6 +62,12 @@ export default function AuthPage() {
   const [phoneVerificationCode, setPhoneVerificationCode] = useState("");
   const [showPhoneVerification, setShowPhoneVerification] = useState(false);
 
+  // Veteran
+  const [isVeteran, setIsVeteran] = useState(false);
+  const [serviceStart, setServiceStart] = useState("");
+  const [serviceEnd, setServiceEnd] = useState("");
+  const [error, setError] = useState("");
+
   // Auto-login effect
   useEffect(() => {
     const savedEmail = localStorage.getItem("savedEmail");
@@ -105,6 +111,7 @@ export default function AuthPage() {
     setIsPhoneVerified(false);
     setPhoneVerificationCode("");
     setShowPhoneVerification(false);
+    setIsVeteran(false);
   };
 
   // Event handlers
@@ -211,6 +218,7 @@ export default function AuthPage() {
       phoneNumber: phoneNumber || null,
       isPhoneVerified,
       socialLink: socialLink || null,
+      veteran: isVeteran,
       quickBio: quickBio || null,
       isStudentVerified: schoolEmail && isSchoolEmail(schoolEmail),
       badges: {
@@ -230,6 +238,8 @@ export default function AuthPage() {
       alert("Please enter both email and password");
       return;
     }
+
+    if (!validate()) return;
 
     setLoading(true);
 
@@ -302,6 +312,18 @@ export default function AuthPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Checking veteran error code
+  const validate = () => {
+    if (isVeteran) {
+      if (!serviceStart || !serviceEnd) {
+        setError("Please enter both start and end dates of your service.");
+        return false;
+      }
+    }
+    setError("");
+    return true;
   };
 
   // Social login handlers
@@ -482,7 +504,8 @@ export default function AuthPage() {
                       <svg className="w-3 h-3 inline mr-1" fill="currentColor" viewBox="0 0 20 20">
                         <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
                       </svg>
-                      School emails (.edu) earn a "🎓 Verified Student" badge
+                      School emails (.edu) earn a "Verified Student" badge.
+                      Feel free to write your email even if you have graduated. WE HAVE SPECIAL BADGE FOR YOU!!
                     </p>
                     {schoolEmail && isSchoolEmail(schoolEmail) && (
                       <span className="text-green-600 text-xs">🎓 Student Badge Eligible</span>
@@ -563,6 +586,51 @@ export default function AuthPage() {
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all"
                   />
                   <p className="text-xs text-gray-500 mt-1">Add credibility to your profile with a social media link</p>
+                </div>
+                
+                {/* Veteran */}
+                <div className="mt-4">
+                  <label className="flex items-center space-x-2">
+                    <input
+                      type="checkbox"
+                      checked={isVeteran}
+                      onChange={(e) => setIsVeteran(e.target.checked)}
+                      className="form-checkbox h-5 w-5 text-green-600"
+                    />
+                    <span className="text-sm font-medium text-gray-700">Served/Serving as a Veteran</span>
+                  </label>
+
+                  {isVeteran && (
+                    <div className="mt-3 space-y-2">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700">
+                          Start of Service
+                        </label>
+                        <input
+                          type="date"
+                          value={serviceStart}
+                          onChange={(e) => setServiceStart(e.target.value)}
+                          className="mt-1 block w-full rounded-md border border-gray-300 shadow-sm p-2 text-sm"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700">
+                          End of Service
+                        </label>
+                        <input
+                          type="date"
+                          value={serviceEnd}
+                          onChange={(e) => setServiceEnd(e.target.value)}
+                          className="mt-1 block w-full rounded-md border border-gray-300 shadow-sm p-2 text-sm"
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {error && (
+                    <p className="text-red-500 text-sm mt-2">{error}</p>
+                  )}
                 </div>
 
                 {/* Quick Bio */}

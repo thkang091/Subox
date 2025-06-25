@@ -27,7 +27,9 @@
       deliveryAvailable: true,
       pickupAvailable: true,
       rating: 4.5,
-      views: 23
+      views: 23,
+      veteran: true,
+      student: true
     },
     {
       id: 2,
@@ -55,7 +57,9 @@
       deliveryAvailable: false,
       pickupAvailable: true,
       rating: 5.0,
-      views: 87
+      views: 87,
+      alumni: true,
+      trustedSeller: true
     },
     {
       id: 3,
@@ -80,7 +84,8 @@
       deliveryAvailable: true,
       pickupAvailable: true,
       rating: 4.0,
-      views: 12
+      views: 12,
+      bestReviewer: true
     },
     {
       id: 4,
@@ -105,7 +110,9 @@
       deliveryAvailable: true,
       pickupAvailable: true,
       rating: 4.2,
-      views: 34
+      views: 34,
+      student: true,
+      trustedRenter: true
     },
     {
       id: 5,
@@ -130,7 +137,8 @@
       deliveryAvailable: false,
       pickupAvailable: true,
       rating: 4.3,
-      views: 18
+      views: 18,
+      bestRater: true
     },
     {
       id: 6,
