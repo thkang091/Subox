@@ -209,7 +209,7 @@ export default function MoveOutSalePage() {
       bestRater: true,
       alumni: false,
       bestReviewer: false,
-      trustedSeller: false,
+      trustedSeller: true,
       trustedRenter: false
     },
     {
@@ -598,6 +598,7 @@ export default function MoveOutSalePage() {
                         <button onClick={() => handleTabClick("sublease")} className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors">Sublease</button>
                         <button onClick={() => handleTabClick("reviews")} className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors">Reviews</button>
                         <hr className="my-2" />
+                        <button onClick={() => router.push('browse/temp')} className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors">Temp</button>
                         <button onClick={() => handleTabClick("history")} className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors">History</button>
                         <button onClick={() => handleTabClick("other")} className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors">Other</button>
                      </div>
@@ -989,338 +990,400 @@ export default function MoveOutSalePage() {
                         <Link key={`seller-${product.id}`} href={`browse/profile/${product.seller}`} className="text-sm text-gray-500">
                           Sold by <span className="font-medium text-gray-700">{product.seller}</span>
                           {product.bestRater && (
-                            <svg
-                              viewBox="0 0 100 100"
-                              xmlns="http://www.w3.org/2000/svg"
-                              className="w-5 h-5" // 40x40 pixels
-                              role="img"
-                              aria-label="Best Rater Badge"
-                            >
-                              {/* Bottle cap background */}
-                              <circle cx="50" cy="50" r="48" fill="#000000" /> {/* Black */}
+                            <div className="w-5 h-5">
+                              <svg
+                                viewBox="0 0 100 100"
+                                xmlns="http://www.w3.org/2000/svg"
+                                className="w-full h-full"
+                                aria-label="Five Star Badge Icon"
+                                role="img"
+                              >
+                                <title>Five Star Badge Icon</title>
 
-                              {/* Wavy cap edge */}
-                              <path
-                                d="M50,2 
-                                  C54,10 66,6 70,12 
-                                  C74,18 86,14 88,22 
-                                  C90,30 98,34 96,42 
-                                  C94,50 100,58 94,64 
-                                  C88,70 90,82 82,86 
-                                  C74,90 70,98 62,96 
-                                  C54,94 46,100 38,96 
-                                  C30,92 26,94 18,88 
-                                  C10,82 12,70 6,64 
-                                  C0,58 6,50 4,42 
-                                  C2,34 10,30 12,22 
-                                  C14,14 26,18 30,12 
-                                  C34,6 46,10 50,2 Z"
-                                fill="#000000"
-                              />
+                                {/* Black circular base */}
+                                <circle cx="50" cy="50" r="48" fill="#000" />
 
-                              <g transform="scale(0.6) translate(35, 35)">
-                                {/* Five stars in star shape */}
-                                <polygon
-                                  points="50,35 54,47 67,47 56,55 60,67 50,59 40,67 44,55 33,47 46,47"
-                                  fill="#FFD700"
-                                  stroke="#FFC107"
-                                  strokeWidth="1"
-                                />
-                                <polygon
-                                  points="36,30 39,36 45,36 40,40 42,46 36,42 30,46 32,40 27,36 33,36"
-                                  fill="#FFD700"
-                                  stroke="#FFC107"
-                                  strokeWidth="0.8"
-                                />
-                                <polygon
-                                  points="64,30 67,36 73,36 68,40 70,46 64,42 58,46 60,40 55,36 61,36"
-                                  fill="#FFD700"
-                                  stroke="#FFC107"
-                                  strokeWidth="0.8"
-                                />
-                                <polygon
-                                  points="37,60 40,66 46,66 41,70 43,76 37,72 31,76 33,70 28,66 34,66"
-                                  fill="#FFD700"
-                                  stroke="#FFC107"
-                                  strokeWidth="0.8"
-                                />
-                                <polygon
-                                  points="63,60 66,66 72,66 67,70 69,76 63,72 57,76 59,70 54,66 60,66"
-                                  fill="#FFD700"
-                                  stroke="#FFC107"
-                                  strokeWidth="0.8"
-                                />
-                              </g>
-                            </svg>
+                                {/* Wavy edge */}
+                                {[...Array(20)].map((_, i) => {
+                                  const angle = (i * 360) / 20;
+                                  const rad = (angle * Math.PI) / 180;
+                                  const rOuter = 50;
+                                  const rInner = 45;
+                                  const x1 = 50 + rOuter * Math.cos(rad);
+                                  const y1 = 50 + rOuter * Math.sin(rad);
+                                  const x2 = 50 + rInner * Math.cos(rad + Math.PI / 40);
+                                  const y2 = 50 + rInner * Math.sin(rad + Math.PI / 40);
+                                  const x3 = 50 + rOuter * Math.cos(rad + Math.PI / 20);
+                                  const y3 = 50 + rOuter * Math.sin(rad + Math.PI / 20);
+                                  return (
+                                    <path
+                                      key={i}
+                                      d={`M${x1},${y1} Q${x2},${y2} ${x3},${y3} Z`}
+                                      fill="#000"
+                                    />
+                                  );
+                                })}
+
+                                {/* Five Stars smaller for spacing */}
+                                <g>
+                                  {[...Array(5)].map((_, i) => {
+                                    const angle = (i * 360) / 5 - 90;
+                                    const rad = (angle * Math.PI) / 180;
+                                    const r = 20;
+                                    const cx = 50 + r * Math.cos(rad);
+                                    const cy = 50 + r * Math.sin(rad);
+
+                                    // Smaller star size for more spacing
+                                    const starPoints = [];
+                                    const numPoints = 5;
+                                    const outerRadius = 8;
+                                    const innerRadius = 4;
+
+                                    for (let j = 0; j < numPoints * 2; j++) {
+                                      const isOuter = j % 2 === 0;
+                                      const radius = isOuter ? outerRadius : innerRadius;
+                                      const pointAngle = (j * Math.PI) / numPoints - Math.PI / 2;
+                                      const x = cx + radius * Math.cos(pointAngle);
+                                      const y = cy + radius * Math.sin(pointAngle);
+                                      starPoints.push(`${x},${y}`);
+                                    }
+
+                                    return (
+                                      <polygon
+                                        key={i}
+                                        points={starPoints.join(" ")}
+                                        fill="#FFD700" // Gold color
+                                      />
+                                    );
+                                  })}
+                                </g>
+                              </svg>
+                            </div>
                           )}
 
                           {product.student && (
-                            <svg
-                              viewBox="0 0 100 100"
-                              xmlns="http://www.w3.org/2000/svg"
-                              className="w-5 h-5"
-                              role="img"
-                              aria-label="Student Badge"
-                            >
-                              {/* Bottle cap background */}
-                              <circle cx="50" cy="50" r="48" fill="#7C2529" /> {/* Maroon */}
-
-                              {/* Wavy cap edge */}
-                              <path
-                                d="M50,2 
-                                  C54,10 66,6 70,12 
-                                  C74,18 86,14 88,22 
-                                  C90,30 98,34 96,42 
-                                  C94,50 100,58 94,64 
-                                  C88,70 90,82 82,86 
-                                  C74,90 70,98 62,96 
-                                  C54,94 46,100 38,96 
-                                  C30,92 26,94 18,88 
-                                  C10,82 12,70 6,64 
-                                  C0,58 6,50 4,42 
-                                  C2,34 10,30 12,22 
-                                  C14,14 26,18 30,12 
-                                  C34,6 46,10 50,2 Z"
-                                fill="#7C2529"
-                              />
-
-                              {/* M letter */}
-                              <text
-                                x="50%"
-                                y="60%"
-                                textAnchor="middle"
-                                fill="#FFD700"
-                                fontSize="40"
-                                fontWeight="bold"
-                                fontFamily="Arial, sans-serif"
-                                dy=".3em"
+                            <div className="w-5 h-5">
+                              <svg
+                                viewBox="0 0 100 100"
+                                xmlns="http://www.w3.org/2000/svg"
+                                className="w-full h-full"
                               >
-                                M
-                              </text>
-                            </svg>
+                                {/* Maroon base circle */}
+                                <circle cx="50" cy="50" r="48" fill="#7A0019" />
+                                
+                                {/* Wavy bottle cap edge */}
+                                {[...Array(20)].map((_, i) => {
+                                  const angle = (i * 360) / 20;
+                                  const rad = (angle * Math.PI) / 180;
+                                  const rOuter = 50;
+                                  const rInner = 45;
+                                  const x1 = 50 + rOuter * Math.cos(rad);
+                                  const y1 = 50 + rOuter * Math.sin(rad);
+                                  const x2 = 50 + rInner * Math.cos(rad + Math.PI / 40);
+                                  const y2 = 50 + rInner * Math.sin(rad + Math.PI / 40);
+                                  const x3 = 50 + rOuter * Math.cos(rad + Math.PI / 20);
+                                  const y3 = 50 + rOuter * Math.sin(rad + Math.PI / 20);
+
+                                  return (
+                                    <path
+                                      key={i}
+                                      d={`M${x1},${y1} Q${x2},${y2} ${x3},${y3} Z`}
+                                      fill="#7A0019"
+                                    />
+                                  );
+                                })}
+
+                                {/* Gold "M" */}
+                                <text
+                                  x="50"
+                                  y="60"
+                                  textAnchor="middle"
+                                  fontSize="32"
+                                  fontWeight="900"
+                                  fill="#FFCC33"
+                                  fontFamily="Georgia, serif"
+                                >
+                                  M
+                                </text>
+                              </svg>
+                            </div>
                           )}
 
+
                           {product.trustedSeller && (
-                            <svg
-                              viewBox="0 0 100 100"
-                              xmlns="http://www.w3.org/2000/svg"
-                              className="w-5 h-5"
-                              role="img"
-                              aria-label="Trusted Seller Badge"
-                            >
-                              {/* Bottle cap background */}
-                              <circle cx="50" cy="50" r="48" fill="#FFD700" /> {/* Yellow */}
+                            <div className="w-5 h-5">
+                              <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+                                {/* Yellow base */}
+                                <circle cx="50" cy="50" r="48" fill="#FFD700" />
 
-                              {/* Wavy cap edge */}
-                              <path
-                                d="M50,2 
-                                  C54,10 66,6 70,12 
-                                  C74,18 86,14 88,22 
-                                  C90,30 98,34 96,42 
-                                  C94,50 100,58 94,64 
-                                  C88,70 90,82 82,86 
-                                  C74,90 70,98 62,96 
-                                  C54,94 46,100 38,96 
-                                  C30,92 26,94 18,88 
-                                  C10,82 12,70 6,64 
-                                  C0,58 6,50 4,42 
-                                  C2,34 10,30 12,22 
-                                  C14,14 26,18 30,12 
-                                  C34,6 46,10 50,2 Z"
-                                fill="#FFD700"
-                              />
+                                {/* Wavy edge (bottle cap) */}
+                                {[...Array(20)].map((_, i) => {
+                                  const angle = (i * 360) / 20;
+                                  const rad = (angle * Math.PI) / 180;
+                                  const rOuter = 50;
+                                  const rInner = 45;
+                                  const x1 = 50 + rOuter * Math.cos(rad);
+                                  const y1 = 50 + rOuter * Math.sin(rad);
+                                  const x2 = 50 + rInner * Math.cos(rad + Math.PI / 40);
+                                  const y2 = 50 + rInner * Math.sin(rad + Math.PI / 40);
+                                  const x3 = 50 + rOuter * Math.cos(rad + Math.PI / 20);
+                                  const y3 = 50 + rOuter * Math.sin(rad + Math.PI / 20);
+                                  return <path key={i} d={`M${x1},${y1} Q${x2},${y2} ${x3},${y3} Z`} fill="#FFD700" />;
+                                })}
 
-                              {/* Handshake icon */}
-                              <path
-                                d="M35 45 C34 42, 38 42, 39 45
-                                  L43 53 C44 55, 46 55, 47 53
-                                  L50 48 L53 53 C54 55, 56 55, 57 53
-                                  L61 45 C62 42, 66 42, 65 45
-                                  L58 60 C57 62, 54 62, 52 60
-                                  L50 56 L48 60 C46 62, 43 62, 42 60 Z"
-                                fill="#000000"
-                              />
-                            </svg>
+                                {/* Larger Handshake Icon */}
+                                <g transform="translate(50, 50) scale(0.8)">
+                                  <g transform="translate(-32, -32)" stroke="#000" strokeWidth="2" fill="none">
+                                    <path d="M46.025 33.56l5.427 5.431a4 4 0 0 0 5.657-5.656L43.68 19.9c-2.441-2.44-5.137-2.672-8.016.208l-.838.828a4 4 0 0 1-5.655-5.656L32 12.455C35.266 9.185 37.124 8 39.873 8h4.34L62 25.776l-6.23 6.23" />
+                                    <path d="M46.014 33.559l6.844 6.841a4 4 0 0 1-5.658 5.66l-6.239-6.242" />
+                                    <path d="M40.962 39.818l4.825 4.827a4 4 0 0 1-5.652 5.655l-2.827-2.828" />
+                                    <path d="M37.616 47.78l1.39 1.393a4 4 0 0 1-5.653 5.657l-1.39-1.394" />
+                                    <path d="M8.45 32.007L2 25.556 18.021 9.531s2.132 2.482 3.924 2.482c2.174 0 2.706-.706 4-2 2.124-2.126 5.32-2.063 8 .613" />
+                                    <path d="M15.6 36.163a4 4 0 1 0-5.653-5.655l-2.825 2.827a4 4 0 0 0 5.655 5.656z" />
+                                    <path d="M21.258 41.818a4 4 0 0 0-5.658-5.656L11.362 40.4a4 4 0 0 0 5.655 5.656zm5.653 5.656a4 4 0 0 0-5.653-5.656l-2.827 2.827a4 4 0 0 0 5.655 5.655z" />
+                                    <path d="M32.258 53.436A4 4 0 1 0 26.6 47.78l-1.392 1.393a4 4 0 0 0 5.655 5.657z" />
+                                  </g>
+                                </g>
+                              </svg>
+                            </div>
                           )}
 
                           {product.trustedRenter && (
-                            <svg
-                              viewBox="0 0 100 100"
-                              xmlns="http://www.w3.org/2000/svg"
-                              className="w-5 h-5"
-                              role="img"
-                              aria-label="Trusted Renter Badge"
-                            >
-                              {/* Bottle cap background */}
-                              <circle cx="50" cy="50" r="48" fill="#28a745" /> {/* Green */}
+                            <div className="w-5 h-5">
+                              <svg
+                                viewBox="0 0 100 100"
+                                xmlns="http://www.w3.org/2000/svg"
+                                className="w-full h-full"
+                                aria-label="Rent contract badge icon"
+                                role="img"
+                              >
+                                <title>Rent Contract Icon</title>
 
-                              {/* Wavy cap edge */}
-                              <path
-                                d="M50,2 
-                                  C54,10 66,6 70,12 
-                                  C74,18 86,14 88,22 
-                                  C90,30 98,34 96,42 
-                                  C94,50 100,58 94,64 
-                                  C88,70 90,82 82,86 
-                                  C74,90 70,98 62,96 
-                                  C54,94 46,100 38,96 
-                                  C30,92 26,94 18,88 
-                                  C10,82 12,70 6,64 
-                                  C0,58 6,50 4,42 
-                                  C2,34 10,30 12,22 
-                                  C14,14 26,18 30,12 
-                                  C34,6 46,10 50,2 Z"
-                                fill="#28a745"
-                              />
+                                {/* Green circular base */}
+                                <circle cx="50" cy="50" r="48" fill="#4CAF50" />
 
-                              {/* House with key icon */}
-                              {/* Roof */}
-                              <path d="M30 55 L50 40 L70 55" stroke="#000" strokeWidth="2" fill="none" />
-                              {/* Walls */}
-                              <path d="M34 55 V72 H66 V55" stroke="#000" strokeWidth="2" fill="none" />
-                              {/* Door */}
-                              <rect x="46" y="62" width="8" height="10" fill="#000" />
-                              {/* Key */}
-                              <circle cx="66" cy="36" r="4" fill="#000" />
-                              <line x1="62" y1="36" x2="48" y2="36" stroke="#000" strokeWidth="2" />
-                              <line x1="52" y1="36" x2="52" y2="33" stroke="#000" strokeWidth="2" />
-                              <line x1="56" y1="36" x2="56" y2="39" stroke="#000" strokeWidth="2" />
-                            </svg>
+                                {/* Wavy edge */}
+                                {[...Array(20)].map((_, i) => {
+                                  const angle = (i * 360) / 20;
+                                  const rad = (angle * Math.PI) / 180;
+                                  const rOuter = 50;
+                                  const rInner = 45;
+                                  const x1 = 50 + rOuter * Math.cos(rad);
+                                  const y1 = 50 + rOuter * Math.sin(rad);
+                                  const x2 = 50 + rInner * Math.cos(rad + Math.PI / 40);
+                                  const y2 = 50 + rInner * Math.sin(rad + Math.PI / 40);
+                                  const x3 = 50 + rOuter * Math.cos(rad + Math.PI / 20);
+                                  const y3 = 50 + rOuter * Math.sin(rad + Math.PI / 20);
+                                  return (
+                                    <path
+                                      key={i}
+                                      d={`M${x1},${y1} Q${x2},${y2} ${x3},${y3} Z`}
+                                      fill="#4CAF50"
+                                    />
+                                  );
+                                })}
+
+                                {/* Even Bigger Center Icon */}
+                                <g transform="translate(50, 50) scale(0.9) translate(-25, -25)">
+                                  {/* Solid House */}
+                                  <path
+                                    d="M 25 5 L 5 25 L 12 25 L 12 45 L 38 45 L 38 25 L 45 25 Z"
+                                    fill="#000"
+                                  />
+
+                                  {/* Vertical Key inside House */}
+                                  <g transform="translate(23, 30)">
+                                    <circle cx="2.5" cy="2.5" r="2" fill="#4CAF50" />
+                                    <rect x="2" y="4" width="1" height="10" fill="#4CAF50" />
+                                    <rect x="1" y="10" width="3" height="1" fill="#4CAF50" />
+                                    <rect x="1" y="12" width="2" height="1" fill="#4CAF50" />
+                                  </g>
+                                </g>
+                              </svg>
+                            </div>
                           )}
 
                           {product.alumni && (
-                            <svg
+                            <div className="w-5 h-5">
+                              <svg
                                 viewBox="0 0 100 100"
                                 xmlns="http://www.w3.org/2000/svg"
-                                className="w-5 h-5"
-                            >
-                                {/* Bottle cap background */}
-                                <circle cx="50" cy="50" r="48" fill="#2C4F91" /> {/* Blue */}
+                                className="w-full h-full"
+                                aria-label="Graduation Badge Icon"
+                                role="img"
+                              >
+                                <title>Graduation Badge Icon</title>
 
-                                {/* Wavy cap edge */}
-                                <path
-                                    d="M50,2 
-                                        C54,10 66,6 70,12 
-                                        C74,18 86,14 88,22 
-                                        C90,30 98,34 96,42 
-                                        C94,50 100,58 94,64 
-                                        C88,70 90,82 82,86 
-                                        C74,90 70,98 62,96 
-                                        C54,94 46,100 38,96 
-                                        C30,92 26,94 18,88 
-                                        C10,82 12,70 6,64 
-                                        C0,58 6,50 4,42 
-                                        C2,34 10,30 12,22 
-                                        C14,14 26,18 30,12 
-                                        C34,6 46,10 50,2 Z"
-                                    fill="#2C4F91"
-                                />
+                                {/* Blue circular base */}
+                                <circle cx="50" cy="50" r="48" fill="#2196F3" />
 
-                                {/* Graduation Cap (Gold) */}
-                                <g transform="translate(25, 35) scale(0.5)">
+                                {/* Wavy edge */}
+                                {[...Array(20)].map((_, i) => {
+                                  const angle = (i * 360) / 20;
+                                  const rad = (angle * Math.PI) / 180;
+                                  const rOuter = 50;
+                                  const rInner = 45;
+                                  const x1 = 50 + rOuter * Math.cos(rad);
+                                  const y1 = 50 + rOuter * Math.sin(rad);
+                                  const x2 = 50 + rInner * Math.cos(rad + Math.PI / 40);
+                                  const y2 = 50 + rInner * Math.sin(rad + Math.PI / 40);
+                                  const x3 = 50 + rOuter * Math.cos(rad + Math.PI / 20);
+                                  const y3 = 50 + rOuter * Math.sin(rad + Math.PI / 20);
+                                  return (
                                     <path
-                                    d="M50 10 L90 25 L50 40 L10 25 Z"
-                                    fill="#FFD700"
+                                      key={i}
+                                      d={`M${x1},${y1} Q${x2},${y2} ${x3},${y3} Z`}
+                                      fill="#2196F3"
                                     />
-                                    <rect x="45" y="40" width="10" height="15" fill="#FFD700" />
-                                    <line x1="90" y1="25" x2="90" y2="38" stroke="#FFD700" strokeWidth="3" />
-                                    <circle cx="90" cy="38" r="2.5" fill="#FFD700" />
+                                  );
+                                })}
+
+                                {/* Graduation Cap with Larger Size */}
+                                <g transform="translate(50, 50) scale(0.9) translate(-25, -25)">
+                                  
+                                  {/* Diamond top of cap */}
+                                  <polygon
+                                    points="25,5 0,17 25,29 50,17"
+                                    fill="#FFEB3B"
+                                  />
+
+                                  {/* Bottom curved fabric */}
+                                  <path
+                                    d="
+                                      M8,22 
+                                      Q25,34 42,22 
+                                      L42,30 
+                                      Q25,42 8,30 
+                                      Z
+                                    "
+                                    fill="#FFEB3B"
+                                  />
+
+                                  {/* Tassel string */}
+                                  <line x1="42" y1="17" x2="42" y2="30" stroke="#FFEB3B" strokeWidth="2" />
+
+                                  {/* Tassel circular button */}
+                                  <circle cx="42" cy="30" r="2" fill="#FFEB3B" />
+
+                                  {/* Tassel triangle */}
+                                  <polygon points="40,32 44,32 42,37" fill="#FFEB3B" />
+
                                 </g>
-                            </svg>
+                              </svg>
+                            </div>
                           )}
                           {product.bestReviewer && (
-                            <svg
+                            <div className="w-5 h-5">
+                              <svg
                                 viewBox="0 0 100 100"
                                 xmlns="http://www.w3.org/2000/svg"
-                                className="w-5 h-5"
-                            >
-                                {/* Bottle cap background */}
-                                <circle cx="50" cy="50" r="48" fill="#ffffff" /> {/* White */}
+                                className="w-full h-full"
+                                aria-label="Pencil Badge Icon"
+                                role="img"
+                              >
+                                <title>Pencil Badge Icon</title>
 
-                                {/* Wavy cap edge */}
-                                <path
-                                    d="M50,2 
-                                        C54,10 66,6 70,12 
-                                        C74,18 86,14 88,22 
-                                        C90,30 98,34 96,42 
-                                        C94,50 100,58 94,64 
-                                        C88,70 90,82 82,86 
-                                        C74,90 70,98 62,96 
-                                        C54,94 46,100 38,96 
-                                        C30,92 26,94 18,88 
-                                        C10,82 12,70 6,64 
-                                        C0,58 6,50 4,42 
-                                        C2,34 10,30 12,22 
-                                        C14,14 26,18 30,12 
-                                        C34,6 46,10 50,2 Z"
-                                    fill="#ffffff"
-                                />
+                                {/* White circular base */}
+                                <circle cx="50" cy="50" r="48" fill="#FFFFFF" />
 
-                                {/* Pencil icon */}
-                                <g fill="none" stroke="#000000" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" transform="translate(30 30) scale(0.8)">
-                                    {/* Pencil body */}
-                                    <rect x="15" y="5" width="10" height="40" fill="#000" />
-                                    {/* Pencil tip */}
-                                    <path d="M15 5 L20 0 L25 5 Z" fill="#000" />
-                                    {/* Pencil eraser */}
-                                    <rect x="15" y="45" width="10" height="5" fill="#555" />
+                                {/* Wavy edge */}
+                                {[...Array(20)].map((_, i) => {
+                                  const angle = (i * 360) / 20;
+                                  const rad = (angle * Math.PI) / 180;
+                                  const rOuter = 50;
+                                  const rInner = 45;
+                                  const x1 = 50 + rOuter * Math.cos(rad);
+                                  const y1 = 50 + rOuter * Math.sin(rad);
+                                  const x2 = 50 + rInner * Math.cos(rad + Math.PI / 40);
+                                  const y2 = 50 + rInner * Math.sin(rad + Math.PI / 40);
+                                  const x3 = 50 + rOuter * Math.cos(rad + Math.PI / 20);
+                                  const y3 = 50 + rOuter * Math.sin(rad + Math.PI / 20);
+                                  return (
+                                    <path
+                                      key={i}
+                                      d={`M${x1},${y1} Q${x2},${y2} ${x3},${y3} Z`}
+                                      fill="#FFFFFF"
+                                      stroke="#000"
+                                      strokeWidth="1"
+                                    />
+                                  );
+                                })}
+
+                                {/* Centered, Larger Pencil */}
+                                <g transform="translate(50, 50) scale(1.1) rotate(-45) translate(-22, -22)">
+                                  
+                                  {/* Eraser */}
+                                  <rect x="20" y="0" width="10" height="5" fill="#000" />
+
+                                  {/* Body */}
+                                  <rect x="20" y="7" width="10" height="23" fill="#000" />
+
+                                  {/* Tip */}
+                                  <polygon points="20,30 30,30 25,40" fill="#000" />
+
                                 </g>
-                            </svg>
+                              </svg>
+                            </div>
                           )}
                           {product.veteran && (
-                            <svg
+                            <div className="w-5 h-5">
+                              <svg
                                 viewBox="0 0 100 100"
                                 xmlns="http://www.w3.org/2000/svg"
-                                className="w-5 h-5"
-                            >
-                                {/* Camouflage background pattern */}
-                                <defs>
-                                    <pattern id="camo" patternUnits="userSpaceOnUse" width="20" height="20" patternTransform="rotate(45)">
-                                    <rect width="20" height="20" fill="#4B5320" /> {/* Army green */}
-                                    <circle cx="5" cy="5" r="7" fill="#6B4423" /> {/* Brown splotch */}
-                                    <circle cx="15" cy="15" r="7" fill="#C2B280" /> {/* Beige splotch */}
-                                    </pattern>
-                                </defs>
+                                className="w-full h-full"
+                                aria-label="Military Medal Badge Icon"
+                                role="img"
+                              >
+                                <title>Military Medal Badge Icon</title>
 
-                                {/* Background circle with camo pattern */}
-                                <circle cx="50" cy="50" r="48" fill="url(#camo)" />
+                                {/* Military green circular base */}
+                                <circle cx="50" cy="50" r="48" fill="#4B5320" />
 
-                                {/* Wavy cap edge in camo color */}
-                                <path
-                                    d="M50,2 
-                                        C54,10 66,6 70,12 
-                                        C74,18 86,14 88,22 
-                                        C90,30 98,34 96,42 
-                                        C94,50 100,58 94,64 
-                                        C88,70 90,82 82,86 
-                                        C74,90 70,98 62,96 
-                                        C54,94 46,100 38,96 
-                                        C30,92 26,94 18,88 
-                                        C10,82 12,70 6,64 
-                                        C0,58 6,50 4,42 
-                                        C2,34 10,30 12,22 
-                                        C14,14 26,18 30,12 
-                                        C34,6 46,10 50,2 Z"
-                                    fill="url(#camo)"
-                                />
+                                {/* Wavy edge */}
+                                {[...Array(20)].map((_, i) => {
+                                  const angle = (i * 360) / 20;
+                                  const rad = (angle * Math.PI) / 180;
+                                  const rOuter = 50;
+                                  const rInner = 45;
+                                  const x1 = 50 + rOuter * Math.cos(rad);
+                                  const y1 = 50 + rOuter * Math.sin(rad);
+                                  const x2 = 50 + rInner * Math.cos(rad + Math.PI / 40);
+                                  const y2 = 50 + rInner * Math.sin(rad + Math.PI / 40);
+                                  const x3 = 50 + rOuter * Math.cos(rad + Math.PI / 20);
+                                  const y3 = 50 + rOuter * Math.sin(rad + Math.PI / 20);
+                                  return (
+                                    <path
+                                      key={i}
+                                      d={`M${x1},${y1} Q${x2},${y2} ${x3},${y3} Z`}
+                                      fill="#4B5320"
+                                    />
+                                  );
+                                })}
 
-                                {/* Military helmet icon */}
-                                <g
-                                  transform="translate(25 30) scale(1.2)"
-                                  fill="none"
-                                  stroke="#6B4423"
-                                  strokeWidth="2"
-                                >
-                                  {/* Helmet dome */}
-                                  <ellipse cx="25" cy="20" rx="25" ry="15" />
+                                {/* Military Medal Icon */}
+                                <g transform="translate(50, 50) scale(0.7) translate(-25, -25)" stroke="#000" strokeWidth="2" fill="none">
+                                  
+                                  {/* Ribbon */}
+                                  <path d="M10 5 L40 5 L35 20 L15 20 Z" />
+                                  <line x1="17" y1="5" x2="17" y2="20" />
+                                  <line x1="25" y1="5" x2="25" y2="20" />
+                                  <line x1="33" y1="5" x2="33" y2="20" />
 
-                                  {/* Helmet base */}
-                                  <rect x="5" y="20" width="40" height="15" rx="7" ry="7" />
+                                  {/* Connecting lines to star */}
+                                  <line x1="15" y1="20" x2="25" y2="30" />
+                                  <line x1="35" y1="20" x2="25" y2="30" />
 
-                                  {/* Helmet front visor */}
-                                  <path d="M5 20 Q25 10 45 20" strokeWidth="3" />
+                                  {/* Star */}
+                                  <polygon
+                                    points="25,35 28,42 35,43 30,48 32,55 25,51 18,55 20,48 15,43 22,42"
+                                    fill="none"
+                                    stroke="#000"
+                                    strokeWidth="2"
+                                  />
+
                                 </g>
-                            </svg>
+                              </svg>
+                            </div>
                           )}
                         </Link>
                   </div>
