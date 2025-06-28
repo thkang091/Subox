@@ -590,16 +590,16 @@ const ProductDetailPage = () => {
       {/* Seller Profile Picture */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center space-x-4">
-        {seller.photoURL ? (
-          <img src={seller.photoURL} alt="Seller" className="w-24 h-24 rounded-full border-2 border-gray-300" />
-        ) : (
-          <div className="w-24 h-24 bg-gray-300 rounded-full" />
-        )}
-        <div>
-          <h2 className="text-xl font-bold text-gray-700">{seller.name}</h2>
-          <p className="text-gray-500 text-sm">{seller.email}</p>
+          {seller.photoURL ? (
+            <img src={seller.photoURL} alt="Seller" className="w-24 h-24 rounded-full border-2 border-gray-300" />
+          ) : (
+            <div className="w-24 h-24 bg-gray-300 rounded-full" />
+          )}
+          <div>
+            <h2 className="text-xl font-bold text-gray-700">{seller.name}</h2>
+            <p className="text-gray-500 text-sm">{seller.email}</p>
+          </div>
         </div>
-      </div>
 
       {/* Main report button */}
       <button
