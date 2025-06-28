@@ -988,6 +988,7 @@ export default function MoveOutSalePage() {
                   <div className="mt-3 pt-3 border-t border-gray-100">
                       {/* Product Seller info */}
                         <Link key={`seller-${product.id}`} href={`browse/profile/${product.seller}`} className="text-sm text-gray-500">
+                        <span className="inline-flex items-center gap-1">
                           Sold by <span className="font-medium text-gray-700">{product.seller}</span>
                           {product.bestRater && (
                             <div className="w-5 h-5">
@@ -1385,6 +1386,7 @@ export default function MoveOutSalePage() {
                               </svg>
                             </div>
                           )}
+                          </span>
                         </Link>
                   </div>
                   {/* Quick Actions Overlay */}
