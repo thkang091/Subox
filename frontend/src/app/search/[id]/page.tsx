@@ -26,12 +26,12 @@ const ListingDetailPage = () => {
   const [reportReason, setReportReason] = useState("");
 
   const [scamDetails, setScamDetails] = useState("");
-  const [informationDetails, setInformationDetails] = useState("");
-  const [matchDetails, setMatchDetails] = useState<string[]>([]);
-  const [priceDetails, setPriceDetails] = useState("");
-  const [offensiveDetails, setOffensiveDetails] = useState("");
+  const [suspiciousDetails, setSuspiciousDetails] = useState("");
+  const [illegalDetails, setIllegalDetails] = useState("");
+  const [paymentDetails, setPaymentDetails] = useState("");
+  const [inaccurateDetails, setInaccurateDetails] = useState("");
+  const [harassmentDetails, setharassmentDetails] = useState("");
   const [unsafeDetails, setUnsafeDetails] = useState("");
-  const [sellerProblem, setSellerProblem] = useState("");
   const [details, setDetails] = useState("");
   
   
@@ -223,28 +223,28 @@ const handleSubmitReport = () => {
       alert("Please select a scam detail.");
       return;
     }
-    else if (!matchDetails && reportReason == "mismatch") {
-      alert("Please select a mismatch detail.");
+    else if (!suspiciousDetails && reportReason == "suspicious") {
+      alert("Please select a reason why it's suspicious.");
       return;
     }
-    else if (!informationDetails && reportReason == "information") {
-      alert("Please select missing information.");
+    else if (!illegalDetails && reportReason == "illegal") {
+      alert("Please select a reason why it's illegal.");
       return;
     }
-    else if (!sellerProblem && reportReason == "seller") {
-      alert("Please select a problem about the seller.");
+    else if (!paymentDetails && reportReason == "payment") {
+      alert("Please select a payment issue.");
       return;
     }
-    else if (!priceDetails && reportReason == "price") {
-      alert("Please select a price issue.");
+    else if (!inaccurateDetails && reportReason == "inaccurate") {
+      alert("Please select a reason why it's inaccurate.");
       return;
     }
     else if (!unsafeDetails && reportReason == "unsafe") {
-      alert("Please select a reason why it's unsafe.");
+      alert("Please select a reason why it was unsafe.");
       return;
     }
-    else if (!offensiveDetails && reportReason == "offensive") {
-      alert("Please select a reason why it's offensive.");
+    else if (!harassmentDetails && reportReason == "harassment") {
+      alert("Please select a type of harassment you got.");
       return;
     }
 
@@ -253,12 +253,12 @@ const handleSubmitReport = () => {
     setShowReportForm(false);
     setReportReason("");
     setScamDetails("");
-    setMatchDetails([]);
-    setInformationDetails("");
-    setSellerProblem("");
-    setPriceDetails("");
+    setSuspiciousDetails("");
+    setIllegalDetails("");
+    setInaccurateDetails("");
+    setPaymentDetails("");
     setUnsafeDetails("");
-    setOffensiveDetails("");
+    setharassmentDetails("");
     setDetails("");
   };
 
@@ -613,13 +613,13 @@ const hostRating = hostReviews.length > 0
                       className="w-full px-3 py-2 border border-gray-300 rounded mb-3"
                     >
                       <option value="">-- Select a reason --</option>
-                      <option value="information">Some proudct information is missing, inaccurate or could be improved</option>
-                      <option value="mismatch">Parts of this page don't match</option>
-                      <option value="price">I have an issue with the price</option>
-                      <option value="offensive">This product or content is offensive</option>
-                      <option value="unsafe">This product or content is illegal, unsafe or suspicious</option>
-                      <option value="seller">I have an issue with a Seller</option>
-                      <option value="scam">I think this is a scam</option>
+                      <option value="suspicious">The renter has a suspicious identity</option>
+                      <option value="illegal">It's an illegal sublease</option>
+                      <option value="payment">There's a payment issue</option>
+                      <option value="inaccurate">It has an inaccurate or misleading listing</option>
+                      <option value="unsafe">The place was unsafe or unhygienic conditions</option>
+                      <option value="harassment">There was a harrassment or inappropriate behavior from the renter</option>
+                      <option value="scam">The sublease is a scam</option>
                       <option value="other">Other</option>
                     </select>
 
@@ -633,98 +633,87 @@ const hostRating = hostReviews.length > 0
                           onChange={(e) => setScamDetails(e.target.value)}
                           className="w-full px-3 py-2 border border-gray-300 rounded"
                         >
-                          <option value="">-- Select scam type --</option>
-                          <option value="suspicious-payment">Asked for a suspicious way of payment</option>
-                          <option value="fake-listing">Fake product listing</option>
+                          <option value="">-- Select a type --</option>
+                          <option value="suspicious-payment">Duplicate listings</option>
+                          <option value="fake-listing">Attempt to scam multiple users</option>
+                          <option value="offering">Offering too-good-to-be-true deals</option>
                           <option value="other-scam">Other scam-related issue</option>
                         </select>
                       </div>
                     )}
 
-                    {reportReason === "information" && (
+                    {reportReason === "suspicious" && (
                       <div className="mb-3">
                         <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Missing information
+                          Why suspicious
                         </label>
                         <select
-                          value={informationDetails}
-                          onChange={(e) => setInformationDetails(e.target.value)}
+                          value={suspiciousDetails}
+                          onChange={(e) => setSuspiciousDetails(e.target.value)}
                           className="w-full px-3 py-2 border border-gray-300 rounded"
                         >
-                          <option value="">-- Select missing information --</option>
-                          <option value="image">Images</option>
-                          <option value="size">Size</option>
-                          <option value="release-info">Release Information</option>
-                          <option value="model">Model</option>
-                          <option value="brand">Brand</option>
-                          <option value="condition">Condition</option>
-                          <option value="other-info">Other missing information</option>
+                          <option value="">-- Select a reason --</option>
+                          <option value="fake">Using a fake or misleading name/photo</option>
+                          <option value="mismatch">Not matching the identity shown during communication</option>
+                          <option value="pretend">Pretending to be the actual leaseholder</option>
+                          <option value="other-sus">Other reasons</option>
                         </select>
                       </div>
                     )}
 
-                    {reportReason === "mismatch" && (
-                      <div className="mb-4">
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Mismatch Details (Select all that apply)
-                        </label>
-                        <div className="space-y-2">
-                          {mismatchOptions.map((option) => (
-                            <label
-                              key={option.value}
-                              className="flex items-center space-x-2 cursor-pointer"
-                            >
-                              <input
-                                type="checkbox"
-                                checked={matchDetails.includes(option.value)}
-                                onChange={(e) => {
-                                  const newValues = e.target.checked
-                                    ? [...matchDetails, option.value]
-                                    : matchDetails.filter((val) => val !== option.value);
-                                  setMatchDetails(newValues);
-                                }}
-                                className="h-4 w-4 text-orange-500 border-gray-300 rounded"
-                              />
-                              <span className="text-sm text-gray-700">{option.label}</span>
-                            </label>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {reportReason === "price" && (
+                    {reportReason === "illegal" && (
                       <div className="mb-3">
                         <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Price Issues
+                          Why it's illegal
                         </label>
                         <select
-                          value={priceDetails}
-                          onChange={(e) => setPriceDetails(e.target.value)}
+                          value={illegalDetails}
+                          onChange={(e) => setIllegalDetails(e.target.value)}
                           className="w-full px-3 py-2 border border-gray-300 rounded"
                         >
-                          <option value="">-- Select price issues --</option>
-                          <option value="price-disparity">Price disparity between single and multi-pack</option>
-                          <option value="discount">Discount error</option>
-                          <option value="price-condition">Prices for conditions higher than new</option>
-                          <option value="other-price">Other price issue</option>
+                          <option value="">-- Select a reason --</option>
+                          <option value="permission">Subleasing without the landlord’s or building’s permission</option>
+                          <option value="violating">Violating apartment or dormitory policies</option>
+                          <option value="prohibit">Subleasing in a building that prohibits it</option>
+                          <option value="other-illegal">Other reasons</option>
                         </select>
                       </div>
                     )}
 
-                    {reportReason === "offensive" && (
+                    {reportReason === "payment" && (
                       <div className="mb-3">
                         <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Reason why it's offensive
+                          Payment Issues
                         </label>
                         <select
-                          value={offensiveDetails}
-                          onChange={(e) => setOffensiveDetails(e.target.value)}
+                          value={paymentDetails}
+                          onChange={(e) => setPaymentDetails(e.target.value)}
                           className="w-full px-3 py-2 border border-gray-300 rounded"
                         >
-                          <option value="">-- Select reason why it's offensive --</option>
-                          <option value="sexual">Sexually explicit content</option>
-                          <option value="choice">Too offensive word choices</option>
-                          <option value="other-scam">Other reasons why it's offensive</option>
+                          <option value="">-- Select an issue --</option>
+                          <option value="demand">Demanding payment outside the platform</option>
+                          <option value="deposit">Asking for deposits without agreements</option>
+                          <option value="refuse">Refusing refund after cancellation</option>
+                          <option value="other-payment">Other payment issue</option>
+                        </select>
+                      </div>
+                    )}
+
+                    {reportReason === "inaccurate" && (
+                      <div className="mb-3">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Reason why it's inaccurate
+                        </label>
+                        <select
+                          value={inaccurateDetails}
+                          onChange={(e) => setInaccurateDetails(e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded"
+                        >
+                          <option value="">-- Select a reason --</option>
+                          <option value="different">Listing describes a different property or room</option>
+                          <option value="photo-mismatch">Photos don’t match the actual place</option>
+                          <option value="important">Important information is missing or false (e.g., utilities not included when claimed)</option>
+                          <option value="other-inaccurate">Other reasons why it's inaccurate</option>
                         </select>
                       </div>
                     )}
@@ -732,40 +721,36 @@ const hostRating = hostReviews.length > 0
                     {reportReason === "unsafe" && (
                       <div className="mb-3">
                         <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Reason why it's unsafe
+                          Reason why it was unsafe
                         </label>
                         <select
                           value={unsafeDetails}
                           onChange={(e) => setUnsafeDetails(e.target.value)}
                           className="w-full px-3 py-2 border border-gray-300 rounded"
                         >
-                          <option value="">-- Select reason it's unsafe --</option>
-                          <option value="counterfeit">It's counterfeit</option>
-                          <option value="intellectual">Uses my intellectual property without permission</option>
-                          <option value="safety-regulation">Not safe or compliant with product safety regulations</option>
-                          <option value="reviews">Reviews and Answers contain illegal content</option>
-                          <option value="other-scam">Other  reasons it's unsafe</option>
+                          <option value="">-- Select a reason --</option>
+                          <option value="not-livable">Place was unsafe, unsanitary, or not livable</option>
+                          <option value="health">Health hazards (e.g., mold, pests)</option>
+                          <option value="locked">Locked out or denied access</option>
+                          <option value="other-unsafe">Other reasons it's unsafe</option>
                         </select>
                       </div>
                     )}
 
-                    {reportReason === "seller" && (
+                    {reportReason === "harassment" && (
                       <div className="mb-3">
                         <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Problem about the seller
+                          Which type of harassment did you get
                         </label>
                         <select
-                          value={sellerProblem}
-                          onChange={(e) => setSellerProblem(e.target.value)}
+                          value={harassmentDetails}
+                          onChange={(e) => setharassmentDetails(e.target.value)}
                           className="w-full px-3 py-2 border border-gray-300 rounded"
                         >
-                          <option value="">-- Select seller problem --</option>
-                          <option value="identity">Using false or misleading identity information</option>
-                          <option value="contact">Using false or misleading contact information</option>
-                          <option value="reviews">Attempting to manipulate reviews</option>
-                          <option value="inappropriate">Engaging in other inappropriate activity</option>
-                          <option value="stolen">Selling a potentially stolen product</option>
-                          <option value="other-scam">Other scam-related issue</option>
+                          <option value="">-- Select a type --</option>
+                          <option value="during">Harassment during communication or stay</option>
+                          <option value="rude">Discriminatory, rude, or inappropriate language or actions</option>
+                          <option value="other-harassment">Other reasons</option>
                         </select>
                       </div>
                     )}

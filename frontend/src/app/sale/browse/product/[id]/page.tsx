@@ -643,10 +643,10 @@ const ProductDetailPage = () => {
                 onChange={(e) => setScamDetails(e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded"
               >
-                <option value="">-- Select scam type --</option>
+                <option value="">-- Select a type --</option>
                 <option value="suspicious-payment">Asked for a suspicious way of payment</option>
                 <option value="fake-listing">Fake product listing</option>
-                <option value="other-scam">Other scam-related issue</option>
+                <option value="other-scam">Other issues</option>
               </select>
             </div>
           )}
@@ -712,11 +712,11 @@ const ProductDetailPage = () => {
                 onChange={(e) => setPriceDetails(e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded"
               >
-                <option value="">-- Select price issues --</option>
+                <option value="">-- Select an issue --</option>
                 <option value="price-disparity">Price disparity between single and multi-pack</option>
                 <option value="discount">Discount error</option>
                 <option value="price-condition">Prices for conditions higher than new</option>
-                <option value="other-price">Other price issue</option>
+                <option value="other-price">Other issues</option>
               </select>
             </div>
           )}
@@ -731,10 +731,10 @@ const ProductDetailPage = () => {
                 onChange={(e) => setOffensiveDetails(e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded"
               >
-                <option value="">-- Select reason why it's offensive --</option>
+                <option value="">-- Select a reason --</option>
                 <option value="sexual">Sexually explicit content</option>
                 <option value="choice">Too offensive word choices</option>
-                <option value="other-scam">Other reasons why it's offensive</option>
+                <option value="other-offensive">Other reasons</option>
               </select>
             </div>
           )}
@@ -749,12 +749,12 @@ const ProductDetailPage = () => {
                 onChange={(e) => setUnsafeDetails(e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded"
               >
-                <option value="">-- Select reason it's unsafe --</option>
+                <option value="">-- Select a reason --</option>
                 <option value="counterfeit">It's counterfeit</option>
                 <option value="intellectual">Uses my intellectual property without permission</option>
                 <option value="safety-regulation">Not safe or compliant with product safety regulations</option>
                 <option value="reviews">Reviews and Answers contain illegal content</option>
-                <option value="other-scam">Other  reasons it's unsafe</option>
+                <option value="other-unsafe">Other reasons</option>
               </select>
             </div>
           )}
@@ -769,13 +769,13 @@ const ProductDetailPage = () => {
                 onChange={(e) => setSellerProblem(e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded"
               >
-                <option value="">-- Select seller problem --</option>
+                <option value="">-- Select a problem --</option>
                 <option value="identity">Using false or misleading identity information</option>
                 <option value="contact">Using false or misleading contact information</option>
                 <option value="reviews">Attempting to manipulate reviews</option>
                 <option value="inappropriate">Engaging in other inappropriate activity</option>
                 <option value="stolen">Selling a potentially stolen product</option>
-                <option value="other-scam">Other scam-related issue</option>
+                <option value="other-seller">Other problems</option>
               </select>
             </div>
           )}
