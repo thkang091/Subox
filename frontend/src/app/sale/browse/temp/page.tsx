@@ -1,65 +1,51 @@
 import React from "react";
 
 const RentContractBadgeIcon: React.FC = () => (
-<div className="w-12 h-12">
-  <svg
-    viewBox="0 0 100 100"
-    xmlns="http://www.w3.org/2000/svg"
-    className="w-full h-full"
-    aria-label="Military Medal Badge Icon"
-    role="img"
-  >
-    <title>Military Medal Badge Icon</title>
+  <div className="w-12 h-12">
+    <svg viewBox="0 0 100 100" className="w-full h-full" xmlns="http://www.w3.org/2000/svg">
+      {/* Badge Circle + Wavy Edge */}
+      <circle cx="50" cy="50" r="48" fill="#2C4F91" />
+      {[...Array(20)].map((_, i) => {
+        const angle = (i * 360) / 20;
+        const rad = (angle * Math.PI) / 180;
+        const rOut = 50, rIn = 45;
+        const x1 = 50 + rOut * Math.cos(rad);
+        const y1 = 50 + rOut * Math.sin(rad);
+        const x2 = 50 + rIn * Math.cos(rad + Math.PI / 40);
+        const y2 = 50 + rIn * Math.sin(rad + Math.PI / 40);
+        const x3 = 50 + rOut * Math.cos(rad + Math.PI / 20);
+        const y3 = 50 + rOut * Math.sin(rad + Math.PI / 20);
+        return <path key={i} d={`M${x1},${y1} Q${x2},${y2} ${x3},${y3} Z`} fill="#2C4F91" />;
+      })}
 
-    {/* Military green circular base */}
-    <circle cx="50" cy="50" r="48" fill="#4B5320" />
-
-    {/* Wavy edge */}
-    {[...Array(20)].map((_, i) => {
-      const angle = (i * 360) / 20;
-      const rad = (angle * Math.PI) / 180;
-      const rOuter = 50;
-      const rInner = 45;
-      const x1 = 50 + rOuter * Math.cos(rad);
-      const y1 = 50 + rOuter * Math.sin(rad);
-      const x2 = 50 + rInner * Math.cos(rad + Math.PI / 40);
-      const y2 = 50 + rInner * Math.sin(rad + Math.PI / 40);
-      const x3 = 50 + rOuter * Math.cos(rad + Math.PI / 20);
-      const y3 = 50 + rOuter * Math.sin(rad + Math.PI / 20);
-      return (
-        <path
-          key={i}
-          d={`M${x1},${y1} Q${x2},${y2} ${x3},${y3} Z`}
-          fill="#4B5320"
-        />
-      );
-    })}
-
-    {/* Military Medal Icon */}
-    <g transform="translate(50, 50) scale(0.7) translate(-25, -25)" stroke="#000" strokeWidth="2" fill="none">
-      
-      {/* Ribbon */}
-      <path d="M10 5 L40 5 L35 20 L15 20 Z" />
-      <line x1="17" y1="5" x2="17" y2="20" />
-      <line x1="25" y1="5" x2="25" y2="20" />
-      <line x1="33" y1="5" x2="33" y2="20" />
-
-      {/* Connecting lines to star */}
-      <line x1="15" y1="20" x2="25" y2="30" />
-      <line x1="35" y1="20" x2="25" y2="30" />
-
-      {/* Star */}
-      <polygon
-        points="25,35 28,42 35,43 30,48 32,55 25,51 18,55 20,48 15,43 22,42"
-        fill="none"
-        stroke="#000"
-        strokeWidth="2"
-      />
-
-    </g>
-  </svg>
-</div>
-
+      {/* Helmet Shape */}
+      <g transform="translate(17, 83) scale(0.03, -0.03)" fill="black">
+        <path d="M999 1790 c-105 -12 -232 -45 -304 -79 -227 -108 -380 -319 -416
+        -572 -9 -69 -8 -107 5 -216 9 -73 16 -154 16 -180 0 -44 4 -50 50 -94 28 -26
+        71 -55 95 -64 42 -17 46 -16 217 20 256 55 278 67 358 199 56 94 117 154 176
+        175 144 51 388 151 492 203 l123 61 -6 31 c-12 55 -82 189 -132 251 -159 196
+        -409 294 -674 265z m270 -56 c36 -9 104 -34 151 -57 119 -57 239 -176 298
+        -296 23 -46 42 -92 42 -102 0 -31 -250 -146 -572 -263 -63 -23 -132 -86 -185
+        -171 -52 -81 -96 -130 -136 -150 -15 -8 -108 -30 -205 -51 -174 -36 -179 -36
+        -214 -20 -62 30 -108 82 -108 122 0 19 -7 96 -16 171 -23 202 2 347 84 482 79
+        131 207 242 336 290 153 57 391 78 525 45z"/>
+        <path d="M1758 1190 c-66 -40 -249 -121 -435 -191 -85 -32 -170 -70 -188 -84
+        -19 -14 -56 -63 -84 -109 -54 -89 -112 -149 -167 -172 -47 -20 -345 -84 -389
+        -84 -53 0 -99 23 -160 81 l-55 52 0 -30 c0 -32 44 -106 91 -152 52 -53 92 -55
+        300 -16 210 40 230 46 274 79 l32 25 74 -20 c238 -62 519 -93 634 -69 51 11
+        67 20 113 65 45 45 52 57 52 92 0 56 -49 110 -147 161 -83 43 -242 102 -274
+        102 -50 0 -8 18 104 44 152 35 422 123 438 142 6 7 9 20 6 29 -7 15 -138 86
+        -159 84 -7 0 -34 -14 -60 -29z m121 -41 c27 -16 31 -23 20 -30 -21 -13 -211
+        -74 -309 -99 -149 -37 -179 -49 -195 -80 -14 -27 -16 -28 -55 -18 -22 6 -40
+        14 -40 18 0 4 64 33 143 65 78 31 190 80 247 109 58 29 116 53 130 54 14 1 40
+        -7 59 -19z m-399 -311 c103 -33 216 -86 266 -124 43 -33 69 -84 60 -118 -22
+        -90 -311 -68 -677 52 l-86 28 28 56 c33 66 104 131 162 151 48 16 78 10 247
+        -45z m-432 -200 l37 -31 -34 6 c-18 4 -49 7 -69 7 l-35 0 23 25 c30 32 35 32
+        78 -7z m-143 -48 c-7 -12 -101 -40 -129 -39 -12 0 13 11 54 23 41 13 76 24 78
+        25 2 0 0 -3 -3 -9z"/>
+      </g>
+    </svg>
+  </div>
 );
 
 export default RentContractBadgeIcon;
