@@ -3,7 +3,11 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { ArrowLeft, Home, Box, Key, ShoppingBag, Search, Tag, Package } from "lucide-react";
+import { ArrowLeft, Home, Box, Key, ShoppingBag, Search, Tag, Package, User } from "lucide-react";
+import { AnimatePresence } from "framer-motion";
+import { auth } from "@/lib/firebase";
+import { onAuthStateChanged } from "firebase/auth";
+
 
 export default function MoveOutPage() {
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
@@ -11,6 +15,8 @@ export default function MoveOutPage() {
   const [saleAction, setSaleAction] = useState<string | null>(null);
   const [isSmallScreen, setIsSmallScreen] = useState(false);
   const [showLogo, setShowLogo] = useState(true);
+  const [showProfile, setShowProfile] = useState(false);
+  const [user, setUser] = useState(null);
   const router = useRouter();
 
   // Check screen size for responsive design
@@ -25,6 +31,14 @@ export default function MoveOutPage() {
     return () => {
       window.removeEventListener('resize', checkScreenSize);
     };
+  }, []);
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
+    });
+
+    return () => unsubscribe();
   }, []);
 
   useEffect(() => {
@@ -472,6 +486,40 @@ export default function MoveOutPage() {
             </motion.div>
           </motion.div>
         )}
+
+        <div className="fixed top-4 right-4 z-50 flex items-center space-x-3">
+          {/* Greeting */}
+          <span className="text-sm text-gray-700 font-medium">
+            {user ? `Welcome, ${user.displayName || "User"}` : "Please sign in"}
+          </span>
+
+          {/* Profile */}
+          <div className="relative">
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => setShowProfile(!showProfile)}
+              className="p-2 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+            >
+              <User className="w-5 h-5 text-gray-600" />
+            </motion.button>
+
+            <AnimatePresence>
+              {showProfile && (
+                <motion.div
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  className="absolute right-0 mt-2 w-64 bg-white rounded-lg shadow-lg border border-gray-200 z-50"
+                >
+                  <div className="p-4 space-y-2">
+                    {/* Profile dropdown content */}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        </div>
 
         {/* Features Section */}
         {!selectedOption && (
