@@ -19,6 +19,7 @@ export default function NotificationPage() {
   const [searchHistory, setSearchHistory] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [showHistory, setShowHistory] = useState(false);
+  const [user, setUser] = useState(null);
   const router = useRouter();
   
   let typeNotif;
@@ -31,11 +32,13 @@ export default function NotificationPage() {
   };
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      if (user) {
-        setUserId(user.uid);
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      if (currentUser) {
+        setUserId(currentUser.uid);
+        setUser(currentUser);
       } else {
         setUserId(null);
+        setUser(null);
       }
     });
 
@@ -161,6 +164,10 @@ export default function NotificationPage() {
           />
         </form>
       </div>
+      {/* Greeting */}
+      <span className="mt-4 text-sm text-gray-700 font-medium whitespace-nowrap">
+        {user ? `Welcome, ${user.displayName || "User"}` : "Please sign in"}
+      </span>
       <div className="relative">
         <motion.button
           whileHover={{ scale: 1.05 }}

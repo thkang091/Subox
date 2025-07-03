@@ -65,13 +65,14 @@ export default function MoveOutSalePage() {
   const router = useRouter();
   const [showComparison, setShowComparison] = useState(false);
   const [showLocationDropdown, setShowLocationDropdown] = useState(false);
-
+  const [userItself, setUserItself] = useState(null);
   const [userId, setUserId] = useState<string | null>(null);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       if (user) {
         setUserId(user.uid);
+        setUserItself(user);
       } else {
         setUserId(null);
       }
@@ -573,6 +574,11 @@ export default function MoveOutSalePage() {
 
               {/* Profile */}
               <div className="relative">
+                {/* Greeting */}
+                <span className="text-sm text-gray-700 font-medium">
+                  {userItself ? `Welcome, ${userItself.displayName || "User"}` : "Please sign in"}
+                </span>
+
                 <motion.button
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}

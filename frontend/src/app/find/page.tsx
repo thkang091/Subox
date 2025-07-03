@@ -17,6 +17,7 @@ export default function MoveOutPage() {
   const [showLogo, setShowLogo] = useState(true);
   const [showProfile, setShowProfile] = useState(false);
   const [user, setUser] = useState(null);
+  const [userId, setUserId] = useState<string | null>(null);
   const router = useRouter();
 
   // Check screen size for responsive design
@@ -35,7 +36,14 @@ export default function MoveOutPage() {
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      setUser(currentUser);
+      if (currentUser) {
+        setUser(currentUser);
+        setUserId(currentUser.uid);
+      }
+      else {
+        setUser(null);
+        setUserId(null);
+      }
     });
 
     return () => unsubscribe();

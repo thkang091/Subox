@@ -10,6 +10,8 @@ import { MapPin, Heart, User, Package, Search, ShoppingCart, Bell, X, ArrowLeft,
         ChevronLeft, Plus, Flag, MessageCircle
 } from 'lucide-react';
 import { products } from '../../../../../data/saleListings';
+import { auth } from '@/lib/firebase';
+import { onAuthStateChanged } from 'firebase/auth';
 
 const ProductDetailPage = () => {
   const router = useRouter();
@@ -36,6 +38,8 @@ const ProductDetailPage = () => {
   const [unsafeDetails, setUnsafeDetails] = useState("");
   const [sellerProblem, setSellerProblem] = useState("");
   const [details, setDetails] = useState("");
+  const [user, setUser] = useState(null);
+  const [userId, setUserId] = useState<string | null>(null);
   const [seller, setSeller] = useState<any>({
     ID : "none",
     name: "seller",
@@ -154,9 +158,23 @@ const ProductDetailPage = () => {
     {value: "other-mismatches", label: "Other mismatches"}
   ]
 
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      if (currentUser) {
+        setUser(currentUser);
+        setUserId(currentUser.uid);
+      }
+      else {
+        setUser(null);
+        setUserId(null);
+      }
+    });
 
+    return () => unsubscribe();
+  }, []);
+ 
   const handleTabClick = (tab: string) => {
-    router.push(`browse/profile/${product.id}/`);
+    router.push(`/sale/browse/profile/${userId}/`);
     setShowProfile(false); // close dropdown
   };
 
@@ -285,7 +303,7 @@ const ProductDetailPage = () => {
                   {notifications.map(notif => (
                     <button
                       key={notif.id}
-                      onClick={() => router.push(`browse/notificationDetail/${notif.id}`)}
+                      onClick={() => router.push(`/sale/browse/notification?id=${notif.id}`)}
                       className="w-full flex items-start space-x-3 p-2 rounded-lg hover:bg-gray-50 text-left"
                     >
                       <div className="w-2 h-2 bg-orange-500 rounded-full mt-2"></div>
@@ -417,6 +435,11 @@ const ProductDetailPage = () => {
             </div>
               {/* Profile */}
               <div className="relative">
+                {/* Greeting */}
+                <span className="text-sm text-gray-700 font-medium">
+                  {user ? `Welcome, ${user.displayName || "User"}` : "Please sign in"}
+                </span>
+
                 <motion.button
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
