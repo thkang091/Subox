@@ -62,10 +62,9 @@ export default function AuthPage() {
   const [phoneVerificationCode, setPhoneVerificationCode] = useState("");
   const [showPhoneVerification, setShowPhoneVerification] = useState(false);
 
-  // Veteran
-  const [isVeteran, setIsVeteran] = useState(false);
-  const [serviceStart, setServiceStart] = useState("");
-  const [serviceEnd, setServiceEnd] = useState("");
+  // Alumni
+  const [isAlumni, setIsAlumni] = useState(false);
+  const [graduationDate, setGraduationDate] = useState("");
   const [error, setError] = useState("");
 
   // Auto-login effect
@@ -111,7 +110,7 @@ export default function AuthPage() {
     setIsPhoneVerified(false);
     setPhoneVerificationCode("");
     setShowPhoneVerification(false);
-    setIsVeteran(false);
+    setIsAlumni(false);
   };
 
   // Event handlers
@@ -218,7 +217,7 @@ export default function AuthPage() {
       phoneNumber: phoneNumber || null,
       isPhoneVerified,
       socialLink: socialLink || null,
-      veteran: isVeteran,
+      alumni: isAlumni,
       quickBio: quickBio || null,
       isStudentVerified: schoolEmail && isSchoolEmail(schoolEmail),
       badges: {
@@ -316,7 +315,7 @@ export default function AuthPage() {
 
   // Checking veteran error code
   const validate = () => {
-    if (isVeteran) {
+    if (isAlumni) {
       if (!serviceStart || !serviceEnd) {
         setError("Please enter both start and end dates of your service.");
         return false;
@@ -507,8 +506,42 @@ export default function AuthPage() {
                       School emails (.edu) earn a "Verified Student" badge.
                       Feel free to write your email even if you have graduated. WE HAVE SPECIAL BADGE FOR YOU!!
                     </p>
-                    {schoolEmail && isSchoolEmail(schoolEmail) && (
-                      <span className="text-green-600 text-xs">🎓 Student Badge Eligible</span>
+                    {schoolEmail && isSchoolEmail(schoolEmail) && !isAlumni && (
+                      <span className="text-green-600 text-xs"> Student Badge Eligible</span>
+                    )}
+                    {schoolEmail && isSchoolEmail(schoolEmail) && isAlumni && (
+                      <span className="text-green-600 text-xs"> Alumni Badge Eligible</span>
+                    )}
+                  </div>
+                  {/* Alumni */}
+                  <div className="mt-4">
+                    <label className="flex items-center space-x-2">
+                      <input
+                        type="checkbox"
+                        checked={isAlumni}
+                        onChange={(e) => setIsAlumni(e.target.checked)}
+                        className="form-checkbox h-5 w-5 text-green-600"
+                      />
+                      <span className="text-sm font-medium text-gray-700">Currently graduated</span>
+                    </label>
+
+                    {isAlumni && (
+                      <div className="mt-3 space-y-2">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700">
+                            Graduation Date
+                          </label>
+                          <input
+                            type="date"
+                            value={graduationDate}
+                            onChange={(e) => setGraduationDate(e.target.value)}
+                            className="mt-1 block w-full rounded-md border border-gray-300 shadow-sm p-2 text-sm"
+                          />
+                        </div>
+                      </div>
+                    )}
+                    {error && (
+                      <p className="text-red-500 text-sm mt-2">{error}</p>
                     )}
                   </div>
                 </div>
@@ -586,51 +619,6 @@ export default function AuthPage() {
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all"
                   />
                   <p className="text-xs text-gray-500 mt-1">Add credibility to your profile with a social media link</p>
-                </div>
-                
-                {/* Veteran */}
-                <div className="mt-4">
-                  <label className="flex items-center space-x-2">
-                    <input
-                      type="checkbox"
-                      checked={isVeteran}
-                      onChange={(e) => setIsVeteran(e.target.checked)}
-                      className="form-checkbox h-5 w-5 text-green-600"
-                    />
-                    <span className="text-sm font-medium text-gray-700">Served/Serving as a Veteran</span>
-                  </label>
-
-                  {isVeteran && (
-                    <div className="mt-3 space-y-2">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700">
-                          Start of Service
-                        </label>
-                        <input
-                          type="date"
-                          value={serviceStart}
-                          onChange={(e) => setServiceStart(e.target.value)}
-                          className="mt-1 block w-full rounded-md border border-gray-300 shadow-sm p-2 text-sm"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700">
-                          End of Service
-                        </label>
-                        <input
-                          type="date"
-                          value={serviceEnd}
-                          onChange={(e) => setServiceEnd(e.target.value)}
-                          className="mt-1 block w-full rounded-md border border-gray-300 shadow-sm p-2 text-sm"
-                        />
-                      </div>
-                    </div>
-                  )}
-
-                  {error && (
-                    <p className="text-red-500 text-sm mt-2">{error}</p>
-                  )}
                 </div>
 
                 {/* Quick Bio */}
