@@ -50,12 +50,10 @@ export default function MoveOutSalePage() {
   const [viewMode, setViewMode] = useState("grid");
   const [showFilters, setShowFilters] = useState(false);
   const [favorites, setFavorites] = useState(new Set());
-  const [cart, setCart] = useState(new Map());
   const [compareItems, setCompareItems] = useState(new Set());
   const [showNotifications, setShowNotifications] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
   const [openFilterSection, setOpenFilterSection] = useState(null);
-  const [showCart, setShowCart] = useState(false);
   const [showFavorite, setShowFavorite] = useState(false);
   const [searchHistory, setSearchHistory] = useState([]);
   const [showHistory, setShowHistory] = useState(false);
@@ -287,16 +285,6 @@ export default function MoveOutSalePage() {
     setFavorites(new Set(favorites.map(p => p.id))); 
   };
 
-  const updateCart = (productId, quantity) => {
-    const newCart = new Map(cart);
-    if (quantity === 0) {
-      newCart.delete(productId);
-    } else {
-      newCart.set(productId, quantity);
-    }
-    setCart(newCart);
-  };
-
   const toggleCompare = (productId) => {
     const newCompare = new Set(compareItems);
     if (newCompare.has(productId)) {
@@ -401,18 +389,6 @@ export default function MoveOutSalePage() {
     );
   };
 
-  const cartProducts = Array.from(cart.entries()).map(([productId, quantity]) => {
-    const product = products.find(p => p.id === productId);
-    if (!product) return null;
-    return {
-      id: product.id,
-      name: product.name,
-      price: product.price,
-      image: product.image,
-      quantity,
-    };
-  }).filter(Boolean);
-
   const [recommended, setRecommended] = useState([]);
 
   useEffect(() => {
@@ -507,70 +483,6 @@ export default function MoveOutSalePage() {
 
               {/* Notifications */}
               <NotificationsButton notifications={notifications} />
-
-
-              {/* Cart */}
-              <div className="relative">
-                <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={() => setShowCart(!showCart)}
-                  className="p-2 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors relative"
-                >
-                  <ShoppingCart className="w-5 h-5 text-gray-600" />
-                  {cart.size > 0 && (
-                    <span className="absolute -top-1 -right-1 w-5 h-5 bg-orange-500 text-white text-xs rounded-full flex items-center justify-center">
-                      {cart.size}
-                    </span>
-                  )}
-                </motion.button>
-
-                <AnimatePresence>
-                  {showCart && (
-                    <motion.div
-                      initial={{ opacity: 0, y: -10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -10 }}
-                      className="absolute right-0 mt-2 w-64 bg-white rounded-lg shadow-lg border border-gray-200 z-50"
-                    >
-                      <div className="p-4 space-y-2">
-                        {Array.from(cart.entries()).map(([productId, quantity]) => {
-                          const product = products.find(p => p.id === productId);
-                          if (!product) return null;
-
-                          return (
-                            <div key={productId} className="flex items-center space-x-3">
-                              <img 
-                                src={product.image} 
-                                className="w-10 h-10 rounded" 
-                              />
-                              <div className="flex flex-col">
-                                <span className="text-sm font-medium">{product.name}</span>
-                                <span className="text-xs text-gray-500">Qty: {quantity}</span>
-                              </div>
-                            </div>
-                          );
-                        })}
-                        {cart.size === 0 && (
-                          <p className="text-sm text-gray-500">Your cart is empty.</p>
-                        )}
-                        {cart.size > 0 && (
-                          <button
-                            onClick={() =>{
-                              console.log("cartProducts:", cartProducts);
-                              localStorage.setItem("cart", JSON.stringify(cartProducts));
-                              router.push("browse/buy/");
-                            }}
-                            className="mt-2 w-full px-4 py-2 bg-orange-500 text-white rounded-md hover:bg-orange-600 transition"
-                          >
-                            Buy
-                          </button>
-                        )}
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
 
               {/* Profile */}
               <div className="relative">
@@ -945,47 +857,6 @@ export default function MoveOutSalePage() {
                               <span className="text-sm font-medium">{product.rating}</span>
                             </div>
                             <span className="text-gray-500 text-sm">• {product.views} views</span>
-                          </div>
-
-                          <div className="flex items-center space-x-2">
-                            {cart.has(product.id) ? (
-                              <div className="flex items-center space-x-1 bg-gray-100 rounded-lg">
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    e.preventDefault();
-                                    updateCart(product.id, (cart.get(product.id) || 1) - 1);
-                                  }}
-                                  className="w-8 h-8 flex items-center justify-center hover:bg-gray-200 rounded-l-lg"
-                                >
-                                  <Minus className="w-3 h-3" />
-                                </button>
-                                <span className="px-2 py-1 text-sm font-medium">{cart.get(product.id)}</span>
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    e.preventDefault();
-                                    updateCart(product.id, (cart.get(product.id) || 0) + 1);
-                                  }}
-                                  className="w-8 h-8 flex items-center justify-center hover:bg-gray-200 rounded-r-lg"
-                                >
-                                  <Plus className="w-3 h-3" />
-                                </button>
-                              </div>
-                            ) : (
-                              <motion.button
-                                whileHover={{ scale: 1.05 }}
-                                whileTap={{ scale: 0.95 }}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  e.preventDefault();
-                                  updateCart(product.id, 1);
-                                }}
-                                className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors text-sm font-medium"
-                              >
-                                Add to Cart
-                              </motion.button>
-                            )}
                           </div>
                         </div>
                       </div>
@@ -1595,47 +1466,6 @@ export default function MoveOutSalePage() {
                                 <span className="text-sm font-medium">{product.rating}</span>
                               </div>
                               <span className="text-gray-500 text-sm">• {product.views} views</span>
-                            </div>
-
-                            <div className="flex items-center space-x-2">
-                              {cart.has(product.id) ? (
-                                <div className="flex items-center space-x-1 bg-gray-100 rounded-lg">
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      e.preventDefault();
-                                      updateCart(product.id, (cart.get(product.id) || 1) - 1);
-                                    }}
-                                    className="w-8 h-8 flex items-center justify-center hover:bg-gray-200 rounded-l-lg"
-                                  >
-                                    <Minus className="w-3 h-3" />
-                                  </button>
-                                  <span className="px-2 py-1 text-sm font-medium">{cart.get(product.id)}</span>
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      e.preventDefault();
-                                      updateCart(product.id, (cart.get(product.id) || 0) + 1);
-                                    }}
-                                    className="w-8 h-8 flex items-center justify-center hover:bg-gray-200 rounded-r-lg"
-                                  >
-                                    <Plus className="w-3 h-3" />
-                                  </button>
-                                </div>
-                              ) : (
-                                <motion.button
-                                  whileHover={{ scale: 1.05 }}
-                                  whileTap={{ scale: 0.95 }}
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    e.preventDefault();
-                                    updateCart(product.id, 1);
-                                  }}
-                                  className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors text-sm font-medium"
-                                >
-                                  Add to Cart
-                                </motion.button>
-                              )}
                             </div>
                           </div>
                         </div>

@@ -146,7 +146,7 @@ const ProductDetailPage = () => {
       photoURL: foundProduct.sellerPhoto || null
     });
 
-    }
+    };
   }, [id]);
 
   const mismatchOptions = [
@@ -173,10 +173,14 @@ const ProductDetailPage = () => {
     return () => unsubscribe();
   }, []);
  
-  const handleTabClick = (tab: string) => {
+  const handleTabClick = () => {
     router.push(`/sale/browse/profile/${userId}/`);
     setShowProfile(false); // close dropdown
   };
+
+  const handleBuyProduct = () => {
+    router.push(`${product.id}/buy`)
+  }
 
   const handleSubmitReport = () => {
     if (!reportReason) {
@@ -860,25 +864,36 @@ const ProductDetailPage = () => {
               </button>
             </div>
           )}
-
-          <div className="flex space-x-4">
-              <button 
+          <div className="grid grid-cols-3 gap-4">
+            {/* Favorite Button */}
+            <button 
               onClick={() => toggleFavorite(product)}
-              className={`flex-1 ${isCurrentListingFavorited ? 'bg-red-500 text-white' : 'bg-gray-100 text-gray-800'} px-6 py-3 rounded-lg ${isCurrentListingFavorited ? 'hover:bg-red-600' : 'hover:bg-red-200'} transition flex items-center justify-center cursor-pointer`}
-              >
+              className={`flex items-center justify-center px-6 py-3 rounded-lg transition cursor-pointer
+                ${isCurrentListingFavorited ? 'bg-red-500 text-white hover:bg-red-600' : 'bg-gray-100 text-gray-800 hover:bg-red-200'}`}
+            >
               <Heart className={`mr-2 ${isCurrentListingFavorited ? 'fill-current' : ''}`} />
-              {isCurrentListingFavorited ? 'Remove from Favorites' : 'Add Favorites'}
-              </button>
-              
-              <button 
+              {isCurrentListingFavorited ? 'Remove' : 'Favorite'}
+            </button>
+
+            {/* Buy Button */}
+            <button 
+              onClick={handleBuyProduct} // <-- You should define this function
+              className="px-6 py-3 rounded-lg text-white transition flex items-center justify-center cursor-pointer bg-orange-500 hover:bg-orange-600"
+            >
+              Buy Now
+            </button>
+
+            {/* Message Button */}
+            <button 
               onClick={() => setShowConnectOptions(!showConnectOptions)} 
-              className={`flex-1 ${showConnectOptions ? 'bg-orange-600' : 'bg-orange-500'} text-white px-6 py-3 rounded-lg hover:bg-orange-600 transition border flex items-center justify-center cursor-pointer`}
-              >
-              {showConnectOptions ? 'Hide Options' : 'Message'}
-              </button>
-            </div>
+              className={`px-6 py-3 rounded-lg text-white transition flex items-center justify-center cursor-pointer 
+                ${showConnectOptions ? 'bg-orange-600' : 'bg-orange-500 hover:bg-orange-600'}`}
+            >
+              {showConnectOptions ? 'Hide' : 'Message'}
+            </button>
           </div>
         </div>
+      </div>
       
       
 
