@@ -12,6 +12,7 @@ type Product = {
   name: string;
   price: number;
   seller: string; // sellerId
+  image: string;
   shortDescription: string;
 };
 
@@ -19,6 +20,7 @@ export default function BuyPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
 
+  const [selectedMethod, setSelectedMethod] = useState("card");
   const [product, setProduct] = useState<Product | null>(null);
   const [seller, setSeller] = useState<any>({
     ID : "none",
@@ -83,6 +85,7 @@ export default function BuyPage() {
           productId: product.id,
           sellerId: product.seller,
           amount: product.price,
+          method: selectedMethod
         }),
       });
 
@@ -117,8 +120,22 @@ export default function BuyPage() {
 
   return (
     <div className="max-w-xl mx-auto mt-10 bg-white p-6 rounded-lg shadow">
-      <h1 className="text-2xl font-bold text-gray-700 mb-2">{product.name}</h1>
-      <p className="text-gray-600 mb-4">{product.shortDescription}</p>
+      <div className="flex justify-between items-start mb-4">
+        {/* Left: Text content */}
+        <div className="flex-1 mr-4">
+          <h1 className="text-2xl font-bold text-gray-700 mb-2">{product.name}</h1>
+          <p className="text-gray-600">{product.shortDescription}</p>
+        </div>
+
+        {/* Right: Product image */}
+        {product.image && (
+          <img
+            src={product.image}
+            alt={product.name}
+            className="w-32 h-32 object-cover rounded-lg"
+          />
+        )}
+      </div>
       <div className="text-xl font-semibold text-green-600 mb-6">${product.price}</div>
 
       <div className="flex justify-between items-center text-sm text-gray-500 mb-6">
@@ -126,13 +143,95 @@ export default function BuyPage() {
         <div>Product ID: <span className="text-gray-400">{product.id}</span></div>
       </div>
 
-      <button
-        onClick={handlePurchase}
-        disabled={processing}
-        className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-lg transition disabled:opacity-60"
+      <form 
+        onSubmit={(e) => {
+          e.preventDefault();
+          handlePurchase(); // trigger purchase when form is submitted
+        }}
+        className="space-y-4 mb-6"
       >
-        {processing ? "Processing..." : "Confirm and Pay"}
-      </button>
+        {/* Payment Section Title */}
+        <h2 className="text-lg font-semibold text-gray-700">Payment Information</h2>
+
+        {/* Select Payment Method */}
+        <div>
+          <label className="block text-sm text-gray-600 mb-1">Payment Method</label>
+          <select
+            className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400"
+            value={selectedMethod}
+            onChange={(e) => setSelectedMethod(e.target.value)}
+          >
+            <option value="card">Credit/Debit Card</option>
+            <option value="bank">Bank Transfer</option>
+            <option value="paypal">PayPal</option>
+          </select>
+        </div>
+
+        {/* Card Fields */}
+        {selectedMethod === "card" && (
+          <>
+            <div>
+              <label className="block text-sm text-gray-600 mb-1">Card Number</label>
+              <input
+                type="text"
+                name="cardNumber"
+                placeholder="1234 5678 9012 3456"
+                className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400"
+              />
+            </div>
+
+            <div className="flex space-x-4">
+              <div className="flex-1">
+                <label className="block text-sm text-gray-600 mb-1">Expiry</label>
+                <input
+                  type="text"
+                  name="expiry"
+                  placeholder="MM/YY"
+                  className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400"
+                />
+              </div>
+              <div className="flex-1">
+                <label className="block text-sm text-gray-600 mb-1">CVV</label>
+                <input
+                  type="text"
+                  name="cvv"
+                  placeholder="123"
+                  className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400"
+                />
+              </div>
+            </div>
+          </>
+        )}
+
+        {/* Bank Transfer */}
+        {selectedMethod === "bank" && (
+          <div>
+            <label className="block text-sm text-gray-600 mb-1">Bank Account Number</label>
+            <input
+              type="text"
+              name="bankAccount"
+              placeholder="Enter your bank account"
+              className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400"
+            />
+          </div>
+        )}
+
+        {/* PayPal Notice */}
+        {selectedMethod === "paypal" && (
+          <div className="text-sm text-gray-600 italic">
+            You’ll be redirected to PayPal after clicking “Confirm and Pay.”
+          </div>
+        )}
+
+        {/* Submit Button */}
+        <button
+          type="submit"
+          disabled={processing}
+          className="w-full bg-orange-500 hover:bg-orange-600 text-white py-3 rounded-lg transition disabled:opacity-60"
+        >
+          {processing ? "Processing..." : "Confirm and Pay"}
+        </button>
+      </form>
     </div>
   );
 }
