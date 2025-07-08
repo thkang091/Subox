@@ -113,7 +113,7 @@ export default function NotificationPage() {
   return (
     <div className="flex min-h-screen">
       {/* Left: notification list */}
-        <div className="w-1/3 border-r bg-gray-100 mt-16 px-6 py-4 overflow-y-auto">
+        <div className="w-1/3 border-r bg-[#FFF7F2] mt-16 px-6 py-4 overflow-y-auto">
           <h2 className="text-xl font-bold mb-4">Notifications</h2>
           <ul>
             {notification.map((notif) => (
@@ -131,7 +131,7 @@ export default function NotificationPage() {
           </ul>
         </div>
       {/* Right: selected notification */}
-      <div className="w-2/3 mt-16 px-6 py-4 overflow-y-auto">
+      <div className="w-2/3 mt-16 px-6 py-4 overflow-y-auto bg-gradient-to-br from-[#FFF7F2] via-white to-white">
         {selectedNotif ? (
           <div>
             <h3 className="text-2xl font-semibold mb-2">Notification #{selectedNotif.id}</h3>
@@ -145,9 +145,19 @@ export default function NotificationPage() {
       </div>
       <button
         onClick={() => router.push('/sale/browse')}
-        className="absolute top-4 left-4 px-4 py-2 bg-blue-600 text-white rounded-lg shadow hover:bg-blue-700 transition"
+        className="absolute top-4 left-4 px-4 py-2 bg-white-600 text-white rounded-lg shadow hover:bg-orange-700 transition"
       >
-        <House/>
+        <div className="flex items-center space-x-3">
+          <svg className="w-8 h-8" viewBox="0 0 50 50" fill="none">
+            <path d="M25 5L40 15V35L25 45L10 35V15L25 5Z" fill="#E97451" />
+            <rect x="20" y="20" width="10" height="10" fill="white" />
+          </svg>
+          <svg className="w-6 h-6 -ml-2" viewBox="0 0 40 40" fill="none">
+            <path d="M5 10L20 5L35 10L30 35L15 40L5 35L5 10Z" fill="#E97451" />
+            <circle cx="15" cy="15" r="3" fill="white" />
+          </svg>
+          <span className="text-2xl font-bold text-gray-900">Subox</span>
+        </div>
       </button>
       {/* Search */}
       <div className="w-full flex justify-center pt-4 px-4">
