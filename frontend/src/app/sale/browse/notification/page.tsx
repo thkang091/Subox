@@ -160,9 +160,9 @@ export default function NotificationPage() {
         </div>
       </button>
       {/* Search */}
-      <div className="w-full flex justify-center pt-4 px-4">
-        <form onSubmit={handleSearchSubmit} className="relative w-full max-w-xs">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+      <div className="w-full flex items-start pt-4 px-4">
+        <form onSubmit={handleSearchSubmit} className="relative w-full max-w-xs flex items-center space-x-2">
+          <Search className="text-gray-400 w-5 h-5" />
           <input
             type="text"
             value={searchQuery}
@@ -170,7 +170,7 @@ export default function NotificationPage() {
             onFocus={() => setShowHistory(true)}
             onBlur={() => setTimeout(() => setShowHistory(false), 200)}
             placeholder="Search items..."
-            className="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+            className="pl-4 pr-4 py-2 w-full border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
           />
         </form>
       </div>

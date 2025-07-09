@@ -10,6 +10,7 @@ import {
   storage
  } from "@/lib/firebase";
 import { fetchSignInMethodsForEmail } from "firebase/auth";
+import { updateProfile } from "firebase/auth";
 import { 
   createUserWithEmailAndPassword, 
   signInWithEmailAndPassword, 
@@ -30,6 +31,8 @@ import {
   ref, 
   getDownloadURL 
 } from "firebase/storage";
+import { IntegerSchema } from "firebase/ai";
+import { getDisplayName } from "next/dist/shared/lib/utils";
 
 export default function AuthPage() {
   const router = useRouter();
@@ -61,6 +64,43 @@ export default function AuthPage() {
   const [isPhoneVerified, setIsPhoneVerified] = useState(false);
   const [phoneVerificationCode, setPhoneVerificationCode] = useState("");
   const [showPhoneVerification, setShowPhoneVerification] = useState(false);
+
+  // Rate for caculation
+
+  const [rated, setRated] = useState<number[]>([]);
+  const [averageRate, setAverageRate] = useState<number[]>([]);
+  const [rateError, setRateError] = useState(0);
+
+  const calculateRateError = (userRatings: number[], averageRatings: number[]) => {
+    if (
+      userRatings.length === 0 ||
+      averageRatings.length === 0 ||
+      userRatings.length !== averageRatings.length
+    ) return 0;
+
+    const totalError = userRatings.reduce((sum, rating, i) => {
+      return sum + Math.abs(rating - averageRatings[i]);
+    }, 0);
+
+    return totalError / userRatings.length;
+  };
+
+  useEffect(() => {
+    setRateError(calculateRateError(rated, averageRate));
+  }, [rated, averageRate]);
+
+  const history = {
+    rated,
+    averageRate,
+    rateError,
+    purchased: [],
+    sold: [],
+    rented: [],
+    subleased: [],
+    reviewed: [],
+    cancelled: [],
+    returned: [],
+  };
 
   // Alumni
   const [isAlumni, setIsAlumni] = useState(false);
@@ -111,6 +151,9 @@ export default function AuthPage() {
     setPhoneVerificationCode("");
     setShowPhoneVerification(false);
     setIsAlumni(false);
+    setRated([]);
+    setAverageRate([]);
+    setRateError(0);
   };
 
   // Event handlers
@@ -208,6 +251,10 @@ export default function AuthPage() {
 
   // Save user data to Firestore
   const saveUserData = async (user: any, photoURL: string) => {
+    await updateProfile(user, {
+      displayName: fullName
+    });
+
     const userData = {
       fullName,
       dob,
@@ -217,12 +264,28 @@ export default function AuthPage() {
       phoneNumber: phoneNumber || null,
       isPhoneVerified,
       socialLink: socialLink || null,
-      alumni: isAlumni,
       quickBio: quickBio || null,
       isStudentVerified: schoolEmail && isSchoolEmail(schoolEmail),
+      history: {
+        purchased: history.purchased,
+        sold: history.sold,
+        rented: history.rented,
+        subleased: history.subleased,
+        rated: history.rated,
+        reviewed: history.reviewed,
+        averageRate: history.averageRate,
+        rateError: history.rateError,
+        cancelled: history.cancelled,
+        returned: history.returned,
+      },
       badges: {
-        studentVerified: schoolEmail && isSchoolEmail(schoolEmail),
+        studentVerified: schoolEmail && isSchoolEmail(schoolEmail) && !isAlumni,
+        alumni: isAlumni && isSchoolEmail(schoolEmail) && schoolEmail,
         phoneVerified: isPhoneVerified,
+        trustedRenter: history.rented.length >= 4,
+        trustedSeller: history.sold.length >= 10,
+        bestRater: history.rated.length >= 15 && history.rateError <= 1,
+        bestReviewer: history.reviewed.length >= 20,
         socialLinked: !!socialLink
       },
       createdAt: new Date()
@@ -313,11 +376,11 @@ export default function AuthPage() {
     }
   };
 
-  // Checking veteran error code
+  // Checking alumni error code
   const validate = () => {
     if (isAlumni) {
-      if (!serviceStart || !serviceEnd) {
-        setError("Please enter both start and end dates of your service.");
+      if (!graduationDate) {
+        setError("Please enter your graduation date.");
         return false;
       }
     }

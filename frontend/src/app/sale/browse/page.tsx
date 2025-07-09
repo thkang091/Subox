@@ -108,12 +108,12 @@ export default function MoveOutSalePage() {
       rating: 4.5,
       views: 23,
       student: true,
-      veteran: true,
-      rate: 15,
+      rate: true,
+      rateError: true,
       alumni: false,
-      review: 20,
-      sold: 5,
-      rent: 0
+      review: true,
+      sold: false,
+      rent: false
     },
     {
       id: 2,
@@ -132,12 +132,12 @@ export default function MoveOutSalePage() {
       rating: 5.0,
       views: 87,
       student: true,
-      veteran: false,
-      rate: 10,
+      rate: false,
+      rateError: false,
       alumni: false,
-      review: 13,
-      sold: 3,
-      rent: 4
+      review: false,
+      sold: false,
+      rent: true
     },
     {
       id: 3,
@@ -156,12 +156,12 @@ export default function MoveOutSalePage() {
       rating: 4.0,
       views: 12,
       student: false,
-      veteran: false,
-      rate: 5,
+      rate: false,
+      rateError: true,
       alumni: false,
-      review: 2,
-      sold: 11,
-      rent: 1
+      review: false,
+      sold: true,
+      rent: false
     },
     {
       id: 4,
@@ -180,12 +180,12 @@ export default function MoveOutSalePage() {
       rating: 4.2,
       views: 34,
       student: false,
-      veteran: false,
-      rate: 8,
+      rate: false,
+      rateError: false,
       alumni: true,
-      review: 15,
-      sold: 10,
-      rent: 4
+      review: false,
+      sold: true,
+      rent: true
     },
     {
       id: 5,
@@ -204,12 +204,12 @@ export default function MoveOutSalePage() {
       rating: 4.3,
       views: 18,
       student: false,
-      veteran: false,
-      rate: 17,
+      rate: true,
+      rateError: true,
       alumni: false,
-      review: 30,
-      sold: 1,
-      rent: 2
+      review: true,
+      sold: false,
+      rent: false
     },
     {
       id: 6,
@@ -228,12 +228,12 @@ export default function MoveOutSalePage() {
       rating: 3.8,
       views: 9,
       student: false,
-      veteran: true,
-      rate: 3,
+      rate: false,
+      rateError: false,
       alumni: false,
-      review: 23,
-      sold: 3,
-      rent: 1
+      review: true,
+      sold: false,
+      rent: false
     }
   ];
   
@@ -867,7 +867,7 @@ export default function MoveOutSalePage() {
                         <Link key={`seller-${product.id}`} href={`browse/profile/${product.seller}`} className="text-sm text-gray-500">
                         <span className="inline-flex items-center gap-1">
                           Sold by <span className="font-medium text-gray-700">{product.seller}</span>
-                          {product.rate >= 15 && (
+                          {product.rate && product.rateError && (
                             <div className="w-5 h-5">
                               <svg
                                 viewBox="0 0 100 100"
@@ -987,7 +987,7 @@ export default function MoveOutSalePage() {
                           )}
 
 
-                          {product.sold >= 10 && (
+                          {product.sold && (
                             <div className="w-5 h-5">
                               <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
                                 {/* Yellow base */}
@@ -1109,7 +1109,7 @@ export default function MoveOutSalePage() {
                             </div>
                           )}
 
-                          {product.rent >= 4 && (
+                          {product.rent && (
                             <div className="w-5 h-5">
                               <svg
                                 viewBox="0 0 100 100"
@@ -1272,7 +1272,7 @@ export default function MoveOutSalePage() {
                               </svg>
                             </div>
                           )}
-                          {product.review >= 20 && (
+                          {product.review && (
                             <div className="w-5 h-5">
                               <svg
                                 viewBox="0 0 100 100"
