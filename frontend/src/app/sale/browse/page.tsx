@@ -268,6 +268,7 @@ export default function MoveOutSalePage() {
     return matchesSearch && matchesCategory && matchesCondition && matchesPrice && matchesLocation && matchesFavorites && matchesDelivery && matchesPickup && matchesAvailableUntil
   });
 
+
   const toggleFavorite = (product) => {
     const raw = localStorage.getItem("favorites");
     let favorites = raw ? JSON.parse(raw) : [];

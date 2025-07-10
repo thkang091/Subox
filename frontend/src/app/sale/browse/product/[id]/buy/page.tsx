@@ -6,6 +6,9 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { Loader } from "lucide-react";
 import { products } from '../../../../../../data/saleListings';
+import { updateUserHistoryAndBadges } from "@/app/history/historyUpdate";
+import { auth } from "@/lib/firebase";
+import { onAuthStateChanged } from "firebase/auth";
 
 type Product = {
   id: string;
@@ -30,6 +33,19 @@ export default function BuyPage() {
   });
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
+  const [userId, setUserId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        setUserId(user.uid);
+      }
+      else {
+        alert("You must be logged in to purchase")
+      }
+    });
+    return () => unsubscribe();
+  }, []);
 
   useEffect(() => {
   //   const fetchData = async () => {
@@ -92,6 +108,13 @@ export default function BuyPage() {
       if (!res.ok) throw new Error("Payment failed");
 
       alert("Purchase successful!");
+
+      await updateUserHistoryAndBadges({
+        userId,
+        actionType: "purchased",
+        productId: product.id
+      });
+
       router.push(`/thank-you`);
     } catch (err) {
       console.error(err);

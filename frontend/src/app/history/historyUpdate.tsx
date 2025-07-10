@@ -1,5 +1,6 @@
 import { doc, updateDoc, arrayUnion } from "firebase/firestore";
 import { db } from "@/lib/firebase";
+import { sub } from "framer-motion/client";
 
 export const updateUserHistoryAndBadges = async ({
   userId,
@@ -7,16 +8,18 @@ export const updateUserHistoryAndBadges = async ({
   newRateAvg,
   actionType,
   productId,
+  subleaseId,
   rate,
   rateAvg
-}: {
+} : {
   userId: string;
   newRating?: number;
   newRateAvg?: number;
-  rate: number[];
-  rateAvg: number[];
-  actionType?: "purchased" | "sold" | "rented" | "subleased" | "rated" | "reviewed";
+  rate?: number[];
+  rateAvg?: number[];
+  actionType: "purchased" | "sold" | "rented" | "subleased" | "rated" | "reviewed";
   productId?: string;
+  subleaseId?: string;
 }) => {
   const userRef = doc(db, "users", userId);
 
@@ -25,6 +28,9 @@ export const updateUserHistoryAndBadges = async ({
   // History Updates
   if (actionType && productId) {
     updates[`history.${actionType}`] = arrayUnion(productId);
+  }
+  else if (actionType && subleaseId) {
+    updates[`history.${actionType}`] = arrayUnion(subleaseId);
   }
 
   // Rating updates

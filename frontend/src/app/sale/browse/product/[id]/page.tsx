@@ -12,6 +12,7 @@ import { MapPin, Heart, User, Package, Search, ShoppingCart, Bell, X, ArrowLeft,
 import { products } from '../../../../../data/saleListings';
 import { auth } from '@/lib/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
+import { updateUserHistoryAndBadges } from "@/app/history/historyUpdate";
 
 const ProductDetailPage = () => {
   const router = useRouter();
@@ -46,6 +47,11 @@ const ProductDetailPage = () => {
     email: "seller@example.com",
     photoURL: null
   });
+  const [rating, setRating] = useState(0);
+  const [reviewText, setReviewText] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [reviews, setReviews] = useState<any[]>([]);
+  const [averageRating, setAverageRating] = useState<number | null>(null);
 
   const notifications = [
     { id: 1, type: "price-drop", message: "MacBook Pro price dropped by $50!", time: "2h ago" },
@@ -148,6 +154,14 @@ const ProductDetailPage = () => {
 
     };
   }, [id]);
+
+  /* await updateUserHistoryAndBadges({
+    userId: userId || "",
+    newRating: product.rate,
+    productAvg: product.rateAvg,
+    actionType: "rated",
+    productId: product.id
+  }); */
 
   const mismatchOptions = [
     {value: "reviews", label: "Reviews"},
@@ -273,6 +287,34 @@ const ProductDetailPage = () => {
     };
   }, [showAllImages]);
 
+  const handleSubmitReview = async () => {
+    setIsSubmitting(true);
+    try {
+      await updateUserHistoryAndBadges({
+        userId,
+        actionType: "rated",
+        productId: product.id,
+        newRating: rating,
+        newRateAvg: averageRating,
+      });
+
+      await updateUserHistoryAndBadges({
+        userId,
+        actionType: "reviewed",
+        productId: product.id
+      });
+
+      // Clear form after submit
+      setRating(0);
+      setReviewText("");
+      alert("Review submitted!");
+    } catch (err) {
+      console.error("Error submitting review:", err);
+      alert("Something went wrong.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
 
   const NotificationsButton = ({ notifications }) => {
     const [showNotifications, setShowNotifications] = useState(false);
@@ -372,7 +414,7 @@ const ProductDetailPage = () => {
                 </motion.button>
 
               {/* Favorites Sidebar */}
-              <div className={`fixed md:left-16 left-0 top-0 md:top-0 top-16 h-full md:h-full h-[calc(100%-4rem)] w-72 bg-white shadow-xl z-40 transform transition-transform duration-300 ease-in-out ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} overflow-auto`}>
+              <div className={`fixed left-0 top-0 h-full w-72 bg-white shadow-xl z-40 transform transition-transform duration-300 ease-in-out ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} overflow-auto`}>
                 <div className="p-4 border-b">
                   <div className="flex justify-between items-center">
                     <h2 className="font-bold text-lg text-orange-500">Favorites</h2>
@@ -399,30 +441,30 @@ const ProductDetailPage = () => {
                         <div className="space-y-4">
                           {favoriteListings.map(listing => (
                             <div 
-                              key={product.id} 
+                              key={listing.id} 
                               className="border rounded-lg overflow-hidden hover:shadow-md transition cursor-pointer"
                               onClick={() => {
                                 setIsSidebarOpen(false);
-                                router.push(`/sale/browse/product/${product.id}`);
+                                router.push(`/sale/browse/product/${listing.id}`);
                               }}
                             >
                               <div className="flex">
                                 <div 
                                   className="w-20 h-20 bg-gray-200 flex-shrink-0" 
-                                  style={{backgroundImage: `url(${product.image})`, backgroundSize: 'cover', backgroundPosition: 'center'}}
+                                  style={{backgroundImage: `url(${listing.image})`, backgroundSize: 'cover', backgroundPosition: 'center'}}
                                 ></div>
                                 <div className="p-3 flex-1">
-                                  <div className="font-medium text-gray-700">{product.name}</div>
-                                  <div className="text-sm text-gray-500">{product.location}</div>
+                                  <div className="font-medium text-gray-700">{listing.name}</div>
+                                  <div className="text-sm text-gray-500">{listing.location}</div>
                                   <div className="text-sm font-bold text-[#15361F] mt-1">
-                                    ${product.price}
+                                    ${listing.price}
                                   </div>
                                 </div>
                                 <button 
                                   className="p-2 text-gray-400 hover:text-red-500 self-start"
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    setFavoriteListings(favoriteListings.filter(item => item.id !== product.id));
+                                    setFavoriteListings(favoriteListings.filter(item => item.id !== listing.id));
                                   }}
                                 >
                                   <X size={16} />
@@ -977,6 +1019,44 @@ const ProductDetailPage = () => {
         </div>
       </div>
     </div>
+    </div>
+    {/* Review Section */}
+    <div className="mt-12 mb-16 border-t pt-8 px-4 md:px-8">
+      <h2 className="text-xl font-semibold mb-4 text-gray-800">Leave a Review</h2>
+
+      {/* Rating */}
+      <div className="mb-4 flex items-center space-x-2">
+        {[1, 2, 3, 4, 5].map((star) => (
+          <button
+            key={star}
+            onClick={() => setRating(star)}
+            className={`text-2xl ${
+              star <= rating ? "text-yellow-400" : "text-gray-300"
+            }`}
+          >
+            ★
+          </button>
+        ))}
+        <span className="ml-2 text-sm text-gray-600">{rating} / 5</span>
+      </div>
+
+      {/* Review Text */}
+      <textarea
+        rows={4}
+        value={reviewText}
+        onChange={(e) => setReviewText(e.target.value)}
+        placeholder="Write your thoughts about this product..."
+        className="w-full border px-4 py-2 rounded-lg focus:ring-2 focus:ring-orange-500 focus:outline-none mb-4"
+      />
+
+      {/* Submit Button */}
+      <button
+        onClick={handleSubmitReview}
+        disabled={isSubmitting || rating === 0 || reviewText.trim() === ""}
+        className="bg-orange-500 hover:bg-orange-600 text-white font-semibold py-2 px-6 rounded-lg transition disabled:opacity-60"
+      >
+        {isSubmitting ? "Submitting..." : "Submit Review"}
+      </button>
     </div>
     </div>
   );
