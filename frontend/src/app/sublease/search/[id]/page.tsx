@@ -9,54 +9,596 @@ import {
   Filter, BedDouble, DollarSign, LogIn, Heart, User, Plus,
   ArrowLeft, ArrowRight,Video, MessageCircle
 } from 'lucide-react';
-
+import { doc, getDoc, addDoc, collection, query, where, getDocs, serverTimestamp } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+import { useAuth } from '@/app/contexts/AuthInfo';
 import { featuredListings } from '../../../../data/listings';
+import NeighborhoodDetector from '@/components/NeighborhoodDetector'; // Adjust path as needed
+
+
+  // gender information icon
+  const getGenderInfo = (preferredGender) => {
+    switch(preferredGender) {
+      case 'male':
+        return { icon: <User className="w-4 h-4 mr-2 text-orange-500" />, text: "Male Only" };
+      case 'female':
+        return { icon: <User className="w-4 h-4 mr-2 text-pink-500" />, text: "Female Only" };
+      case 'any':
+      default:
+        return { icon: <Users className="w-4 h-4 mr-2 text-green-500" />, text: "Any" };
+    }
+  };
+
+// Updated NeighborhoodDetectorWrapper using the new custom map
+// Updated NeighborhoodDetectorWrapper using the new custom map
+const NeighborhoodDetectorWrapper = ({ listing, onNeighborhoodDetected }: { 
+  listing: any, 
+  onNeighborhoodDetected: (neighborhood: string) => void 
+}) => {
+  const [coordinates, setCoordinates] = useState<{lat: number, lng: number} | null>(null);
+  const [isGeocoding, setIsGeocoding] = useState(false);
+  const [locationType, setLocationType] = useState<'specific' | 'neighborhood' | 'none'>('none');
+  const [locationName, setLocationName] = useState<string>('');
+  const [debugInfo, setDebugInfo] = useState<string>('');
+
+  useEffect(() => {
+    const processListingLocation = async () => {
+      if (!listing) return;
+      
+      console.log('🔍 Processing listing:', {
+        location: listing.location,
+        customLocation: listing.customLocation,
+        address: listing.address
+      });
+      
+      // ✅ CASE 1: Has specific coordinates in customLocation
+      if (listing?.customLocation?.lat && listing?.customLocation?.lng) {
+        console.log('✅ Found specific coordinates in customLocation');
+        setCoordinates({
+          lat: listing.customLocation.lat,
+          lng: listing.customLocation.lng
+        });
+        setLocationType('specific');
+        
+        // Use the placeName, address, or default to "Specific Location"
+        const locationDisplayName = listing.customLocation.placeName || 
+                                   listing.customLocation.address || 
+                                   'Specific Location';
+        setLocationName(locationDisplayName);
+        setDebugInfo(`Specific coordinates: ${listing.customLocation.lat.toFixed(4)}, ${listing.customLocation.lng.toFixed(4)}`);
+        
+        // Notify parent component
+        if (listing.customLocation.placeName) {
+          onNeighborhoodDetected(listing.customLocation.placeName);
+        }
+        return;
+      }
+      
+      // ✅ CASE 2: Has neighborhood name (but not "Other")
+      if (listing?.location && listing.location !== 'Other') {
+        console.log('✅ Found neighborhood name, will geocode:', listing.location);
+        setLocationName(listing.location);
+        setIsGeocoding(true);
+        
+        try {
+          // Wait for Google Maps to be loaded
+          let attempts = 0;
+          const maxAttempts = 20;
+          
+          const waitForGoogleMaps = () => {
+            return new Promise<void>((resolve, reject) => {
+              const checkGoogle = () => {
+                attempts++;
+                if (window.google?.maps) {
+                  console.log('✅ Google Maps loaded');
+                  resolve();
+                } else if (attempts < maxAttempts) {
+                  console.log(`⏳ Waiting for Google Maps... (${attempts}/${maxAttempts})`);
+                  setTimeout(checkGoogle, 500);
+                } else {
+                  reject(new Error('Google Maps API not loaded after waiting'));
+                }
+              };
+              checkGoogle();
+            });
+          };
+          
+          await waitForGoogleMaps();
+          
+          // Geocode the neighborhood name
+          const geocodedLocation = await geocodeLocation(listing.location);
+          
+          if (geocodedLocation) {
+            setCoordinates({
+              lat: geocodedLocation.lat,
+              lng: geocodedLocation.lng
+            });
+            setLocationType('neighborhood'); // Always neighborhood for location field
+            onNeighborhoodDetected(listing.location);
+            console.log('✅ Successfully geocoded neighborhood');
+          } else {
+            setDebugInfo('Could not geocode neighborhood');
+            setLocationType('none');
+          }
+        } catch (error) {
+          console.error('Error geocoding neighborhood:', error);
+          setDebugInfo(`Error: ${error.message}`);
+          setLocationType('none');
+        } finally {
+          setIsGeocoding(false);
+        }
+        return;
+      }
+      
+      // ✅ CASE 3: Location is "Other" but no customLocation
+      if (listing?.location === 'Other' && !listing?.customLocation) {
+        console.log('⚠️ Location is "Other" but no specific coordinates provided');
+        setLocationName('Location not specified');
+        setLocationType('none');
+        setDebugInfo('Location marked as "Other" with no specific coordinates');
+        return;
+      }
+      
+      // ✅ CASE 4: No location data at all
+      console.log('❌ No location data found');
+      setLocationName('No location');
+      setLocationType('none');
+      setDebugInfo('No location data available');
+    };
+
+    processListingLocation();
+  }, [listing]);
+
+  // Geocoding function
+  const geocodeLocation = async (locationQuery: string): Promise<{lat: number, lng: number} | null> => {
+    if (!window.google?.maps) {
+      setDebugInfo('Google Maps not loaded');
+      return null;
+    }
+    
+    // Add Minneapolis context for better geocoding
+    const searchQuery = locationQuery.includes('Minneapolis') || locationQuery.includes('MN') 
+      ? locationQuery 
+      : `${locationQuery}, Minneapolis, MN`;
+    
+    console.log('🔍 Geocoding location:', searchQuery);
+    
+    return new Promise((resolve) => {
+      const geocoder = new window.google.maps.Geocoder();
+      
+      geocoder.geocode(
+        { address: searchQuery },
+        (results, status) => {
+          console.log('🔍 Geocoding result:', { results, status });
+          
+          if (status === 'OK' && results?.[0]?.geometry?.location) {
+            const location = results[0].geometry.location;
+            const coords = {
+              lat: location.lat(),
+              lng: location.lng()
+            };
+            
+            console.log('✅ Geocoded successfully:', coords);
+            setDebugInfo(`Geocoded: ${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)}`);
+            resolve(coords);
+          } else {
+            console.log('❌ Geocoding failed:', status);
+            setDebugInfo(`Geocoding failed: ${status}`);
+            resolve(null);
+          }
+        }
+      );
+    });
+  };
+
+  // Loading state
+  if (isGeocoding) {
+    return (
+      <div className="flex items-center gap-2 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+        <div className="animate-spin rounded-full h-5 w-5 border-2 border-blue-500 border-t-transparent"></div>
+        <span className="text-blue-700 font-medium">Finding {locationName} on map...</span>
+      </div>
+    );
+  }
+
+  // No location available
+  if (locationType === 'none' || !coordinates) {
+    return (
+      <div className="flex flex-col gap-3 p-4 bg-gray-50 border border-gray-200 rounded-lg">
+        <div className="flex items-center gap-2">
+          <MapPin size={20} className="text-gray-400" />
+          <div>
+            <span className="text-gray-700 font-medium">Location not available</span>
+            <p className="text-gray-500 text-sm mt-1">No location information provided for this listing</p>
+          </div>
+        </div>
+        {debugInfo && (
+          <div className="text-xs text-gray-500 bg-gray-100 p-2 rounded">
+            Debug: {debugInfo}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // Show map for both specific locations and neighborhood areas
+  return (
+    <div className="space-y-4">
+      {/* Map Component */}
+      <NeighborhoodDetector
+        latitude={coordinates.lat}
+        longitude={coordinates.lng}
+        onNeighborhoodDetected={onNeighborhoodDetected}
+        showMap={true}
+        locationType={locationType}
+        locationName={locationName}
+      />
+      
+      {/* Location Summary */}
+      <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200">
+        <div className="flex items-center gap-2">
+          {locationType === 'specific' ? (
+            <>
+              <MapPin size={16} className="text-red-500" />
+              <span className="text-sm font-medium text-gray-700">Exact Address Provided</span>
+            </>
+          ) : (
+            <>
+              <Home size={16} className="text-blue-500" />
+              <span className="text-sm font-medium text-gray-700">Neighborhood Area</span>
+            </>
+          )}
+        </div>
+        <div className="text-xs text-gray-500">
+          {coordinates.lat.toFixed(4)}, {coordinates.lng.toFixed(4)}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+
 
 const ListingDetailPage = () => {
   const router = useRouter();
   const params = useParams();
   const id = params?.id;
+  
+  // ALL useState hooks first
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [activeImage, setActiveImage] = useState(0);
+  const [isCreatingConversation, setIsCreatingConversation] = useState(false);
   const [showAllImages, setShowAllImages] = useState(false);
   const [favoriteListings, setFavoriteListings] = useState([]);
   const [isMounted, setIsMounted] = useState(false);
+  const [detectedNeighborhood, setDetectedNeighborhood] = useState<string>('');
   const [showConnectOptions, setShowConnectOptions] = useState(false);
-  
-  
+  const [listing, setListing] = useState(null);
+  const [listingLoading, setListingLoading] = useState(true);
+  const [showReviewModal, setShowReviewModal] = useState(false);
+  const [newReviewRating, setNewReviewRating] = useState(5);
+  const [newReviewComment, setNewReviewComment] = useState('');
+  const [hostReviews, setHostReviews] = useState([]);
+  const { user } = useAuth();
+  useEffect(() => {
+    if (listing) {
+      console.log('🔍 DEBUG: Listing data:', listing);
+      console.log('🔍 DEBUG: Location string:', listing.location);
+      console.log('🔍 DEBUG: Available listing fields:', Object.keys(listing));
+      
+      // Check for different coordinate formats
+      console.log('🔍 DEBUG: Coordinates check:', {
+        coordinates: listing.coordinates,
+        lat: listing.lat,
+        lng: listing.lng,
+        latitude: listing.latitude,
+        longitude: listing.longitude
+      });
+    }
+  }, [listing]);
+  // ALL useEffect hooks next
   useEffect(() => {
     setIsMounted(true);
-    }, []);
+  }, []);
     
-    useEffect(() => {
-        if (isMounted) {
-            try {
-            const savedFavorites = localStorage.getItem('favoriteListings');
-            if (savedFavorites) {
-                setFavoriteListings(JSON.parse(savedFavorites));
-            }
-            } catch (error) {
-            console.error('Error loading favorites from localStorage:', error);
-            }
-        }
-    }, [isMounted]);
-  
-  // when favoriteListings is changed, update the localStorage
   useEffect(() => {
-  if (isMounted) {
-    try {
-      localStorage.setItem('favoriteListings', JSON.stringify(favoriteListings));
-    } catch (error) {
-      console.error('Error saving favorites to localStorage:', error);
+    if (isMounted) {
+      try {
+        const savedFavorites = localStorage.getItem('favoriteListings');
+        if (savedFavorites) {
+          setFavoriteListings(JSON.parse(savedFavorites));
+        }
+      } catch (error) {
+        console.error('Error loading favorites from localStorage:', error);
+      }
     }
+  }, [isMounted]);
+
+  useEffect(() => {
+    if (isMounted) {
+      try {
+        localStorage.setItem('favoriteListings', JSON.stringify(favoriteListings));
+      } catch (error) {
+        console.error('Error saving favorites to localStorage:', error);
+      }
+    }
+  }, [favoriteListings, isMounted]);
+
+  useEffect(() => {
+    const fetchListing = async () => {
+      if (!id) return;
+      
+      setListingLoading(true);
+  
+      try {
+        // First try to find in featured listings (for mock data)
+        const foundListing = featuredListings.find(listing => listing.id === id);
+        
+        if (foundListing) {
+          setListing(foundListing);
+          setListingLoading(false);
+          return;
+        }
+        
+        // If not found in featured, try Firestore
+        const docRef = doc(db, 'listings', id as string);
+        const docSnap = await getDoc(docRef);
+        
+        if (docSnap.exists()) {
+          const firestoreData = docSnap.data();
+          
+          // Helper function for date conversion
+          const convertFirestoreDate = (dateValue: any) => {
+            if (!dateValue) return new Date();
+            if (dateValue.toDate && typeof dateValue.toDate === 'function') {
+              return dateValue.toDate();
+            }
+            if (typeof dateValue === 'string') {
+              const parsed = new Date(dateValue);
+              return isNaN(parsed.getTime()) ? new Date() : parsed;
+            }
+            return new Date();
+          };
+        
+const formattedListing = {
+  id: docSnap.id,
+  
+  // Basic info
+  title: firestoreData.title || `${firestoreData.listingType || 'Sublease'} in ${firestoreData.location || 'Campus Area'}`,
+  listingType: firestoreData.listingType || 'Sublease',
+  location: firestoreData.location || 'Campus Area',
+  
+  // ✅ CRITICAL: Preserve customLocation data from Firestore
+  customLocation: firestoreData.customLocation || null,
+  
+  // ✅ ALSO: Preserve address field
+  address: firestoreData.address || firestoreData.customLocation?.address || '',
+  
+  // Images - handle both single and multiple images
+  image: firestoreData.image || "https://images.unsplash.com/photo-1543852786-1cf6624b9987?q=80&w=800&h=500&auto=format&fit=crop",
+  additionalImages: firestoreData.additionalImages || [],
+  
+  // Dates
+  availableFrom: convertFirestoreDate(firestoreData.availableFrom || firestoreData.startDate),
+  availableTo: convertFirestoreDate(firestoreData.availableTo || firestoreData.endDate),
+  dateRange: firestoreData.dateRange || (() => {
+    const start = convertFirestoreDate(firestoreData.availableFrom || firestoreData.startDate);
+    const end = convertFirestoreDate(firestoreData.availableTo || firestoreData.endDate);
+    return `${start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${end.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
+  })(),
+  
+  // Pricing
+  price: Number(firestoreData.price || firestoreData.rent || 0),
+  rent: Number(firestoreData.rent || firestoreData.price || 0),
+  
+  // Property details
+  bedrooms: Number(firestoreData.bedrooms || 1),
+  bathrooms: Number(firestoreData.bathrooms || 1),
+  distance: Number(firestoreData.distance || 0.5),
+  
+  // Ratings
+  rating: Number(firestoreData.rating || 4.2),
+  reviews: Number(firestoreData.reviews || 8),
+  
+  // Amenities
+  amenities: Array.isArray(firestoreData.amenities) ? firestoreData.amenities : [],
+  
+  // Host information
+  hostId: firestoreData.hostId || firestoreData.userId || firestoreData.createdBy?.uid || docSnap.id,
+  hostName: firestoreData.hostName || firestoreData.createdBy?.displayName || 'Anonymous',
+  hostEmail: firestoreData.hostEmail || firestoreData.createdBy?.email || '',
+  hostBio: firestoreData.hostBio || `Hello, I'm ${firestoreData.hostName || 'a student'} looking to sublease my place.`,
+  hostImage: firestoreData.hostImage || "https://images.unsplash.com/photo-1587300003388-59208cc962cb?q=80&w=800&h=500&auto=format&fit=crop",
+  
+  // Description
+  description: firestoreData.description || firestoreData.additionalDetails || 'No description available',
+  
+  // Additional fields for detail page
+  accommodationType: firestoreData.accommodationType || (firestoreData.isPrivateRoom ? 'private' : 'entire'),
+  preferredGender: firestoreData.roommatePreferences?.gender || firestoreData.preferredGender || 'any',
+  isVerifiedUMN: Boolean(firestoreData.isVerifiedUMN || false),
+  hostReviews: firestoreData.hostReviews || [],
+  
+  // Booleans
+  isPrivateRoom: Boolean(firestoreData.isPrivateRoom),
+  utilitiesIncluded: Boolean(firestoreData.utilitiesIncluded),
+  hasRoommates: Boolean(firestoreData.hasRoommates),
+};
+
+
+          
+          setListing(formattedListing);
+        } else {
+          console.log('No listing found with ID:', id);
+          setListing(null);
+        }
+      } catch (error) {
+        console.error('Error fetching listing:', error);
+        setListing(null);
+      } finally {
+        setListingLoading(false);
+      }
+    };
+    
+    fetchListing();
+  }, [id]);
+
+  useEffect(() => {
+    if (listing?.hostReviews) {
+      setHostReviews(listing.hostReviews);
+    }
+  }, [listing]);
+
+  // use keyboard to move image
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (!showAllImages) return;
+      
+      if (e.key === 'ArrowLeft') {
+        goToPrevImage();
+      } else if (e.key === 'ArrowRight') {
+        goToNextImage();
+      } else if (e.key === 'Escape') {
+        setShowAllImages(false);
+      }
+    };
+    
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [showAllImages]);
+
+  // THEN your conditional returns and early exits
+  if (listingLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading listing...</p>
+        </div>
+      </div>
+    );
   }
-}, [favoriteListings, isMounted]);
-  
-  // find listing data
-  const listing = featuredListings.find(item => 
-    item.id === parseInt(id as string) || item.id.toString() === id
+
+  if (!listing) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-xl text-gray-600">Listing not found</p>
+          <button 
+            onClick={() => router.push('/sublease/search/')}
+            className="mt-4 px-4 py-2 bg-orange-500 text-white rounded-lg"
+          >
+            Back to search page
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // ✅ CHECK: Determine if current user is the host
+  const isUserHost = user && listing && (
+    user.uid === listing.hostId ||
+    user.uid === listing.userId ||
+    user.uid === listing.id ||
+    user.email === listing.hostEmail
   );
+
+  console.log('🔍 Host ownership check:', {
+    userId: user?.uid,
+    userEmail: user?.email,
+    listingHostId: listing?.hostId,
+    listingUserId: listing?.userId,
+    listingId: listing?.id,
+    listingHostEmail: listing?.hostEmail,
+    isUserHost: isUserHost
+  });
+
+  const handleNeighborhoodDetected = (neighborhood: string) => {
+    setDetectedNeighborhood(neighborhood);
+  };
+
+  const getListingCoordinates = () => {
+    // Try different possible coordinate sources from your listing data
+    
+    // Direct coordinates object
+    if (listing?.coordinates?.lat && listing?.coordinates?.lng) {
+      return {
+        lat: listing.coordinates.lat,
+        lng: listing.coordinates.lng
+      };
+    }
+    
+    // Separate lat/lng fields
+    if (listing?.lat && listing?.lng) {
+      return {
+        lat: listing.lat,
+        lng: listing.lng
+      };
+    }
+    
+    // Latitude/longitude fields
+    if (listing?.latitude && listing?.longitude) {
+      return {
+        lat: listing.latitude,
+        lng: listing.longitude
+      };
+    }
+    
+    // Location object with coordinates
+    if (listing?.location?.coordinates) {
+      if (Array.isArray(listing.location.coordinates) && listing.location.coordinates.length >= 2) {
+        // GeoJSON format [lng, lat]
+        return {
+          lat: listing.location.coordinates[1],
+          lng: listing.location.coordinates[0]
+        };
+      }
+      if (listing.location.coordinates.lat && listing.location.coordinates.lng) {
+        return {
+          lat: listing.location.coordinates.lat,
+          lng: listing.location.coordinates.lng
+        };
+      }
+    }
+    
+    // If no coordinates available, try to geocode the address using Google Maps
+    // This will be handled by the NeighborhoodDetector component itself
+    
+    return null;
+  };
+
+
+  const geocodeListingAddress = async (): Promise<{lat: number, lng: number} | null> => {
+    if (!listing?.location || !window.google?.maps) return null;
+    
+    return new Promise((resolve) => {
+      const geocoder = new window.google.maps.Geocoder();
+      geocoder.geocode(
+        { address: listing.location },
+        (results, status) => {
+          if (status === 'OK' && results?.[0]?.geometry?.location) {
+            const location = results[0].geometry.location;
+            resolve({
+              lat: location.lat(),
+              lng: location.lng()
+            });
+          } else {
+            resolve(null);
+          }
+        }
+      );
+    });
+  };
   
+  
+
+
+  
+  
+  
+  // Rest of your component logic and functions...
   const toggleFavorite = (listing) => {
     const isFavorited = favoriteListings.some(item => item.id === listing.id);
     
@@ -81,32 +623,15 @@ const ListingDetailPage = () => {
     setIsSidebarOpen(true);
   };
 
-  if (!listing) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-xl text-gray-600">Cannot find any listings</p>
-          <button 
-            onClick={() => router.push('/search')}
-            className="mt-4 px-4 py-2 bg-orange-500 text-white rounded-lg"
-          >
-            back to search page
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  // review
-  const [showReviewModal, setShowReviewModal] = useState(false);
-  const [newReviewRating, setNewReviewRating] = useState(5);
-  const [newReviewComment, setNewReviewComment] = useState('');
-  const [hostReviews, setHostReviews] = useState(listing.hostReviews || []);
+  
 
   // all image array
-  const allImages = [listing.image, ...(listing.additionalImages || [])];
-  
-  // gp to previous image
+  const allImages = [
+    listing.image,
+    ...(Array.isArray(listing.additionalImages) ? listing.additionalImages : [])
+  ].filter(Boolean);
+
+  // go to previous image
   const goToPrevImage = () => {
     setActiveImage((prev) => (prev === 0 ? allImages.length - 1 : prev - 1));
   };
@@ -116,50 +641,154 @@ const ListingDetailPage = () => {
     setActiveImage((prev) => (prev === allImages.length - 1 ? 0 : prev + 1));
   };
 
-   // check if the image already in the current listings
+  // check if the image already in the current listings
   const isCurrentListingFavorited = favoriteListings.some(item => item.id === listing.id);
   
   //connect option
-    const navigateToTour = () => {
-    router.push(`/search/${id}/tour`);
-    };
+  const navigateToTour = () => {
+    router.push(`/sublease/search/${id}/tour`);
+  };
 
-    const navigateToMessage = () => {
-    router.push(`/search/${id}/message`);
-    };
+  // ✅ FIXED: Updated navigateToMessage with self-messaging prevention
+  const navigateToMessage = async () => {
+    // Check if user is authenticated
+    if (!user) {
+      alert('Please sign in to send a message');
+      router.push('/auth/');
+      return;
+    }
 
-  // use keyboard to move image
-  useEffect(() => {
-    const handleKeyDown = (e) => {
-      if (!showAllImages) return;
-      
-      if (e.key === 'ArrowLeft') {
-        goToPrevImage();
-      } else if (e.key === 'ArrowRight') {
-        goToNextImage();
-      } else if (e.key === 'Escape') {
-        setShowAllImages(false);
-      }
-    };
-    
-    window.addEventListener('keydown', handleKeyDown);
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-    };
-  }, [showAllImages]);
+    // ✅ PREVENT SELF-MESSAGING: Check if user is the host
+    if (isUserHost) {
+      alert('You cannot message yourself about your own listing!');
+      return;
+    }
   
-  // gender information icon
-  const getGenderInfo = (preferredGender) => {
-    switch(preferredGender) {
-      case 'male':
-        return { icon: <User className="w-4 h-4 mr-2 text-orange-500" />, text: "Male Only" };
-      case 'female':
-        return { icon: <User className="w-4 h-4 mr-2 text-pink-500" />, text: "Female Only" };
-      case 'any':
-      default:
-        return { icon: <Users className="w-4 h-4 mr-2 text-green-500" />, text: "Any" };
+    // Debug: Log the listing object to see what fields are available
+    console.log('🔍 Current listing object:', listing);
+    console.log('🔍 Available listing fields:', Object.keys(listing));
+    console.log('🔍 Host-related fields:', {
+      hostId: listing.hostId,
+      hostName: listing.hostName,
+      hostEmail: listing.hostEmail,
+      userId: listing.userId,
+      createdBy: listing.createdBy,
+      ownerId: listing.ownerId
+    });
+  
+    // Try to find the host ID from different possible fields
+    let hostId = listing.hostId || 
+                 listing.userId || 
+                 listing.createdBy?.uid ||
+                 listing.createdBy;
+
+    // ✅ FALLBACK: If no specific hostId, try to determine from context
+    if (!hostId && listing.id) {
+      // For mock data where hostId might not be set, use listing ID as fallback
+      hostId = listing.id;
+      console.log('⚠️ Using listing ID as hostId fallback:', hostId);
+    }
+  
+    console.log('🔍 Resolved hostId:', hostId);
+  
+    // If still no hostId, we can't proceed
+    if (!hostId) {
+      console.error('❌ No host ID found in listing:', listing);
+      alert('Cannot start conversation: Host information is missing from this listing.');
+      return;
+    }
+  
+    // ✅ ADDITIONAL SAFETY CHECK: Prevent self-messaging with resolved hostId
+    if (user.uid === hostId) {
+      alert('You cannot message yourself about your own listing!');
+      return;
+    }
+  
+    setIsCreatingConversation(true);
+  
+    try {
+      console.log('🔍 Looking for existing conversation...');
+      
+      // Step 1: Check if conversation already exists
+      const conversationsQuery = query(
+        collection(db, 'conversations'),
+        where('listingId', '==', listing.id),
+        where('participants', 'array-contains', user.uid)
+      );
+      
+      const existingConversations = await getDocs(conversationsQuery);
+      
+      if (!existingConversations.empty) {
+        // Conversation exists - navigate to it
+        const existingConversation = existingConversations.docs[0];
+        console.log('✅ Found existing conversation:', existingConversation.id);
+        router.push(`/sublease/search/${existingConversation.id}/message`);
+        return;
+      }
+      
+      console.log('📝 Creating new conversation...');
+      
+      // Step 2: Create new conversation with validated data
+      const newConversationData = {
+        listingId: listing.id || '',
+        listingTitle: listing.title || 'Untitled Listing',
+        listingImage: listing.image || '',
+        listingPrice: listing.price || 0,
+        listingLocation: listing.location || '',
+        
+        // Host information - use the resolved hostId
+        hostId: hostId,
+        hostName: listing.hostName || listing.createdBy?.displayName || 'Host',
+        hostEmail: listing.hostEmail || listing.createdBy?.email || '',
+        hostImage: listing.hostImage || '',
+        
+        // Guest information (current user)
+        guestId: user.uid,
+        guestName: user.displayName || user.email || 'Guest',
+        guestEmail: user.email || '',
+        
+        // Participants array for easy querying
+        participants: [user.uid, hostId],
+        
+        // Initial state
+        lastMessage: '',
+        lastMessageTime: serverTimestamp(),
+        unreadCount: 0,
+        
+        // Timestamps
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      };
+      
+      // Validate the data before sending
+      console.log('📝 Conversation data to create:', newConversationData);
+      
+      // Double-check no undefined values in critical fields
+      if (!newConversationData.hostId || !newConversationData.guestId || !newConversationData.listingId) {
+        throw new Error(`Missing critical data: hostId=${newConversationData.hostId}, guestId=${newConversationData.guestId}, listingId=${newConversationData.listingId}`);
+      }
+      
+      // ✅ FINAL SAFETY CHECK: Ensure host and guest are different
+      if (newConversationData.hostId === newConversationData.guestId) {
+        throw new Error('Cannot create conversation: Host and guest cannot be the same person');
+      }
+      
+      // Create the conversation document
+      const conversationRef = await addDoc(collection(db, 'conversations'), newConversationData);
+      console.log('✅ Created new conversation:', conversationRef.id);
+      
+      // Navigate to the new conversation
+      router.push(`/sublease/search/${conversationRef.id}/message`);
+      
+    } catch (error) {
+      console.error('❌ Error creating conversation:', error);
+      alert(`Failed to start conversation: ${error.message}`);
+    } finally {
+      setIsCreatingConversation(false);
     }
   };
+
+
   
   // amenity icon
   const getAmenityIcon = (amenity) => {
@@ -174,38 +803,41 @@ const ListingDetailPage = () => {
     }
   };
 
-  const addReview = () => {
-  if (!newReviewComment.trim()) {
-    alert('Please write a comment for your review.');
-    return;
-  }
-  const currentDate = new Date();
-  const formattedDate = currentDate.toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'long'
-  });
-
-  const newReview = {
-    id: Date.now(), // not the actual ID (need to change)
-    name: "You", // not the actual name (need to change)
-    date: formattedDate,
-    comment: newReviewComment,
-    rating: newReviewRating
-  };
+ 
   
-  const updatedReviews = [newReview, ...hostReviews];
-  setHostReviews(updatedReviews);
 
-  setShowReviewModal(false);
-  setNewReviewComment('');
-  setNewReviewRating(5);
-};
+  const addReview = () => {
+    if (!newReviewComment.trim()) {
+      alert('Please write a comment for your review.');
+      return;
+    }
+    const currentDate = new Date();
+    const formattedDate = currentDate.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long'
+    });
 
-//caculate the avrage rating
-const hostReviewCount = hostReviews.length;
-const hostRating = hostReviews.length > 0 
-  ? (hostReviews.reduce((sum, review) => sum + review.rating, 0) / hostReviews.length).toFixed(1)
-  : "0.0";
+    const newReview = {
+      id: Date.now(), // not the actual ID (need to change)
+      name: "You", // not the actual name (need to change)
+      date: formattedDate,
+      comment: newReviewComment,
+      rating: newReviewRating
+    };
+    
+    const updatedReviews = [newReview, ...hostReviews];
+    setHostReviews(updatedReviews);
+
+    setShowReviewModal(false);
+    setNewReviewComment('');
+    setNewReviewRating(5);
+  };
+
+  //calculate the average rating
+  const hostReviewCount = hostReviews.length;
+  const hostRating = hostReviews.length > 0 
+    ? (hostReviews.reduce((sum, review) => sum + review.rating, 0) / hostReviews.length).toFixed(1)
+    : "0.0";
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
@@ -295,7 +927,7 @@ const hostRating = hostReviews.length > 0
                       className="border rounded-lg overflow-hidden hover:shadow-md transition cursor-pointer"
                       onClick={() => {
                         setIsSidebarOpen(false);
-                        router.push(`/search/${listing.id}`);
+                        router.push(`/sublease/search/${listing.id}`);
                       }}
                     >
                       <div className="flex">
@@ -333,7 +965,7 @@ const hostRating = hostReviews.length > 0
       {showAllImages && (
         <div className="fixed inset-0 bg-black bg-opacity-90 z-50 flex flex-col items-center justify-center p-4">
           <div className="w-full max-w-4xl">
-            {/* close buttion */}
+            {/* close button */}
             <div className="flex justify-end mb-2">
               <button 
                 onClick={() => setShowAllImages(false)}
@@ -402,15 +1034,13 @@ const hostRating = hostReviews.length > 0
         </div>
       )}
 
-
-
       {/* detail page */}
       <div className="md:pl-16 pt-16 md:pt-0">
         
         <div className="max-w-4xl mx-auto p-6">
           {/* back button*/}
           <button 
-            onClick={() => router.push('/search')}
+            onClick={() => router.push('/sublease/search/')}
             className="flex items-center text-orange-600 hover:text-orange-800 mb-6 font-medium cursor-pointer"
           >
             <ChevronLeft className="w-5 h-5 mr-1" />
@@ -424,7 +1054,7 @@ const hostRating = hostReviews.length > 0
               {/* main picture */}
               <div className="md:w-2/3 h-72 md:h-96 rounded-lg overflow-hidden mb-4 md:mb-0">
                 <img 
-                  src={activeImage === 0 ? listing.image : listing.additionalImages[activeImage - 1]}
+                  src={allImages[activeImage] || listing.image}
                   alt={listing.title}
                   className="w-full h-full object-cover"
                 />
@@ -470,7 +1100,15 @@ const hostRating = hostReviews.length > 0
             </div>
 
              {/* title */}
-            <h1 className="text-2xl font-bold text-orange-900 mb-6">{listing.title}</h1>
+             <div className="mb-6">
+  <h1 className="text-2xl font-bold text-orange-900">{listing.title}</h1>
+  {detectedNeighborhood && (
+    <p className="text-sm text-gray-600 mt-1 flex items-center">
+      <Home className="w-4 h-4 mr-1" />
+      Located in {detectedNeighborhood}
+    </p>
+  )}
+</div>
             
             {/* key information */}
             <div className="bg-white p-4 rounded-lg border border-orange-200 mb-6">
@@ -518,13 +1156,13 @@ const hostRating = hostReviews.length > 0
                         </div>
                         )}
                     </div>
-                    {/* one sectence describtion */}
+                    {/* one sentence description */}
                     <p className="text-gray-700 mt-2">{listing.hostBio || " "}</p>
                     </div>
                 </div>
             </div>
 
-            {/* add favorites and connect */}
+            {/* ✅ FIXED: Updated connect section with self-messaging prevention */}
             <div className="space-y-4">
                 {/* Connect Options - showConnectOptions가 true일 때만 보임 */}
                 {showConnectOptions && (
@@ -538,14 +1176,33 @@ const hostRating = hostReviews.length > 0
                         <span className="text-xs text-gray-600 mt-1">Virtual or in-person</span>
                     </button>
                     
-                    <button 
+                    {/* ✅ CONDITIONAL RENDERING: Only show message button for non-hosts */}
+                    {!isUserHost ? (
+                      <button 
                         onClick={navigateToMessage}
-                        className="bg-orange-100 hover:bg-orange-200 text-orange-800 p-4 rounded-lg flex flex-col items-center justify-center transition"
-                    >
-                        <MessageCircle className="w-8 h-8 mb-2" />
-                        <span className="font-medium">Send Message</span>
-                        <span className="text-xs text-gray-600 mt-1">Chat with the host</span>
-                    </button>
+                        disabled={isCreatingConversation}
+                        className={`flex-1 ${isCreatingConversation ? 'bg-orange-400' : 'bg-orange-500'} text-white px-6 py-3 rounded-lg hover:bg-orange-600 transition border flex flex-col items-center justify-center cursor-pointer disabled:cursor-not-allowed`}
+                      >
+                        {isCreatingConversation ? (
+                          <>
+                            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mb-2"></div>
+                            Creating...
+                          </>
+                        ) : (
+                          <>
+                            <MessageCircle className="w-8 h-8 mb-2" />
+                            <span className="font-medium">Send Message</span>
+                            <span className="text-xs text-orange-100 mt-1">Contact the host</span>
+                          </>
+                        )}
+                      </button>
+                    ) : (
+                      <div className="flex-1 bg-gray-200 text-gray-600 px-6 py-3 rounded-lg border flex flex-col items-center justify-center">
+                        <MessageCircle className="w-8 h-8 mb-2 opacity-50" />
+                        <span className="font-medium">Your Listing</span>
+                        <span className="text-xs text-gray-500 mt-1">You cannot message yourself</span>
+                      </div>
+                    )}
                     </div>
                 )}
 
@@ -591,7 +1248,7 @@ const hostRating = hostReviews.length > 0
             {/* detail description */}
             <div className="bg-white p-4 rounded-lg shadow">
               <h2 className="text-lg font-semibold mb-2 text-orange-800">Details</h2>
-              <p className="text-gray-700">{listing.description || '상세 설명이 없습니다.'}</p>
+              <p className="text-gray-700">{listing.description || 'No description available.'}</p>
             </div>
             
             {/* Amenities */}
@@ -609,11 +1266,6 @@ const hostRating = hostReviews.length > 0
               </div>
             </div>
 
-            {/* Need:
-            1. save the review in the server
-            2. only the logged in user can write the review
-            3. one user can write a review(can edit it)
-            4. maintain the reveiw data when move the page */}
             {/* Host Ratings */}
             <div className="bg-white p-4 rounded-lg shadow">
             <h2 className="text-lg font-semibold mb-2 text-orange-800">Host Ratings</h2>
@@ -635,6 +1287,11 @@ const hostRating = hostReviews.length > 0
                 </span>
                 </div>
             </div>
+
+            <NeighborhoodDetectorWrapper 
+  listing={listing} 
+  onNeighborhoodDetected={handleNeighborhoodDetected} 
+/>
             
             {/* review listings*/}
             <div className="mt-4 space-y-4">
@@ -739,7 +1396,6 @@ const hostRating = hostReviews.length > 0
                 </div>
             </div>
             )}
-
 
           </div>
         </div>

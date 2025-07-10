@@ -19,7 +19,7 @@ import {
   signInWithPopup,
   getAdditionalUserInfo
 } from "firebase/auth";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { 
   doc,
   setDoc
@@ -29,12 +29,19 @@ import {
   ref, 
   getDownloadURL 
 } from "firebase/storage";
+import { AuthProvider, useAuth } from '../contexts/AuthInfo';
 
-export default function AuthPage() {
+// Main Auth Page Content
+function AuthPageContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const { user, loading: authLoading } = useAuth();
+  
+  // Get initial mode from URL params
+  const initialMode = searchParams.get('mode');
   
   // Auth state
-  const [isLogin, setIsLogin] = useState(true);
+  const [isLogin, setIsLogin] = useState(initialMode !== 'signup');
   const [loading, setLoading] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
   
@@ -61,12 +68,21 @@ export default function AuthPage() {
   const [phoneVerificationCode, setPhoneVerificationCode] = useState("");
   const [showPhoneVerification, setShowPhoneVerification] = useState(false);
 
+  // Redirect if already logged in
+  useEffect(() => {
+    if (user && !authLoading) {
+      router.push("/find");
+    }
+  }, [user, authLoading, router]);
+
   // Auto-login effect
   useEffect(() => {
+    if (authLoading) return; // Wait for auth to load
+    
     const savedEmail = localStorage.getItem("savedEmail");
     const savedPassword = localStorage.getItem("savedPassword");
 
-    if (savedEmail && savedPassword) {
+    if (savedEmail && savedPassword && !user) {
       setEmail(savedEmail);
       setPassword(savedPassword);
       setRememberMe(true);
@@ -84,7 +100,7 @@ export default function AuthPage() {
           localStorage.removeItem("savedPassword");
         });
     }
-  }, [router]);
+  }, [router, user, authLoading]);
 
   // Helper functions
   const isSchoolEmail = (email: string) => {
@@ -253,6 +269,7 @@ export default function AuthPage() {
           localStorage.removeItem("savedPassword");
         }
         
+        // Redirect will happen automatically via useEffect when user state updates
         router.push("/find");
       } else {
         // Signup flow
@@ -273,7 +290,7 @@ export default function AuthPage() {
         // Send verification email
         try {
           await sendEmailVerification(user);
-          alert("Account created! Please check your email for verification.");
+          alert("Account created! Please check your email for verification before signing in.");
         } catch (emailError) {
           console.error("Failed to send verification email:", emailError);
           alert("Account created but couldn't send verification email");
@@ -317,8 +334,17 @@ export default function AuthPage() {
           dob: "",
           email: user.email || "",
           photoURL: user.photoURL || "",
+          schoolEmail: "",
+          phoneNumber: "",
+          isPhoneVerified: false,
           socialLink: "Google Account",
-          badges: { socialLinked: true },
+          quickBio: "",
+          isStudentVerified: false,
+          badges: { 
+            studentVerified: false,
+            phoneVerified: false,
+            socialLinked: true 
+          },
           createdAt: new Date(),
         });
       }
@@ -343,8 +369,17 @@ export default function AuthPage() {
           dob: "",
           email: user.email || "",
           photoURL: user.photoURL || "",
+          schoolEmail: "",
+          phoneNumber: "",
+          isPhoneVerified: false,
           socialLink: "Facebook Account",
-          badges: { socialLinked: true },
+          quickBio: "",
+          isStudentVerified: false,
+          badges: { 
+            studentVerified: false,
+            phoneVerified: false,
+            socialLinked: true 
+          },
           createdAt: new Date(),
         });
       }
@@ -355,6 +390,27 @@ export default function AuthPage() {
       alert("Facebook login failed");
     }
   };
+
+  // Show loading while auth is initializing
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-gray-50 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500"></div>
+      </div>
+    );
+  }
+
+  // If user is already logged in, show a message while redirecting
+  if (user) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500 mx-auto mb-4"></div>
+          <p className="text-gray-600">You're already signed in. Redirecting...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-gray-50 flex items-center justify-center p-4">
@@ -375,6 +431,16 @@ export default function AuthPage() {
             </div>
           </div>
           <p className="text-gray-600">Sublets & Moving Sales</p>
+          
+          {/* Back to Browse Button */}
+          <div className="mt-4">
+            <button
+              onClick={() => router.push('/find')}
+              className="text-orange-600 hover:text-orange-700 font-medium text-sm"
+            >
+              ← Continue browsing without account
+            </button>
+          </div>
         </div>
 
         {/* Auth Card */}
@@ -690,5 +756,14 @@ export default function AuthPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+// Main component with AuthProvider wrapper
+export default function AuthPage() {
+  return (
+    <AuthProvider>
+      <AuthPageContent />
+    </AuthProvider>
   );
 }

@@ -395,25 +395,63 @@ export default function AISmartListingPage() {
     setCurrentItemIndex((prev) => (prev - 1 + itemsData.length) % itemsData.length);
   };
 
-  const generateDescription = async (index: number) => {
-    const item = itemsData[index];
+  const generateDescription = async (index) => {
+    const item = items[index];
     if (!item.itemName || !item.condition || !item.price) return;
     
     setIsGenerating(true);
     
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      const response = await fetch('/api/generate-description', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          step: 'generate',
+          itemData: {
+            itemName: item.itemName,
+            condition: item.condition,
+            price: item.price,
+            priceType: item.priceType,
+            delivery: item.delivery,
+            location: item.location,
+            minPrice: item.minPrice,
+            maxPrice: item.maxPrice
+          }
+        }),
+      });
+  
+      const data = await response.json();
       
-      const aiPrefix = item.aiGenerated ? "🤖 AI-detected " : "";
-      const description = `${aiPrefix}${item.itemName} in ${item.condition.toLowerCase()} condition - $${item.price} ${item.priceType === 'obo' ? 'OBO' : ''}, ${item.delivery === 'pickup' ? 'pickup only' : 'delivery available'}! Perfect for students and anyone looking for quality furniture.`;
-      
-      setGeneratedDescriptions(prev => 
-        prev.map((desc, i) => i === index ? description : desc)
-      );
+      if (data.description) {
+        setGeneratedDescriptions(prev => 
+          prev.map((desc, i) => i === index ? data.description : desc)
+        );
+      } else {
+        throw new Error('No description received');
+      }
       
     } catch (error) {
       console.error('Error generating description:', error);
+      
+      // Fallback to local generation if API fails
+      let priceText = `$${item.price}`;
+      if (item.priceType === "negotiable" && item.minPrice && item.maxPrice) {
+        priceText = `$${item.minPrice}-${item.maxPrice} (asking $${item.price})`;
+      }
+      
+      const fallbackDescriptions = [
+        `${item.itemName} in ${item.condition.toLowerCase()} condition - ${priceText}, ${item.delivery === 'pickup' ? 'pickup only' : 'delivery available'}!`,
+        `Great ${item.condition.toLowerCase()} ${item.itemName} for ${priceText} - perfect for students!`,
+        `Selling my ${item.itemName} (${item.condition.toLowerCase()}) for ${priceText}. ${item.delivery === 'pickup' ? 'Pickup only' : 'Can deliver'}.`
+      ];
+      
+      const fallbackDescription = fallbackDescriptions[Math.floor(Math.random() * fallbackDescriptions.length)];
+      
+      setGeneratedDescriptions(prev => 
+        prev.map((desc, i) => i === index ? fallbackDescription : desc)
+      );
     } finally {
       setIsGenerating(false);
     }

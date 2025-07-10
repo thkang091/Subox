@@ -88,48 +88,53 @@ Return only the cleaned description, nothing else.`;
         userPrompt = `Clean up this rental listing description:\n\n${description}`;
         break;
 
-      case 'extract':
-        systemPrompt = `You are a helpful assistant that extracts key information from rental listings. 
-Extract and return a JSON object with the following fields (use null if not found):
-
-ESSENTIAL INFORMATION:
-- listingType: string ("Sublet", "Lease Takeover", "Room in Shared Unit", or null)
-- rent: number (monthly rent amount)
-- bedrooms: number
-- bathrooms: number  
-- location: string (neighborhood or address)
-- availableFrom: string (start date)
-- availableTo: string (end date)
-- utilitiesIncluded: boolean
-- contactInfo: string
-
-IMPORTANT DETAILS:
-- deposit: number (security deposit amount)
-- furnished: boolean
-- isPrivateRoom: boolean (true if private room, false if shared)
-- rentNegotiable: boolean
-- priceRange: object with min/max if negotiable mentioned
-
-ROOMMATE INFORMATION:
-- hasRoommates: boolean (will there be roommates)
-- roommateGender: string (gender preference if mentioned)
-- currentOccupantQuiet: boolean (if current person describes themselves)
-- currentOccupantSmokes: boolean
-- currentOccupantPets: boolean
-- petsAllowed: boolean
-- smokingAllowed: boolean
-
-ADDITIONAL FEATURES:
-- amenities: array of strings (parking, gym, wifi, etc.)
-- includedItems: array of strings (desk, chair, etc.)
-- subleaseReason: string (reason for subletting)
-- partialDatesOk: boolean (flexible with dates)
-- roomToursAvailable: boolean
-- additionalDetails: string (extra info about place/neighborhood)
-
-Return only valid JSON, no other text.`;
-        userPrompt = `Extract information from this description:\n\n${description}`;
-        break;
+        case 'extract':
+            systemPrompt = `You are a helpful assistant that extracts key information from rental listings. 
+          Extract and return a JSON object with the following fields (use null if not found):
+          
+          ESSENTIAL INFORMATION:
+          - listingType: string ("Sublet", "Lease Takeover", "Room in Shared Unit", or null)
+          - rent: number (monthly rent amount)
+          - bedrooms: number
+          - bathrooms: number  
+          - location: string (neighborhood or address)
+          - availableFrom: string (start date)
+          - availableTo: string (end date)
+          - utilitiesIncluded: boolean
+          - contactInfo: string
+          
+          IMPORTANT DETAILS:
+          - deposit: number (security deposit amount)
+          - furnished: boolean
+          - isPrivateRoom: boolean (true if private room, false if shared)
+          - rentNegotiable: boolean
+          - priceRange: object with min/max if negotiable mentioned
+          
+          ROOMMATE INFORMATION:
+          - hasRoommates: boolean (will there be roommates)
+          - roommateGender: string (gender preference if mentioned)
+          - currentOccupantQuiet: boolean (if current person describes themselves)
+          - currentOccupantSmokes: boolean
+          - currentOccupantPets: boolean
+          - petsAllowed: boolean
+          - smokingAllowed: boolean
+          
+          ADDITIONAL FEATURES:
+          - amenities: array of strings (parking, gym, wifi, etc.)
+          - includedItems: array of strings (desk, chair, etc.)
+          - subleaseReason: string (reason for subletting)
+          - partialDatesOk: boolean (flexible with dates)
+          - roomToursAvailable: boolean
+          - additionalDetails: string (extra info about place/neighborhood)
+          
+          CRITICAL RULE: Only extract information that is EXPLICITLY mentioned in the text. 
+          Do NOT assume or infer information. If something is not clearly stated, use null.
+          For booleans, only use true/false if explicitly mentioned, otherwise use null.
+          
+          Return only valid JSON, no other text.`;
+            userPrompt = `Extract information from this description:\n\n${description}`;
+            break;
+            
 
       case 'questions':
         systemPrompt = `You are a helpful assistant for a subletting platform called Subox. Your job is to analyze a rental description against comprehensive listing criteria and provide intelligent follow-up questions.
@@ -224,7 +229,7 @@ Return a JSON object with:
     }
 
     const completion = await openai.chat.completions.create({
-      model: "gpt-4", // Using GPT-4 for better analysis
+      model: "gpt-3.5-turbo", // Using GPT-4 for better analysis
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt }
