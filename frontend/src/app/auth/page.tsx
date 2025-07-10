@@ -55,6 +55,7 @@ export default function AuthPage() {
   const [phoneNumber, setPhoneNumber] = useState("");
   const [socialLink, setSocialLink] = useState("");
   const [quickBio, setQuickBio] = useState("");
+  const [address, setAddress] = useState("");
   
   // Profile image
   const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null);
@@ -84,6 +85,8 @@ export default function AuthPage() {
 
     return totalError / userRatings.length;
   };
+
+  const [forgotMode, setForgotMode] = useState(false);
 
   useEffect(() => {
     setRateError(calculateRateError(rated, averageRate));
@@ -192,7 +195,11 @@ export default function AuthPage() {
     }
   };
 
-  const forgotPassword = async () => {
+  const forgotPassword = () => {
+    setForgotMode(true);
+  };
+
+  const sendPasswordReset = async () => {
     if (!email) {
       alert("Please enter your email first");
       return;
@@ -210,8 +217,10 @@ export default function AuthPage() {
       } else {
         alert("Failed to send reset email");
       }
+    } finally {
+      setForgotMode(false);
     }
-  };
+  }
 
   // Validation
   const validateSignupForm = () => {
@@ -265,6 +274,7 @@ export default function AuthPage() {
       isPhoneVerified,
       socialLink: socialLink || null,
       quickBio: quickBio || null,
+      address: address || null,
       isStudentVerified: schoolEmail && isSchoolEmail(schoolEmail),
       history: {
         purchased: history.purchased,
@@ -296,12 +306,18 @@ export default function AuthPage() {
 
   // Main authentication handler
   const handleAuth = async () => {
-    if (!email || !password) {
-      alert("Please enter both email and password");
+
+    if (forgotMode) {
+      sendPasswordReset();
       return;
     }
 
     if (!validate()) return;
+
+    if (!email || !password) {
+      alert("Please enter both email and password");
+      return;
+    }
 
     setLoading(true);
 
@@ -699,6 +715,19 @@ export default function AuthPage() {
                   />
                   <p className="text-xs text-gray-500 mt-1">{quickBio.length}/120 characters</p>
                 </div>
+                {/* Address */}
+                <div className="mt-6">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Address <span className="text-gray-400">(Optional)</span>
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Enter your address"
+                    value={address}
+                    onChange={(e) => setAddress(e.target.value)}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all"
+                  />
+                </div>
               </>
             )}
 
@@ -716,58 +745,71 @@ export default function AuthPage() {
               />
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Password
-              </label>
-              <input
-                type="password"
-                placeholder="••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all"
-              />
+            {!forgotMode && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Password
+                </label>
+                <input
+                  type="password"
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all"
+                />
+              </div>
+            )}
+              {/* Login Options */}
+              {isLogin && !forgotMode && (
+                <div className="flex items-center justify-between">
+                  <label className="flex items-center space-x-2">
+                    <input
+                      type="checkbox"
+                      checked={rememberMe}
+                      onChange={() => setRememberMe(!rememberMe)}
+                      className="w-4 h-4 text-orange-500 rounded focus:ring-orange-500"
+                    />
+                    <span className="text-sm text-gray-600">Remember me</span>
+                  </label>
+                  <button
+                    type="button"
+                    onClick={forgotPassword}
+                    className="text-sm text-orange-500 hover:text-orange-600 font-medium"
+                  >
+                    Forgot password?
+                  </button>
+                </div>
+              )}
             </div>
 
-            {/* Login Options */}
-            {isLogin && (
+            {isLogin && forgotMode && (
               <div className="flex items-center justify-between">
-                <label className="flex items-center space-x-2">
-                  <input
-                    type="checkbox"
-                    checked={rememberMe}
-                    onChange={() => setRememberMe(!rememberMe)}
-                    className="w-4 h-4 text-orange-500 rounded focus:ring-orange-500"
-                  />
-                  <span className="text-sm text-gray-600">Remember me</span>
-                </label>
                 <button
                   type="button"
-                  onClick={forgotPassword}
+                  onClick={()=> setForgotMode(false)}
                   className="text-sm text-orange-500 hover:text-orange-600 font-medium"
                 >
-                  Forgot password?
+                  Go Back?
                 </button>
               </div>
             )}
-          </div>
 
-          {/* Submit Button */}
-          <button
-            onClick={handleAuth}
-            disabled={loading}
-            className="w-full mt-6 py-3 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-lg font-medium hover:from-orange-600 hover:to-orange-700 transition-all transform hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {loading ? (
-              <div className="flex items-center justify-center space-x-2">
-                <div className="w-2 h-2 bg-white rounded-full animate-bounce" />
-                <div className="w-2 h-2 bg-white rounded-full animate-bounce [animation-delay:0.1s]" />
-                <div className="w-2 h-2 bg-white rounded-full animate-bounce [animation-delay:0.2s]" />
-              </div>
-            ) : (
-              isLogin ? "Sign In" : "Create Account"
-            )}
-          </button>
+            {/* Submit Button */}
+            <button
+              onClick={handleAuth}
+              disabled={loading}
+              className="w-full mt-6 py-3 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-lg font-medium hover:from-orange-600 hover:to-orange-700 transition-all transform hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {loading ? (
+                <div className="flex items-center justify-center space-x-2">
+                  <div className="w-2 h-2 bg-white rounded-full animate-bounce" />
+                  <div className="w-2 h-2 bg-white rounded-full animate-bounce [animation-delay:0.1s]" />
+                  <div className="w-2 h-2 bg-white rounded-full animate-bounce [animation-delay:0.2s]" />
+                </div>
+              ) : (
+                forgotMode ? "Send Reset Email" : isLogin ? "Sign In" : "Create Account"
+              )}
+            </button>
 
           {/* Divider */}
           <div className="relative my-6">
