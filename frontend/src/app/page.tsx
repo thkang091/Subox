@@ -15,8 +15,9 @@ import {
   XCircle,
   GitCompare, SlidersHorizontal,
   Wifi, Car, Snowflake, Dumbbell, Eye, GraduationCap,
-  Building, TreePine, Coffee, Shield
+  Building, TreePine, Coffee, Shield, Edit
 } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 
 
 const SuboxHomepage = () => {
@@ -31,16 +32,23 @@ const SuboxHomepage = () => {
   const [demoHover, setDemoHover] = useState(false);
   const [isAssembling, setIsAssembling] = useState(false);
   const [assemblyStep, setAssemblyStep] = useState(0);
+
+  const [showNav, setShowNav] = useState(true);
+  const [lastScrolly, setLastScrolly] = useState(0);
+  const [scrolledPastTop, setScrolledPastTop] = useState(false);
   
   const stepInterval = useRef(null);
   const assemblyInterval = useRef(null);
   const suboxIntroRef = useRef(null);
   const { scrollYProgress } = useScroll();
+
+  const router = useRouter();
   
   // Parallax transforms
   const heroY = useTransform(scrollYProgress, [0, 0.3], [0, -100]);
   const featuresY = useTransform(scrollYProgress, [0.2, 0.8], [100, -50]);
   const backgroundScale = useTransform(scrollYProgress, [0, 1], [1, 1.2]);
+  const howY = useTransform(scrollYProgress, [0.2, 0.8] , [100, -50]);
 
   // Smooth scroll to Subox introduction
   const scrollToSuboxIntro = () => {
@@ -49,6 +57,28 @@ const SuboxHomepage = () => {
       block: 'start'
     });
   };
+
+  // Scroll Navigation bar
+  useEffect(() => {
+    const handleScroll = () => {
+      const currentY = window.scrollY;
+
+      setScrolledPastTop(currentY > 20);
+
+      if (currentY > lastScrolly && currentY > 20) {
+        setShowNav(false);
+      } else if (currentY < lastScrolly) {
+        setShowNav(true);
+      } else if (currentY <= 20) {
+        setShowNav(true);
+      }
+
+      setLastScrolly(currentY);
+    };
+
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, [lastScrolly]);
 
   // Mouse tracking for interactive effects
   useEffect(() => {
@@ -193,15 +223,18 @@ const SuboxHomepage = () => {
 
       {/* Navigation */}
       <motion.nav 
-        className="relative z-50 bg-white/80 backdrop-blur-md border-b border-gray-200/50"
-        initial={{ y: -100 }}
-        animate={{ y: 0 }}
-        transition={{ duration: 0.8, ease: "easeOut" }}
+        className={`fixed top-0 z-50 transition-all duration-300 w-fit left-1/2 -translate-x-1/2 ${
+          scrolledPastTop && showNav
+            ? 'bg-white/80 backdrop-blur-md border border-gray-200/50 shadow-md rounded-xl py-2 px-4 w-fit mx-auto'
+            : 'bg-transparent border-none shadow-none rounded-none py-4 px-6'
+        }`}
+        initial={{ y: 0 }}
+        animate={{ y: showNav ? 0 : -100 }}
+        transition={{ duration: 0.5, ease: "easeOut" }}
       >
-        <div className="max-w-7xl mx-auto px-6 py-4">
-          <div className="flex items-center justify-between">
+        <div className="w-fit flex items-center justify-between gap-8 whitespace-nowrap">
             {/* Logo */}
-            <motion.div 
+            <motion.div
               className="flex items-center gap-3"
               whileHover={{ scale: 1.05 }}
               transition={{ type: "spring", stiffness: 400 }}
@@ -225,11 +258,11 @@ const SuboxHomepage = () => {
             </motion.div>
 
             {/* Navigation Links */}
-            <div className="hidden md:flex items-center gap-8">
-              {['Features', 'How it Works', 'Pricing'].map((item, i) => (
+            <div className="hidden md:flex items-center gap-8 whitespace-nowrap">
+              {['Features', 'Use Cases', 'How it works', 'Pricing', 'Help'].map((item, i) => (
                 <motion.a 
                   key={item}
-                  href={`#${item.toLowerCase().replace(' ', '-')}`}
+                  href={`#${item.toLowerCase().replace(/ /g, '-')}`}
                   className="text-gray-600 hover:text-orange-500 font-medium transition-colors relative"
                   whileHover={{ y: -2 }}
                   initial={{ opacity: 0, y: 20 }}
@@ -248,9 +281,10 @@ const SuboxHomepage = () => {
             </div>
 
             {/* Auth Buttons */}
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-4 whitespace-nowrap">
               <motion.button
                 className="px-4 py-2 text-gray-600 hover:text-orange-500 font-medium transition-colors"
+                onClick={() => router.push("auth/")}
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
                 initial={{ opacity: 0, x: 20 }}
@@ -261,6 +295,7 @@ const SuboxHomepage = () => {
               </motion.button>
               <motion.button
                 className="px-6 py-3 bg-gradient-to-r from-orange-500 to-orange-600 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all"
+                onClick={() => router.push("auth/")}
                 whileHover={{ scale: 1.05, y: -2 }}
                 whileTap={{ scale: 0.95 }}
                 initial={{ opacity: 0, x: 20 }}
@@ -270,7 +305,6 @@ const SuboxHomepage = () => {
                 Get Started
               </motion.button>
             </div>
-          </div>
         </div>
       </motion.nav>
 
@@ -1273,8 +1307,57 @@ const SuboxHomepage = () => {
       {/* Enhanced Interactive Features Section */}
       <InteractiveFeaturesSection featuresY={featuresY} />
 
+      <UseCasesSection />
+
+      <HowItWorksSection howY={howY} />
+
       {/* CTA Section */}
       <CTASection />
+
+      <body className="m-0 p-0">
+        <footer className="bg-orange-500 text-white py-12 mt-20">
+          <div className="max-w-7xl mx-auto px-6 grid grid-cols-1 md:grid-cols-3 gap-10 text-center md:text-left">
+            
+            {/* Column 1: Quick Links */}
+            <div>
+              <h3 className="text-2xl font-bold mb-4">Quick Links</h3>
+              <ul className="space-y-2 text-lg">
+                <li><a href="#features" className="hover:underline">Features</a></li>
+                <li><a href="#use-cases" className="hover:underline">Use Cases</a></li>
+                <li><a href="#how-it-works" className="hover:underline">How it Works</a></li>
+                <li><a href="auth/" className="hover:underline">Log in</a></li>
+                <li><a href="auth/" className="hover:underline">Get Started</a></li>
+              </ul>
+            </div>
+
+            {/* Column 2: About */}
+            <div>
+              <h3 className="text-2xl font-bold mb-4">About Subox</h3>
+              <p className="text-lg text-orange-100">
+                A student-focused marketplace for sublets and moving sales. Built for speed, trust, and simplicity.
+              </p>
+            </div>
+
+            {/* Column 3: Contact / Support */}
+            <div>
+              <h3 className="text-2xl font-bold mb-4">Support</h3>
+              <p className="text-lg">Need help?</p>
+              <a
+                id='help'
+                href="help/"
+                className="inline-block mt-3 px-6 py-3 bg-white text-orange-600 font-semibold rounded-full shadow hover:bg-orange-600 hover:text-white transition"
+              >
+                Visit Help Center
+              </a>
+            </div> 
+          </div>
+
+          {/* Optional bottom line */}
+          <div className="text-center mt-10 text-sm text-orange-100">
+            © {new Date().getFullYear()} Subox. All rights reserved.
+          </div>
+        </footer>
+      </body>
     </div>
   );
 };
@@ -2450,6 +2533,206 @@ const NetworkFeatureDemo = () => (
     <div className="text-xs text-purple-600">Active buyers</div>
   </motion.div>
 );
+
+// Use Cases
+// Inside your homepage file, near the top (after imports):
+
+const useCases = [
+  {
+    title: "Post",
+    description: "Subox helps you post your sublease easy and fast with AI.",
+    image: "/use-cases/students.png",
+  },
+  {
+    title: "Rent",
+    description: "Subox helps you browse verified subleases and contact the host instantly.",
+    image: "/use-cases/renters.png",
+  },  
+  {
+    title: "Sell",
+    description: "Subox helps you sell your product easy and fast through AI auto listing.",
+    image: "/use-cases/sellers.png",
+  },
+  {
+    title: "Buyers",
+    description: "Subox helps you discover great deals on moving sale products from fellow students, alumnis, and users in Minnesota",
+    image: "/use-cases/buyers.png",
+  },
+];
+
+function UseCasesSection() {
+  const [activeIndex, setActiveIndex] = useState(0);
+  const containerRef = useRef(null);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      if (!containerRef.current) return;
+
+      const sections = Array.from(
+        containerRef.current.querySelectorAll(".use-case-explanation")
+      );
+
+      const scrollTop = window.scrollY + window.innerHeight / 2;
+
+      for (let i = 0; i < sections.length; i++) {
+        const section = sections[i];
+        const offsetTop = section.offsetTop;
+        const offsetBottom = offsetTop + section.offsetHeight;
+
+        if (scrollTop >= offsetTop && scrollTop < offsetBottom) {
+          setActiveIndex(i);
+          break;
+        }
+      }
+    };
+
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    handleScroll();
+
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+
+  return (
+    <motion.section
+      ref={containerRef}
+      id="use-cases"
+      className='relative z-10 max-w-7x1 mx-auto px-6 py-20'
+    >
+      <section
+        ref={containerRef}
+        className="max-w-7xl mx-auto px-6 py-20 flex flex-col md:flex-row gap-10"
+        style={{ minHeight: "600px" }}
+      >
+        <div className="hidden md:block md:w-1/2 sticky top-20 h-[400px]">
+          <AnimatePresence mode="wait">
+            <motion.img
+              key={useCases[activeIndex].image}
+              src={useCases[activeIndex].image}
+              alt={useCases[activeIndex].title}
+              initial={{ opacity: 0, x: -50 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 50 }}
+              transition={{ duration: 0.5 }}
+              className="w-full h-full object-contain rounded-xl shadow-lg"
+            />
+          </AnimatePresence>
+        </div>
+
+        <div className="md:w-1/2 flex flex-col gap-20">
+          {useCases.map((useCase, i) => (
+            <div
+              key={useCase.title}
+              className="use-case-explanation cursor-pointer"
+              onClick={() => setActiveIndex(i)}
+            >
+              <h3
+                className={`text-3xl font-bold mb-4 ${
+                  i === activeIndex ? "text-orange-500" : "text-gray-700"
+                }`}
+              >
+                {useCase.title}
+              </h3>
+              <p className="text-lg text-gray-600 max-w-xl">{useCase.description}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+    </motion.section>
+  );
+}
+
+// How it works
+const HowItWorksSection = ({ howY }) => {
+  const ref = useRef(null);
+  const isInView = useInView(ref, { once: true, amount: 0.3 });
+
+  return (
+    <div className="w-full bg-orange-50">
+      <motion.section
+        ref={ref}
+        id="how-it-works"
+        style={{ y: howY }}
+        className="relative z-10 max-w-7xl mx-auto px-6 py-20"
+      >
+        <motion.div
+          initial={{ opacity: 0, y: 50 }}
+          animate={isInView ? { opacity: 1, y: 0 } : { opacity: 0, y: 50 }}
+          transition={{ duration: 0.8 }}
+          className="text-center mb-16"
+        >
+          <h2 className="text-4xl md:text-6xl font-bold text-gray-900 mb-6">
+            How it<span className="text-orange-500"> works</span>
+          </h2>
+          <p className="text-xl text-gray-700 max-w-3xl mx-auto">
+            A quick look at how to post and rent subleases or sell and buy moving items on Subox.
+          </p>
+        </motion.div>
+        <div className="flex flex-col gap-16">
+          {[
+            {
+              title: <>Post a <span className="text-orange-500">Sublease</span></>,
+              image: "/how/post-sublease.png",
+              hoverImage: "/how/post-sublease-anim.gif",
+              description: <>Easily post your sublease with a <span className="text-orange-500">few clicks</span> and <span className="text-orange-500">photos</span>.</>,
+            },            
+            {
+              title: <><span className='text-orange-500'>Rent </span>a Place</>,
+              image: "/how/rent-sublease.png",
+              hoverImage: "/how/rent-sublease-anim.gif",
+              description: <>Browse local subleases from trusted <span className="text-orange-500">students</span>, <span className="text-orange-500">alumnis</span>, and <span className="text-orange-500">users in Minnesota</span> and contact directly.</>,
+            },
+            {
+              title: <>Sell a <span className='text-orange-500'>Product</span></>,
+              image: "/how/post-product.png",
+              hoverImage: "/how/post-product-anim.gif",
+              description: <>Snap a photo and let <span className="text-orange-500">AI</span> handle the rest of your <span className="text-orange-500">item listing</span>.</>,
+            },
+            {
+              title: <><span className='text-orange-500'>Buy </span>a Product</>,
+              image: "/how/buy-product.png",
+              hoverImage: "/how/buy-product-anim.gif",
+              description: <>Buy what you need <span className="text-orange-500">easily</span> and <span className="text-orange-500">quickly</span> by contacting directly.</>,
+            },
+          ].map((step, index) => {
+            const isImageLeft = index % 2 === 0;
+            return (
+              <motion.div
+                key={index}
+                initial={{ opacity: 0, y: 40 }}
+                animate={isInView ? { opacity: 1, y: 0 } : { opacity: 0, y: 40 }}
+                transition={{ duration: 0.6, delay: 0.1 * index }}
+                className={`flex flex-col md:flex-row items-center gap-10 ${
+                  isImageLeft ? '' : 'md:flex-row-reverse'
+                }`}
+              >
+                {/* Image */}
+                <div className="relative w-full md:w-1/2 h-64 overflow-hidden rounded-xl shadow-lg">
+                  <img
+                    src={step.image}
+                    alt={step.title}
+                    className="w-full h-full object-cover transition-opacity duration-300 group-hover:opacity-0"
+                  />
+                  <img
+                    src={step.hoverImage}
+                    alt={step.title + ' demo'}
+                    className="absolute inset-0 w-full h-full object-cover opacity-0 hover:opacity-100 transition-opacity duration-300"
+                  />
+                </div>
+
+                {/* Text */}
+                <div className="md:w-1/2 text-center md:text-left">
+                  <h3 className="text-2xl font-bold text-gray-800 mb-2">{step.title}</h3>
+                  <p className="text-lg text-gray-600">{step.description}</p>
+                </div>
+              </motion.div>
+            );
+          })}
+        </div>
+      </motion.section>
+    </div>
+  );
+};
+
 
 // CTA Section Component
 const CTASection = () => {
