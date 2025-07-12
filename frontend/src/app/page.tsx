@@ -1318,38 +1318,41 @@ const SuboxHomepage = () => {
         <footer className="bg-orange-500 text-white py-12 mt-20">
           <div className="max-w-7xl mx-auto px-6 grid grid-cols-1 md:grid-cols-3 gap-10 text-center md:text-left">
             
-            {/* Column 1: Quick Links */}
             <div>
-              <h3 className="text-2xl font-bold mb-4">Quick Links</h3>
+              <h3 className="text-2xl font-bold mb-4">Get Started</h3>
+              <ul className="space-y-2 text-lg">
+                <li><a href="auth/" className="hover:underline">Log in</a></li>
+                <li><a href="auth/" className="hover:underline">Sign up</a></li>
+              </ul>
+            </div>
+            
+            <div>
+              <h3 className="text-2xl font-bold mb-4">Resources</h3>
               <ul className="space-y-2 text-lg">
                 <li><a href="#features" className="hover:underline">Features</a></li>
                 <li><a href="#use-cases" className="hover:underline">Use Cases</a></li>
                 <li><a href="#how-it-works" className="hover:underline">How it Works</a></li>
-                <li><a href="auth/" className="hover:underline">Log in</a></li>
-                <li><a href="auth/" className="hover:underline">Get Started</a></li>
               </ul>
             </div>
 
-            {/* Column 2: About */}
-            <div>
-              <h3 className="text-2xl font-bold mb-4">About Subox</h3>
-              <p className="text-lg text-orange-100">
-                A student-focused marketplace for sublets and moving sales. Built for speed, trust, and simplicity.
-              </p>
-            </div>
-
-            {/* Column 3: Contact / Support */}
             <div>
               <h3 className="text-2xl font-bold mb-4">Support</h3>
               <p className="text-lg">Need help?</p>
               <a
                 id='help'
                 href="help/"
-                className="inline-block mt-3 px-6 py-3 bg-white text-orange-600 font-semibold rounded-full shadow hover:bg-orange-600 hover:text-white transition"
+                className="inline-block mt-3 ml-[-8px] px-6 py-3 bg-white text-orange-600 font-semibold rounded-full shadow hover:bg-orange-600 hover:text-white transition"
               >
                 Visit Help Center
               </a>
             </div> 
+
+            <div>
+              <h3 className="text-2xl font-bold mb-4">About Subox</h3>
+              <p className="text-lg text-orange-100">
+                A student-focused marketplace for sublets and moving sales. Built for speed, trust, and simplicity.
+              </p>
+            </div>
           </div>
 
           {/* Optional bottom line */}

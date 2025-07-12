@@ -207,12 +207,66 @@ const HelpPage = () => {
     }
   ];
 
+  const helpSections = [
+    {
+      id: "how-it-works",
+      title: "How it Works",
+      description: "Step-by-step guide on using the platform.",
+      faqs: [
+        { id: "faq1", question: "How do I create an account?", answer: "To create an account, click signup and fill the form." },
+        { id: "faq2", question: "How to post a listing?", answer: "After logging in, click 'Post' and fill details." },
+        // add more questions here
+      ],
+    },
+    {
+      id: "use-cases",
+      title: "Use Cases",
+      description: "Learn how students use Subox every day.",
+      faqs: [
+        { id: "faq3", question: "Can I rent short term?", answer: "Yes, Subox supports short term sublets." },
+        { id: "faq4", question: "Can I buy used furniture?", answer: "Yes, check the marketplace for items." },
+      ],
+    },
+    {
+      id: "troubleshooting",
+      title: "Troubleshooting",
+      description: "Fix common issues or errors you may encounter.",
+      faqs: [
+        { id: "faq5", question: "I forgot my password.", answer: "Click 'Forgot password' to reset it." },
+        { id: "faq6", question: "App crashes on launch.", answer: "Try reinstalling or updating the app." },
+      ],
+    },
+    {
+      id: "faq",
+      title: "FAQ",
+      description: "Find answers to frequently asked questions.",
+      faqs: [
+        { id: "faq7", question: "How to contact support?", answer: "Use the contact form or email support." },
+        { id: "faq8", question: "Is the service free?", answer: "Basic use is free; premium features may cost." },
+      ],
+    },
+  ];
+
+  const [openSection, setOpenSection] = useState(null);
+  const [openFaq, setOpenFaq] = useState(null);
+
+  function toggleSection(id) {
+    setOpenFaq(null); // close FAQ when switching section
+    setOpenSection(openSection === id ? null : id);
+  }
+
+  function toggleFaq(id) {
+    setOpenFaq(openFaq === id ? null : id);
+  }
+
   // Notification data
   const notifications: Notification[] = [
     { id: 1, type: "price-drop", message: "MacBook Pro price dropped by $50!", time: "2h ago" },
     { id: 2, type: "new-item", message: "New furniture items in Dinkytown", time: "4h ago" },
     { id: 3, type: "favorite", message: "Your favorited item is ending soon", time: "1d ago" }
   ];
+
+  const [showContactForm, setShowContactForm] = useState(false);
 
   // Effect for client-side only code
   useEffect(() => {
@@ -406,9 +460,9 @@ const HelpPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-white text-black ">
+    <div className="min-h-screen bg-gradient-to-b from-orange-100 via-orange-50 to-white text-black">
         {/* Header */}
-              <div className="bg-white border-b border-gray-200 sticky top-0 z-50">
+              <div className="border-gray-200 sticky top-0 z-50">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                   <div className="flex items-center justify-between h-16">
                     {/* Logo */}
@@ -600,113 +654,235 @@ const HelpPage = () => {
                 </div>
             </div>
 
-      <div className="max-w-4xl mx-auto py-8 px-4">
-        <h1 className="text-3xl font-bold mb-4 text-black">Help & Support</h1>
-        <h2 className="text-xl font-bold mb-6 text-black">
-          Contact Us
-        </h2>
-
-             {status.info.msg && (
-        <div 
-          className={`mb-4 p-4 rounded-lg flex items-start ${
-            status.info.error ? 'bg-red-50 text-red-700' : 'bg-green-50 text-green-700'
-          }`}
-        >
-          {status.info.error ? (
-            <AlertCircle className="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" />
-          ) : (
-            <Check className="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" />
+      <div className="flex justify-center mt-20 mb-10">
+        <div className="flex justify-center mt-20 mb-10 gap-4">
+          {/* Open button, visible only when form is closed */}
+          {!showContactForm && (
+            <button
+              onClick={() => setShowContactForm(true)}
+              className="w-[300px] bg-orange-500 hover:bg-orange-600 text-white text-2xl font-bold py-4 px-6 rounded-xl shadow-lg transition-all duration-300"
+            >
+              Contact Us
+            </button>
           )}
-          <span>{status.info.msg}</span>
         </div>
-      )}
 
-      <div className="space-y-4 px-4">
-        <div>
-          <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
-            Name
-          </label>
-          <input
-            id="name"
-            type="text"
-            value={formData.name}
-            onChange={handleChange}
-            className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-            placeholder="Write your name here"
-            required
-          />
-        </div>
-        
-        <div>
-          <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
-            E-mail
-          </label>
-          <input
-            id="email"
-            type="email"
-            value={formData.email}
-            onChange={handleChange}
-            className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-            placeholder="example@email.com"
-            required
-          />
-        </div>
-        
-        <div>
-          <label htmlFor="subject" className="block text-sm font-medium text-gray-700 mb-1">
-            Title
-          </label>
-          <input
-            id="subject"
-            type="text"
-            value={formData.subject}
-            onChange={handleChange}
-            className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-            placeholder="Write the title of request here"
-            required
-          />
-        </div>
-        
-        <div>
-          <label htmlFor="message" className="block text-sm font-medium text-gray-700 mb-1">
-            Content
-          </label>
-          <textarea
-            id="message"
-            value={formData.message}
-            onChange={handleChange}
-            rows={4}
-            className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-            placeholder="Write your request or question here"
-            required
-          />
-        </div>
-        
-        <button
-          onClick={handleSubmit}
-          disabled={status.submitting || !isFormValid()}
-          className={`w-full flex items-center justify-center px-6 py-3 rounded-md text-white font-medium transition-all duration-200 ${
-            status.submitting || !isFormValid()
-              ? 'bg-gray-400 cursor-not-allowed' 
-              : 'bg-orange-500 hover:bg-orange-600 active:bg-orange-700'
-          }`}
-        >
-          {status.submitting ? (
-            <>
-              <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-              </svg>
-              sending...
-            </>
-          ) : (
-            <>
-              <Send className="w-5 h-5 mr-2" />
-              Send
-            </>
+        <AnimatePresence>
+          {showContactForm && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.4, ease: "easeInOut" }}
+              className="w-250 mx-auto py-8 px-8 overflow-hidden"
+            >
+              <h1 className="text-3xl font-bold mb-4 text-black">Help & Support</h1>
+              <h2 className="text-xl font-bold mb-6 text-black">
+                Contact Us
+              </h2>
+              {status.info.msg && (
+              <div 
+                className={`mb-4 p-4 rounded-lg flex items-start ${
+                  status.info.error ? 'bg-red-50 text-red-700' : 'bg-green-50 text-green-700'
+                }`}
+              >
+                {status.info.error ? (
+                  <AlertCircle className="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" />
+                ) : (
+                  <Check className="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" />
+                )}
+                <span>{status.info.msg}</span>
+              </div>
+              )}
+
+              <div className="space-y-4 px-4">
+                <div>
+                  <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
+                    Name
+                  </label>
+                  <input
+                    id="name"
+                    type="text"
+                    value={formData.name}
+                    onChange={handleChange}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                    placeholder="Write your name here"
+                    required
+                  />
+                </div>
+                
+                <div>
+                  <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+                    E-mail
+                  </label>
+                  <input
+                    id="email"
+                    type="email"
+                    value={formData.email}
+                    onChange={handleChange}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                    placeholder="example@email.com"
+                    required
+                  />
+                </div>
+                
+                <div>
+                  <label htmlFor="subject" className="block text-sm font-medium text-gray-700 mb-1">
+                    Title
+                  </label>
+                  <input
+                    id="subject"
+                    type="text"
+                    value={formData.subject}
+                    onChange={handleChange}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                    placeholder="Write the title of request here"
+                    required
+                  />
+                </div>
+                
+                <div>
+                  <label htmlFor="message" className="block text-sm font-medium text-gray-700 mb-1">
+                    Content
+                  </label>
+                  <textarea
+                    id="message"
+                    value={formData.message}
+                    onChange={handleChange}
+                    rows={4}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                    placeholder="Write your request or question here"
+                    required
+                  />
+                </div>
+                
+                <div className="flex justify-end gap-4 mt-4">
+                  <button
+                    onClick={handleSubmit}
+                    disabled={status.submitting || !isFormValid()}
+                    className={`flex items-center justify-center px-6 py-3 rounded-md text-white font-medium transition-all duration-200 ${
+                      status.submitting || !isFormValid()
+                        ? 'bg-orange-300 cursor-not-allowed' 
+                        : 'bg-orange-500 hover:bg-orange-600 active:bg-orange-700'
+                    }`}
+                  >
+                    {status.submitting ? (
+                      <>
+                        <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        sending...
+                      </>
+                    ) : (
+                      <>
+                        <Send className="w-5 h-5 mr-2" />
+                        Send
+                      </>
+                    )}
+                  </button>
+
+                  <button
+                    onClick={() => setShowContactForm(false)}
+                    className="px-6 py-3 rounded-md bg-orange-500 hover:bg-orange-600 text-white font-bold transition-all duration-200"
+                  >
+                    Close
+                  </button>
+                </div>
+              </div>
+              
+              <div className="mt-4 text-xs text-gray-500 mb-10 px-4">
+                * You will get the answer within 5 days.
+              </div>
+            </motion.div>
           )}
-        </button>
+        </AnimatePresence>
       </div>
+
+      <div className="max-w-4xl mx-auto py-8 px-4">
+        <div className="max-w-4xl mx-auto py-8 px-4">
+          <div className="flex gap-4 mb-10">
+            {/* Left grid: first half of helpSections */}
+            <div className="grid grid-cols-1 gap-4 flex-1">
+              {helpSections.slice(0, Math.ceil(helpSections.length / 2)).map((section) => (
+                <div
+                  key={section.id}
+                  className="bg-white border border-orange-200 rounded-xl shadow-lg p-6 cursor-pointer hover:bg-orange-50 transition duration-300"
+                  onClick={() => toggleSection(section.id)}
+                >
+                  <h3 className="text-xl font-semibold text-orange-600 mb-2">
+                    {section.title}
+                  </h3>
+                  <p className="text-sm text-gray-600">{section.description}</p>
+
+                  {/* Expanded FAQs */}
+                  {openSection === section.id && (
+                    <div className="mt-4 space-y-2">
+                      {section.faqs.map((faq) => (
+                        <div key={faq.id}>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation(); // Prevent toggling section on FAQ click
+                              toggleFaq(faq.id);
+                            }}
+                            className="w-full text-left text-gray-700 font-medium py-2 px-4 rounded hover:bg-orange-100 transition"
+                          >
+                            {faq.question}
+                          </button>
+                          {openFaq === faq.id && (
+                            <p className="pl-6 pr-4 text-gray-600 text-sm mt-1">
+                              {faq.answer}
+                            </p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            {/* Right grid: second half of helpSections */}
+            <div className="grid grid-cols-1 gap-4 flex-1">
+              {helpSections.slice(Math.ceil(helpSections.length / 2)).map((section) => (
+                <div
+                  key={section.id}
+                  className="bg-white border border-orange-200 rounded-xl shadow-lg p-6 cursor-pointer hover:bg-orange-50 transition duration-300"
+                  onClick={() => toggleSection(section.id)}
+                >
+                  <h3 className="text-xl font-semibold text-orange-600 mb-2">
+                    {section.title}
+                  </h3>
+                  <p className="text-sm text-gray-600">{section.description}</p>
+
+                  {/* Expanded FAQs */}
+                  {openSection === section.id && (
+                    <div className="mt-4 space-y-2">
+                      {section.faqs.map((faq) => (
+                        <div key={faq.id}>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleFaq(faq.id);
+                            }}
+                            className="w-full text-left text-gray-700 font-medium py-2 px-4 rounded hover:bg-orange-100 transition"
+                          >
+                            {faq.question}
+                          </button>
+                          {openFaq === faq.id && (
+                            <p className="pl-6 pr-4 text-gray-600 text-sm mt-1">
+                              {faq.answer}
+                            </p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
       
       <div className="mt-4 text-xs text-gray-500 mb-10 px-4">
         * You will get the answer within 5 days.
