@@ -213,18 +213,19 @@ const HelpPage = () => {
       title: "How it Works",
       description: "Step-by-step guide on using the platform.",
       faqs: [
-        { id: "faq1", question: "How do I create an account?", answer: "To create an account, click signup and fill the form." },
-        { id: "faq2", question: "How to post a listing?", answer: "After logging in, click 'Post' and fill details." },
+        { id: "faq0", question: "How do I create an account?", answer: "To create an account, click signup and fill the form." },
+        { id: "faq1", question: "How to post a listing?", answer: "After logging in, click 'Post' and fill details." },
         // add more questions here
       ],
     },
     {
-      id: "use-cases",
-      title: "Use Cases",
-      description: "Learn how students use Subox every day.",
+      id: "optimize",
+      title: "How to optimize my listing",
+      description: "Learn how to get your badges.",
       faqs: [
-        { id: "faq3", question: "Can I rent short term?", answer: "Yes, Subox supports short term sublets." },
-        { id: "faq4", question: "Can I buy used furniture?", answer: "Yes, check the marketplace for items." },
+        { id: "faq2", question: "How do I get a school or alumni badge?", answer: "If you add your school email, you will get your school badge. If you graduated, you should also check and write your graduation date." },
+        { id: "faq3", question: "How do I get a trusted renter or seller badge?", answer: "For trusted renter, you'll get it after you subleased more than 3 times. For trusted seller, you'll get it after you sold more than 9 times." },
+        { id: "faq4", question: "How do I get a best reviewer or best rater badge?", answer: "For best reviewer, you'll get it after you write more than 19 reviews. For best rater, you'll get it after you rated more than 14 times and have a rate error less than 2." },
       ],
     },
     {
@@ -234,6 +235,9 @@ const HelpPage = () => {
       faqs: [
         { id: "faq5", question: "I forgot my password.", answer: "Click 'Forgot password' to reset it." },
         { id: "faq6", question: "App crashes on launch.", answer: "Try reinstalling or updating the app." },
+        { id: "faq7", question: "Google and Facebook log in is not working.", answer: "Try refreshing the website." },
+        { id: "faq8", question: "Cannot go to the next page.", answer: "Check your network and if it still doesn't work, contact us." },
+        { id: "faq9", question: "The UI is weird on my device", answer: "Try refreshing the website. If it still doesn't work, contact us and try it with another device: laptop, computer, or other mobile devices." },
       ],
     },
     {
@@ -241,8 +245,8 @@ const HelpPage = () => {
       title: "FAQ",
       description: "Find answers to frequently asked questions.",
       faqs: [
-        { id: "faq7", question: "How to contact support?", answer: "Use the contact form or email support." },
-        { id: "faq8", question: "Is the service free?", answer: "Basic use is free; premium features may cost." },
+        { id: "faq10", question: "How to contact support?", answer: "Use the contact form or email support." },
+        { id: "faq11", question: "Is the service free?", answer: "Basic use is free; premium features may cost." },
       ],
     },
   ];
@@ -654,8 +658,8 @@ const HelpPage = () => {
                 </div>
             </div>
 
-      <div className="flex justify-center mt-20 mb-10">
-        <div className="flex justify-center mt-20 mb-10 gap-4">
+      <div className="flex justify-center mt-10 mb-10">
+        <div className="flex justify-center mt-10 mb-10 gap-4">
           {/* Open button, visible only when form is closed */}
           {!showContactForm && (
             <button
@@ -883,10 +887,6 @@ const HelpPage = () => {
             </div>
           </div>
         </div>
-      
-      <div className="mt-4 text-xs text-gray-500 mb-10 px-4">
-        * You will get the answer within 5 days.
-      </div>
 
         <h2 className="text-xl font-bold mb-2 text-black">FAQ</h2>
         <div className="space-y-0 px-4">
@@ -901,7 +901,7 @@ const HelpPage = () => {
         </div>
       </div>
 
-      <footer className="bg-orange-100 text-gray-700 py-12 w-full ">
+      <footer className="bg-orange-400 text-white py-12 w-full ">
       <div className="max-w-7xl mx-auto px-4 ">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8 ">
           <div>
@@ -910,44 +910,44 @@ const HelpPage = () => {
               <div className="w-8 h-8 bg-gradient-to-br from-orange-500 to-red-600 rounded-lg flex items-center justify-center">
                 <Package className="w-5 h-5 text-white" />
               </div>
-              <li><a href="/sale/browse" className="text-xl font-bold text-gray-900">Subox</a></li>
+              <li><a href="/sale/browse" className="text-xl font-bold text-white">Subox</a></li>
             </div>
-            <p className="text-gray-500 text-sm text-gray-500 mt-4 px-3">Find the perfect short-term housing solution near your campus and needed items.</p>
+            <p className="text-gray-500 text-sm text-white mt-4 px-3">Find the perfect short-term housing solution near your campus and needed items.</p>
             </ul>
           </div>
           
           <div className="px-4">
             <h4 className="font-bold mb-4">Sublease</h4>
             <ul className="space-y-2">
-              <li><a href="/sale/browse" className="text-gray-600 hover:text-white transition">Home</a></li>
-              <li><a href="/search" className="text-gray-600 hover:text-white transition">Search</a></li>
-              <li><a href="#" className="text-gray-600 hover:text-white transition">List Your Space</a></li>
-              <li><a href="/help" className="text-gray-600 hover:text-white transition">Campus Map</a></li>
+              <li><a href="/sale/browse" className="hover:underline">Home</a></li>
+              <li><a href="/search" className="hover:underline">Search</a></li>
+              <li><a href="#" className="hover:underline">List Your Space</a></li>
+              <li><a href="/help" className="hover:underline">Campus Map</a></li>
             </ul>
           </div>
           
           <div>
             <h4 className="font-bold mb-4">Move out sale</h4>
             <ul className="space-y-2">
-              <li><a href="/sale/browse" className="text-gray-600 hover:text-white transition">Browse Items</a></li>
-              <li><a href="#" className="text-gray-600 hover:text-white transition">Post Your Items</a></li>
-              <li><a href="#" className="text-gray-600 hover:text-white transition">See favorites</a></li>
-              <li><a href="#" className="text-gray-600 hover:text-white transition">Blog</a></li>
+              <li><a href="/sale/browse" className="hover:underline">Browse Items</a></li>
+              <li><a href="#" className="hover:underline">Post Your Items</a></li>
+              <li><a href="#" className="hover:underline">See favorites</a></li>
+              <li><a href="#" className="hover:underline">Blog</a></li>
             </ul>
           </div>
           
           <div>
             <h4 className="font-bold mb-4">Help</h4>
             <ul className="space-y-2">
-              <li><a href="/help" className="text-gray-600 hover:text-white transition">Email Us</a></li>
-              <li><a href="/help" className="text-gray-600 hover:text-white transition">FAQ</a></li>
-              <li><a href="#" className="text-gray-600 hover:text-white transition">Terms of Service</a></li>
-              <li><a href="#" className="text-gray-600 hover:text-white transition">Privacy Policy</a></li>
+              <li><a href="/help" className="hover:underline">Email Us</a></li>
+              <li><a href="/help" className="hover:underline">FAQ</a></li>
+              <li><a href="#" className="hover:underline">Terms of Service</a></li>
+              <li><a href="#" className="hover:underline">Privacy Policy</a></li>
             </ul>
           </div>
         </div>
         
-        <div className="mt-8 pt-8 border-t border-gray-700 text-gray-400 text-sm text-center">
+        <div className="mt-8 pt-8 border-t border-gray-700 text-white text-sm text-center">
           <p>&copy; 2025 CampusSubleases. All rights reserved.</p>
         </div>
       </div>

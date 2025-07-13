@@ -1314,18 +1314,84 @@ const SuboxHomepage = () => {
       {/* CTA Section */}
       <CTASection />
 
-      <body className="m-0 p-0">
-        <footer className="bg-orange-500 text-white py-12 mt-20">
-          <div className="max-w-7xl mx-auto px-6 grid grid-cols-1 md:grid-cols-3 gap-10 text-center md:text-left">
-            
+      <footer className="bg-orange-400 text-white py-12 w-full">
+        <div className="max-w-7xl mx-auto px-4">
+          {/* Upper Grid: 4 columns from original + 4 new columns in two rows */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-10">
+            {/* Subox Brand */}
+            <div>
+              <ul className="space-y-2">
+                <div className="flex items-center space-x-3 mt-3 px-5">
+                  <div className="w-8 h-8 bg-gradient-to-br from-orange-500 to-red-600 rounded-lg flex items-center justify-center">
+                    <Package className="w-5 h-5 text-white" />
+                  </div>
+                  <li>
+                    <a href="/sale/browse" className="text-xl font-bold text-white">Subox</a>
+                  </li>
+                </div>
+                <p className="text-white text-sm mt-4 px-3">
+                  Find the perfect short-term housing solution near your campus and needed items.
+                </p>
+              </ul>
+            </div>
+
+            {/* Sublease */}
+            <div className="px-4">
+              <h4 className="font-bold mb-4">Sublease</h4>
+              <ul className="space-y-2">
+                <li><a href="/sale/browse" className="hover:underline">Home</a></li>
+                <li><a href="/search" className="hover:underline">Search</a></li>
+                <li><a href="#" className="hover:underline">List Your Space</a></li>
+                <li><a href="/help" className="hover:underline">Campus Map</a></li>
+              </ul>
+            </div>
+
+            {/* Move out sale */}
+            <div>
+              <h4 className="font-bold mb-4">Move Out Sale</h4>
+              <ul className="space-y-2">
+                <li><a href="/sale/browse" className="hover:underline">Browse Items</a></li>
+                <li><a href="#" className="hover:underline">Post Your Items</a></li>
+                <li><a href="#" className="hover:underline">See Favorites</a></li>
+                <li><a href="#" className="hover:underline">Blog</a></li>
+              </ul>
+            </div>
+
+            {/* Help */}
+            <div>
+              <h4 className="font-bold mb-4">Help</h4>
+              <ul className="space-y-2">
+                <li><a href="/help" className="hover:underline">Email Us</a></li>
+                <li><a href="/help" className="hover:underline">FAQ</a></li>
+                <li><a href="#" className="hover:underline">Terms of Service</a></li>
+                <li><a href="#" className="hover:underline">Privacy Policy</a></li>
+              </ul>
+            </div>
+          </div>
+
+          {/* Divider */}
+          <div className="border-t border-white/30 my-10"></div>
+
+          {/* Bottom Grid: 4 more sections */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-8 text-center md:text-left">
+            {/* About Subox */}
+            <div>
+              <h3 className="text-2xl font-bold mb-4">About Subox</h3>
+              <p className="text-lg text-white text-sm">
+                A Minnesota-focused marketplace for sublets and moving sales. Built for speed, trust, and simplicity.
+              </p>
+            </div>
+
+            {/* Get Started */}
             <div>
               <h3 className="text-2xl font-bold mb-4">Get Started</h3>
               <ul className="space-y-2 text-lg">
-                <li><a href="auth/" className="hover:underline">Log in</a></li>
-                <li><a href="auth/" className="hover:underline">Sign up</a></li>
+                <li><a href="/auth" className="hover:underline">Log in</a></li>
+                <li><a href="/auth" className="hover:underline">Sign up</a></li>
               </ul>
             </div>
-            
+
+            {/* Resources */}
             <div>
               <h3 className="text-2xl font-bold mb-4">Resources</h3>
               <ul className="space-y-2 text-lg">
@@ -1335,32 +1401,26 @@ const SuboxHomepage = () => {
               </ul>
             </div>
 
+            {/* Support */}
             <div>
               <h3 className="text-2xl font-bold mb-4">Support</h3>
               <p className="text-lg">Need help?</p>
               <a
-                id='help'
-                href="help/"
-                className="inline-block mt-3 ml-[-8px] px-6 py-3 bg-white text-orange-600 font-semibold rounded-full shadow hover:bg-orange-600 hover:text-white transition"
+                href="/help"
+                className="inline-block mt-3 px-6 py-3 bg-white text-orange-600 font-semibold rounded-full shadow hover:bg-orange-600 hover:text-white transition"
               >
                 Visit Help Center
               </a>
-            </div> 
-
-            <div>
-              <h3 className="text-2xl font-bold mb-4">About Subox</h3>
-              <p className="text-lg text-orange-100">
-                A student-focused marketplace for sublets and moving sales. Built for speed, trust, and simplicity.
-              </p>
             </div>
           </div>
 
-          {/* Optional bottom line */}
-          <div className="text-center mt-10 text-sm text-orange-100">
+          {/* Copyright */}
+          <div className="mt-10 pt-10 border-t border-white/30 text-center text-sm text-orange-100">
             © {new Date().getFullYear()} Subox. All rights reserved.
           </div>
-        </footer>
-      </body>
+        </div>
+      </footer>
+
     </div>
   );
 };
