@@ -325,7 +325,7 @@ const SuboxHomepage = () => {
               className="perspective-1000"
             >
               <motion.h1 
-                className="text-5xl md:text-7xl font-bold text-gray-900 mb-6 leading-tight cursor-default"
+                className="text-5xl md:text-7xl font-bold font-sans text-gray-900 mb-6 leading-tight cursor-default"
                 initial={{ opacity: 0, y: 30, rotateX: 20 }}
                 animate={{ opacity: 1, y: 0, rotateX: 0 }}
                 transition={{ duration: 0.8, delay: 0.2 }}
@@ -375,7 +375,7 @@ const SuboxHomepage = () => {
               </motion.h1>
               
               <motion.p 
-                className="text-xl text-gray-600 mb-8 max-w-3xl leading-relaxed cursor-default"
+                className="text-xl font-inter text-gray-600 mb-8 max-w-3xl leading-relaxed cursor-default"
                 initial={{ opacity: 0, y: 20, rotateX: 15 }}
                 animate={{ opacity: 1, y: 0, rotateX: 0 }}
                 transition={{ duration: 0.8, delay: 0.8 }}
@@ -1307,12 +1307,31 @@ const SuboxHomepage = () => {
       {/* Enhanced Interactive Features Section */}
       <InteractiveFeaturesSection featuresY={featuresY} />
 
+      <section className="text-center py-24 px-6 mt-20 mb-10">
+        <div className="max-w-4xl mx-auto">
+          <h1 className="text-4xl md:text-5xl font-bold font-sans text-gray-900 leading-tight">
+            Your Space. Your Stuff. <br className="hidden md:block" /> Your Time to Move.
+          </h1>
+          <p className="mt-6 text-lg md:text-xl text-gray-700 font-medium font-inter">
+            Find subleases and student essentials near you — <span className="text-orange-500 font-semibold">faster</span>, <span className="text-orange-500 font-semibold">safer</span>, <span className="text-orange-500 font-semibold">smarter</span>.
+          </p>
+        </div>
+      </section>
+
       <UseCasesSection />
 
-      <HowItWorksSection howY={howY} />
+      <section className="text-center py-24 px-6 bg-white mt-20 mb-30">
+        <div className="max-w-4xl mx-auto">
+          <h2 className="text-4xl md:text-5xl font-bold text-gray-900 leading-tight font-sans">
+            Why waste it when you can <span className="text-orange-500">Subox</span> it?
+          </h2>
+          <p className="mt-6 text-lg md:text-xl text-gray-700 font-medium font-inter">
+            We connect students who need a place with those who are leaving one. <br className="hidden md:block" /> Simple.
+          </p>
+        </div>
+      </section>
 
-      {/* CTA Section */}
-      <CTASection />
+      <HowItWorksSection howY={howY} />
 
       <footer className="bg-orange-400 text-white py-12 w-full">
         <div className="max-w-7xl mx-auto px-4">
@@ -1357,15 +1376,17 @@ const SuboxHomepage = () => {
               </ul>
             </div>
 
-            {/* Help */}
+            {/* Support */}
             <div>
-              <h4 className="font-bold mb-4">Help</h4>
-              <ul className="space-y-2">
-                <li><a href="/help" className="hover:underline">Email Us</a></li>
-                <li><a href="/help" className="hover:underline">FAQ</a></li>
-                <li><a href="#" className="hover:underline">Terms of Service</a></li>
-                <li><a href="#" className="hover:underline">Privacy Policy</a></li>
-              </ul>
+              <h3 className="text-2xl font-bold mb-4">Support</h3>
+              <p className="text-lg">Need help?</p>
+              <a
+                href="/help"
+                id='help'
+                className="inline-block mt-3 px-6 py-3 bg-white text-orange-600 font-semibold rounded-full shadow hover:bg-orange-600 hover:text-white transition"
+              >
+                Visit Help Center
+              </a>
             </div>
           </div>
 
@@ -1399,18 +1420,6 @@ const SuboxHomepage = () => {
                 <li><a href="#use-cases" className="hover:underline">Use Cases</a></li>
                 <li><a href="#how-it-works" className="hover:underline">How it Works</a></li>
               </ul>
-            </div>
-
-            {/* Support */}
-            <div>
-              <h3 className="text-2xl font-bold mb-4">Support</h3>
-              <p className="text-lg">Need help?</p>
-              <a
-                href="/help"
-                className="inline-block mt-3 px-6 py-3 bg-white text-orange-600 font-semibold rounded-full shadow hover:bg-orange-600 hover:text-white transition"
-              >
-                Visit Help Center
-              </a>
             </div>
           </div>
 
@@ -2796,83 +2805,6 @@ const HowItWorksSection = ({ howY }) => {
   );
 };
 
-
-// CTA Section Component
-const CTASection = () => {
-  const ref = useRef(null);
-  const isInView = useInView(ref, { once: true });
-  
-  return (
-    <motion.section 
-      ref={ref}
-      className="relative z-10 max-w-7xl mx-auto px-6 py-20"
-    >
-      <motion.div
-        initial={{ opacity: 0, y: 100, scale: 0.8 }}
-        animate={isInView ? { 
-          opacity: 1, 
-          y: 0, 
-          scale: 1 
-        } : { 
-          opacity: 0, 
-          y: 100, 
-          scale: 0.8 
-        }}
-        transition={{ duration: 1, ease: "easeOut" }}
-        className="text-center bg-gradient-to-r from-orange-500 to-orange-600 rounded-3xl p-16 text-white relative overflow-hidden"
-      >
-        {/* Animated Background Elements */}
-        <motion.div
-          className="absolute inset-0 bg-gradient-to-r from-orange-600/50 to-transparent"
-          animate={{
-            backgroundPosition: ["0% 50%", "100% 50%", "0% 50%"],
-          }}
-          transition={{ duration: 5, repeat: Infinity }}
-        />
-        
-        <div className="relative z-10">
-          <motion.h2 
-            className="text-4xl md:text-5xl font-bold mb-6"
-            initial={{ opacity: 0, y: 30 }}
-            animate={isInView ? { opacity: 1, y: 0 } : { opacity: 0, y: 30 }}
-            transition={{ delay: 0.3, duration: 0.8 }}
-          >
-            Ready to revolutionize your student life?
-          </motion.h2>
-          <motion.p 
-            className="text-xl text-orange-100 mb-8 max-w-2xl mx-auto"
-            initial={{ opacity: 0, y: 20 }}
-            animate={isInView ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }}
-            transition={{ delay: 0.5, duration: 0.8 }}
-          >
-            Join thousands of students already using Subox to sell items instantly and find perfect housing
-          </motion.p>
-          <motion.button
-            className="px-8 py-4 bg-white text-orange-600 font-bold text-lg rounded-xl shadow-xl hover:shadow-2xl transition-all"
-            whileHover={{ 
-              scale: 1.05, 
-              y: -5,
-              boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.25)" 
-            }}
-            whileTap={{ scale: 0.95 }}
-            initial={{ opacity: 0, y: 20 }}
-            animate={isInView ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }}
-            transition={{ delay: 0.7, duration: 0.8 }}
-          >
-            Start Selling in Seconds
-            <motion.span
-              className="inline-block ml-2"
-              animate={{ x: [0, 5, 0] }}
-              transition={{ duration: 1, repeat: Infinity }}
-            >
-              <ArrowRight size={20} />
-            </motion.span>
-          </motion.button>
-        </div>
-      </motion.div>
-    </motion.section>
-  );
-};
 
 const CameraDemo = ({ capturedItems, setCapturedItems }) => {
   const [isCapturing, setIsCapturing] = useState(false);

@@ -1,5 +1,7 @@
+'use client'
 
-"use client"
+import { hiwData } from '../page';
+import { notFound } from 'next/navigation';
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from "framer-motion";
 import { 
@@ -8,12 +10,6 @@ import {
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 
-// Define TypeScript interfaces
-interface FAQItem {
-  id: number;
-  question: string;
-  answer: string;
-}
 
 interface Product {
   id: number;
@@ -43,51 +39,6 @@ interface Notification {
   message: string;
   time: string;
 }
-
-// Individual FAQ item component
-const FAQItemComponent = ({ item, isOpen, onToggle }: { 
-  item: FAQItem; 
-  isOpen: boolean; 
-  onToggle: () => void 
-}) => {
-  return (
-    <div className={`border-b border-gray-700 ${isOpen ? 'bg-white' : ''}`}>
-      <button
-        className={`w-full flex justify-between items-center py-6 px-0 text-left hover:text-orange-400 transition-colors duration-300 ${
-          isOpen ? 'text-orange-600' : 'text-black'
-        }`}
-        onClick={onToggle}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault();
-            onToggle();
-          }
-        }}
-      >
-        <span className="text-lg font-medium pr-4">{item.question}</span>
-        <span
-          className={`text-xl transition-transform duration-300 text-gray-400 ${
-            isOpen ? 'rotate-90 text-orange-400' : ''
-          }`}
-        >
-          ›
-        </span>
-      </button>
-      
-      <div
-        className={`overflow-hidden transition-all duration-300 ease-in-out ${
-          isOpen ? 'max-h-96 pb-6' : 'max-h-0'
-        }`}
-      >
-        <div className="bg-orange-100 p-5 rounded-lg">
-          <p className="text-gray-700 leading-relaxed whitespace-pre-line">
-            {item.answer}
-          </p>
-        </div>
-      </div>
-    </div>
-  );
-};
 
 // Notifications dropdown component
 const NotificationsButton = ({ notifications }: { notifications: Notification[] }) => {
@@ -150,8 +101,14 @@ const NotificationsButton = ({ notifications }: { notifications: Notification[] 
   );
 };
 
+interface HIWPageProps {
+  params: {
+    id: string;
+  };
+}
+
 // Main Help page component
-const HelpPage = () => {
+export default function HIWPage({ params }: HIWPageProps) {
   // State variables
   const [openItem, setOpenItem] = useState<number | null>(null);
   const [showMenu, setShowMenu] = useState(false);
@@ -162,101 +119,7 @@ const HelpPage = () => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   
   const router = useRouter();
-
-  // FAQ data
-  const faqData: FAQItem[] = [
-    {
-      id: 1,
-      question: "What is sublease?",
-      answer: "A sublease (or subleasing) is an arrangement where a current tenant rents out all or part of their leased property to a third party for a portion of their remaining lease term. The original tenant maintains their contractual relationship with the landlord while creating a new landlord-tenant relationship with the subtenant."
-    },
-    {
-      id: 2,
-      question: "How is a Move Out Sale different from a regular secondhand sale?",
-      answer: "Move Out Sales typically have firm deadlines based on moving dates, include multiple items from one seller, often feature deeper discounts due to time constraints, and may offer package deals for purchasing multiple items."
-    },
-    {
-      id: 3,
-      question: "How should I price my items for a Move Out Sale?",
-      answer: "Consider the item's age, condition, original price, and market demand. Generally, pricing between 30-70% of the original cost works well. High-demand or barely-used items can be priced higher, while older items should be priced more aggressively."
-    },
-    {
-      id: 4,
-      question: "Should I accept payment methods other than cash?",
-      answer: "Digital payment apps are increasingly common and provide transaction records. Consider accepting popular payment apps but be aware of potential fraud risks. Cash is still preferred for smaller transactions."
-    },
-    {
-      id: 5,
-      question: "How can I negotiate prices at a Move Out Sale?",
-      answer: "Be respectful and reasonable with offers, consider buying multiple items for a package discount, point out any issues with the item that might affect its value, and be prepared to pay the asking price for high-demand items."
-    },
-    {
-      id: 6,
-      question: "What should I check before purchasing used furniture?",
-      answer: "Inspect for structural integrity, look underneath and behind for damage, check for odors or stains, test all moving parts, measure to ensure it fits your space, and ask about its age and history."
-    },
-    {
-      id: 7,
-      question: "How can I ensure a safe transaction when buying from a Move Out Sale?",
-      answer: "Meet in public places when possible, bring a friend for larger transactions, inspect items thoroughly before payment, get a receipt for significant purchases, and trust your instincts if something feels wrong."
-    },
-    {
-      id: 8,
-      question: "How can I arrange pickup for large items?",
-      answer: "Coordinate directly with the seller through our messaging system, bring appropriate transportation and enough people to help, measure doorways and stairwells beforehand, and bring furniture sliders or dollies if necessary."
-    }
-  ];
-
-  const helpSections = [
-    {
-      id: "how-it-works",
-      title: "How it Works",
-      description: "Step-by-step guide on using the platform.",
-      faqs: [
-        { id: "faq0", question: "How do I create an account?", answer: "To create an account, click signup and fill the form." },
-        { id: "faq1", question: "How to post a listing?", answer: "After logging in, click 'Post' and fill details." },
-        // add more questions here
-      ],
-    },
-    {
-      id: "optimize",
-      title: "How to optimize my listing",
-      description: "Learn how to get your badges.",
-      faqs: [
-        { id: "faq2", question: "How do I get a school or alumni badge?", answer: "If you add your school email, you will get your school badge. If you graduated, you should also check and write your graduation date." },
-        { id: "faq3", question: "How do I get a trusted renter or seller badge?", answer: "For trusted renter, you'll get it after you subleased more than 3 times. For trusted seller, you'll get it after you sold more than 9 times." },
-        { id: "faq4", question: "How do I get a best reviewer or best rater badge?", answer: "For best reviewer, you'll get it after you write more than 19 reviews. For best rater, you'll get it after you rated more than 14 times and have a rate error less than 2." },
-      ],
-    },
-    {
-      id: "troubleshooting",
-      title: "Troubleshooting",
-      description: "Fix common issues or errors you may encounter.",
-      faqs: [
-        { id: "faq5", question: "I forgot my password.", answer: "Click 'Forgot password' to reset it." },
-        { id: "faq6", question: "App crashes on launch.", answer: "Try reinstalling or updating the app." },
-        { id: "faq7", question: "Google and Facebook log in is not working.", answer: "Try refreshing the website." },
-        { id: "faq8", question: "Cannot go to the next page.", answer: "Check your network and if it still doesn't work, contact us." },
-        { id: "faq9", question: "The UI is weird on my device", answer: "Try refreshing the website. If it still doesn't work, contact us and try it with another device: laptop, computer, or other mobile devices." },
-      ],
-    },
-    {
-      id: "faq",
-      title: "FAQ",
-      description: "Find answers to frequently asked questions.",
-      faqs: [
-        { id: "faq10", question: "How to contact support?", answer: "Use the contact form or email support." },
-        { id: "faq11", question: "Is the service free?", answer: "Basic use is free; premium features may cost." },
-      ],
-    },
-  ];
-
-  const [openSection, setOpenSection] = useState(null);
-  const [openFaq, setOpenFaq] = useState(null);
-
-  function toggleFaq(id) {
-    setOpenFaq(openFaq === id ? null : id);
-  }
+  
 
   // Notification data
   const notifications: Notification[] = [
@@ -294,10 +157,6 @@ const HelpPage = () => {
     }
   }, [favoriteListings, isMounted]);
 
-  // Handle FAQ item toggle
-  const handleToggle = (id: number) => {
-    setOpenItem(openItem === id ? null : id);
-  };
 
 
   // Handle profile tab click
@@ -321,6 +180,12 @@ const HelpPage = () => {
       setIsSidebarOpen(true);
     }
   };
+
+  const hiwItem = hiwData.find((hiw) => hiw.id === Number(params.id));
+
+  if (!hiwItem) {
+    notFound();
+  }
 
   // Render favorites sidebar
   const renderFavoritesSidebar = () => (
@@ -459,7 +324,7 @@ const HelpPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-orange-200 via-orange-50 to-white text-black">
+    <div className="min-h-screen bg-gradient-to-b from-orange-200 via-white to-white text-black">
         {/* Header */}
               <div className="border-gray-200 sticky top-0 z-50">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -653,8 +518,8 @@ const HelpPage = () => {
                 </div>
             </div>
 
-      <div className="flex justify-center mt-10 mb-10">
-        <div className="flex justify-center mt-10 mb-10 gap-4">
+      <div className="flex justify-center mt-10">
+        <div className="flex justify-center mt-10 gap-4">
           {/* Open button, visible only when form is closed */}
           {!showContactForm && (
             <button
@@ -704,7 +569,7 @@ const HelpPage = () => {
                     type="text"
                     value={formData.name}
                     onChange={handleChange}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                    className="w-full px-4 py-2 border border-gray-400 rounded-md focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                     placeholder="Write your name here"
                     required
                   />
@@ -719,7 +584,7 @@ const HelpPage = () => {
                     type="email"
                     value={formData.email}
                     onChange={handleChange}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                    className="w-full px-4 py-2 border border-gray-400 rounded-md focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                     placeholder="example@email.com"
                     required
                   />
@@ -734,7 +599,7 @@ const HelpPage = () => {
                     type="text"
                     value={formData.subject}
                     onChange={handleChange}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                    className="w-full px-4 py-2 border border-gray-400 rounded-md focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                     placeholder="Write the title of request here"
                     required
                   />
@@ -749,7 +614,7 @@ const HelpPage = () => {
                     value={formData.message}
                     onChange={handleChange}
                     rows={4}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                    className="w-full px-4 py-2 border border-gray-400 rounded-md focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                     placeholder="Write your request or question here"
                     required
                   />
@@ -798,103 +663,16 @@ const HelpPage = () => {
         </AnimatePresence>
       </div>
 
-      <div className="max-w-4xl mx-auto py-8 px-4">
-        <div className="max-w-4xl mx-auto py-8 px-4">
-          <div className="flex gap-4 mb-10">
-            {/* Left grid: first half of helpSections */}
-            <div className="grid grid-cols-1 gap-4 flex-1">
-              {helpSections.slice(0, Math.ceil(helpSections.length / 2)).map((section) => (
-                <div
-                  key={section.id}
-                  className="bg-white border border-orange-200 rounded-xl shadow-lg p-6 cursor-pointer hover:bg-orange-50 transition duration-300"
-                  onClick={() => section.title == "How it Works" ? router.push("help/howitworks") : router.push("help/optimize")}
-                >
-                  <h3 className="text-xl font-semibold text-orange-600 mb-2">
-                    {section.title}
-                  </h3>
-                  <p className="text-sm text-gray-600">{section.description}</p>
-
-                  {/* Expanded FAQs */}
-                  {openSection === section.id && (
-                    <div className="mt-4 space-y-2">
-                      {section.faqs.map((faq) => (
-                        <div key={faq.id}>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation(); // Prevent toggling section on FAQ click
-                              toggleFaq(faq.id);
-                            }}
-                            className="w-full text-left text-gray-700 font-medium py-2 px-4 rounded hover:bg-orange-100 transition"
-                          >
-                            {faq.question}
-                          </button>
-                          {openFaq === faq.id && (
-                            <p className="pl-6 pr-4 text-gray-600 text-sm mt-1">
-                              {faq.answer}
-                            </p>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-
-            {/* Right grid: second half of helpSections */}
-            <div className="grid grid-cols-1 gap-4 flex-1">
-              {helpSections.slice(Math.ceil(helpSections.length / 2)).map((section) => (
-                <div
-                  key={section.id}
-                  className="bg-white border border-orange-200 rounded-xl shadow-lg p-6 cursor-pointer hover:bg-orange-50 transition duration-300"
-                  onClick={() => section.title == "Troubleshooting" ? router.push("help/troubleshooting") : router.push("help/faq")}
-                >
-                  <h3 className="text-xl font-semibold text-orange-600 mb-2">
-                    {section.title}
-                  </h3>
-                  <p className="text-sm text-gray-600">{section.description}</p>
-
-                  {/* Expanded FAQs */}
-                  {openSection === section.id && (
-                    <div className="mt-4 space-y-2">
-                      {section.faqs.map((faq) => (
-                        <div key={faq.id}>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              toggleFaq(faq.id);
-                            }}
-                            className="w-full text-left text-gray-700 font-medium py-2 px-4 rounded hover:bg-orange-100 transition"
-                          >
-                            {faq.question}
-                          </button>
-                          {openFaq === faq.id && (
-                            <p className="pl-6 pr-4 text-gray-600 text-sm mt-1">
-                              {faq.answer}
-                            </p>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
+        <div className="max-w-3xl mx-auto py-16 px-6">
+            <h1 className="text-3xl font-bold text-orange-600 mb-4">{hiwItem.question}</h1>
+            <p className="text-lg text-gray-700">{hiwItem.answer}</p>
+            <a
+                href="/help/howitworks"
+                className="inline-block mt-8 px-6 py-2 bg-orange-500 text-white rounded hover:bg-orange-600"
+            >
+                ← Back to How it Works
+            </a>
         </div>
-
-        <h2 className="text-xl font-bold mb-2 text-black">FAQ</h2>
-        <div className="space-y-0 px-4">
-          {faqData.map((item) => (
-            <FAQItemComponent
-              key={item.id}
-              item={item}
-              isOpen={openItem === item.id}
-              onToggle={() => handleToggle(item.id)}
-            />
-          ))}
-        </div>
-      </div>
 
       <footer className="bg-orange-400 text-white py-12 w-full ">
       <div className="max-w-7xl mx-auto px-4 ">
@@ -953,4 +731,3 @@ const HelpPage = () => {
 };
 
 
-export default HelpPage;

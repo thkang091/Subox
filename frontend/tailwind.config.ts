@@ -7,8 +7,14 @@ const config: Config = {
     "./src/**/*.{js,ts,jsx,tsx}",
   ],
   theme: {
-    extend: {},
+    extend: {
+      fontFamily: {
+        inter: ['var(--font-inter)'],
+        sans: ['var(--font-poppins)', 'sans-serif'],
+      },
+    },
   },
   plugins: [],
+
 }
 export default config
