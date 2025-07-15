@@ -114,8 +114,18 @@ export const hiwData: HIWItem[] = [
     },
     {
       id: 2,
-      question: "How to post a listing?",
-      answer: "After logging in, click 'Post' and fill details."
+      question: "How do I post a listing?",
+      answer: "After logging in, click 'Post' and fill details or use AI listing."
+    },
+    {
+      id: 3,
+      question: "How do I filter and save my pick in moving sales?",
+      answer: "Click the icon on the bottom right and filter what you'r finding. Then, click the heart button by saving in your favorite list."
+    },
+    {
+      id: 4,
+      question: "How do I find a place to rent?",
+      answer: "Go to the sublease page and filter through the map in it and check your preference like date, cleanliness, etc."
     }
 ];
 
@@ -340,8 +350,7 @@ const howitworksPage = () => {
                       <div className="w-8 h-8 bg-gradient-to-br from-orange-500 to-red-600 rounded-lg flex items-center justify-center">
                         <Package className="w-5 h-5 text-white" />
                       </div>
-                      <li><a href="/sale/browse" className="text-2xl font-bold text-gray-900">Subox</a></li>
-                      <span className="text-sm text-gray-500 hidden sm:block">Move Out Sales</span> 
+                      <li><a href="/" className="text-2xl font-bold text-gray-900">Subox</a></li>
                     </div>
                     </ul>
         
@@ -718,14 +727,17 @@ const howitworksPage = () => {
             </ul>
           </div>
           
+          {/* Support */}
           <div>
-            <h4 className="font-bold mb-4">Help</h4>
-            <ul className="space-y-2">
-              <li><a href="/help" className="hover:underline">Email Us</a></li>
-              <li><a href="/help" className="hover:underline">FAQ</a></li>
-              <li><a href="#" className="hover:underline">Terms of Service</a></li>
-              <li><a href="#" className="hover:underline">Privacy Policy</a></li>
-            </ul>
+            <h3 className="text-2xl font-bold mb-4">Support</h3>
+            <p className="text-lg">Need help?</p>
+            <a
+              href="/help"
+              id='help'
+              className="inline-block mt-3 px-6 py-3 bg-white text-orange-600 font-semibold rounded-full shadow hover:bg-orange-600 hover:text-white transition"
+            >
+              Visit Help Center
+            </a>
           </div>
         </div>
         

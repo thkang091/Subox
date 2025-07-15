@@ -163,100 +163,29 @@ const HelpPage = () => {
   
   const router = useRouter();
 
-  // FAQ data
-  const faqData: FAQItem[] = [
-    {
-      id: 1,
-      question: "What is sublease?",
-      answer: "A sublease (or subleasing) is an arrangement where a current tenant rents out all or part of their leased property to a third party for a portion of their remaining lease term. The original tenant maintains their contractual relationship with the landlord while creating a new landlord-tenant relationship with the subtenant."
-    },
-    {
-      id: 2,
-      question: "How is a Move Out Sale different from a regular secondhand sale?",
-      answer: "Move Out Sales typically have firm deadlines based on moving dates, include multiple items from one seller, often feature deeper discounts due to time constraints, and may offer package deals for purchasing multiple items."
-    },
-    {
-      id: 3,
-      question: "How should I price my items for a Move Out Sale?",
-      answer: "Consider the item's age, condition, original price, and market demand. Generally, pricing between 30-70% of the original cost works well. High-demand or barely-used items can be priced higher, while older items should be priced more aggressively."
-    },
-    {
-      id: 4,
-      question: "Should I accept payment methods other than cash?",
-      answer: "Digital payment apps are increasingly common and provide transaction records. Consider accepting popular payment apps but be aware of potential fraud risks. Cash is still preferred for smaller transactions."
-    },
-    {
-      id: 5,
-      question: "How can I negotiate prices at a Move Out Sale?",
-      answer: "Be respectful and reasonable with offers, consider buying multiple items for a package discount, point out any issues with the item that might affect its value, and be prepared to pay the asking price for high-demand items."
-    },
-    {
-      id: 6,
-      question: "What should I check before purchasing used furniture?",
-      answer: "Inspect for structural integrity, look underneath and behind for damage, check for odors or stains, test all moving parts, measure to ensure it fits your space, and ask about its age and history."
-    },
-    {
-      id: 7,
-      question: "How can I ensure a safe transaction when buying from a Move Out Sale?",
-      answer: "Meet in public places when possible, bring a friend for larger transactions, inspect items thoroughly before payment, get a receipt for significant purchases, and trust your instincts if something feels wrong."
-    },
-    {
-      id: 8,
-      question: "How can I arrange pickup for large items?",
-      answer: "Coordinate directly with the seller through our messaging system, bring appropriate transportation and enough people to help, measure doorways and stairwells beforehand, and bring furniture sliders or dollies if necessary."
-    }
-  ];
 
   const helpSections = [
     {
       id: "how-it-works",
       title: "How it Works",
-      description: "Step-by-step guide on using the platform.",
-      faqs: [
-        { id: "faq0", question: "How do I create an account?", answer: "To create an account, click signup and fill the form." },
-        { id: "faq1", question: "How to post a listing?", answer: "After logging in, click 'Post' and fill details." },
-        // add more questions here
-      ],
+      description: "Step-by-step guide on using the platform."
     },
     {
       id: "optimize",
       title: "How to optimize my listing",
-      description: "Learn how to get your badges.",
-      faqs: [
-        { id: "faq2", question: "How do I get a school or alumni badge?", answer: "If you add your school email, you will get your school badge. If you graduated, you should also check and write your graduation date." },
-        { id: "faq3", question: "How do I get a trusted renter or seller badge?", answer: "For trusted renter, you'll get it after you subleased more than 3 times. For trusted seller, you'll get it after you sold more than 9 times." },
-        { id: "faq4", question: "How do I get a best reviewer or best rater badge?", answer: "For best reviewer, you'll get it after you write more than 19 reviews. For best rater, you'll get it after you rated more than 14 times and have a rate error less than 2." },
-      ],
+      description: "Learn how to get your badges."
     },
     {
       id: "troubleshooting",
       title: "Troubleshooting",
-      description: "Fix common issues or errors you may encounter.",
-      faqs: [
-        { id: "faq5", question: "I forgot my password.", answer: "Click 'Forgot password' to reset it." },
-        { id: "faq6", question: "App crashes on launch.", answer: "Try reinstalling or updating the app." },
-        { id: "faq7", question: "Google and Facebook log in is not working.", answer: "Try refreshing the website." },
-        { id: "faq8", question: "Cannot go to the next page.", answer: "Check your network and if it still doesn't work, contact us." },
-        { id: "faq9", question: "The UI is weird on my device", answer: "Try refreshing the website. If it still doesn't work, contact us and try it with another device: laptop, computer, or other mobile devices." },
-      ],
+      description: "Fix common issues or errors you may encounter."
     },
     {
       id: "faq",
       title: "FAQ",
-      description: "Find answers to frequently asked questions.",
-      faqs: [
-        { id: "faq10", question: "How to contact support?", answer: "Use the contact form or email support." },
-        { id: "faq11", question: "Is the service free?", answer: "Basic use is free; premium features may cost." },
-      ],
+      description: "Find answers to frequently asked questions."
     },
   ];
-
-  const [openSection, setOpenSection] = useState(null);
-  const [openFaq, setOpenFaq] = useState(null);
-
-  function toggleFaq(id) {
-    setOpenFaq(openFaq === id ? null : id);
-  }
 
   // Notification data
   const notifications: Notification[] = [
@@ -294,10 +223,6 @@ const HelpPage = () => {
     }
   }, [favoriteListings, isMounted]);
 
-  // Handle FAQ item toggle
-  const handleToggle = (id: number) => {
-    setOpenItem(openItem === id ? null : id);
-  };
 
 
   // Handle profile tab click
@@ -470,8 +395,7 @@ const HelpPage = () => {
                       <div className="w-8 h-8 bg-gradient-to-br from-orange-500 to-red-600 rounded-lg flex items-center justify-center">
                         <Package className="w-5 h-5 text-white" />
                       </div>
-                      <li><a href="/sale/browse" className="text-2xl font-bold text-gray-900">Subox</a></li>
-                      <span className="text-sm text-gray-500 hidden sm:block">Move Out Sales</span> 
+                      <li><a href="/" className="text-2xl font-bold text-gray-900">Subox</a></li>
                     </div>
                     </ul>
         
@@ -813,30 +737,6 @@ const HelpPage = () => {
                     {section.title}
                   </h3>
                   <p className="text-sm text-gray-600">{section.description}</p>
-
-                  {/* Expanded FAQs */}
-                  {openSection === section.id && (
-                    <div className="mt-4 space-y-2">
-                      {section.faqs.map((faq) => (
-                        <div key={faq.id}>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation(); // Prevent toggling section on FAQ click
-                              toggleFaq(faq.id);
-                            }}
-                            className="w-full text-left text-gray-700 font-medium py-2 px-4 rounded hover:bg-orange-100 transition"
-                          >
-                            {faq.question}
-                          </button>
-                          {openFaq === faq.id && (
-                            <p className="pl-6 pr-4 text-gray-600 text-sm mt-1">
-                              {faq.answer}
-                            </p>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  )}
                 </div>
               ))}
             </div>
@@ -853,46 +753,10 @@ const HelpPage = () => {
                     {section.title}
                   </h3>
                   <p className="text-sm text-gray-600">{section.description}</p>
-
-                  {/* Expanded FAQs */}
-                  {openSection === section.id && (
-                    <div className="mt-4 space-y-2">
-                      {section.faqs.map((faq) => (
-                        <div key={faq.id}>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              toggleFaq(faq.id);
-                            }}
-                            className="w-full text-left text-gray-700 font-medium py-2 px-4 rounded hover:bg-orange-100 transition"
-                          >
-                            {faq.question}
-                          </button>
-                          {openFaq === faq.id && (
-                            <p className="pl-6 pr-4 text-gray-600 text-sm mt-1">
-                              {faq.answer}
-                            </p>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  )}
                 </div>
               ))}
             </div>
           </div>
-        </div>
-
-        <h2 className="text-xl font-bold mb-2 text-black">FAQ</h2>
-        <div className="space-y-0 px-4">
-          {faqData.map((item) => (
-            <FAQItemComponent
-              key={item.id}
-              item={item}
-              isOpen={openItem === item.id}
-              onToggle={() => handleToggle(item.id)}
-            />
-          ))}
         </div>
       </div>
 
@@ -928,16 +792,6 @@ const HelpPage = () => {
               <li><a href="#" className="hover:underline">Post Your Items</a></li>
               <li><a href="#" className="hover:underline">See favorites</a></li>
               <li><a href="#" className="hover:underline">Blog</a></li>
-            </ul>
-          </div>
-          
-          <div>
-            <h4 className="font-bold mb-4">Help</h4>
-            <ul className="space-y-2">
-              <li><a href="/help" className="hover:underline">Email Us</a></li>
-              <li><a href="/help" className="hover:underline">FAQ</a></li>
-              <li><a href="#" className="hover:underline">Terms of Service</a></li>
-              <li><a href="#" className="hover:underline">Privacy Policy</a></li>
             </ul>
           </div>
         </div>

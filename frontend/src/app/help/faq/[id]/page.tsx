@@ -339,8 +339,8 @@ export default function FAQPage({ params }: FAQPageProps) {
                       <div className="w-8 h-8 bg-gradient-to-br from-orange-500 to-red-600 rounded-lg flex items-center justify-center">
                         <Package className="w-5 h-5 text-white" />
                       </div>
-                      <li><a href="/sale/browse" className="text-2xl font-bold text-gray-900">Subox</a></li>
-                      <span className="text-sm text-gray-500 hidden sm:block">Move Out Sales</span> 
+                      <li><a href="/" className="text-2xl font-bold text-gray-900">Subox</a></li>
+
                     </div>
                     </ul>
         
@@ -713,14 +713,17 @@ export default function FAQPage({ params }: FAQPageProps) {
             </ul>
           </div>
           
+          {/* Support */}
           <div>
-            <h4 className="font-bold mb-4">Help</h4>
-            <ul className="space-y-2">
-              <li><a href="/help" className="hover:underline">Email Us</a></li>
-              <li><a href="/help" className="hover:underline">FAQ</a></li>
-              <li><a href="#" className="hover:underline">Terms of Service</a></li>
-              <li><a href="#" className="hover:underline">Privacy Policy</a></li>
-            </ul>
+            <h3 className="text-2xl font-bold mb-4">Support</h3>
+            <p className="text-lg">Need help?</p>
+            <a
+              href="/help"
+              id='help'
+              className="inline-block mt-3 px-6 py-3 bg-white text-orange-600 font-semibold rounded-full shadow hover:bg-orange-600 hover:text-white transition"
+            >
+              Visit Help Center
+            </a>
           </div>
         </div>
         

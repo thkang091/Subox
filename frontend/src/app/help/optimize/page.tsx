@@ -100,37 +100,37 @@ const NotificationsButton = ({ notifications }: { notifications: Notification[] 
   );
 };
 
-export type FAQItem = {
+export type OPItem = {
   id: number
   question: string
   answer: string
 }
 
-export const faqData: FAQItem[] = [
+export const opData: OPItem[] = [
   {
     id: 1,
-    question: "Is Subox Free?",
-    answer: "A sublease (or subleasing) is an arrangement where a current tenant rents out all or part of their leased property to a third party for a portion of their remaining lease term. The original tenant maintains their contractual relationship with the landlord while creating a new landlord-tenant relationship with the subtenant."
+    question: "How do I get a school or alumni badge?",
+    answer: "To get a school badge, you need to add and verify your school email. For alumni badge, you need to check the checkbox for alumni and add your graduation date."
   },
   {
     id: 2,
-    question: "How is a Move Out Sale different from a regular secondhand sale?",
-    answer: "Move Out Sales typically have firm deadlines based on moving dates, include multiple items from one seller, often feature deeper discounts due to time constraints, and may offer package deals for purchasing multiple items."
+    question: "How do I get a trusted seller badge?",
+    answer: "To get a trusted seller badge, you need to have sold at least 10 products."
   },
   {
     id: 3,
-    question: "How should I price my items for a Move Out Sale?",
-    answer: "Consider the item's age, condition, original price, and market demand. Generally, pricing between 30-70% of the original cost works well. High-demand or barely-used items can be priced higher, while older items should be priced more aggressively."
+    question: "How do I get a trusted renter badge?",
+    answer: "To get a trusted renter badge, you need to have subleased at least 4 times."
   },
   {
     id: 4,
-    question: "Should I accept payment methods other than cash?",
-    answer: "Digital payment apps are increasingly common and provide transaction records. Consider accepting popular payment apps but be aware of potential fraud risks. Cash is still preferred for smaller transactions."
+    question: "How do I get a best rater badge?",
+    answer: "To get a best rater badge, you need to have rated at least 15 products or sublease and have a rate error less than 2."
   },
   {
     id: 5,
-    question: "How can I negotiate prices at a Move Out Sale?",
-    answer: "Be respectful and reasonable with offers, consider buying multiple items for a package discount, point out any issues with the item that might affect its value, and be prepared to pay the asking price for high-demand items."
+    question: "How do I get a best reviewer badge?",
+    answer: "To get a best reviewer badge, you need to have wrote at least 20 reviews."
   }
 ];
 
@@ -183,11 +183,6 @@ const optimizePage = () => {
       }
     }
   }, [favoriteListings, isMounted]);
-
-  // Handle FAQ item toggle
-  const handleToggle = (id: number) => {
-    setOpenItem(openItem === id ? null : id);
-  };
 
 
   // Handle profile tab click
@@ -360,8 +355,7 @@ const optimizePage = () => {
                       <div className="w-8 h-8 bg-gradient-to-br from-orange-500 to-red-600 rounded-lg flex items-center justify-center">
                         <Package className="w-5 h-5 text-white" />
                       </div>
-                      <li><a href="/sale/browse" className="text-2xl font-bold text-gray-900">Subox</a></li>
-                      <span className="text-sm text-gray-500 hidden sm:block">Move Out Sales</span> 
+                      <li><a href="/" className="text-2xl font-bold text-gray-900">Subox</a></li>
                     </div>
                     </ul>
         
@@ -692,10 +686,10 @@ const optimizePage = () => {
         <div className="max-w-4xl mx-auto py-8 px-4">
             <div className="max-w-4xl mx-auto bg-white rounded-2xl shadow-xl p-8 my-12">
                 <div className="space-y-4">
-                  {faqData.map((faq) => (
-                    <Link key={faq.id} href={`faq/${faq.id}/`}>
+                  {opData.map((op) => (
+                    <Link key={op.id} href={`optimize/${op.id}/`}>
                       <div className="cursor-pointer p-4 rounded hover:bg-orange-100 transition">
-                        <h3 className="text-lg font-semibold text-orange-600">{faq.question}</h3>
+                        <h3 className="text-lg font-semibold text-orange-600">{op.question}</h3>
                       </div>
                     </Link>
                   ))}
@@ -739,14 +733,17 @@ const optimizePage = () => {
             </ul>
           </div>
           
+          {/* Support */}
           <div>
-            <h4 className="font-bold mb-4">Help</h4>
-            <ul className="space-y-2">
-              <li><a href="/help" className="hover:underline">Email Us</a></li>
-              <li><a href="/help" className="hover:underline">FAQ</a></li>
-              <li><a href="#" className="hover:underline">Terms of Service</a></li>
-              <li><a href="#" className="hover:underline">Privacy Policy</a></li>
-            </ul>
+            <h3 className="text-2xl font-bold mb-4">Support</h3>
+            <p className="text-lg">Need help?</p>
+            <a
+              href="/help"
+              id='help'
+              className="inline-block mt-3 px-6 py-3 bg-white text-orange-600 font-semibold rounded-full shadow hover:bg-orange-600 hover:text-white transition"
+            >
+              Visit Help Center
+            </a>
           </div>
         </div>
         

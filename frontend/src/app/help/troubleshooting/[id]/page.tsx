@@ -1,6 +1,6 @@
 'use client'
 
-import { faqData } from '../page';
+import { troubleData } from '../page';
 import { notFound } from 'next/navigation';
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from "framer-motion";
@@ -102,14 +102,14 @@ const NotificationsButton = ({ notifications }: { notifications: Notification[] 
   );
 };
 
-interface FAQPageProps {
+interface TSTPageProps {
   params: {
     id: string;
   };
 }
 
 // Main Help page component
-export default function FAQPage({ params }: FAQPageProps) {
+export default function troubleshootingPage({ params }: TSTPageProps) {
   // State variables
   const [openItem, setOpenItem] = useState<number | null>(null);
   const [showMenu, setShowMenu] = useState(false);
@@ -158,11 +158,6 @@ export default function FAQPage({ params }: FAQPageProps) {
     }
   }, [favoriteListings, isMounted]);
 
-  // Handle FAQ item toggle
-  const handleToggle = (id: number) => {
-    setOpenItem(openItem === id ? null : id);
-  };
-
 
   // Handle profile tab click
   const handleTabClick = (tab: string) => {
@@ -186,9 +181,9 @@ export default function FAQPage({ params }: FAQPageProps) {
     }
   };
 
-  const faqItem = faqData.find((faq) => faq.id === Number(params.id));
+  const troubleItem = troubleData.find((tst) => tst.id === Number(params.id));
 
-  if (!faqItem) {
+  if (!troubleItem) {
     notFound();
   }
 
@@ -340,8 +335,7 @@ export default function FAQPage({ params }: FAQPageProps) {
                       <div className="w-8 h-8 bg-gradient-to-br from-orange-500 to-red-600 rounded-lg flex items-center justify-center">
                         <Package className="w-5 h-5 text-white" />
                       </div>
-                      <li><a href="/sale/browse" className="text-2xl font-bold text-gray-900">Subox</a></li>
-                      <span className="text-sm text-gray-500 hidden sm:block">Move Out Sales</span> 
+                      <li><a href="/" className="text-2xl font-bold text-gray-900">Subox</a></li>
                     </div>
                     </ul>
         
@@ -669,13 +663,13 @@ export default function FAQPage({ params }: FAQPageProps) {
       </div>
 
         <div className="max-w-3xl mx-auto py-16 px-6">
-            <h1 className="text-3xl font-bold text-orange-600 mb-4">{faqItem.question}</h1>
-            <p className="text-lg text-gray-700">{faqItem.answer}</p>
+            <h1 className="text-3xl font-bold text-orange-600 mb-4">{troubleItem.question}</h1>
+            <p className="text-lg text-gray-700">{troubleItem.answer}</p>
             <a
-                href="/help/faq"
+                href="/help/troubleshooting"
                 className="inline-block mt-8 px-6 py-2 bg-orange-500 text-white rounded hover:bg-orange-600"
             >
-                ← Back to FAQs
+                ← Back to Troubleshooting
             </a>
         </div>
 
@@ -714,14 +708,17 @@ export default function FAQPage({ params }: FAQPageProps) {
             </ul>
           </div>
           
+          {/* Support */}
           <div>
-            <h4 className="font-bold mb-4">Help</h4>
-            <ul className="space-y-2">
-              <li><a href="/help" className="hover:underline">Email Us</a></li>
-              <li><a href="/help" className="hover:underline">FAQ</a></li>
-              <li><a href="#" className="hover:underline">Terms of Service</a></li>
-              <li><a href="#" className="hover:underline">Privacy Policy</a></li>
-            </ul>
+            <h3 className="text-2xl font-bold mb-4">Support</h3>
+            <p className="text-lg">Need help?</p>
+            <a
+              href="/help"
+              id='help'
+              className="inline-block mt-3 px-6 py-3 bg-white text-orange-600 font-semibold rounded-full shadow hover:bg-orange-600 hover:text-white transition"
+            >
+              Visit Help Center
+            </a>
           </div>
         </div>
         

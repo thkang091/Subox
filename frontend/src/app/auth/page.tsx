@@ -52,6 +52,7 @@ export default function AuthPage() {
   
   // Signup fields - Optional
   const [schoolEmail, setSchoolEmail] = useState("");
+  const [schoolEmailError, setSchoolEmailError] = useState('');
   const [phoneNumber, setPhoneNumber] = useState("");
   const [socialLink, setSocialLink] = useState("");
   const [quickBio, setQuickBio] = useState("");
@@ -349,6 +350,12 @@ export default function AuthPage() {
           setLoading(false);
           return;
         }
+
+        if (schoolEmail && !schoolEmail.endsWith('.edu')) {
+          alert("Please enter a valid .edu email to receive a student badge.");
+          setLoading(false);
+          return;
+        }
         
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
         const user = userCredential.user;
@@ -572,11 +579,17 @@ export default function AuthPage() {
                   </label>
                   <input
                     type="email"
-                    placeholder="john.doe@university.edu"
                     value={schoolEmail}
-                    onChange={(e) => setSchoolEmail(e.target.value)}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all"
+                    onChange={(e) => {
+                      setSchoolEmail(e.target.value);
+                      setSchoolEmailError('');
+                    }}
+                    placeholder="example@school.edu"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                   />
+                  {schoolEmailError && (
+                    <p className="text-red-500 text-sm mt-1">{schoolEmailError}</p>
+                  )}
                   <div className="mt-1 flex items-center space-x-2">
                     <p className="text-xs text-blue-600">
                       <svg className="w-3 h-3 inline mr-1" fill="currentColor" viewBox="0 0 20 20">
