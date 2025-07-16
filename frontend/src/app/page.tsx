@@ -252,7 +252,7 @@ const SuboxHomepage = () => {
               </motion.button>
               <motion.button
                 className="px-6 py-3 bg-gradient-to-r from-orange-500 to-orange-600 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all"
-                onClick={() => router.push("auth/")}
+                onClick={() => router.push("auth?mode=signup")}
                 whileHover={{ scale: 1.05, y: -2 }}
                 whileTap={{ scale: 0.95 }}
                 initial={{ opacity: 0, x: 20 }}
@@ -1052,8 +1052,8 @@ const SuboxHomepage = () => {
             <div>
               <h3 className="text-2xl font-bold mb-4">Get Started</h3>
               <ul className="space-y-2 text-lg">
-                <li><a href="/auth" className="hover:underline">Log in</a></li>
-                <li><a href="/auth" className="hover:underline">Sign up</a></li>
+                <li><a href="auth" className="hover:underline">Log in</a></li>
+                <li><a href="auth?mode=signup" className="hover:underline">Sign up</a></li>
               </ul>
             </div>
 
