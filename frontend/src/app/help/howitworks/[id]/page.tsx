@@ -25,14 +25,6 @@ interface Product {
   availableUntil: string;
 }
 
-interface FavoriteItem {
-  id: number;
-  name: string;
-  location: string;
-  price: number;
-  image: string;
-}
-
 interface Notification {
   id: number;
   type: string;
@@ -114,12 +106,17 @@ export default function HIWPage({ params }: HIWPageProps) {
   const [showMenu, setShowMenu] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [favoriteListings, setFavoriteListings] = useState<FavoriteItem[]>([]);
   const [isMounted, setIsMounted] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   
   const router = useRouter();
   
+  const [selected, setSelected] = useState<string | null>(null);
+  const emojis = [
+    { label: "No", icon: "😞" },
+    { label: "Kind of", icon: "😐" },
+    { label: "Yes", icon: "😊" },
+  ];
 
   // Notification data
   const notifications: Notification[] = [
@@ -128,57 +125,10 @@ export default function HIWPage({ params }: HIWPageProps) {
     { id: 3, type: "favorite", message: "Your favorited item is ending soon", time: "1d ago" }
   ];
 
-  const [showContactForm, setShowContactForm] = useState(false);
-
-  // Effect for client-side only code
-  useEffect(() => {
-    setIsMounted(true);
-    
-    // Get favorites from localStorage
-    try {
-      const savedFavorites = localStorage.getItem('favoriteListings');
-      if (savedFavorites) {
-        setFavoriteListings(JSON.parse(savedFavorites));
-      }
-    } catch (error) {
-      console.error('Error loading favorites from localStorage:', error);
-    }
-
-  }, []);
-
-  // Update localStorage when favoriteListings changes
-  useEffect(() => {
-    if (isMounted && favoriteListings.length > 0) {
-      try {
-        localStorage.setItem('favoriteListings', JSON.stringify(favoriteListings));
-      } catch (error) {
-        console.error('Error saving favorites to localStorage:', error);
-      }
-    }
-  }, [favoriteListings, isMounted]);
-
-
-
   // Handle profile tab click
   const handleTabClick = (tab: string) => {
     router.push(`browse/profile/user?tab=${tab}/`);
     setShowProfile(false); // close dropdown
-  };
-
-  // Toggle favorite item
-  const toggleFavorite = (product: FavoriteItem) => {
-    // Check if it is already there
-    const isFavorited = favoriteListings.some(item => item.id === product.id);
-  
-    if (isFavorited) {
-      // If already added, cancel it
-      setFavoriteListings(favoriteListings.filter(item => item.id !== product.id));
-    } else {
-      // Add new favorites
-      setFavoriteListings([product, ...favoriteListings]);
-      // Open sidebar
-      setIsSidebarOpen(true);
-    }
   };
 
   const hiwItem = hiwData.find((hiw) => hiw.id === Number(params.id));
@@ -186,60 +136,6 @@ export default function HIWPage({ params }: HIWPageProps) {
   if (!hiwItem) {
     notFound();
   }
-
-  // Render favorites sidebar
-  const renderFavoritesSidebar = () => (
-    <div className={`fixed left-0 top-16 h-[calc(100vh-4rem)] w-72 bg-white shadow-xl z-40 transform transition-transform duration-300 ease-in-out ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} overflow-auto`}>                
-      <div className="p-4 border-b">
-        <div className="flex justify-between items-center">
-          <h2 className="font-bold text-lg text-orange-500">Favorites</h2>
-          <button 
-            onClick={() => setIsSidebarOpen(false)}
-            className="p-2 rounded-full hover:bg-gray-100"
-          >
-            <X size={20} />
-          </button>
-        </div>
-      </div>
-      
-      <div className="p-4">
-        {/* Favorites list */}
-        {favoriteListings.length === 0 ? (
-          <div className="text-center py-8 text-gray-500">
-            <Heart size={40} className="mx-auto mb-2 opacity-50" />
-            <p>No favorite items yet</p>
-            <p className="text-sm mt-2">Click the heart icon on items to save them here</p>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {favoriteListings.map(product => (
-              <div key={product.id} className="border rounded-lg overflow-hidden hover:shadow-md transition cursor-pointer">
-                <div className="flex">
-                  <div 
-                    className="w-20 h-20 bg-gray-200 flex-shrink-0" 
-                    style={{backgroundImage: `url(${product.image})`, backgroundSize: 'cover', backgroundPosition: 'center'}}
-                  ></div>
-                  <div className="p-3 flex-1">
-                    <div className="font-medium text-gray-700">{product.name}</div>
-                    <div className="text-sm text-gray-500">{product.location}</div>
-                    <div className="text-sm font-bold text-[#15361F] mt-1">
-                      ${product.price}
-                    </div>
-                  </div>
-                  <button 
-                    className="p-2 text-gray-400 hover:text-red-500 self-start"
-                    onClick={() => toggleFavorite(product)}
-                  >
-                    <X size={16} />
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-    </div>
-  );
 
   const isFormValid = () => {
   return formData.name.trim() !== '' && 
@@ -346,19 +242,6 @@ export default function HIWPage({ params }: HIWPageProps) {
 
                       {/* Notifications */}
                       <NotificationsButton notifications={notifications} />
-        
-                      {/* Favorites */}
-                      <motion.button 
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
-                        onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-                        className="p-2 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
-                      >
-                        <Heart size={20} className = "w-5 h-5 text-gray-600"/>
-                      </motion.button>
-                      
-                      {/* Favorites Sidebar */}
-                      {renderFavoritesSidebar()}
         
                       {/* Profile */}
                       <div className="relative">
@@ -517,157 +400,38 @@ export default function HIWPage({ params }: HIWPageProps) {
                 </div>
             </div>
 
-      <div className="flex justify-center mt-10">
-        <div className="flex justify-center mt-10 gap-4">
-          {/* Open button, visible only when form is closed */}
-          {!showContactForm && (
-            <button
-              onClick={() => setShowContactForm(true)}
-              className="w-[300px] bg-orange-500 hover:bg-orange-600 text-white text-2xl font-bold py-4 px-6 rounded-xl shadow-lg transition-all duration-300"
-            >
-              Contact Us
-            </button>
-          )}
-        </div>
-
-        <AnimatePresence>
-          {showContactForm && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: "auto" }}
-              exit={{ opacity: 0, height: 0 }}
-              transition={{ duration: 0.4, ease: "easeInOut" }}
-              className="w-250 mx-auto py-8 px-8 overflow-hidden"
-            >
-              <h1 className="text-3xl font-bold mb-4 text-black">Help & Support</h1>
-              <h2 className="text-xl font-bold mb-6 text-black">
-                Contact Us
-              </h2>
-              {status.info.msg && (
-              <div 
-                className={`mb-4 p-4 rounded-lg flex items-start ${
-                  status.info.error ? 'bg-red-50 text-red-700' : 'bg-green-50 text-green-700'
-                }`}
-              >
-                {status.info.error ? (
-                  <AlertCircle className="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" />
-                ) : (
-                  <Check className="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" />
-                )}
-                <span>{status.info.msg}</span>
-              </div>
-              )}
-
-              <div className="space-y-4 px-4">
-                <div>
-                  <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
-                    Name
-                  </label>
-                  <input
-                    id="name"
-                    type="text"
-                    value={formData.name}
-                    onChange={handleChange}
-                    className="w-full px-4 py-2 border border-gray-400 rounded-md focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                    placeholder="Write your name here"
-                    required
-                  />
-                </div>
-                
-                <div>
-                  <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
-                    E-mail
-                  </label>
-                  <input
-                    id="email"
-                    type="email"
-                    value={formData.email}
-                    onChange={handleChange}
-                    className="w-full px-4 py-2 border border-gray-400 rounded-md focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                    placeholder="example@email.com"
-                    required
-                  />
-                </div>
-                
-                <div>
-                  <label htmlFor="subject" className="block text-sm font-medium text-gray-700 mb-1">
-                    Title
-                  </label>
-                  <input
-                    id="subject"
-                    type="text"
-                    value={formData.subject}
-                    onChange={handleChange}
-                    className="w-full px-4 py-2 border border-gray-400 rounded-md focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                    placeholder="Write the title of request here"
-                    required
-                  />
-                </div>
-                
-                <div>
-                  <label htmlFor="message" className="block text-sm font-medium text-gray-700 mb-1">
-                    Content
-                  </label>
-                  <textarea
-                    id="message"
-                    value={formData.message}
-                    onChange={handleChange}
-                    rows={4}
-                    className="w-full px-4 py-2 border border-gray-400 rounded-md focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                    placeholder="Write your request or question here"
-                    required
-                  />
-                </div>
-                
-                <div className="flex justify-end gap-4 mt-4">
-                  <button
-                    onClick={handleSubmit}
-                    disabled={status.submitting || !isFormValid()}
-                    className={`flex items-center justify-center px-6 py-3 rounded-md text-white font-medium transition-all duration-200 ${
-                      status.submitting || !isFormValid()
-                        ? 'bg-orange-300 cursor-not-allowed' 
-                        : 'bg-orange-500 hover:bg-orange-600 active:bg-orange-700'
-                    }`}
-                  >
-                    {status.submitting ? (
-                      <>
-                        <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                        </svg>
-                        sending...
-                      </>
-                    ) : (
-                      <>
-                        <Send className="w-5 h-5 mr-2" />
-                        Send
-                      </>
-                    )}
-                  </button>
-
-                  <button
-                    onClick={() => setShowContactForm(false)}
-                    className="px-6 py-3 rounded-md bg-orange-500 hover:bg-orange-600 text-white font-bold transition-all duration-200"
-                  >
-                    Close
-                  </button>
-                </div>
-              </div>
-              
-              <div className="mt-4 text-xs text-gray-500 mb-10 px-4">
-                * You will get the answer within 5 days.
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
-
         <div className="max-w-3xl mx-auto py-16 px-6">
             <h1 className="text-3xl font-bold text-orange-600 mb-4">{hiwItem.question}</h1>
             <p className="text-lg text-gray-700">{hiwItem.answer}</p>
+            <div className="flex flex-col items-center justify-center mt-16 space-y-4">
+              {/* Question */}
+              <p className="text-lg font-semibold text-gray-800">
+                Did this answer your question?
+              </p>
+
+              {/* Emoji Buttons */}
+              <div className="flex space-x-6 text-3xl">
+                {emojis.map(({ label, icon }) => (
+                  <button
+                    key={label}
+                    aria-label={label}
+                    onClick={() => setSelected(label)}
+                    className={`transition transform duration-300 ease-in-out hover:scale-110 ${
+                      selected === null
+                        ? "scale-100"
+                        : selected === label
+                        ? "scale-125"
+                        : "scale-90 opacity-60"
+                    }`}
+                  >
+                    {icon}
+                  </button>
+                ))}
+              </div>
+            </div>
             <a
                 href="/help/howitworks"
-                className="inline-block mt-8 px-6 py-2 bg-orange-500 text-white rounded hover:bg-orange-600"
+                className="inline-block mt-8 px-6 py-2 bg-orange-500 text-white rounded-3xl hover:bg-orange-600"
             >
                 ← Back to How it Works
             </a>
