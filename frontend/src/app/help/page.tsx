@@ -155,8 +155,12 @@ const HelpPage = () => {
   const [firstPage, setFirstPage] = useState(true);
   const [secondPage, setSecondPage] = useState(false);
   const [thirdPage, setThirdPage] = useState(false);
+  const [fourthPage, setFourthPage] = useState(false);
   const [secondPageId, setSecondPageId] = useState("");
   const [thirdPageId, setThirdPageId] = useState(0);
+  const [query, setQuery] = useState("");
+  const [filteredQuestions, setFilteredQuestions] = useState([]);
+
   
   const router = useRouter();
 
@@ -480,6 +484,29 @@ const HelpPage = () => {
     }));
   };
 
+  //Search
+  const handleSearch = () => {
+    if (typeof query !== "string" || query.trim() === "") {
+      setFilteredQuestions([]);
+      return;
+    }
+    const results = [];
+
+    helpSections.forEach((section) => {
+      section.question.forEach((q, index) => {
+        if (q.toLowerCase().includes(query.toLowerCase())) {
+          results.push({
+            sectionId: section.id,
+            question: q,
+            index,
+          });
+        }
+      });
+    });
+
+    setFilteredQuestions(results);
+  };
+
   // Handle form submission
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -715,49 +742,73 @@ const HelpPage = () => {
                   <label htmlFor="search" className="text-3xl font-bold mb-7">
                     Helpful information for better use
                   </label>
-                  {/* Search Input */}
-                  <div className="w-full max-w-3xl">
-                    <div className="relative w-full max-w-3xl">
-                      {/* Search input with space for the button */}
-                      <input
-                        id="search"
-                        type="text"
-                        placeholder="Search for information..."
-                        className="w-full rounded-3xl border border-gray-300 px-10 py-4 pr-24 text-base shadow-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
-                      />
+                  <form
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      handleSearch();
+                      setFirstPage(false);
+                      setFourthPage(true);
+                    }}
+                    className="w-lg"
+                    >
+                      {/* Search Input */}
+                      <div className="w-full max-w-3xl">
+                        <div className="relative w-full max-w-3xl">
+                          {/* Search input with space for the button */}
+                          <input
+                            id="search"
+                            type="text"
+                            value={query}
+                            onChange={(e) => setQuery(e.target.value)}
+                            placeholder="Search for information..."
+                            className="w-full rounded-3xl border border-gray-300 px-10 py-4 pr-24 text-base shadow-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
+                          />
 
-                      {/* "Go" button inside input, positioned to the right */}
-                      <button
-                        type="submit"
-                        className="absolute top-1/2 right-2 -translate-y-1/2 rounded-full bg-orange-400 px-4 py-2 text-white font-semibold hover:bg-orange-500"
-                      >
-                        Go
-                      </button>
-                    </div>
-                  </div>
+                          {/* "Go" button inside input, positioned to the right */}
+                          <button
+                            type="submit"
+                            className="absolute top-1/2 right-2 -translate-y-1/2 rounded-full bg-orange-400 px-4 py-2 text-white font-semibold hover:bg-orange-500"
+                          >
+                            Go
+                          </button>
+                        </div>
+                      </div>
+                    </form>
                 </div>
                 ) : (
                 <div className="flex flex-col items-center justify-center px-4 py-20">
                   {/* Search Input */}
-                  <div className="w-full max-w-3xl">
-                    <div className="relative w-full max-w-3xl">
-                      {/* Search input with space for the button */}
-                      <input
-                        id="search"
-                        type="text"
-                        placeholder="Search for information..."
-                        className="w-full rounded-3xl border border-gray-300 px-10 py-4 pr-24 text-base shadow-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
-                      />
+                  <form
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      handleSearch();
+                      setFirstPage(false);
+                      setFourthPage(true);
+                    }}
+                    className="w-2xl"
+                    >
+                    <div className="w-full max-w-3xl">
+                      <div className="relative w-full max-w-3xl">
+                        {/* Search input with space for the button */}
+                        <input
+                          id="search"
+                          type="text"
+                          value={query}
+                          onChange={(e) => setQuery(e.target.value)}
+                          placeholder="Search for information..."
+                          className="w-full rounded-3xl border border-gray-300 px-10 py-4 pr-24 text-base shadow-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
+                        />
 
-                      {/* "Go" button inside input, positioned to the right */}
-                      <button
-                        type="submit"
-                        className="absolute top-1/2 right-2 -translate-y-1/2 rounded-full bg-orange-400 px-4 py-2 text-white font-semibold hover:bg-orange-500"
-                      >
-                        Go
-                      </button>
+                        {/* "Go" button inside input, positioned to the right */}
+                        <button
+                          type="submit"
+                          className="absolute top-1/2 right-2 -translate-y-1/2 rounded-full bg-orange-400 px-4 py-2 text-white font-semibold hover:bg-orange-500"
+                        >
+                          Go
+                        </button>
+                      </div>
                     </div>
-                  </div>
+                  </form>
                 </div>
                 )}
                 {firstPage && (
@@ -869,9 +920,36 @@ const HelpPage = () => {
                     >All Collections</span>
                     <span className='ml-4 text-orange-600'>&gt;</span>
                     <span className='ml-4 text-gray-700'>{section.title}</span>
-                    <div className="absolute h-6 w-6 text-orange-500 pl-4">
-                      {section.icon}
-                    </div>
+                    {section.id === "getstarted" &&
+                      <div className=" mt-5 h-6 w-6 text-orange-500 pl-4">
+                        {section.icon}
+                      </div>
+                    }
+                    {section.id === "troubleshooting" &&
+                      <div className="-mt-1 mb-15 h-6 w-6 text-orange-500 pl-4">
+                        {section.icon}
+                      </div>
+                    }
+                    {section.id === "howitworks" &&
+                      <div className="mt-5 h-8 w-8 text-orange-500 pl-4">
+                        {section.icon}
+                      </div>
+                    }
+                    {section.id === "updates" &&
+                      <div className="-mt-1 mb-16 h-6 w-6 text-orange-500 pl-4">
+                        {section.icon}
+                      </div>
+                    }
+                    {section.id === "optimize" &&
+                      <div className="mt-4 mb-11 h-6 w-6 text-orange-500 pl-4">
+                        {section.icon}
+                      </div>
+                    }
+                    {section.id === "faq" &&
+                      <div className="-mt-2 mb-14 h-7 w-7 text-orange-500 pl-4">
+                        {section.icon}
+                      </div>
+                    }
                     <h1 className="text-3xl font-bold text-orange-600 mb-2 text-left pl-4 mt-10">{section.title}</h1>
                     <h2 className="text-md font-sans text-gray-600 mb-6 text-left pl-4">{section.description}</h2>
                     <h3 className="text-sm font-sans text-gray-400 text-left pl-4">{section.question.length} articles</h3>
@@ -969,6 +1047,52 @@ const HelpPage = () => {
                   </div>
                 ))}
                 </div>
+              )}
+
+              {fourthPage && filteredQuestions.length > 0 && (
+                <div className="max-w-4xl mx-auto py-16 px-8">
+                  {filteredQuestions.map((result, i) => {
+                    const section = helpSections.find(sec => sec.id === result.sectionId);
+
+                    if (!section) return null;
+
+                    return (
+                      <div key={i} className="max-w-4xl mx-auto bg-white rounded-2xl shadow-xl p-8 mb-20 -mt-30">
+                        <div className="cursor-pointer p-4 rounded hover:bg-orange-100 transition"
+                          onClick={() => {
+                            setSecondPage(false);
+                            setThirdPage(true);
+                            setThirdPageId(result.index);
+                            setSecondPageId(result.sectionId);
+                            setFourthPage(false);
+                          }}
+                        >
+                          <h3 className="text-lg font-semibold text-orange-600">{result.question}</h3>
+                        </div>
+                      </div>
+                    );
+                  })}
+                  <span
+                    className="inline-block mt-8 px-6 py-2 bg-orange-500 text-white rounded-3xl hover:bg-orange-600"
+                    onClick={() => {
+                      setFirstPage(true);
+                      setFourthPage(false);
+                    }}
+                  >← Back to Help</span>
+                </div>
+              )}
+
+              {fourthPage && filteredQuestions.length === 0 && (
+                  <div className='flex justify-center text-bold text-sans text-orange-500 mb-80 mt-30 text-2xl'>
+                    No results found
+                    <span
+                      className="inline-block mt-8 px-6 py-2 bg-orange-500 text-white rounded-3xl hover:bg-orange-600"
+                      onClick={() => {
+                        setFirstPage(true);
+                        setFourthPage(false);
+                      }}
+                    >← Back to Help</span>
+                  </div>
               )}
 
         <footer className="bg-orange-400 text-white py-12 w-full ">
