@@ -1083,16 +1083,18 @@ const HelpPage = () => {
               )}
 
               {fourthPage && filteredQuestions.length === 0 && (
-                  <div className='flex justify-center text-bold text-sans text-orange-500 mb-80 mt-30 text-2xl'>
-                    No results found
-                    <span
-                      className="inline-block mt-8 px-6 py-2 bg-orange-500 text-white rounded-3xl hover:bg-orange-600"
-                      onClick={() => {
-                        setFirstPage(true);
-                        setFourthPage(false);
-                      }}
-                    >← Back to Help</span>
-                  </div>
+                <div className="flex flex-col items-center justify-center text-orange-500 font-bold text-4xl mt-28 mb-80 space-y-6">
+                  <p>No results found</p>
+                  <button
+                    className="px-4 py-1 bg-orange-500 text-white rounded-full text-sm hover:bg-orange-600"
+                    onClick={() => {
+                      setFirstPage(true);
+                      setFourthPage(false);
+                    }}
+                  >
+                    ← Back to Help
+                  </button>
+                </div>
               )}
 
         <footer className="bg-orange-400 text-white py-12 w-full ">
