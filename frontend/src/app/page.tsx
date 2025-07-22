@@ -216,10 +216,14 @@ const SuboxHomepage = () => {
 
             {/* Navigation Links */}
             <div className="hidden md:flex items-center gap-8 whitespace-nowrap">
-              {['Features', 'Use Cases', 'How it works', 'Pricing', 'Help'].map((item, i) => (
+              {['Use Cases', 'How it works', 'Pricing', 'Help'].map((item, i) => {
+                const help = item === 'Help';
+                const link = help ? "/help" : `#${item.toLowerCase().replace(/ /g, '-')}`;
+
+                return(                
                 <motion.a 
                   key={item}
-                  href={`#${item.toLowerCase().replace(/ /g, '-')}`}
+                  href={link}
                   className="text-gray-600 hover:text-orange-500 font-medium transition-colors relative"
                   whileHover={{ y: -2 }}
                   initial={{ opacity: 0, y: 20 }}
@@ -233,8 +237,8 @@ const SuboxHomepage = () => {
                     whileHover={{ scaleX: 1 }}
                     transition={{ duration: 0.3 }}
                   />
-                </motion.a>
-              ))}
+                </motion.a>);
+              })}
             </div>
 
             {/* Auth Buttons */}
