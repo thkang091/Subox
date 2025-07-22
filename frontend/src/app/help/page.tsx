@@ -992,6 +992,7 @@ const HelpPage = () => {
                       onClick={() => {
                         setFirstPage(true); 
                         setThirdPage(false);
+                        setSelected(null);
                         setSecondPageId("");
                         setThirdPageId(0);
                       }}
@@ -1002,6 +1003,7 @@ const HelpPage = () => {
                       onClick={() => {
                         setSecondPage(true); 
                         setThirdPage(false);
+                        setSelected(null);
                         setThirdPageId(0);
                       }}
                     >{section.title}</span>
@@ -1041,7 +1043,8 @@ const HelpPage = () => {
                         onClick={() => {
                           setSecondPage(true);
                           setThirdPage(false);
-                          setThirdPage(0);
+                          setSelected(null);
+                          setThirdPageId(0);
                         }}
                       >← Back to {section.title}</span>
                   </div>
