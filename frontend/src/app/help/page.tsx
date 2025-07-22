@@ -859,7 +859,7 @@ const HelpPage = () => {
                       {helpSections.slice(0, Math.ceil(helpSections.length / 2)).map((section) => (
                         <div
                           key={section.id}
-                          className="relative bg-white border border-orange-200 rounded-xl shadow-lg p-6 cursor-pointer hover:bg-orange-50 transition duration-300 h-full"
+                          className="relative bg-white border border-orange-200 rounded-xl shadow-lg p-6 cursor-pointer hover:bg-orange-100 transition duration-300 h-full"
                           onClick={() => {
                             setFirstPage(false);
                             setSecondPage(true);
@@ -883,7 +883,7 @@ const HelpPage = () => {
                       {helpSections.slice(Math.ceil(helpSections.length / 2)).map((section) => (
                         <div
                           key={section.id}
-                          className="relative bg-white border border-orange-200 rounded-xl shadow-lg p-6 cursor-pointer hover:bg-orange-50 transition duration-300 h-full"
+                          className="relative bg-white border border-orange-200 rounded-xl shadow-lg p-6 cursor-pointer hover:bg-orange-100 transition duration-300 h-full"
                           onClick={() => {
                             setFirstPage(false);
                             setSecondPage(true);
