@@ -1,20 +1,16 @@
 "use client"
 
-
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { motion, AnimatePresence } from "framer-motion";
 import { 
   Calendar, ChevronLeft, ChevronRight, MapPin, Users, Home, 
   Search, X, Bookmark, Star, Wifi, Droplets, Tv, Sparkles, 
   Filter, BedDouble, DollarSign, LogIn, Heart, User, CircleUser,
-  Clock, TrendingUp, TrendingDown, ChevronDown, Package, Bell, MessagesSquare, AlertCircle, Menu,
-  Utensils, ArrowUp, Shield, BookOpen, Waves, Flame, ArrowLeft // Add these new ones
+  Clock, TrendingUp, TrendingDown, Utensils, ArrowUp, Shield, BookOpen, Waves, Flame  // Add these new ones
 } from 'lucide-react';
 import { Route, Car, Users as TransitIcon } from 'lucide-react';
 import { collection, getDocs, query, orderBy } from 'firebase/firestore';
-import { auth, db } from '@/lib/firebase'; // Adjust path to your firebase config
-import { onAuthStateChanged } from 'firebase/auth';
+import { db } from '@/lib/firebase'; // Adjust path to your firebase config
 
 import CommuteLocationPicker from '../../../components/CommuteLocationPicker'
 import CommuteResultsMap from '../../../components/CommuteMap' // Adjust path as needed
@@ -24,7 +20,7 @@ import { address } from 'framer-motion/client';
 import SearchLocationPicker from '../../../components/SearchLocationPicker';
 
 // Component for the sublease search interface
-const SearchPage = () => {
+const FirstSearchPage = () => {
   // =========================
   // State Definitions
   // =========================
@@ -59,14 +55,10 @@ const [commuteRoutes, setCommuteRoutes] = useState([]);
 const [showCommuteResults, setShowCommuteResults] = useState(false);
 const [isCommuteMode, setIsCommuteMode] = useState(false);
 const [isCalculatingRoutes, setIsCalculatingRoutes] = useState(false);
-const [showSavedSearches, setShowSavedSearches] = useState(false);
 const [preferredGender, setPreferredGender] = useState(null); 
+const [showLocationDropdown, setShowLocationDropdown] = useState(false);
 const [smokingPreference, setSmokingPreference] = useState(null);
-const [showProfile, setShowProfile] = useState(false);
-const [showMenu, setShowMenu] = useState(false);
-const [isLoggedIn, setIsLoggedIn] = useState(false);
-const [showMapView, setShowMapView] = useState(false);
-const [isMounted, setIsMounted] = useState(false);
+  const [isMounted, setIsMounted] = useState(false);
   const minneapolisCenter = { lat: 44.9778, lng: -93.2358 };
   const neighborhoodCoords = {
     'Dinkytown': { lat: 44.9796, lng: -93.2354 },
@@ -110,56 +102,6 @@ const getTransportIcon = (mode) => {
   }
 };
   
- useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    
-    // Location parameter
-    const locationParam = urlParams.get('location');
-    if (locationParam) {
-      setLocation(locationParam.split(','));
-    }
-    
-    // Date parameter - change string to date object
-    const checkInParam = urlParams.get('checkIn');
-    const checkOutParam = urlParams.get('checkOut');
-    if (checkInParam || checkOutParam) {
-      setDateRange({
-        checkIn: checkInParam ? new Date(checkInParam) : null,
-        checkOut: checkOutParam ? new Date(checkOutParam) : null
-      });
-    }
-    
-    // Room parameter
-    const bedroomsParam = urlParams.get('bedrooms');
-    const bathroomsParam = urlParams.get('bathrooms');
-    if (bedroomsParam) setBedrooms(parseInt(bedroomsParam));
-    if (bathroomsParam) setBathrooms(parseInt(bathroomsParam));
-    
-    // Amenities parameter
-    const amenitiesParam = urlParams.get('amenities');
-    if (amenitiesParam) {
-      setSelectedAmenities(amenitiesParam.split(','));
-    }
-    
-    // Price parameter
-    const priceMinParam = urlParams.get('priceMin');
-    const priceMaxParam = urlParams.get('priceMax');
-    if (priceMinParam || priceMaxParam) {
-      setPriceRange({
-        min: priceMinParam ? parseInt(priceMinParam) : 500,
-        max: priceMaxParam ? parseInt(priceMaxParam) : 2000
-      });
-    }
-    
-    // automatically run if the url have parameter
-    if (urlParams.toString()) {
-      setTimeout(() => {
-        handleSearch();
-      }, 500); 
-    }
-  }, []);
-
-
 // Fetch user listings from Firestore
 useEffect(() => {
   const fetchUserListings = async () => {
@@ -393,25 +335,6 @@ useEffect(() => {
     }
   };
 
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      if (user) {
-        setUserId(user.uid);
-      } else {
-        setUserId(null);
-      }
-    });
-
-    return () => unsubscribe();
-  }, []);
-
-  const [userId, setUserId] = useState(null);
-
-  const handleTabClick = (tab) => {
-    router.push(`browse/profile/${userId}?tab=${tab}/`);
-    setShowProfile(false); // close dropdown
-  };
-
   // Handle date selection
   const handleDateClick = (day) => {
     if (!day) return;
@@ -446,41 +369,20 @@ useEffect(() => {
   };
 
   // Format date for display
-const formatDate = (date) => {
-  if (!date) return '';
-  
-  if (date instanceof Date) {
-    return date.toLocaleDateString('en-US', { 
-      month: 'short', 
-      day: 'numeric' 
-    });
-  }
-  // parse it when it is a string
-  try {
-    if (typeof date === 'string') {
-      const [year, month, day] = date.split('-');
-      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-                     'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-      return `${months[parseInt(month) - 1]} ${parseInt(day)}`;
-    }
-    return '';
-  } catch (error) {
-    return '';
-  }
-};
+  const formatDate = (date) => {
+    if (!date) return '';
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  };
 
   // Section toggle
 
-  const toggleMapView = () => {
-  setShowMapView(prev => !prev);
-  };
 
-  // const toggleMapView = () => {
-  //   setShowMap(!showMap);
-  //   if (!showMap) {
-  //     setMapListings(searchResults);
-  //   }
-  // };
+  const toggleMapView = () => {
+    setShowMap(!showMap);
+    if (!showMap) {
+      setMapListings(searchResults);
+    }
+  };
 
   const handleCommuteFilter = (filteredListings) => {
     setSearchResults(filteredListings);
@@ -548,74 +450,6 @@ useEffect(() => {
   loadGoogleMaps();
 }, []);
 
-  // Notification data
-  const notifications: Notification[] = [
-    { id: 1, type: "price-drop", message: "MacBook Pro price dropped by $50!", time: "2h ago" },
-    { id: 2, type: "new-item", message: "New furniture items in Dinkytown", time: "4h ago" },
-    { id: 3, type: "favorite", message: "Your favorited item is ending soon", time: "1d ago" }
-  ];
-
-// Notifications dropdown component
-const NotificationsButton = ({ notifications }: { notifications: Notification[] }) => {
-  const [showNotifications, setShowNotifications] = useState(false);
-  const router = useRouter();
-
-  return (
-    <div className="relative">
-      <motion.button
-        whileHover={{ scale: 1.05 }}
-        whileTap={{ scale: 0.95 }}
-        onClick={() => setShowNotifications(!showNotifications)}
-        className="p-2 bg-orange-500 rounded-lg hover:bg-orange-600 transition-colors relative"
-      >
-        <Bell className="w-5 h-5 text-white" />
-        {notifications.length > 0 && (
-          <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center">
-            {notifications.length}
-          </span>
-        )}
-      </motion.button>
-
-      <AnimatePresence>
-        {showNotifications && (
-          <motion.div
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            className="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-lg border border-gray-200 z-50"
-          >
-            <div className="p-4">
-              <h3 className="font-semibold text-orange-600 mb-3">Notifications</h3>
-              <div className="space-y-3 max-h-64 overflow-y-auto">
-                {notifications.map(notif => (
-                  <button
-                    key={notif.id}
-                    onClick={() => router.push(`browse/notificationDetail/${notif.id}`)}
-                    className="w-full flex items-start space-x-3 p-2 rounded-lg hover:bg-orange-50 text-left"
-                  >
-                    <div className="w-2 h-2 bg-orange-500 rounded-full mt-2"></div>
-                    <div className="flex-1">
-                      <p className="text-sm text-gray-900">{notif.message}</p>
-                      <p className="text-xs text-gray-500">{notif.time}</p>
-                    </div>
-                  </button>
-                ))}
-              </div>
-
-              <button
-                onClick={() => router.push(`browse/notification/`)}
-                className="mt-3 text-sm text-orange-600 hover:underline"
-              >
-                See all notifications
-              </button>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
-  );
-};
-
   // Handle amenity selection
   const toggleAmenity = (amenity) => {
     if (selectedAmenities.includes(amenity)) {
@@ -624,7 +458,8 @@ const NotificationsButton = ({ notifications }: { notifications: Notification[] 
       setSelectedAmenities([...selectedAmenities, amenity]);
     }
   };
-     const toggleGender = (gender) => {
+
+    const toggleGender = (gender) => {
     if (preferredGender === gender) {
         setPreferredGender(null); 
     } else {
@@ -639,7 +474,6 @@ const NotificationsButton = ({ notifications }: { notifications: Notification[] 
         setSmokingPreference(smoking); 
     }
     };
-
 
   // Handle commute location selection
   const handleCommuteLocationSelect = (locationData) => {
@@ -807,126 +641,56 @@ const clearCommuteSearch = () => {
 
   const handleSearch = () => {
     setIsSearching(true);
-     // URLparameter update
+     // URL parameter update
     const searchParams = new URLSearchParams();
     
+    // add location info
     if (location.length > 0) {
-        searchParams.set('location', location.join(','));
+    location.forEach(loc => {
+    searchParams.append('location', loc);
+    });
     }
+    // add date
     if (dateRange.checkIn) {
-        searchParams.set('checkIn', dateRange.checkIn);
+    searchParams.append('checkIn', dateRange.checkIn.toISOString());
     }
     if (dateRange.checkOut) {
-        searchParams.set('checkOut', dateRange.checkOut);
+    searchParams.append('checkOut', dateRange.checkOut.toISOString());
     }
-    if (bedrooms !== 1) {
-        searchParams.set('bedrooms', bedrooms);
-    }
-    if (bathrooms !== 1) {
-        searchParams.set('bathrooms', bathrooms);
-    }
+    // add rooms
+    searchParams.append('bedrooms', bedrooms.toString());
+    searchParams.append('bathrooms', bathrooms.toString());
+    // add price range
+    searchParams.append('minPrice', priceRange.min.toString());
+    searchParams.append('maxPrice', priceRange.max.toString());
+    // add amenities
     if (selectedAmenities.length > 0) {
-        searchParams.set('amenities', selectedAmenities.join(','));
+      searchParams.append('amenities', selectedAmenities.join(',')); 
     }
-    if (priceRange.min !== 500 || priceRange.max !== 2000) {
-        searchParams.set('priceMin', priceRange.min);
-        searchParams.set('priceMax', priceRange.max);
-    }
+    // add commute
     if (commuteDestination) {
-        searchParams.set('commuteDestination', JSON.stringify(commuteDestination));
+    searchParams.append('commuteDestination', JSON.stringify({
+    placeName: commuteDestination.placeName,
+    address: commuteDestination.address,
+    lat: commuteDestination.lat,
+    lng: commuteDestination.lng
+    }));
+    if (commuteDestination.commutePreferences) {
+    searchParams.append('transportMode', commuteDestination.commutePreferences.transportMode);
+    searchParams.append('maxCommuteTime', commuteDestination.commutePreferences.maxCommuteTime.toString());
     }
-
-    // URL update
-    const newUrl = searchParams.toString() ? `${window.location.pathname}?${searchParams.toString()}` : window.location.pathname;
-    window.history.pushState({}, '', newUrl);
+    }
 
     setTimeout(() => {
+       const searchUrl = `/sublease/search?${searchParams.toString()}`;
+      console.log('Moving to:', searchUrl);
+      window.location.href = searchUrl;
       setIsSearching(false);
-      let filtered = [...allListings];
-  
-      console.log('Starting with listings:', filtered.length); 
-      
-      // Location filter - fix the property name
-      if (location.length > 0) {
-        filtered = filtered.filter(listing => {
-          // Check both 'location' and 'neighborhood' properties
-          const listingLocation = listing.location || listing.neighborhood || '';
-          return location.some(selectedLoc => 
-            listingLocation.toLowerCase().includes(selectedLoc.toLowerCase()) ||
-            selectedLoc.toLowerCase().includes(listingLocation.toLowerCase())
-          );
-        });
-        console.log('After location filter:', filtered.length);
-      }
-      
-      // Date filter - fix date comparison
-      if (dateRange.checkIn && dateRange.checkOut) {
-        filtered = filtered.filter(listing => {
-          if (listing.availableFrom && listing.availableTo) {
-            const listingStart = new Date(listing.availableFrom);
-            const listingEnd = new Date(listing.availableTo);
-            const searchStart = new Date(dateRange.checkIn);
-            const searchEnd = new Date(dateRange.checkOut);
-            
-            // Check if the date ranges overlap
-            return listingStart <= searchEnd && listingEnd >= searchStart;
-          }
-          return true; // Include listings without dates
-        });
-        console.log('After date filter:', filtered.length);
-      }
-        
-      // Accommodation type filter
-      if (accommodationType) {
-        filtered = filtered.filter(listing => {
-          const listingType = listing.accommodationType || 
-            (listing.isPrivateRoom ? 'private' : 'entire');
-          return listingType === accommodationType;
-        });
-        console.log('After accommodation type filter:', filtered.length);
-      }
-      
-      // Bedrooms filter - use >= instead of exact match
-      if (bedrooms > 1) {
-        filtered = filtered.filter(listing => 
-          (listing.bedrooms || 1) >= bedrooms
-        );
-        console.log('After bedrooms filter:', filtered.length);
-      }
-      
-      // Bathrooms filter - use >= instead of exact match  
-      if (bathrooms > 1) {
-        filtered = filtered.filter(listing => 
-          (listing.bathrooms || 1) >= bathrooms
-        );
-        console.log('After bathrooms filter:', filtered.length);
-      }
-      
-      // Price range filter
-      filtered = filtered.filter(listing => {
-        const price = listing.price || listing.rent || 0;
-        return price >= priceRange.min && price <= priceRange.max;
-      });
-      console.log('After price filter:', filtered.length);
-      
-      // Amenities filter
-      if (selectedAmenities.length > 0) {
-        filtered = filtered.filter(listing => {
-          if (!listing.amenities || !Array.isArray(listing.amenities)) return false;
-          return selectedAmenities.some(amenity => 
-            listing.amenities.some(listingAmenity => 
-              listingAmenity.toLowerCase().includes(amenity.toLowerCase())
-            )
-          );
-        });
-        console.log('After amenities filter:', filtered.length);
-      }
-      
-      console.log('Final filtered listings:', filtered.length);
-      setSearchResults(filtered);
-      setIsSearching(false);
-      setActiveSection(null);
-    }, 1000);
+    }, 1500);
+  };
+
+  const handleSkip = () => {
+    window.location.href = '/sublease/search';
   };
 
   // Apply saved search
@@ -1437,21 +1201,21 @@ const renderLocationSection = () => {
   return (
     <div className="p-5 border-t border-gray-200 animate-fadeIn">
       <div className="grid grid-cols-2 gap-6">
-          <div className="max-w-sm"> 
-            <h3 className="font-bold mb-3 text-gray-800">Choose Your Location</h3>
-            <div className="w-full">
-              <SearchLocationPicker 
-                  initialValue={location[0] || "University of Minnesota"}
-                  onLocationSelect={(selectedLocation) => {
-                    console.log('Selected Location:', selectedLocation);
-                    const locationName = selectedLocation.placeName || selectedLocation.address || selectedLocation;
-                    setLocation([locationName]);
-                  // if location is String
-                  // setLocation(selectedLocation.address || selectedLocation);
-                  }}
-              />
-            </div>
+        <div className="max-w-sm"> 
+          <h3 className="font-bold mb-3 text-gray-800">Choose Your Location</h3>
+          <div className="w-full">
+            <SearchLocationPicker 
+                initialValue={location[0] || "University of Minnesota"}
+                onLocationSelect={(selectedLocation) => {
+                  console.log('Selected Location:', selectedLocation);
+                   const locationName = selectedLocation.placeName || selectedLocation.address || selectedLocation;
+                   setLocation([locationName]);
+                // if location is String
+                // setLocation(selectedLocation.address || selectedLocation);
+                }}
+            />
           </div>
+        </div>
         <div>
           <h3 className="font-bold mb-3 text-gray-800">Campus Neighborhoods</h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -1512,6 +1276,7 @@ const renderLocationSection = () => {
     </div>
   );
 };
+
 const renderCalendarSection = () => (
   <div className="p-5 border-t border-gray-200 animate-fadeIn">
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -1792,7 +1557,7 @@ const renderCalendarSection = () => (
           </div>
         </div>
         
-        {/* Accommodation Type */}
+               {/* Accommodation Type */}
 <div className="mb-6">
   <h3 className="font-bold mb-3 text-gray-800">Accommodation Type</h3>
   <div className="grid grid-cols-1 gap-3">
@@ -2096,8 +1861,9 @@ const renderCalendarSection = () => (
               </button>
             ))}
           </div>
+          
         </div>
-         {/* Preferred Gender */}
+            {/* Preferred Gender */}
             <div>
             <h3 className="font-bold mb-3 text-gray-800">Preferred Gender</h3>
             <div className="grid grid-cols-1 gap-3">
@@ -2147,6 +1913,10 @@ const renderCalendarSection = () => (
             </div>
             </div>
       </div>
+
+      
+
+
       
       <div className="mt-6 flex justify-between items-center">
         <button 
@@ -2154,6 +1924,8 @@ const renderCalendarSection = () => (
           onClick={() => {
             setPriceRange({ min: 500, max: 2000 });
             setSelectedAmenities([]);
+            setPreferredGender(null);     
+            setSmokingPreference(null);    
           }}
         >
           <X size={16} className="mr-1" />
@@ -2184,7 +1956,7 @@ const renderCalendarSection = () => (
 
   // Favorites Sidebar
 const renderFavoritesSidebar = () => (
-  <div className={`fixed left-0 top-0 md:top-0 top-16 h-full md:h-full h-[calc(100%-4rem)] w-72 bg-white shadow-xl z-40 transform transition-transform duration-300 ease-in-out ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} overflow-auto`}>
+  <div className={`fixed md:left-16 left-0 top-0 md:top-0 top-16 h-full md:h-full h-[calc(100%-4rem)] w-72 bg-white shadow-xl z-40 transform transition-transform duration-300 ease-in-out ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} overflow-auto`}>
     <div className="p-4 border-b">
       <div className="flex justify-between items-center">
         <h2 className="font-bold text-lg text-orange-500">Favorites</h2>
@@ -2295,7 +2067,7 @@ const renderFavoritesSidebar = () => (
         : 'All Subleases';
   
     return (
-      <div className="w-full md:pr-3 px-4 mt-12 mb-16 md:pr-0">
+      <div className="w-full md:pl-16 px-4 mt-12 mb-16 md:pr-0">
         <div className="max-w-7xl mx-auto px-4">
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-2xl font-bold text-orange-600">
@@ -2591,375 +2363,36 @@ const renderCommuteInfo = (listing) => {
     </div>
   );
 };
-
-  // Footer
-  const renderFooter = () => (
-    <footer className="bg-orange-200 text-white py-12 w-full md:pl-16 md:pl-0">
-      <div className="max-w-7xl mx-auto px-4">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
-          <div>
-            <h3 className="font-bold text-lg mb-4">CampusSublease</h3>
-            <p className="text-gray-400 text-sm">Find the perfect short-term housing solution near your campus.</p>
-          </div>
-          
-          <div>
-            <h4 className="font-bold mb-4">Quick Links</h4>
-            <ul className="space-y-2">
-              <li><a href="#" className="text-gray-400 hover:text-white transition">Home</a></li>
-              <li><a href="#" className="text-gray-400 hover:text-white transition">Search</a></li>
-              <li><a href="#" className="text-gray-400 hover:text-white transition">List Your Space</a></li>
-              <li><a href="#" className="text-gray-400 hover:text-white transition">FAQ</a></li>
-            </ul>
-          </div>
-          
-          <div>
-            <h4 className="font-bold mb-4">Resources</h4>
-            <ul className="space-y-2">
-              <li><a href="#" className="text-gray-400 hover:text-white transition">Sublease Guide</a></li>
-              <li><a href="#" className="text-gray-400 hover:text-white transition">Neighborhoods</a></li>
-              <li><a href="#" className="text-gray-400 hover:text-white transition">Campus Map</a></li>
-              <li><a href="#" className="text-gray-400 hover:text-white transition">Blog</a></li>
-            </ul>
-          </div>
-          
-          <div>
-            <h4 className="font-bold mb-4">Contact</h4>
-            <ul className="space-y-2">
-              <li><a href="#" className="text-gray-400 hover:text-white transition">Help Center</a></li>
-              <li><a href="#" className="text-gray-400 hover:text-white transition">Email Us</a></li>
-              <li><a href="#" className="text-gray-400 hover:text-white transition">Terms of Service</a></li>
-              <li><a href="#" className="text-gray-400 hover:text-white transition">Privacy Policy</a></li>
-            </ul>
-          </div>
-        </div>
-        
-        <div className="mt-8 pt-8 border-t border-gray-700 text-gray-400 text-sm text-center">
-          <p>&copy; 2025 CampusSubleases. All rights reserved.</p>
-        </div>
-      </div>
-    </footer>
-  );
-
+ 
   // =========================
   // Main Render
   // =========================
   return (
 
     <div className="min-h-screen bg-gray-50 flex flex-col">
-       {/* Header */}
-        <div className="bg-white border-b border-gray-200 sticky top-0 z-50">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex items-center justify-between h-16">
-              {/* Logo */}
-                <motion.div 
-                    className="flex items-center space-x-6 relative mt-3"
-                    whileHover={{ scale: 1.05 }}
-                    onClick={() => {isLoggedIn ? (router.push("/find")) : router.push("/")}}
-                >
-                {/* Main Subox Logo */}
-                <motion.div className="relative">
-                {/* House Icon */}
-                <motion.svg 
-                    className="w-12 h-12" 
-                    viewBox="0 0 100 100" 
-                    fill="none"
-                    whileHover={{ rotate: [0, -5, 5, 0] }}
-                    transition={{ duration: 0.5 }}
-                >
-                    {/* House Base */}
-                    <motion.path
-                    d="M20 45L50 20L80 45V75C80 78 77 80 75 80H25C22 80 20 78 20 75V45Z"
-                    fill="#E97451"
-                    animate={{ 
-                        fill: ["#E97451", "#F59E0B", "#E97451"],
-                        scale: [1, 1.02, 1]
-                    }}
-                    transition={{ duration: 3, repeat: Infinity }}
-                    />
-                    {/* House Roof */}
-                    <motion.path
-                    d="M15 50L50 20L85 50L50 15L15 50Z"
-                    fill="#D97706"
-                    animate={{ rotate: [0, 1, 0] }}
-                    transition={{ duration: 4, repeat: Infinity }}
-                    />
-                    {/* Window */}
-                    <motion.rect
-                    x="40"
-                    y="50"
-                    width="20"
-                    height="15"
-                    fill="white"
-                    animate={{ 
-                        opacity: [1, 0.8, 1],
-                        scale: [1, 1.1, 1]
-                    }}
-                    transition={{ duration: 2, repeat: Infinity }}
-                    />
-                    {/* Door */}
-                    <motion.rect
-                    x="45"
-                    y="65"
-                    width="10"
-                    height="15"
-                    fill="white"
-                    animate={{ scaleY: [1, 1.05, 1] }}
-                    transition={{ duration: 2.5, repeat: Infinity }}
-                    />
-                </motion.svg>
+      {/* Skip Button */}
+      <div className="absolute top-4 right-4 z-20 animate-fadeIn">
+        <button
+          onClick={handleSkip}
+          className="flex items-center gap-2 px-4 py-2 bg-white/90 backdrop-blur-sm text-gray-600 rounded-full hover:bg-white hover:text-orange-600 transition-all transform hover:scale-105 hover:shadow-lg"
+        >
+          <span className="font-medium">Skip</span>
+        </button>
+      </div>
 
-                {/* Tag Icon */}
-                <motion.svg 
-                    className="w-8 h-8 absolute -top-2 -right-2" 
-                    viewBox="0 0 60 60" 
-                    fill="none"
-                    whileHover={{ rotate: 360 }}
-                    transition={{ duration: 0.8 }}
-                >
-                    <motion.path
-                    d="M5 25L25 5H50V25L30 45L5 25Z"
-                    fill="#E97451"
-                    animate={{ 
-                        rotate: [0, 5, -5, 0],
-                        scale: [1, 1.1, 1]
-                    }}
-                    transition={{ duration: 3, repeat: Infinity }}
-                    />
-                    <motion.circle
-                    cx="38"
-                    cy="17"
-                    r="4"
-                    fill="white"
-                    animate={{ 
-                        scale: [1, 1.3, 1],
-                        opacity: [1, 0.7, 1]
-                    }}
-                    transition={{ duration: 1.5, repeat: Infinity }}
-                    />
-                </motion.svg>
-                </motion.div>
-
-                {/* Subox Text */}
-                <motion.div className="flex flex-col -mx-4">
-                <motion.span 
-                    className="text-3xl font-bold text-gray-900"
-                    animate={{
-                    background: [
-                        "linear-gradient(45deg, #1F2937, #374151)",
-                        "linear-gradient(45deg, #E97451, #F59E0B)",
-                        "linear-gradient(45deg, #1F2937, #374151)"
-                    ],
-                    backgroundClip: "text",
-                    WebkitBackgroundClip: "text",
-                    color: "transparent"
-                    }}
-                    transition={{ duration: 4, repeat: Infinity }}
-                >
-                    Subox
-                </motion.span>
-                <motion.span 
-                    className="text-xs text-gray-500 font-medium tracking-wider"
-                    animate={{ opacity: [0.7, 1, 0.7] }}
-                    transition={{ duration: 2, repeat: Infinity }}
-                >
-                    SUBLEASE
-                </motion.span>
-                </motion.div>
-                </motion.div>
-  
-  
-              {/* Header Actions */}
-              <div className="flex items-center space-x-4">
-                
-                {/* Back */}
-                <motion.button 
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={() => router.push("/find")}
-                  className="flex items-center px-3 py-2 rounded-lg hover:bg-orange-600 text-black hover:text-white transition-colors"
-                >
-                  <ArrowLeft size={20} /> Back
-                </motion.button>
-
-                {/* Notifications */}
-                <NotificationsButton notifications={notifications} />
-  
-                {/* Favorites */}
-                <motion.button 
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-                  className="p-2 bg-orange-500 rounded-lg hover:bg-orange-600 transition-colors"
-                >
-                  <MessagesSquare size={20} className = "w-5 h-5 text-white"/>
-                </motion.button>
-                
-                {/* Favorites Sidebar */}
-                {renderFavoritesSidebar()}
-  
-                {/* Profile */}
-                <div className="relative">
-                <motion.button
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    onClick={() => setShowProfile(!showProfile)}
-                    className="p-2 bg-orange-500 rounded-lg hover:bg-orange-600 transition-colors"
-                >
-                    <User className="w-5 h-5 text-white" />
-                </motion.button>
-
-                <AnimatePresence>
-                    {showProfile && (
-                    <motion.div
-                        initial={{ opacity: 0, y: -10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -10 }}
-                        className="absolute right-0 mt-2 w-64 bg-white rounded-lg shadow-lg border border-gray-200 z-50"
-                    >
-                        <div className="p-4 space-y-2">
-                        <button onClick={() => handleTabClick("purchased")} className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-orange-50 transition-colors">What I Purchased</button>
-                        <button onClick={() => handleTabClick("returned")} className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-orange-50 transition-colors">What I Returned</button>
-                        <button onClick={() => handleTabClick("cancelled")} className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-orange-50 transition-colors">What I Cancelled</button>
-                        <button onClick={() => handleTabClick("sold")} className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-orange-50 transition-colors">What I Sold</button>
-                        <button onClick={() => handleTabClick("sublease")} className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-orange-50 transition-colors">Sublease</button>
-                        <button onClick={() => handleTabClick("reviews")} className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-orange-50 transition-colors">Reviews</button>
-                        <hr className="my-2" />
-                        <button onClick={() => handleTabClick("history")} className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-orange-50 transition-colors">History</button>
-                        </div>
-                    </motion.div>
-                    )}
-                </AnimatePresence>
-                </div>
-
-                {/* menu */}
-                <div className="relative">
-                <motion.button
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    onClick={() => setShowMenu(!showMenu)}
-                    className="p-2 bg-orange-500 rounded-lg hover:bg-orange-600 transition-colors"
-                >
-                    <Menu className="w-5 h-5 text-white" />
-                </motion.button>
-
-                <AnimatePresence>
-                    {showMenu && (
-                    <motion.div
-                        initial={{ opacity: 0, y: -10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -10 }}
-                        className="absolute right-0 mt-2 w-64 bg-white rounded-lg shadow-lg border border-gray-200 z-50"
-                    >
-                        <div className="p-4 space-y-2">
-                        <p className="text-medium font-semibold max-w-2xl mb-4 text-orange-700">
-                        Move Out Sale
-                        </p>
-                        <button 
-                            onClick={() => {
-                            router.push('../browse');
-                            setShowMenu(false);
-                            }} 
-                            className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-orange-50 transition-colors"
-                        >
-                            Browse Items
-                        </button>                        
-                        <button 
-                            onClick={() => {
-                            router.push('/sale/create');
-                            setShowMenu(false);
-                            }} 
-                            className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-orange-50 transition-colors"
-                        >
-                            Sell Items
-                        </button> 
-                        <button 
-                            onClick={() => {
-                            router.push('/sale/create');
-                            setShowMenu(false);
-                            }} 
-                            className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-orange-50 transition-colors"
-                        >
-                            My Items
-                        </button>   
-                        
-                        <p className="text-medium font-semibold max-w-2xl mb-4 text-orange-700">
-                            Sublease
-                        </p>
-                        <button 
-                            onClick={() => {
-                            router.push('../search');
-                            setShowMenu(false);
-                            }} 
-                            className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-orange-50 transition-colors"
-                        >
-                            Find Sublease
-                        </button>   
-                        <button 
-                            onClick={() => {
-                            router.push('../search');
-                            setShowMenu(false);
-                            }} 
-                            className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-orange-50 transition-colors"
-                        >
-                            Post Sublease
-                        </button>   
-                        <button 
-                            onClick={() => {
-                            router.push('../search');
-                            setShowMenu(false);
-                            }} 
-                            className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-orange-50 transition-colors"
-                        >
-                            My Sublease Listing
-                        </button>
-                        <hr className="my-2" />
-                        <button 
-                            onClick={() => {
-                            router.push('../sale/browse');
-                            setShowMenu(false);
-                            }} 
-                            className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-orange-50 transition-colors"
-                        >
-                            Messages
-                        </button>   
-                        <button 
-                            onClick={() => {
-                            router.push('../help');
-                            setShowMenu(false);
-                            }} 
-                            className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-orange-50 transition-colors"
-                        >
-                            Help & Support
-                        </button>
-
-                        {/* need change (when user didn't log in -> show log in button) */}
-                        <hr className="my-2" />
-                            {/* log in/ out */}
-                            {isLoggedIn ? (
-                            <button className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-orange-50 transition-colors">
-                                Logout
-                            </button>
-                            ) : (
-                            <button className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-orange-50 transition-colors">
-                                Login
-                            </button>
-                            )}
-                        </div>
-                    </motion.div>
-                    )}
-                </AnimatePresence>
-                </div>
-              </div>
-          </div>
-          </div>
+        {/* Animated background elements */}
+      <div className="absolute inset-0  bg-gradient-to-br from-orange-50 to-white overflow-hidden pointer-events-none">
+        <div className="absolute top-10 left-10 w-32 h-32 bg-orange-200/30 rounded-full animate-float"></div>
+        <div className="absolute top-40 right-20 w-24 h-24 bg-orange-300/30 rounded-full animate-float-delayed"></div>
+        <div className="absolute bottom-20 left-1/3 w-20 h-20 bg-orange-400/30 rounded-full animate-float-slow"></div>
+        <div className="absolute bottom-40 right-1/4 w-16 h-16 bg-blue-200/30 rounded-full animate-float"></div>
       </div>
       
-
       <div className="min-h-screen bg-gray-50 flex flex-col">
 
         <div className="pt-16 md:pt-0">
           {/* Simple Hero Section with Better Branding */}
-          <div className="relative bg-gradient-to-br from-orange-50 to-white overflow-hidden">
+          <div className="relative bg-gradient from-orange-70 to-orange-50 overflow-hidden">
             {/* Animated background elements */}
             <div className="absolute inset-0 opacity-10">
               <div className="absolute top-10 left-10 w-32 h-32 bg-orange-200 rounded-full animate-float"></div>
@@ -2969,328 +2402,22 @@ const renderCommuteInfo = (listing) => {
             
             <div className="relative max-w-7xl mx-auto px-4 py-16 md:py-20 text-center">
               
-              {/* Logo Section */}
-              <div className="flex justify-center items-center  animate-fadeInUp">
-                <div className="flex items-center gap-3">
-                  {/* Logo Icon */}
-                  <motion.div 
-                      className="flex items-center space-x-7 relative"
-                      whileHover={{ scale: 1.05 }}
-                      onClick={() => {isLoggedIn ? (router.push("/find")) : router.push("/")}}
-                  >
-                  {/* Main Subox Logo */}
-                  <motion.div className="relative">
-                  {/* House Icon */}
-                  <motion.svg 
-                      className="w-12 h-12" 
-                      viewBox="0 0 100 100" 
-                      fill="none"
-                      whileHover={{ rotate: [0, -5, 5, 0] }}
-                      transition={{ duration: 0.5 }}
-                  >
-                      {/* House Base */}
-                      <motion.path
-                      d="M20 45L50 20L80 45V75C80 78 77 80 75 80H25C22 80 20 78 20 75V45Z"
-                      fill="#E97451"
-                      animate={{ 
-                          fill: ["#E97451", "#F59E0B", "#E97451"],
-                          scale: [1, 1.02, 1]
-                      }}
-                      transition={{ duration: 3, repeat: Infinity }}
-                      />
-                      {/* House Roof */}
-                      <motion.path
-                      d="M15 50L50 20L85 50L50 15L15 50Z"
-                      fill="#D97706"
-                      animate={{ rotate: [0, 1, 0] }}
-                      transition={{ duration: 4, repeat: Infinity }}
-                      />
-                      {/* Window */}
-                      <motion.rect
-                      x="40"
-                      y="50"
-                      width="20"
-                      height="15"
-                      fill="white"
-                      animate={{ 
-                          opacity: [1, 0.8, 1],
-                          scale: [1, 1.1, 1]
-                      }}
-                      transition={{ duration: 2, repeat: Infinity }}
-                      />
-                      {/* Door */}
-                      <motion.rect
-                      x="45"
-                      y="65"
-                      width="10"
-                      height="15"
-                      fill="white"
-                      animate={{ scaleY: [1, 1.05, 1] }}
-                      transition={{ duration: 2.5, repeat: Infinity }}
-                      />
-                  </motion.svg>
-
-                  {/* Tag Icon */}
-                  <motion.svg 
-                      className="w-8 h-8 absolute -top-2 -right-2" 
-                      viewBox="0 0 60 60" 
-                      fill="none"
-                      whileHover={{ rotate: 360 }}
-                      transition={{ duration: 0.8 }}
-                  >
-                      <motion.path
-                      d="M5 25L25 5H50V25L30 45L5 25Z"
-                      fill="#E97451"
-                      animate={{ 
-                          rotate: [0, 5, -5, 0],
-                          scale: [1, 1.1, 1]
-                      }}
-                      transition={{ duration: 3, repeat: Infinity }}
-                      />
-                      <motion.circle
-                      cx="38"
-                      cy="17"
-                      r="4"
-                      fill="white"
-                      animate={{ 
-                          scale: [1, 1.3, 1],
-                          opacity: [1, 0.7, 1]
-                      }}
-                      transition={{ duration: 1.5, repeat: Infinity }}
-                      />
-                  </motion.svg>
-                  </motion.div>
-
-                  {/* Subox Text */}
-                  <motion.div className="flex flex-col -mx-4">
-                  <motion.span 
-                      className="text-3xl font-bold text-gray-900"
-                      animate={{
-                      background: [
-                          "linear-gradient(45deg, #1F2937, #374151)",
-                          "linear-gradient(45deg, #E97451, #F59E0B)",
-                          "linear-gradient(45deg, #1F2937, #374151)"
-                      ],
-                      backgroundClip: "text",
-                      WebkitBackgroundClip: "text",
-                      color: "transparent"
-                      }}
-                      transition={{ duration: 4, repeat: Infinity }}
-                  >
-                      Subox
-                  </motion.span>
-                  <motion.span 
-                      className="text-xs text-gray-500 font-medium tracking-wider"
-                      animate={{ opacity: [0.7, 1, 0.7] }}
-                      transition={{ duration: 2, repeat: Infinity }}
-                  >
-                      SUBLEASE
-                  </motion.span>
-                  </motion.div>
-                  </motion.div>
+                <div className="animate-fadeIn delay-500">
+                    <h2 className="text-2xl md:text-3xl font-bold text-gray-800 mb-4">
+                    Find Your Perfect <span className="text-orange-500">Campus Home </span>
+                    <span className="text-gray-800">!</span>
+                    </h2>
+                    <p className="text-gray-600 text-lg max-w-2xl mx-auto">
+                    Discover amazing sublease opportunities near your campus. 
+                    Search by location, dates, or specific preferences.
+                    </p>
                 </div>
-              </div>
-              </div>
-               </div>
-
-{/* Buttons */}
-<div className="w-full max-w-5xl mx-auto px-4 -mt-10 relative z-10 animate-slideUp">
-      <div className="max-w-4xl mx-auto p-6 -mb-10 -ml-5">
-      {/* Compact Button Bar */}
-      <div className="flex items-center gap-3 mb-6 ">
-        
-        {/* Saved Searches Compact Button */}
-        <div className="relative">
-          <button 
-            onClick={() => setShowSavedSearches(!showSavedSearches)}
-            className="flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 hover:border-orange-300 transition-all duration-200 shadow-sm hover:shadow-md"
-          >
-            <Bookmark size={18} className="text-orange-500" />
-            <span className="font-medium text-gray-700">Saved Searches</span>
-            <ChevronDown 
-              size={16} 
-              className={`text-gray-400 transition-transform duration-200 ${showSavedSearches ? 'rotate-180' : ''}`} 
-            />
-          </button>
-        </div>
-
-        {/* Save Current Search Button */}
-        <button 
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-lg transition-all duration-200 font-medium shadow-sm hover:shadow-md ${
-            hasSearchCriteria() 
-              ? 'bg-orange-500 text-white hover:bg-orange-600' 
-              : 'bg-gray-100 text-gray-400 cursor-not-allowed'
-          }`}
-          onClick={saveSearch}
-          disabled={!hasSearchCriteria()}
-        >
-          <Star size={18} />
-          <span>Save Current Search</span>
-        </button>
-
-        {/* Commute Map Button */}
-        <button 
-        onClick={toggleMapView}
-        className="flex items-center gap-2 px-4 py-2.5 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-all duration-200 font-medium shadow-sm hover:shadow-md">
-          <MapPin size={18} />
-          <span className="ml-4">
-            {showMapView ? "Hide map view" : "Commute Map"}
-          </span>
-        </button>
-      </div>
-
-      {/* Dropdown Content */}
-      {showSavedSearches && (
-        <div className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden animate-fadeIn">
-          <div className="p-6">
-            {savedSearches.length === 0 ? (
-              // Empty State
-              <div className="text-center py-8">
-                <div className="bg-gray-50 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <Search size={24} className="text-gray-400" />
-                </div>
-                <h3 className="text-lg font-semibold text-gray-800 mb-2">No saved searches yet</h3>
-                <p className="text-gray-600 mb-4 max-w-md mx-auto">
-                  Create a search with your preferred filters and save it for quick access later
-                </p>
-                <div className="flex items-center justify-center gap-4 text-sm text-gray-500">
-                  <div className="flex items-center gap-1">
-                    <MapPin size={14} className="text-orange-500" />
-                    <span>Set location</span>
-                  </div>
-                  <div className="w-1 h-1 bg-gray-300 rounded-full"></div>
-                  <div className="flex items-center gap-1">
-                    <Calendar size={14} className="text-orange-500" />
-                    <span>Pick dates</span>
-                  </div>
-                  <div className="w-1 h-1 bg-gray-300 rounded-full"></div>
-                  <div className="flex items-center gap-1">
-                    <Filter size={14} className="text-orange-500" />
-                    <span>Apply filters</span>
-                  </div>
-                </div>
-              </div>
-            ) : (
-              // Saved Searches Grid
-              <>
-                <div className="flex justify-between items-center mb-6">
-                  <div className="flex items-center gap-2">
-                    <h3 className="font-semibold text-gray-800">Your Saved Searches</h3>
-                    <span className="bg-orange-100 text-orange-700 px-2 py-1 rounded-full text-xs font-medium">
-                      {savedSearches.length}
-                    </span>
-                  </div>
-                  <button 
-                    className="text-gray-500 hover:text-red-500 text-sm flex items-center gap-1 transition-colors"
-                    onClick={() => setSavedSearches([])}
-                  >
-                    <X size={14} />
-                    Clear all
-                  </button>
-                </div>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {savedSearches.map((search, index) => (
-                    <div 
-                      key={search.id}
-                      className="group bg-gray-50 rounded-lg p-4 hover:shadow-md transition-all duration-200 border border-gray-200 hover:border-orange-300 relative"
-                    >
-                      {/* Delete Button */}
-                      <button 
-                        className="absolute top-3 right-3 p-1 rounded-full bg-white shadow-sm opacity-0 group-hover:opacity-100 transition-all hover:bg-red-50 hover:text-red-600"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          deleteSavedSearch(search.id);
-                        }}
-                      >
-                        <X size={12} className="text-gray-500"/>
-                      </button>
-                      
-                      {/* Search Content */}
-                      <div className="pr-6">
-                        {/* Location */}
-                        <div className="mb-3">
-                          <div className="flex items-center gap-1 mb-1">
-                            <MapPin size={14} className="text-orange-500" />
-                            <span className="text-xs font-medium text-gray-500 uppercase">Location</span>
-                          </div>
-                          <div className="font-semibold text-gray-800 text-sm">
-                            {search.location && search.location.length > 0 
-                              ? search.location.length === 1 
-                                ? search.location[0]
-                                : `${search.location[0]} +${search.location.length - 1} more`
-                              : 'Any location'}
-                          </div>
-                        </div>
-                        
-                        {/* Dates */}
-                        <div className="mb-3">
-                          <div className="flex items-center gap-1 mb-1">
-                            <Calendar size={14} className="text-orange-500" />
-                            <span className="text-xs font-medium text-gray-500 uppercase">Dates</span>
-                          </div>
-                          <div className="text-sm text-gray-700">
-                            {search.dateRange.checkIn ? (
-                              <div className="flex items-center gap-1">
-                                <span>{formatDate(search.dateRange.checkIn)}</span>
-                                {search.dateRange.checkOut && (
-                                  <>
-                                    <ChevronRight size={10} className="text-gray-400" />
-                                    <span>{formatDate(search.dateRange.checkOut)}</span>
-                                  </>
-                                )}
-                              </div>
-                            ) : (
-                              <span className="text-gray-500">Flexible dates</span>
-                            )}
-                          </div>
-                        </div>
-                        
-                        {/* Room Requirements */}
-                        <div className="mb-4">
-                          <div className="flex items-center gap-1 mb-1">
-                            <BedDouble size={14} className="text-orange-500" />
-                            <span className="text-xs font-medium text-gray-500 uppercase">Requirements</span>
-                          </div>
-                          <div className="flex items-center gap-2 text-sm text-gray-700">
-                            <span className="font-medium">{search.bedrooms} bed{search.bedrooms !== 1 ? 's' : ''}</span>
-                            <span className="text-gray-400">•</span>
-                            <span className="font-medium">{search.bathrooms} bath{search.bathrooms !== 1 ? 's' : ''}</span>
-                          </div>
-                        </div>
-                        
-                        {/* Apply Button */}
-                        <button 
-                          onClick={() => {applySavedSearch(search);
-                            setShowSavedSearches(false);}}
-                          className="w-full py-2 bg-white border border-orange-200 text-orange-600 rounded-lg hover:bg-orange-50 hover:border-orange-300 transition-all text-sm font-medium flex items-center justify-center gap-1"
-                        >
-                          <Search size={14} />
-                          <span>Apply Search</span>
-                        </button>
-                      </div>
-                      
-                      {/* Saved Date */}
-                      <div className="absolute bottom-2 right-2 text-xs text-gray-400">
-                        <Clock size={10} className="inline mr-1" />
-                        {new Date(search.id).toLocaleDateString()}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </>
-            )}
+            </div>
           </div>
-        </div>
-      )}
-    </div>
-
- 
-          
-  
+            
           {/* Main Search Container */}
-          
-            <div className="bg-white rounded-xl shadow-xl transition-all duration-500 overflow-hidden hover:shadow-2xl transform hover:-translate-y-1">
+          <div className="w-full max-w-5xl mx-auto px-8 -mt-10 relative z-10 animate-slideUp mb-20">
+            <div className="bg-white rounded-xl shadow-xl transition-all duration-500 overflow-hidden hover:shadow-xl transform hover:-translate-y-1">
               {/* Search Controls */}
               <div className="flex flex-col md:flex-row md:items-center p-3 gap-2">
                 {/* Location */}
@@ -3311,6 +2438,7 @@ const renderCommuteInfo = (listing) => {
                       </div>
                     </div>
                   </div>
+                
                 </div>
                 
                 {/* Dates */}
@@ -3367,227 +2495,105 @@ const renderCommuteInfo = (listing) => {
                   </div>
                 </div>
                 
-                {/* Search Button */}
+                 {/* Search Buttons */}
+                <div className="p-4 flex flex-col sm:flex-row gap-3">
                 <button 
-                  className="p-4 rounded-lg text-white flex items-center justify-center bg-orange-600 hover:bg-orange-500 transition-all ml-2 disabled:opacity-70 disabled:cursor-not-allowed transform hover:scale-105 hover:shadow-lg"
-                  onClick={handleSearch}
-                  disabled={isSearching}
+                    className="flex-1 p-4 rounded-xl text-white flex items-center justify-center bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 transition-all disabled:opacity-70 disabled:cursor-not-allowed transform hover:scale-105 hover:shadow-lg"
+                    onClick={handleSearch}
+                    disabled={isSearching}
                 >
-                  {isSearching ? (
-                    <div className="animate-spin w-5 h-5 border-2 border-white border-t-transparent rounded-full mr-2" />
-                  ) : (
-                    <Search size={20} className="mr-2 animate-pulse" />
-                  )}
-                  <span className="font-medium">Search</span>
+                    {isSearching ? (
+                    <div className="animate-spin w-6 h-6 border-2 border-white border-t-transparent rounded-full mr-3" />
+                    ) : (
+                    <Search size={24} className="mr-3 animate-pulse" />
+                    )}
+                    <span className="font-semibold text-lg">
+                    {isSearching ? 'Searching...' : 'Search'}
+                    </span>
                 </button>
                 
-                {/* Reset Button - Only show if search criteria exists */}
+                {/* Reset Button */}
                 {hasSearchCriteria() && (
-                  <button 
-                    className="p-2 rounded-full text-gray-500 hover:bg-gray-100 transition-all transform hover:scale-110 hover:rotate-90 duration-300"
+                    <button 
+                    className="px-6 py-4 rounded-xl text-gray-500 hover:bg-gray-200 transition-all transform hover:scale-105 hover:text-gray-700"
                     onClick={resetSearch}
-                    title="Reset search"
-                  >
-                    <X size={20} />
-                  </button>
+                    title="Reset all filters"
+                    >
+                    <X size={24} />
+                    </button>
                 )}
+                </div>
               </div>
-              
+
               {/* Expandable sections */}
               {activeSection === 'location' && renderLocationSection()}
               {activeSection === 'dates' && renderCalendarSection()}
               {activeSection === 'rooms' && renderRoomsSection()}
               {activeSection === 'filters' && renderFiltersSection()}
             </div>
-          
-        </div>
-      </div>
 
-
-
-
-{showMapView && (
-<div className="mt-4 w-[60%] mx-auto overflow-hidden">
-<div id="map-container">
-  <div>
-          <h3 className="font-bold mb-3 text-gray-800 mt-2">Find by Enhanced Commute</h3>
-          <div className="bg-gradient-to-br from-blue-50 to-indigo-50 p-4 rounded-lg border border-blue-200">
-            {/* Show loading/error states */}
-           
-            
-            {googleMapsError && (
-              <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-3">
-                <p className="text-red-700 text-sm">{googleMapsError}</p>
-              </div>
-            )}
-            
-            {/* Enhanced CommuteLocationPicker when Google Maps is ready */}
-            {isGoogleMapsReady && !googleMapsError && (
-              <CommuteLocationPicker
-                onLocationSelect={(locationData) => {
-                  console.log('📍 Enhanced location selected:', locationData);
-                  setCommuteDestination(locationData);
-                  setCommuteLocation(locationData.address);
-                  
-                  // Check if this has enhanced features
-                  if (locationData.commutePreferences.showAlternatives !== undefined) {
-                    setShowEnhancedCommute(true);
-                  }
-                }}
-                onRouteCalculated={async (routes) => {
-                  console.log('🗺️ Enhanced routes received:', routes.length);
-                  
-                  // Check if routes have enhanced features
-                  const hasEnhancedFeatures = routes.some(route => 
-                    route.alternatives || route.transitDetails || route.transportMode
-                  );
-                  
-                  if (hasEnhancedFeatures) {
-                    setEnhancedRouteResults(routes);
-                    setShowEnhancedCommute(true);
-                  } else {
-                    setCommuteRoutes(routes);
-                    setShowEnhancedCommute(false);
-                  }
-                  
-                  handleCommuteResults(routes, commuteDestination);
-                }}
-                onShowMap={(shouldShow) => {
-                  setShowMap(shouldShow);
-                }}
-                nearbyListings={allListings.map(listing => {
-                  // Enhanced coordinate handling for listings
-                  let coords;
-                  
-                  // Priority 1: customLocation with specific coordinates
-                  if (listing.customLocation?.lat && listing.customLocation?.lng) {
-                    coords = {
-                      lat: listing.customLocation.lat,
-                      lng: listing.customLocation.lng
-                    };
-                    console.log(`📍 Using customLocation for ${listing.id}:`, coords);
-                  } 
-                  // Priority 2: direct lat/lng coordinates
-                  else if (listing.lat && listing.lng) {
-                    coords = {
-                      lat: listing.lat,
-                      lng: listing.lng
-                    };
-                    console.log(`📍 Using direct coordinates for ${listing.id}:`, coords);
-                  } 
-                  // Priority 3: neighborhood that needs geocoding
-                  else {
-                    coords = {
-                      lat: null,
-                      lng: null,
-                      needsGeocoding: true,
-                      neighborhood: listing.location
-                    };
-                    console.log(`🔍 Needs geocoding for ${listing.id}: ${listing.location}`);
-                  }
-                  
-                  return {
-                    id: listing.id,
-                    lat: coords.lat,
-                    lng: coords.lng,
-                    needsGeocoding: coords.needsGeocoding,
-                    neighborhood: coords.neighborhood,
-                    address: listing.customLocation?.address || listing.address || `${listing.location || 'Minneapolis'}, MN`,
-                    title: listing.title,
-                    price: listing.price,
-                    location: listing.location,
-                    customLocation: listing.customLocation
-                  };
-                })}
-              />
-            )}
-          </div>
-  
-          {/* Show selected neighborhoods */}
-          {location.length > 0 && (
-            <div className="mt-4">
-              <h4 className="font-medium text-gray-700 mb-2">Selected Neighborhoods:</h4>
-              <div className="flex flex-wrap gap-2">
-                {location.map(loc => (
-                  <div key={loc} className="bg-orange-50 border border-orange-200 rounded-full px-3 py-1 text-sm flex items-center">
-                    <span className="text-orange-800">{loc}</span>
-                    <button 
-                      className="ml-2 text-orange-600 hover:text-orange-800" 
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        toggleLocation(loc);
-                      }}
+            {/* Add this after your main search container
+            {showCommuteResults && commuteDestination && (
+              <div className="mt-6 max-w-5xl mx-auto px-4 bg-gradient-to-r from-green-50 to-blue-50 rounded-xl p-6 border border-green-200 animate-slideUp transform hover:scale-105 transition-all duration-300">
+                <div className="flex items-start gap-4">
+                  <div className="p-3 bg-green-100 rounded-lg animate-bounce-subtle">
+                    <Route size={24} className="text-green-600" />
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="font-bold text-green-800 text-lg mb-2 animate-fadeIn">
+                      Commute Results for {commuteDestination.placeName || 'Your Destination'}
+                    </h3>
+                    <p className="text-gray-700 mb-3 animate-fadeIn delay-100">{commuteDestination.address}</p>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className="bg-white p-3 rounded-lg border border-green-200 transform hover:scale-105 transition-all animate-slideUp">
+                        <div className="flex items-center gap-2 mb-1">
+                          <Clock size={16} className="text-green-600 animate-pulse" />
+                          <span className="font-medium text-green-800">Listings Found</span>
+                        </div>
+                        <p className="text-2xl font-bold text-green-600 animate-counter">{commuteRoutes.length}</p>
+                        <p className="text-xs text-gray-600">within your preferences</p>
+                      </div>
+                      
+                      <div className="bg-white p-3 rounded-lg border border-green-200 transform hover:scale-105 transition-all animate-slideUp delay-100">
+                        <div className="flex items-center gap-2 mb-1">
+                          <Route size={16} className="text-green-600 animate-pulse" />
+                          <span className="font-medium text-green-800">Transport Mode</span>
+                        </div>
+                        <p className="text-lg font-bold text-green-600 capitalize">
+                          {commuteDestination.commutePreferences?.transportMode || 'Transit'}
+                        </p>
+                      </div>
+                      
+                      <div className="bg-white p-3 rounded-lg border border-green-200 transform hover:scale-105 transition-all animate-slideUp delay-200">
+                        <div className="flex items-center gap-2 mb-1">
+                          <Clock size={16} className="text-green-600 animate-pulse" />
+                          <span className="font-medium text-green-800">Max Commute</span>
+                        </div>
+                        <p className="text-lg font-bold text-green-600">
+                          {commuteDestination.commutePreferences?.maxCommuteTime || 30} min
+                        </p>
+                      </div>
+                    </div>
+                    
+                    <button
+                      onClick={clearCommuteSearch}
+                      className="mt-4 text-sm text-orange-600 hover:text-orange-800 underline transform hover:scale-105 transition-all"
                     >
-                      <X size={14} />
+                      Clear commute search
                     </button>
                   </div>
-                ))}
+                </div>
               </div>
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-)}
-{/* 
-  {showCommuteResults && commuteDestination && (
-    <div className="mt-6 w-[60%] mx-auto px-4 bg-gradient-to-r from-green-50 to-blue-50 rounded-xl p-6 border border-green-200 animate-slideUp transform hover:scale-105 transition-all duration-300">
-      <div className="flex items-start gap-4">
-        <div className="p-3 bg-green-100 rounded-lg animate-bounce-subtle">
-          <Route size={24} className="text-green-600" />
-        </div>
-        <div className="flex-1">
-          <h3 className="font-bold text-green-800 text-lg mb-2 animate-fadeIn">
-            Commute Results for {commuteDestination.placeName || 'Your Destination'}
-          </h3>
-          <p className="text-gray-700 mb-3 animate-fadeIn delay-100">{commuteDestination.address}</p>
-          
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="bg-white p-3 rounded-lg border border-green-200 transform hover:scale-105 transition-all animate-slideUp">
-              <div className="flex items-center gap-2 mb-1">
-                <Clock size={16} className="text-green-600 animate-pulse" />
-                <span className="font-medium text-green-800">Listings Found</span>
-              </div>
-              <p className="text-2xl font-bold text-green-600 animate-counter">{commuteRoutes.length}</p>
-              <p className="text-xs text-gray-600">within your preferences</p>
-            </div>
-            
-            <div className="bg-white p-3 rounded-lg border border-green-200 transform hover:scale-105 transition-all animate-slideUp delay-100">
-              <div className="flex items-center gap-2 mb-1">
-                <Route size={16} className="text-green-600 animate-pulse" />
-                <span className="font-medium text-green-800">Transport Mode</span>
-              </div>
-              <p className="text-lg font-bold text-green-600 capitalize">
-                {commuteDestination.commutePreferences?.transportMode || 'Transit'}
-              </p>
-            </div>
-            
-            <div className="bg-white p-3 rounded-lg border border-green-200 transform hover:scale-105 transition-all animate-slideUp delay-200">
-              <div className="flex items-center gap-2 mb-1">
-                <Clock size={16} className="text-green-600 animate-pulse" />
-                <span className="font-medium text-green-800">Max Commute</span>
-              </div>
-              <p className="text-lg font-bold text-green-600">
-                {commuteDestination.commutePreferences?.maxCommuteTime || 30} min
-              </p>
-            </div>
+
+            )}
+
+            {renderCommuteResultsSection()} */}
+
+    
           </div>
-          
-          <button
-            onClick={clearCommuteSearch}
-            className="mt-4 text-sm text-orange-600 hover:text-orange-800 underline transform hover:scale-105 transition-all"
-          >
-            Clear commute search
-          </button>
         </div>
-      </div>
-    </div>
-  )} */}
 
-        {renderCommuteResultsSection()}
-
-        {/* Content Sections */}
-        {renderFeaturedListings()}
                   
         {/* Global Styles */}
         <style jsx global>{`
@@ -3737,4 +2743,4 @@ const renderCommuteInfo = (listing) => {
     </div>
   );
 }
-export default SearchPage;
+export default FirstSearchPage;

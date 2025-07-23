@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from "framer-motion";
 import { 
   Bell, User, Heart, 
-  Package, Menu, X, Send, Check, AlertCircle
+  Package, Menu, X, Send, Check, AlertCircle, ArrowLeft
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { title } from 'process';
@@ -72,7 +72,7 @@ const FAQItemComponent = ({ item, isOpen, onToggle }: {
           isOpen ? 'max-h-96 pb-6' : 'max-h-0'
         }`}
       >
-        <div className="bg-orange-100 p-5 rounded-lg">
+        <div className="bg-orange-50 p-5 rounded-lg">
           <p className="text-gray-700 leading-relaxed whitespace-pre-line">
             {item.answer}
           </p>
@@ -93,9 +93,9 @@ const NotificationsButton = ({ notifications }: { notifications: Notification[] 
         whileHover={{ scale: 1.05 }}
         whileTap={{ scale: 0.95 }}
         onClick={() => setShowNotifications(!showNotifications)}
-        className="p-2 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors relative"
+        className="p-2 bg-orange-500 rounded-lg hover:bg-orange-600 transition-colors relative"
       >
-        <Bell className="w-5 h-5 text-gray-600" />
+        <Bell className="w-5 h-5 text-white" />
         {notifications.length > 0 && (
           <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center">
             {notifications.length}
@@ -112,13 +112,13 @@ const NotificationsButton = ({ notifications }: { notifications: Notification[] 
             className="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-lg border border-gray-200 z-50"
           >
             <div className="p-4">
-              <h3 className="font-semibold text-gray-900 mb-3">Notifications</h3>
+              <h3 className="font-semibold text-orange-600 mb-3">Notifications</h3>
               <div className="space-y-3 max-h-64 overflow-y-auto">
                 {notifications.map(notif => (
                   <button
                     key={notif.id}
                     onClick={() => router.push(`browse/notificationDetail/${notif.id}`)}
-                    className="w-full flex items-start space-x-3 p-2 rounded-lg hover:bg-gray-50 text-left"
+                    className="w-full flex items-start space-x-3 p-2 rounded-lg hover:bg-orange-50 text-left"
                   >
                     <div className="w-2 h-2 bg-orange-500 rounded-full mt-2"></div>
                     <div className="flex-1">
@@ -131,7 +131,7 @@ const NotificationsButton = ({ notifications }: { notifications: Notification[] 
 
               <button
                 onClick={() => router.push(`browse/notification/`)}
-                className="mt-3 text-sm text-blue-600 hover:underline"
+                className="mt-3 text-sm text-orange-600 hover:underline"
               >
                 See all notifications
               </button>
@@ -183,6 +183,18 @@ const HelpPage = () => {
         "Moving sale", 
         "Sublease", 
         "Post"
+      ],
+      subquestion: [
+        "Quick guide on how to use Subox tools & getting started", 
+        "Know what moving sale is and why it's easy and fast to do it in Subox", 
+        "Know what sublease is and why it's easy and fast to do it in Subox ", 
+        "Quick and simple guide on how to pose in Subox"
+      ],
+      img: [
+        "find.png", 
+        "findmove.png", 
+        "findsub.png ", 
+        "post.png"
       ],
       answer: [
         "Log in to Subox. Then, click your needed item: sublease or moving sale. After clicking one, choose if you want to post a sale or sublease, or find a place or product to rent or buy.",
@@ -236,6 +248,18 @@ const HelpPage = () => {
         "How do I post a listing?", 
         "How do I filter and save my pick in moving sales?", 
         "How do I find a place to rent?"
+      ],
+      subquestion: [
+        "Quick guide to create an account", 
+        "More detailed guide to post a listing", 
+        "Quick guide to filter and save your picks in moving sale", 
+        "Quick guide to find a place to rent"
+      ],
+      img: [
+        "auth.png", 
+        "listsub.png", 
+        "filter.png ", 
+        "subbrowse.png"
       ],
       answer: [
         "To create an account, click signup and fill the form.",
@@ -295,6 +319,13 @@ const HelpPage = () => {
         "How do I get a best rater badge?",
         "How do I get a best reviewer badge?"
       ],
+      subquestion: [
+        "Quick guide to get a school or alumni badge", 
+        "Quick guide to get a trusted seller badge", 
+        "Quick guide to get a trusted renter badge", 
+        "Quick guide to get a best rater badge",
+        "Quick guide to get a best reviewer badge"
+      ],
       answer: [
         "To get a school badge, you need to add and verify your school email. For alumni badge, you need to check the checkbox for alumni and add your graduation date.",
         "To get a trusted seller badge, you need to have sold at least 10 products.",
@@ -333,10 +364,24 @@ const HelpPage = () => {
       description: "Fix common issues or errors you may encounter.",
       question: [
         "I forgot my password.", 
-        "App crashes on launch.", 
-        "Google and Facebook log in is not working.", 
+        "Web crashes on launch.", 
+        "Google and Facebook login is not working.", 
         "Cannot go to the next page.",
         "The UI is weird on my device?"
+      ],
+      subquestion: [
+        "Solution for forgetting password", 
+        "Solution for web crash", 
+        "Solution for errors on google and facebook login", 
+        "Solution for errors going to next page",
+        "Solutions for UI errors"
+      ],
+      img: [
+        "auth.png", 
+        "", 
+        "auth.png ", 
+        "",
+        ""
       ],
       answer: [
         "Click 'Forgot password' to reset it.",
@@ -385,6 +430,12 @@ const HelpPage = () => {
       question: [
         "Subox AI summaries & Notes"
       ],
+      subquestion: [
+        "Subox 1.0 Release Note Date: August ... 2025 Version: 1.0"
+      ],
+      img: [
+        ""
+      ],
       answer: [
         <>
             We're introducing several major updates in Subox 1.0, focusing on general things for easy use.
@@ -427,6 +478,20 @@ const HelpPage = () => {
         "How should I price my items for a Move Out Sale?", 
         "Should I accept payment methods other than cash?",
         "How can I negotiate prices at a Move Out Sale?"
+      ],
+      subquestion: [
+        "Answer for the question", 
+        "Answer for the difference", 
+        "Quick guide for pricing your item for move out sale", 
+        "Answer for this security related question",
+        "Simple way to negotiate prices"
+      ],
+      img: [
+        "", 
+        "", 
+        "", 
+        "",
+        ""
       ],
       answer: [
         "A sublease (or subleasing) is an arrangement where a current tenant rents out all or part of their leased property to a third party for a portion of their remaining lease term. The original tenant maintains their contractual relationship with the landlord while creating a new landlord-tenant relationship with the subtenant.",
@@ -567,10 +632,121 @@ const HelpPage = () => {
                     {/* Logo */}
                     <ul className="space-y-2 ">
                     <div className="flex items-center space-x-3">
-                      <div className="w-8 h-8 bg-gradient-to-br from-orange-500 to-red-600 rounded-lg flex items-center justify-center">
-                        <Package className="w-5 h-5 text-white" />
-                      </div>
-                      <li><a href="/" className="text-2xl font-bold text-gray-900">Subox</a></li>
+                      <motion.div 
+                          className="flex items-center space-x-6 relative mt-5"
+                          whileHover={{ scale: 1.05 }}
+                          onClick={() => router.push("/")}
+                      >
+                      {/* Main Subox Logo */}
+                      <motion.div className="relative">
+                      {/* House Icon */}
+                      <motion.svg 
+                          className="w-12 h-12" 
+                          viewBox="0 0 100 100" 
+                          fill="none"
+                          whileHover={{ rotate: [0, -5, 5, 0] }}
+                          transition={{ duration: 0.5 }}
+                      >
+                          {/* House Base */}
+                          <motion.path
+                          d="M20 45L50 20L80 45V75C80 78 77 80 75 80H25C22 80 20 78 20 75V45Z"
+                          fill="#E97451"
+                          animate={{ 
+                              fill: ["#E97451", "#F59E0B", "#E97451"],
+                              scale: [1, 1.02, 1]
+                          }}
+                          transition={{ duration: 3, repeat: Infinity }}
+                          />
+                          {/* House Roof */}
+                          <motion.path
+                          d="M15 50L50 20L85 50L50 15L15 50Z"
+                          fill="#D97706"
+                          animate={{ rotate: [0, 1, 0] }}
+                          transition={{ duration: 4, repeat: Infinity }}
+                          />
+                          {/* Window */}
+                          <motion.rect
+                          x="40"
+                          y="50"
+                          width="20"
+                          height="15"
+                          fill="white"
+                          animate={{ 
+                              opacity: [1, 0.8, 1],
+                              scale: [1, 1.1, 1]
+                          }}
+                          transition={{ duration: 2, repeat: Infinity }}
+                          />
+                          {/* Door */}
+                          <motion.rect
+                          x="45"
+                          y="65"
+                          width="10"
+                          height="15"
+                          fill="white"
+                          animate={{ scaleY: [1, 1.05, 1] }}
+                          transition={{ duration: 2.5, repeat: Infinity }}
+                          />
+                      </motion.svg>
+
+                      {/* Tag Icon */}
+                      <motion.svg 
+                          className="w-8 h-8 absolute -top-2 -right-2" 
+                          viewBox="0 0 60 60" 
+                          fill="none"
+                          whileHover={{ rotate: 360 }}
+                          transition={{ duration: 0.8 }}
+                      >
+                          <motion.path
+                          d="M5 25L25 5H50V25L30 45L5 25Z"
+                          fill="#E97451"
+                          animate={{ 
+                              rotate: [0, 5, -5, 0],
+                              scale: [1, 1.1, 1]
+                          }}
+                          transition={{ duration: 3, repeat: Infinity }}
+                          />
+                          <motion.circle
+                          cx="38"
+                          cy="17"
+                          r="4"
+                          fill="white"
+                          animate={{ 
+                              scale: [1, 1.3, 1],
+                              opacity: [1, 0.7, 1]
+                          }}
+                          transition={{ duration: 1.5, repeat: Infinity }}
+                          />
+                      </motion.svg>
+                      </motion.div>
+
+                      {/* Subox Text */}
+                      <motion.div className="flex flex-col -mx-4">
+                      <motion.span 
+                          className="text-3xl font-bold text-gray-900"
+                          animate={{
+                          background: [
+                              "linear-gradient(45deg, #1F2937, #374151)",
+                              "linear-gradient(45deg, #E97451, #F59E0B)",
+                              "linear-gradient(45deg, #1F2937, #374151)"
+                          ],
+                          backgroundClip: "text",
+                          WebkitBackgroundClip: "text",
+                          color: "transparent"
+                          }}
+                          transition={{ duration: 4, repeat: Infinity }}
+                      >
+                          Subox
+                      </motion.span>
+                      <motion.span 
+                          className="text-xs text-gray-500 font-medium tracking-wider"
+                          animate={{ opacity: [0.7, 1, 0.7] }}
+                          transition={{ duration: 2, repeat: Infinity }}
+                      >
+                          SUBLETS & MOVING SALES
+                      </motion.span>
+                      </motion.div>
+                      </motion.div>
                     </div>
                     </ul>
         
@@ -578,6 +754,15 @@ const HelpPage = () => {
                     {/* Header Actions */}
                     <div className="flex items-center space-x-4">
                       
+                      {/* Back */}
+                      <motion.button 
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={() => router.push("/")}
+                        className="flex items-center px-3 py-2 rounded-lg hover:bg-orange-600 text-black hover:text-white transition-colors"
+                      >
+                        <ArrowLeft size={20} /> Back
+                      </motion.button>
 
                       {/* Notifications */}
                       <NotificationsButton notifications={notifications} />
@@ -588,9 +773,9 @@ const HelpPage = () => {
                           whileHover={{ scale: 1.05 }}
                           whileTap={{ scale: 0.95 }}
                           onClick={() => setShowProfile(!showProfile)}
-                          className="p-2 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                          className="p-2 bg-orange-500 rounded-lg hover:bg-orange-600 transition-colors"
                         >
-                          <User className="w-5 h-5 text-gray-600" />
+                          <User className="w-5 h-5 text-white" />
                         </motion.button>
         
                         <AnimatePresence>
@@ -602,14 +787,14 @@ const HelpPage = () => {
                               className="absolute right-0 mt-2 w-64 bg-white rounded-lg shadow-lg border border-gray-200 z-50"
                             >
                               <div className="p-4 space-y-2">
-                                <button onClick={() => handleTabClick("purchased")} className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors">What I Purchased</button>
-                                <button onClick={() => handleTabClick("returned")} className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors">What I Returned</button>
-                                <button onClick={() => handleTabClick("cancelled")} className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors">What I Cancelled</button>
-                                <button onClick={() => handleTabClick("sold")} className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors">What I Sold</button>
-                                <button onClick={() => handleTabClick("sublease")} className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors">Sublease</button>
-                                <button onClick={() => handleTabClick("reviews")} className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors">Reviews</button>
+                                <button onClick={() => handleTabClick("purchased")} className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-orange-50 transition-colors">What I Purchased</button>
+                                <button onClick={() => handleTabClick("returned")} className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-orange-50 transition-colors">What I Returned</button>
+                                <button onClick={() => handleTabClick("cancelled")} className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-orange-50 transition-colors">What I Cancelled</button>
+                                <button onClick={() => handleTabClick("sold")} className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-orange-50 transition-colors">What I Sold</button>
+                                <button onClick={() => handleTabClick("sublease")} className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-orange-50 transition-colors">Sublease</button>
+                                <button onClick={() => handleTabClick("reviews")} className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-orange-50 transition-colors">Reviews</button>
                                 <hr className="my-2" />
-                                <button onClick={() => handleTabClick("history")} className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors">History</button>
+                                <button onClick={() => handleTabClick("history")} className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-orange-50 transition-colors">History</button>
                               </div>
                             </motion.div>
                           )}
@@ -622,9 +807,9 @@ const HelpPage = () => {
                           whileHover={{ scale: 1.05 }}
                           whileTap={{ scale: 0.95 }}
                           onClick={() => setShowMenu(!showMenu)}
-                          className="p-2 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                          className="p-2 bg-orange-500 rounded-lg hover:bg-orange-600 transition-colors"
                         >
-                          <Menu className="w-5 h-5 text-gray-600" />
+                          <Menu className="w-5 h-5 text-white" />
                         </motion.button>
         
                         <AnimatePresence>
@@ -644,7 +829,7 @@ const HelpPage = () => {
                                     router.push('../browse');
                                     setShowMenu(false);
                                   }} 
-                                  className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors"
+                                  className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-orange-50 transition-colors"
                                 >
                                   Browse Items
                                 </button>                        
@@ -653,7 +838,7 @@ const HelpPage = () => {
                                     router.push('/sale/create');
                                     setShowMenu(false);
                                   }} 
-                                  className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors"
+                                  className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-orange-50 transition-colors"
                                 >
                                   Sell Items
                                 </button> 
@@ -662,7 +847,7 @@ const HelpPage = () => {
                                     router.push('/sale/create');
                                     setShowMenu(false);
                                   }} 
-                                  className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors"
+                                  className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-orange-50 transition-colors"
                                 >
                                   My Items
                                 </button>   
@@ -675,7 +860,7 @@ const HelpPage = () => {
                                     router.push('../search');
                                     setShowMenu(false);
                                   }} 
-                                  className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors"
+                                  className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-orange-50 transition-colors"
                                 >
                                   Find Sublease
                                 </button>   
@@ -684,7 +869,7 @@ const HelpPage = () => {
                                     router.push('../search');
                                     setShowMenu(false);
                                   }} 
-                                  className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors"
+                                  className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-orange-50 transition-colors"
                                 >
                                   Post Sublease
                                 </button>   
@@ -693,7 +878,7 @@ const HelpPage = () => {
                                     router.push('../search');
                                     setShowMenu(false);
                                   }} 
-                                  className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors"
+                                  className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-orange-50 transition-colors"
                                 >
                                   My Sublease Listing
                                 </button>
@@ -703,7 +888,7 @@ const HelpPage = () => {
                                     router.push('../sale/browse');
                                     setShowMenu(false);
                                   }} 
-                                  className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors"
+                                  className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-orange-50 transition-colors"
                                 >
                                   Messages
                                 </button>   
@@ -712,7 +897,7 @@ const HelpPage = () => {
                                     router.push('../help');
                                     setShowMenu(false);
                                   }} 
-                                  className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors"
+                                  className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-orange-50 transition-colors"
                                 >
                                   Help & Support
                                 </button>
@@ -721,11 +906,11 @@ const HelpPage = () => {
                                 <hr className="my-2" />
                                  {/* log in/ out */}
                                   {isLoggedIn ? (
-                                    <button className="w-full text-left px-3 py-2 rounded-md text-sm text-red-600 hover:bg-red-50 hover:text-red-700 transition-colors">
+                                    <button className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-orange-50 transition-colors">
                                       Logout
                                     </button>
                                   ) : (
-                                    <button className="w-full text-left px-3 py-2 rounded-md text-sm text-blue-600 hover:bg-blue-50 hover:text-blue-700 transition-colors">
+                                    <button className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-orange-50 transition-colors">
                                       Login
                                     </button>
                                   )}
@@ -739,7 +924,7 @@ const HelpPage = () => {
                 {firstPage ? (
                 <div className="flex flex-col items-center justify-center px-4 py-20">
                   {/* Label */}
-                  <label htmlFor="search" className="text-3xl font-bold mb-7">
+                  <label htmlFor="search" className="text-3xl font-bold mb-7 text-orange-600">
                     Helpful information for better use
                   </label>
                   <form
@@ -782,7 +967,7 @@ const HelpPage = () => {
                     onSubmit={(e) => {
                       e.preventDefault();
                       handleSearch();
-                      setFirstPage(false);
+                      setSecondPage(false);
                       setFourthPage(true);
                     }}
                     className="w-2xl"
@@ -821,7 +1006,7 @@ const HelpPage = () => {
                   {/* Content (buttons) */}
                   <div className="flex justify-between space-x-4">
                     <button 
-                    className="flex item-center flex-1 rounded-md bg-white px-4 py-2 text-gray-600 text-left font-inter text-sm hover:bg-orange-100"
+                    className="flex item-center flex-1 rounded-md bg-white px-4 py-2 text-gray-600 text-left font-inter text-sm hover:bg-orange-50"
                     onClick={() => {
                       setFirstPage(false);
                       setThirdPage(true);
@@ -833,7 +1018,7 @@ const HelpPage = () => {
                       <span className='ml-auto text-orange-500'>-&gt;</span>
                     </button>
                     <button 
-                    className="flex item-center flex-1 rounded-md bg-white px-4 py-2 text-gray-600 text-left font-inter text-sm hover:bg-orange-100"
+                    className="flex item-center flex-1 rounded-md bg-white px-4 py-2 text-gray-600 text-left font-inter text-sm hover:bg-orange-50"
                     onClick={() => {
                       setFirstPage(false);
                       setThirdPage(true);
@@ -859,7 +1044,7 @@ const HelpPage = () => {
                       {helpSections.slice(0, Math.ceil(helpSections.length / 2)).map((section) => (
                         <div
                           key={section.id}
-                          className="relative bg-white border border-orange-200 rounded-xl shadow-lg p-6 cursor-pointer hover:bg-orange-100 transition duration-300 h-full"
+                          className="relative bg-white border border-orange-200 rounded-xl shadow-lg p-6 cursor-pointer hover:bg-orange-50 transition duration-300 h-full"
                           onClick={() => {
                             setFirstPage(false);
                             setSecondPage(true);
@@ -883,7 +1068,7 @@ const HelpPage = () => {
                       {helpSections.slice(Math.ceil(helpSections.length / 2)).map((section) => (
                         <div
                           key={section.id}
-                          className="relative bg-white border border-orange-200 rounded-xl shadow-lg p-6 cursor-pointer hover:bg-orange-100 transition duration-300 h-full"
+                          className="relative bg-white border border-orange-200 rounded-xl shadow-lg p-6 cursor-pointer hover:bg-orange-50 transition duration-300 h-full"
                           onClick={() => {
                             setFirstPage(false);
                             setSecondPage(true);
@@ -958,7 +1143,7 @@ const HelpPage = () => {
                             {section.question.map((q, index) => (
                               <div
                                 key={index}
-                                className="cursor-pointer p-4 rounded hover:bg-orange-100 transition"
+                                className="cursor-pointer p-4 rounded hover:bg-orange-50 transition"
                                 onClick={() => {
                                   setSecondPage(false);
                                   setThirdPage(true);
@@ -966,6 +1151,7 @@ const HelpPage = () => {
                                 }}
                               >
                                 <h3 className="text-lg font-semibold text-orange-600">{q}</h3>
+                                <h3 className="text-sm font-inter text-gray-500">{section.subquestion[index]}</h3>
                               </div>
                             ))}
                           </div>
@@ -1011,6 +1197,11 @@ const HelpPage = () => {
                     <span className='ml-4 text-gray-700'>{section.question[thirdPageId]}</span>
                       <p className="text-3xl font-bold text-orange-600 mb-4 mt-10">{section.question[thirdPageId]}</p>
                       <p className="text-sm font-inter text-gray-600 mb-4">Updated 1 day ago</p>
+                      <img 
+                        src= {section.img[thirdPageId]}
+                        alt="Help section example"
+                        className="w-full max-w-xl mx-auto rounded-lg mb-20 mt-20"
+                      />
                       <p className="text-lg text-gray-700 mt-10">{section.answer[thirdPageId]}</p>
                       <div className="flex flex-col items-center justify-center mt-16 space-y-4">
                         {/* Question */}
@@ -1061,7 +1252,7 @@ const HelpPage = () => {
 
                     return (
                       <div key={i} className="max-w-4xl mx-auto bg-white rounded-2xl shadow-xl p-8 mb-20 -mt-30">
-                        <div className="cursor-pointer p-4 rounded hover:bg-orange-100 transition"
+                        <div className="cursor-pointer p-4 rounded hover:bg-orange-50 transition"
                           onClick={() => {
                             setSecondPage(false);
                             setThirdPage(true);

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Search, MapPin, X, Navigation, Home, Building, Coffee, ShoppingBag, Map, Truck, Users, AlertCircle } from 'lucide-react';
 
-interface LocationPickerProps {
+interface SearchLocationPickerProps {
   onLocationSelect: (location: { 
     lat: number; 
     lng: number; 
@@ -37,11 +37,11 @@ interface PlaceSuggestion {
 let isGoogleMapsLoading = false;
 let googleMapsLoadPromise: Promise<void> | null = null;
 
-export default function LocationPicker({ 
+export default function SearchLocationPicker({ 
   onLocationSelect, 
   initialValue, 
   showDeliveryOptions = true 
-}: LocationPickerProps) {
+}: SearchLocationPickerProps) {
   // =====================
   // STATE MANAGEMENT
   // =====================
@@ -668,7 +668,7 @@ export default function LocationPicker({
   return (
     <div className="relative">
       {/* Search Input */}
-      <div className="relative">
+      <div className="relative text-gray-700">
         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
           <Search size={20} className="text-gray-400" />
         </div>
@@ -695,18 +695,46 @@ export default function LocationPicker({
             <div className="animate-spin rounded-full h-5 w-5 border-2 border-orange-500 border-t-transparent"></div>
           </div>
         )}
+
+        {/* Suggestions Dropdown */}
+        {showSuggestions && suggestions.length > 0 && (
+            <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-200 rounded-xl shadow-2xl z-50 max-h-80 overflow-y-auto">
+            {suggestions.map((suggestion, index) => (
+                <button
+                key={`${suggestion.place_id}-${index}`}
+                onClick={() => selectPlace(suggestion)}
+                className={`w-full px-4 py-4 text-left hover:bg-gray-50 border-b border-gray-100 last:border-b-0 flex items-start gap-3 transition-colors ${
+                    index === 0 ? 'rounded-t-xl' : ''
+                } ${index === suggestions.length - 1 ? 'rounded-b-xl' : ''}`}
+                >
+                <div className="mt-1 flex-shrink-0">
+                    {getPlaceIcon(suggestion.types)}
+                </div>
+                <div className="flex-1 min-w-0">
+                    <p className="font-medium text-gray-900 truncate">
+                    {suggestion.structured_formatting.main_text}
+                    </p>
+                    <p className="text-sm text-gray-600 mt-1 truncate">
+                    {suggestion.structured_formatting.secondary_text}
+                    </p>
+                </div>
+                </button>
+            ))}
+            </div>
+        )}
+
       </div>
 
       {/* Error Messages */}
       {mapsError && renderErrorMessage(mapsError)}
       {locationError && renderErrorMessage(locationError)}
-
+      
       {/* Current Location Button */}
       <button
         type="button"
         onClick={getCurrentLocation}
         disabled={isGettingCurrentLocation || !!mapsError}
-        className="w-full mt-4 px-4 py-4 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-xl hover:from-orange-600 hover:to-orange-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3 shadow-lg"
+        className="w-full mt-4 px-4 py-4 bg-gradient-to-r from-orange-400 to-orange-500 text-white rounded-xl hover:from-orange-500 hover:to-orange-600 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3 shadow-lg"
       >
         {isGettingCurrentLocation ? (
           <>
@@ -720,145 +748,19 @@ export default function LocationPicker({
           </>
         )}
       </button>
-
-      {/* Selected Location Display */}
-      {selectedLocation && (
-        <div className="mt-4 p-4 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-xl">
-          <div className="flex items-start gap-3">
-            <MapPin size={20} className="text-green-600 mt-1 flex-shrink-0" />
-            <div className="flex-1">
-              <div className="flex items-center gap-2 mb-1">
-                <p className="font-semibold text-green-800">Selected Location</p>
-                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-              </div>
-              
-              {selectedLocation.placeName && (
-                <p className="font-medium text-gray-900 mb-1">{selectedLocation.placeName}</p>
-              )}
-              
-              <p className="text-sm text-gray-700 mb-2">{selectedLocation.address}</p>
-              
-              {/* Address Details */}
-              <div className="grid grid-cols-2 gap-2 text-xs text-gray-600 mb-3">
-                {selectedLocation.city && (
-                  <div><span className="font-medium">City:</span> {selectedLocation.city}</div>
-                )}
-                {selectedLocation.state && (
-                  <div><span className="font-medium">State:</span> {selectedLocation.state}</div>
-                )}
-                {selectedLocation.zipCode && (
-                  <div><span className="font-medium">ZIP:</span> {selectedLocation.zipCode}</div>
-                )}
-                {selectedLocation.route && (
-                  <div><span className="font-medium">Street:</span> {selectedLocation.streetNumber || ''} {selectedLocation.route}</div>
-                )}
-              </div>
-
-              {/* Delivery Zone Controls */}
-              {showDeliveryOptions && !mapsError && (
-                <div className="border-t border-green-200 pt-3 mt-3">
-                  <div className="flex items-center justify-between mb-3">
-                    <p className="font-medium text-green-800">Delivery/Pickup Zone</p>
-                    <button
-                      onClick={toggleMap}
-                      className="flex items-center gap-1 px-2 py-1 text-xs bg-green-100 text-green-700 rounded-md hover:bg-green-200 transition-colors"
-                    >
-                      <Map size={14} />
-                      {showMap ? 'Hide Map' : 'Show Map'}
-                    </button>
-                  </div>
-                  
-                  <div className="flex gap-2 mb-3">
-                    <button
-                      onClick={() => handleDeliveryTypeChange('delivery')}
-                      className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                        deliveryType === 'delivery'
-                          ? 'bg-green-500 text-white'
-                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                      }`}
-                    >
-                      <Truck size={16} className="inline mr-1" />
-                      Delivery Zone
-                    </button>
-                    <button
-                      onClick={() => handleDeliveryTypeChange('pickup')}
-                      className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                        deliveryType === 'pickup'
-                          ? 'bg-amber-500 text-white'
-                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                      }`}
-                    >
-                      <Users size={16} className="inline mr-1" />
-                      Pickup Zone
-                    </button>
-                  </div>
-                  
-                  <div className="text-xs text-gray-600">
-                    <p><span className="font-medium">Radius:</span> {(deliveryRadius / 1000).toFixed(1)} km</p>
-                    <p className="text-gray-500 mt-1">
-                      {deliveryType === 'delivery' 
-                        ? 'Drag the green circle to adjust your delivery area' 
-                        : 'Drag the yellow circle to adjust your pickup area'}
-                    </p>
-                    {!showMap && (
-                      <p className="text-orange-600 text-xs mt-1 font-medium">
-                        💡 Click "Show Map" above to see and adjust the zone
-                      </p>
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Map Display */}
-      {showMap && selectedLocation && !mapsError && (
-        <div className="mt-4 h-64 rounded-xl overflow-hidden shadow-lg border border-gray-200">
-          <div ref={mapRef} className="w-full h-full" />
-        </div>
-      )}
-
-      {/* Suggestions Dropdown */}
-      {showSuggestions && suggestions.length > 0 && (
-        <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-200 rounded-xl shadow-2xl z-50 max-h-80 overflow-y-auto">
-          {suggestions.map((suggestion, index) => (
-            <button
-              key={`${suggestion.place_id}-${index}`}
-              onClick={() => selectPlace(suggestion)}
-              className={`w-full px-4 py-4 text-left hover:bg-gray-50 border-b border-gray-100 last:border-b-0 flex items-start gap-3 transition-colors ${
-                index === 0 ? 'rounded-t-xl' : ''
-              } ${index === suggestions.length - 1 ? 'rounded-b-xl' : ''}`}
-            >
-              <div className="mt-1 flex-shrink-0">
-                {getPlaceIcon(suggestion.types)}
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="font-medium text-gray-900 truncate">
-                  {suggestion.structured_formatting.main_text}
-                </p>
-                <p className="text-sm text-gray-600 mt-1 truncate">
-                  {suggestion.structured_formatting.secondary_text}
-                </p>
-              </div>
-            </button>
-          ))}
-        </div>
-      )}
-
+      
       {/* Popular Categories and Areas */}
-      {!searchQuery && !selectedLocation && renderPopularCategories()}
+      {/* {!searchQuery && !selectedLocation && renderPopularCategories()} */}
 
       {/* Loading Status */}
-      {!isGoogleMapsReady && !mapsError && (
+      {/* {!isGoogleMapsReady && !mapsError && (
         <div className="mt-3 text-center">
           <div className="inline-flex items-center gap-2 px-3 py-1 bg-blue-50 text-blue-600 rounded-full text-xs">
             {isGoogleMapsLoading && <div className="animate-spin rounded-full h-3 w-3 border border-blue-500 border-t-transparent"></div>}
             {isGoogleMapsLoading ? 'Loading enhanced search...' : 'Basic search mode'}
           </div>
         </div>
-      )}
+      )} */}
     </div>
   );
 }

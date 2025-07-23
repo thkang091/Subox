@@ -4,54 +4,102 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useParams } from 'next/navigation';
 import { motion, AnimatePresence } from "framer-motion";
-// import { doc, getDoc } from 'firebase/firestore';
-// import { db } from '@/lib/firebase';
-import { MapPin, Heart, User, Package, Search, ShoppingCart, Bell, X, ArrowLeft, ArrowRight,
+import { db } from '@/lib/firebase';
+import { doc, getDoc, updateDoc, increment, collection, query, where, getDocs, limit, orderBy, addDoc, serverTimestamp } from 'firebase/firestore';
+import { useAuth } from '@/app/contexts/AuthInfo';
+import { MapPin, Heart, User, Package, Bell, X, ArrowLeft, ArrowRight,
         ChevronLeft, Plus, Flag, MessageCircle
 } from 'lucide-react';
-import { products } from '../../../../../data/saleListings';
-import { auth } from '@/lib/firebase';
-import { onAuthStateChanged } from 'firebase/auth';
-import { updateUserHistoryAndBadges } from "@/app/history/historyUpdate";
+
+// Interfaces
+interface PageParams {
+  id?: string;
+  productId?: string;
+  saleItemId?: string;
+}
+
+interface ProductData {
+  id: string;
+  name: string;
+  description?: string;
+  shortDescription?: string;
+  price: number;
+  originalPrice?: number;
+  priceType?: string;
+  minPrice?: number;
+  maxPrice?: number;
+  category?: string;
+  condition: string;
+  location: string;
+  deliveryAvailable?: boolean;
+  pickupAvailable?: boolean;
+  image?: string;
+  images?: string[];
+  additionalImages?: string[];
+  views?: number;
+  sellerRating?: number;
+  seller?: string;
+  sellerEmail?: string;
+  sellerPhoto?: string;
+  hostId?: string;
+  sellerID?: string;
+  createdAt?: Date;
+  updatedAt?: Date;
+  availableUntil?: string;
+  similarity?: number;
+}
+
+interface SellerInfo {
+  ID: string;
+  name: string;
+  email: string;
+  photoURL: string | null;
+}
 
 const ProductDetailPage = () => {
   const router = useRouter();
-  const params = useParams();
-  const id = params?.id;
+  const params = useParams() as PageParams;
+  const { user } = useAuth();
+  
+  // Enhanced ID extraction
+  const extractProductId = (): string | null => {
+    if (params?.id) return params.id;
+    
+    if (typeof window !== 'undefined') {
+      const pathname = window.location.pathname;
+      const match = pathname.match(/\/product\/([^\/]+)/);
+      if (match && match[1]) {
+        return decodeURIComponent(match[1]);
+      }
+    }
+    
+    return null;
+  };
+
+  const id = extractProductId();
+  const [actualId, setActualId] = useState<string | null>(null);
+  
+  // State management
   const [activeImage, setActiveImage] = useState(0);
   const [showAllImages, setShowAllImages] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
-  const [showCart, setShowCart] = useState(false);
-  const [favoriteListings, setFavoriteListings] = useState([]);
+  const [favoriteListings, setFavoriteListings] = useState<any[]>([]);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
   const [showConnectOptions, setShowConnectOptions] = useState(false);
-  const [favorites, setFavorites] = useState(new Set());
-  const [cart, setCart] = useState(new Map());
-  const [product, setProduct] = useState<any>(null);
-  const [showReportForm, setShowReportForm] = useState(false);
-  const [reportReason, setReportReason] = useState("");
-  const [scamDetails, setScamDetails] = useState("");
-  const [informationDetails, setInformationDetails] = useState("");
-  const [matchDetails, setMatchDetails] = useState<string[]>([]);
-  const [priceDetails, setPriceDetails] = useState("");
-  const [offensiveDetails, setOffensiveDetails] = useState("");
-  const [unsafeDetails, setUnsafeDetails] = useState("");
-  const [sellerProblem, setSellerProblem] = useState("");
-  const [details, setDetails] = useState("");
-  const [user, setUser] = useState(null);
-  const [userId, setUserId] = useState<string | null>(null);
-  const [seller, setSeller] = useState<any>({
-    ID : "none",
+  const [product, setProduct] = useState<ProductData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [otherSellerItems, setOtherSellerItems] = useState<ProductData[]>([]);
+  const [similarProducts, setSimilarProducts] = useState<ProductData[]>([]);
+  const [loadingRecommendations, setLoadingRecommendations] = useState(false);
+  const [creatingConversation, setCreatingConversation] = useState(false);
+  const [seller, setSeller] = useState<SellerInfo>({
+    ID: "none",
     name: "seller",
     email: "seller@example.com",
     photoURL: null
   });
-  const [rating, setRating] = useState(0);
-  const [reviewText, setReviewText] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [reviews, setReviews] = useState<any[]>([]);
-  const [averageRating, setAverageRating] = useState<number | null>(null);
 
   const notifications = [
     { id: 1, type: "price-drop", message: "MacBook Pro price dropped by $50!", time: "2h ago" },
@@ -59,25 +107,30 @@ const ProductDetailPage = () => {
     { id: 3, type: "favorite", message: "Your favorited item is ending soon", time: "1d ago" }
   ];
 
+  // Check if current user is the seller
+  const isCurrentUserSeller = user && product && user.uid === product.hostId;
+
+  // Mount effect
   useEffect(() => {
     setIsMounted(true);
-    }, []);
+  }, []);
     
-    useEffect(() => {
-        if (isMounted) {
-            try {
-            const savedFavorites = localStorage.getItem('favoriteListings');
-            if (savedFavorites) {
-                setFavoriteListings(JSON.parse(savedFavorites));
-            }
-            } catch (error) {
-            console.error('Error loading favorites from localStorage:', error);
-            }
+  // Load favorites from localStorage
+  useEffect(() => {
+    if (isMounted) {
+      try {
+        const savedFavorites = localStorage.getItem('favoriteListings');
+        if (savedFavorites) {
+          setFavoriteListings(JSON.parse(savedFavorites));
         }
-    }, [isMounted]);
+      } catch (error) {
+        console.error('Error loading favorites from localStorage:', error);
+      }
+    }
+  }, [isMounted]);
 
-    // when favoriteListings is changed, update the localStorage
-    useEffect(() => {
+  // Save favorites to localStorage
+  useEffect(() => {
     if (isMounted) {
       try {
         localStorage.setItem('favoriteListings', JSON.stringify(favoriteListings));
@@ -87,189 +140,342 @@ const ProductDetailPage = () => {
     }
   }, [favoriteListings, isMounted]);
     
-    // find listing data
-    const prod = products.find(item => 
-      item.id === parseInt(id as string) || item.id.toString() === id
-    );
+  // Toggle favorite function
+  const toggleFavorite = (prod: ProductData) => {
+    const isFavorited = favoriteListings.some(item => item.id === prod.id);
     
-    const toggleFavorite = (prod) => {
-      const isFavorited = favoriteListings.some(item => item.id === prod.id);
+    if (isFavorited) {
+      setFavoriteListings(favoriteListings.filter(item => item.id !== prod.id));
+    } else {
+      const favoriteItem = {
+        id: prod.id,
+        name: prod.name || 'Untitled Listing',
+        location: prod.location || 'Unknown Location',
+        price: prod.price || 0,
+        image: prod.image || '/api/placeholder/800/500',
+      };
       
-      if (isFavorited) {
-        setFavoriteListings(favoriteListings.filter(item => item.id !== prod.id));
-      } else {
-        // add new
-        const favoriteItem = {
-          id: prod.id,
-          title: prod.title || 'Untitled Listing',
-          location: prod.location || 'Unknown Location',
-          price: prod.price || 0,
-          bedrooms: prod.bedrooms || 1,
-          ...(prod.bathrooms !== undefined && { bathrooms: prod.bathrooms }),
-          image: prod.image || '/api/placeholder/800/500',
-          ...(prod.dateRange && { dateRange: prod.dateRange })
+      setFavoriteListings([favoriteItem, ...favoriteListings]);
+    }
+    
+    setIsSidebarOpen(true);
+  };
+
+  // Enhanced messaging function
+  const navigateToMessage = async () => {
+    if (!user) {
+      alert('Please log in to message the seller');
+      return;
+    }
+
+    if (!product) {
+      alert('Product information not available');
+      return;
+    }
+
+    // Check if user is trying to message themselves
+    if (user.uid === product.hostId) {
+      alert('You cannot message yourself');
+      return;
+    }
+
+    setCreatingConversation(true);
+
+    try {
+      // First, check if a conversation already exists between these users for this item
+      const existingConversationQuery = query(
+        collection(db, 'conversations'),
+        where('participants', 'array-contains', user.uid),
+        where('listingId', '==', product.id)
+      );
+
+      const existingConversations = await getDocs(existingConversationQuery);
+      let conversationId = null;
+
+      // Check if any of the existing conversations involve both users
+      for (const convDoc of existingConversations.docs) {
+        const convData = convDoc.data();
+        if (convData.participants.includes(product.hostId)) {
+          conversationId = convDoc.id;
+          break;
+        }
+      }
+
+      // If no existing conversation, create a new one
+      if (!conversationId) {
+        const conversationData = {
+          participants: [user.uid, product.hostId],
+          hostId: product.hostId,
+          hostName: seller.name,
+          hostEmail: seller.email,
+          hostImage: seller.photoURL || '/api/placeholder/40/40',
+          guestId: user.uid,
+          guestName: user.displayName || user.email || 'User',
+          guestEmail: user.email || '',
+          guestImage: user.photoURL || '/api/placeholder/40/40',
+          listingId: product.id,
+          listingTitle: product.name,
+          listingImage: product.image || '/api/placeholder/400/300',
+          listingLocation: product.location,
+          listingPrice: product.price,
+          conversationType: 'moveout', // Since this is from move out sale
+          lastMessage: '',
+          lastMessageTime: serverTimestamp(),
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+          hostUnreadCount: 0,
+          guestUnreadCount: 0,
         };
-        
-        setFavoriteListings([favoriteItem, ...favoriteListings]);
+
+        const newConversationRef = await addDoc(collection(db, 'conversations'), conversationData);
+        conversationId = newConversationRef.id;
       }
+
+      // Navigate to the conversation
+      router.push(`/sublease/search/${conversationId}/message`);
+
+    } catch (error) {
+      console.error('Error creating/finding conversation:', error);
+      alert('Failed to start conversation. Please try again.');
+    } finally {
+      setCreatingConversation(false);
+    }
+  };
+
+  // Fetch other items by the same seller
+  const fetchOtherSellerItems = async (hostId: string, currentProductId: string) => {
+    try {
+      const q = query(
+        collection(db, 'saleItems'),
+        where('hostId', '==', hostId),
+        orderBy('createdAt', 'desc'),
+        limit(12)
+      );
       
-      setIsSidebarOpen(true);
-    };
-  
+      const querySnapshot = await getDocs(q);
+      const items: ProductData[] = [];
+      
+      querySnapshot.forEach((doc) => {
+        const data = doc.data();
+        if (doc.id !== currentProductId) {
+          items.push({
+            id: doc.id,
+            ...data,
+            createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : data.createdAt,
+            updatedAt: data.updatedAt?.toDate ? data.updatedAt.toDate() : data.updatedAt
+          } as ProductData);
+        }
+      });
+      
+      setOtherSellerItems(items);
+    } catch (error) {
+      console.error('Error fetching other seller items:', error);
+    }
+  };
 
+  // Enhanced algorithm for finding similar products
+  const fetchSimilarProducts = async (currentProduct: ProductData) => {
+    try {
+      const similarItems: ProductData[] = [];
+      
+      // Strategy 1: Same category
+      if (currentProduct.category) {
+        const categoryQuery = query(
+          collection(db, 'saleItems'),
+          where('category', '==', currentProduct.category),
+          orderBy('createdAt', 'desc'),
+          limit(8)
+        );
+        
+        const categorySnapshot = await getDocs(categoryQuery);
+        categorySnapshot.forEach((doc) => {
+          const data = doc.data();
+          if (doc.id !== currentProduct.id) {
+            similarItems.push({
+              id: doc.id,
+              ...data,
+              similarity: 0.8,
+              createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : data.createdAt,
+              updatedAt: data.updatedAt?.toDate ? data.updatedAt.toDate() : data.updatedAt
+            } as ProductData);
+          }
+        });
+      }
+
+      // Strategy 2: Similar price range (±30%)
+      const priceMin = Math.floor(currentProduct.price * 0.7);
+      const priceMax = Math.ceil(currentProduct.price * 1.3);
+      
+      const priceQuery = query(
+        collection(db, 'saleItems'),
+        where('price', '>=', priceMin),
+        where('price', '<=', priceMax),
+        orderBy('price'),
+        limit(8)
+      );
+      
+      const priceSnapshot = await getDocs(priceQuery);
+      priceSnapshot.forEach((doc) => {
+        const data = doc.data();
+        if (doc.id !== currentProduct.id && !similarItems.find(item => item.id === doc.id)) {
+          similarItems.push({
+            id: doc.id,
+            ...data,
+            similarity: 0.6,
+            createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : data.createdAt,
+            updatedAt: data.updatedAt?.toDate ? data.updatedAt.toDate() : data.updatedAt
+          } as ProductData);
+        }
+      });
+
+      // Strategy 3: Same location
+      if (currentProduct.location) {
+        const locationQuery = query(
+          collection(db, 'saleItems'),
+          where('location', '==', currentProduct.location),
+          orderBy('createdAt', 'desc'),
+          limit(6)
+        );
+        
+        const locationSnapshot = await getDocs(locationQuery);
+        locationSnapshot.forEach((doc) => {
+          const data = doc.data();
+          if (doc.id !== currentProduct.id && !similarItems.find(item => item.id === doc.id)) {
+            similarItems.push({
+              id: doc.id,
+              ...data,
+              similarity: 0.5,
+              createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : data.createdAt,
+              updatedAt: data.updatedAt?.toDate ? data.updatedAt.toDate() : data.updatedAt
+            } as ProductData);
+          }
+        });
+      }
+
+      // Remove duplicates and sort by similarity score
+      const uniqueItems = similarItems.filter((item, index, self) => 
+        index === self.findIndex(t => t.id === item.id)
+      );
+
+      const sortedItems = uniqueItems
+        .sort((a, b) => (b.similarity || 0) - (a.similarity || 0))
+        .slice(0, 8);
+
+      setSimilarProducts(sortedItems);
+    } catch (error) {
+      console.error('Error fetching similar products:', error);
+    }
+  };
+
+  // Enhanced product fetching
   useEffect(() => {
-  //   const fetchData = async () => {
-  //     const productRef = doc(db, 'products', id as string);
-  //     const productSnap = await getDoc(productRef);
-  //     if (productSnap.exists()) {
-  //       const productData = productSnap.data();
-  //       setProduct(productData);
+    const fetchProduct = async () => {
+      const productId = extractProductId();
+      
+      if (!productId) {
+        setError('No product ID found in URL parameters');
+        setLoading(false);
+        return;
+      }
 
-  //       // Fetch seller profile
-  //       const sellerRef = doc(db, 'users', productData.seller);
-  //       const sellerSnap = await getDoc(sellerRef);
-  //       if (sellerSnap.exists()) {
-  //         setSeller(sellerSnap.data());
-  //       }
-  //     }
-  //   };
+      const cleanId = String(productId).trim();
+      if (!cleanId) {
+        setError('Invalid product ID');
+        setLoading(false);
+        return;
+      }
 
-  //   if (id) fetchData();
-  // }, [id]);
-
-  // find listing data
-      const foundProduct = products.find(item => 
-      item.id === parseInt(id as string) || item.id.toString() === id
-    );
+      try {
+        setLoading(true);
+        setError(null);
+        
+        const productRef = doc(db, 'saleItems', cleanId);
+        const productSnap = await getDoc(productRef);
+        
+        if (productSnap.exists()) {
+          const rawData = productSnap.data();
+          
+          const productData: ProductData = { 
+            id: productSnap.id, 
+            ...rawData,
+            createdAt: rawData.createdAt?.toDate ? rawData.createdAt.toDate() : rawData.createdAt,
+            updatedAt: rawData.updatedAt?.toDate ? rawData.updatedAt.toDate() : rawData.updatedAt
+          } as ProductData;
+          
+          setProduct(productData);
+          setActualId(cleanId);
+          
+          // Try to increment view count
+          try {
+            await updateDoc(productRef, {
+              views: increment(1)
+            });
+          } catch (viewError) {
+            console.warn('Could not increment view count:', viewError);
+          }
+          
+          // Set seller info
+          const sellerInfo: SellerInfo = {
+            ID: productData.hostId || productData.sellerID || "none",
+            name: productData.seller || "Seller",
+            email: productData.sellerEmail || "seller@example.com",
+            photoURL: productData.sellerPhoto || null
+          };
+          setSeller(sellerInfo);
+          
+          // Fetch recommendations
+          setLoadingRecommendations(true);
+          if (productData.hostId) {
+            await fetchOtherSellerItems(productData.hostId, cleanId);
+          }
+          await fetchSimilarProducts(productData);
+          setLoadingRecommendations(false);
+          
+        } else {
+          setError(`Product not found. ID: ${cleanId}`);
+          setTimeout(() => {
+            router.push('/sale/browse');
+          }, 3000);
+        }
+      } catch (error) {
+        setError(`Error loading product: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      } finally {
+        setLoading(false);
+      }
+    };
     
-    if (foundProduct) {
-      setProduct(foundProduct);
+    fetchProduct();
+  }, [params, router]);
 
-      setSeller({
-      ID: foundProduct.sellerID || "none",
-      name: foundProduct.seller || "seller",
-      email: foundProduct.sellerEmail || "seller@example.com",
-      photoURL: foundProduct.sellerPhoto || null
-    });
-
-    };
-  }, [id]);
-
-  /* await updateUserHistoryAndBadges({
-    userId: userId || "",
-    newRating: product.rate,
-    productAvg: product.rateAvg,
-    actionType: "rated",
-    productId: product.id
-  }); */
-
-  const mismatchOptions = [
-    {value: "reviews", label: "Reviews"},
-    {value: "image", label: "Image"},
-    {value: "title", label: "Title"},
-    {value: "bullet", label: "Bullet Points"},
-    {value: "brand", label: "Brand"},
-    {value: "other-mismatches", label: "Other mismatches"}
-  ]
-
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      if (currentUser) {
-        setUser(currentUser);
-        setUserId(currentUser.uid);
-      }
-      else {
-        setUser(null);
-        setUserId(null);
-      }
-    });
-
-    return () => unsubscribe();
-  }, []);
- 
-  const handleTabClick = () => {
-    router.push(`/sale/browse/profile/${userId}/`);
-    setShowProfile(false); // close dropdown
+  const handleTabClick = (tab: string) => {
+    if (actualId || id) {
+      router.push(`/sale/profile/${actualId || id}?tab=${tab}`);
+    }
+    setShowProfile(false);
   };
 
-  const handleBuyProduct = () => {
-    router.push(`${product.id}/buy`)
-  }
-
-  const handleSubmitReport = () => {
-    if (!reportReason) {
-      alert("Please select a reason for reporting.");
-      return;
-    }
-
-    if (!scamDetails && reportReason == "scam") {
-      alert("Please select a scam detail.");
-      return;
-    }
-    else if (!matchDetails && reportReason == "mismatch") {
-      alert("Please select a mismatch detail.");
-      return;
-    }
-    else if (!informationDetails && reportReason == "information") {
-      alert("Please select missing information.");
-      return;
-    }
-    else if (!sellerProblem && reportReason == "seller") {
-      alert("Please select a problem about the seller.");
-      return;
-    }
-    else if (!priceDetails && reportReason == "price") {
-      alert("Please select a price issue.");
-      return;
-    }
-    else if (!unsafeDetails && reportReason == "unsafe") {
-      alert("Please select a reason why it's unsafe.");
-      return;
-    }
-    else if (!offensiveDetails && reportReason == "offensive") {
-      alert("Please select a reason why it's offensive.");
-      return;
-    }
-
-    // Submit logic here, like sending to Firestore or your backend
-    alert("Seller reported. Thank you!");
-    setShowReportForm(false);
-    setReportReason("");
-    setScamDetails("");
-    setMatchDetails([]);
-    setInformationDetails("");
-    setSellerProblem("");
-    setPriceDetails("");
-    setUnsafeDetails("");
-    setOffensiveDetails("");
-    setDetails("");
-  };
-
-  const navigateToMessage = () => {
-  router.push(`${product.id}/message`);
-  };
-
-   // check if the image already in the current listings
-  const isCurrentListingFavorited = favoriteListings.some(item => item.id === product.id);
+  // Check if favorited
+  const isCurrentListingFavorited = favoriteListings.some(item => item.id === product?.id);
   
+  // All images array
+  const allImages = product ? [
+    product.image,
+    ...(product.additionalImages || []),
+    ...(product.images || [])
+  ].filter(Boolean) : [];
 
-  // all image array
-  const allImages = product ? [product.image, ...(product.additionalImages || [])] : [];
-
-
-    // gp to previous image
+  // Image navigation
   const goToPrevImage = () => {
     setActiveImage((prev) => (prev === 0 ? allImages.length - 1 : prev - 1));
   };
   
-  // go to next image
   const goToNextImage = () => {
     setActiveImage((prev) => (prev === allImages.length - 1 ? 0 : prev + 1));
   };
 
-  // use keyboard to move image
+  // Keyboard navigation for images
   useEffect(() => {
-    const handleKeyDown = (e) => {
+    const handleKeyDown = (e: KeyboardEvent) => {
       if (!showAllImages) return;
       
       if (e.key === 'ArrowLeft') {
@@ -285,38 +491,9 @@ const ProductDetailPage = () => {
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [showAllImages]);
+  }, [showAllImages, allImages.length]);
 
-  const handleSubmitReview = async () => {
-    setIsSubmitting(true);
-    try {
-      await updateUserHistoryAndBadges({
-        userId,
-        actionType: "rated",
-        productId: product.id,
-        newRating: rating,
-        newRateAvg: averageRating,
-      });
-
-      await updateUserHistoryAndBadges({
-        userId,
-        actionType: "reviewed",
-        productId: product.id
-      });
-
-      // Clear form after submit
-      setRating(0);
-      setReviewText("");
-      alert("Review submitted!");
-    } catch (err) {
-      console.error("Error submitting review:", err);
-      alert("Something went wrong.");
-    } finally {
-      setIsSubmitting(false);
-    }
-  }
-
-  const NotificationsButton = ({ notifications }) => {
+  const NotificationsButton = ({ notifications }: { notifications: any[] }) => {
     const [showNotifications, setShowNotifications] = useState(false);
 
     return (
@@ -349,7 +526,7 @@ const ProductDetailPage = () => {
                   {notifications.map(notif => (
                     <button
                       key={notif.id}
-                      onClick={() => router.push(`/sale/browse/notification?id=${notif.id}`)}
+                      onClick={() => router.push(`/sale/browse/notificationDetail/${notif.id}`)}
                       className="w-full flex items-start space-x-3 p-2 rounded-lg hover:bg-gray-50 text-left"
                     >
                       <div className="w-2 h-2 bg-orange-500 rounded-full mt-2"></div>
@@ -360,10 +537,8 @@ const ProductDetailPage = () => {
                     </button>
                   ))}
                 </div>
-
-                {/* See All Notifications */}
                 <button
-                  onClick={() => router.push(`browse/notification/`)}
+                  onClick={() => router.push(`/sale/browse/notification/`)}
                   className="mt-3 text-sm text-blue-600 hover:underline"
                 >
                   See all notifications
@@ -376,9 +551,68 @@ const ProductDetailPage = () => {
     );
   };
 
+  // Loading state
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-gray-50">
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center">
+            <div className="w-12 h-12 border-4 border-orange-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+            <p className="text-gray-600">Loading product details...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
-  if (!product) return <div className="p-4">Loading...</div>;
+  // Error state
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-gray-50">
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center max-w-md">
+            <div className="text-red-500 mb-4">
+              <X className="w-16 h-16 mx-auto mb-2" />
+              <h2 className="text-xl font-semibold">Loading Error</h2>
+            </div>
+            <p className="text-red-600 mb-4">{error}</p>
+            <div className="space-x-4">
+              <button 
+                onClick={() => router.push('/sale/browse')}
+                className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600"
+              >
+                Back to Browse
+              </button>
+              <button 
+                onClick={() => window.location.reload()}
+                className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600"
+              >
+                Retry
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
+  if (!product) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-gray-50">
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center">
+            <p className="text-gray-600 mb-4">Product not found</p>
+            <button 
+              onClick={() => router.push('/sale/browse')}
+              className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600"
+            >
+              Back to Browse
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-gray-50">
       {/* Header */}
@@ -393,14 +627,12 @@ const ProductDetailPage = () => {
               <span className="text-2xl font-bold text-gray-900">Subox</span>
               <span className="text-sm text-gray-500 hidden sm:block">Move Out Sales</span>
             </div>
-
+ 
             {/* Header Actions */}
             <div className="flex items-center space-x-4">
-              
               {/* Notifications */}
               <NotificationsButton notifications={notifications} />
-
-
+ 
               {/* Favorites */}
               <div className="relative">
                 <motion.button
@@ -409,83 +641,77 @@ const ProductDetailPage = () => {
                   onClick={() => setIsSidebarOpen(!isSidebarOpen)} 
                   className="p-2 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors relative"
                 >
-                  <Heart size={20} 
-                    className = "w-5 h-5 text-gray-600"/>
+                  <Heart size={20} className="w-5 h-5 text-gray-600"/>
                 </motion.button>
-
-              {/* Favorites Sidebar */}
-              <div className={`fixed left-0 top-0 h-full w-72 bg-white shadow-xl z-40 transform transition-transform duration-300 ease-in-out ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} overflow-auto`}>
-                <div className="p-4 border-b">
-                  <div className="flex justify-between items-center">
-                    <h2 className="font-bold text-lg text-orange-500">Favorites</h2>
-                    <button 
-                      onClick={() => setIsSidebarOpen(false)}
-                      className="p-2 rounded-full hover:bg-gray-100"
-                    >
-                      <X size={20} />
-                    </button>
+ 
+                {/* Favorites Sidebar */}
+                <div className={`fixed left-0 top-16 h-[calc(100vh-4rem)] w-72 bg-white shadow-xl z-40 transform transition-transform duration-300 ease-in-out ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} overflow-auto`}>                
+                  <div className="p-4 border-b">
+                    <div className="flex justify-between items-center">
+                      <h2 className="font-bold text-lg text-orange-500">Favorites</h2>
+                      <button 
+                        onClick={() => setIsSidebarOpen(false)}
+                        className="p-2 rounded-full hover:bg-gray-100"
+                      >
+                        <X size={20} />
+                      </button>
+                    </div>
+                  </div>
+                  
+                  <div className="p-4">
+                    {isMounted && (
+                      <>
+                        {favoriteListings.length === 0 ? (
+                          <div className="text-center py-8 text-gray-500">
+                            <Heart size={40} className="mx-auto mb-2 opacity-50" />
+                            <p>No favorite listings yet</p>
+                            <p className="text-sm mt-2">Click the heart icon on listings to save them here</p>
+                          </div>
+                        ) : (
+                          <div className="space-y-4">
+                            {favoriteListings.map(favProduct => (
+                              <div 
+                                key={favProduct.id} 
+                                className="border rounded-lg overflow-hidden hover:shadow-md transition cursor-pointer"
+                                onClick={() => {
+                                  setIsSidebarOpen(false);
+                                  router.push(`/sale/browse/product/${favProduct.id}`);
+                                }}
+                              >
+                                <div className="flex">
+                                  <div 
+                                    className="w-20 h-20 bg-gray-200 flex-shrink-0" 
+                                    style={{backgroundImage: `url(${favProduct.image})`, backgroundSize: 'cover', backgroundPosition: 'center'}}
+                                  ></div>
+                                  <div className="p-3 flex-1">
+                                    <div className="font-medium text-gray-700">{favProduct.name}</div>
+                                    <div className="text-sm text-gray-500">{favProduct.location}</div>
+                                    <div className="text-sm font-bold text-[#15361F] mt-1">
+                                      ${favProduct.price}
+                                    </div>
+                                  </div>
+                                  <button 
+                                    className="p-2 text-gray-400 hover:text-red-500 self-start"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setFavoriteListings(favoriteListings.filter(item => item.id !== favProduct.id));
+                                    }}
+                                  >
+                                    <X size={16} />
+                                  </button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </>
+                    )}
                   </div>
                 </div>
-                
-                <div className="p-4">
-                  {/* favorites list */}
-                  {isMounted && (
-                    <>
-                      {favoriteListings.length === 0 ? (
-                        <div className="text-center py-8 text-gray-500">
-                          <Heart size={40} className="mx-auto mb-2 opacity-50" />
-                          <p>No favorite listings yet</p>
-                          <p className="text-sm mt-2">Click the heart icon on listings to save them here</p>
-                        </div>
-                      ) : (
-                        <div className="space-y-4">
-                          {favoriteListings.map(listing => (
-                            <div 
-                              key={listing.id} 
-                              className="border rounded-lg overflow-hidden hover:shadow-md transition cursor-pointer"
-                              onClick={() => {
-                                setIsSidebarOpen(false);
-                                router.push(`/sale/browse/product/${listing.id}`);
-                              }}
-                            >
-                              <div className="flex">
-                                <div 
-                                  className="w-20 h-20 bg-gray-200 flex-shrink-0" 
-                                  style={{backgroundImage: `url(${listing.image})`, backgroundSize: 'cover', backgroundPosition: 'center'}}
-                                ></div>
-                                <div className="p-3 flex-1">
-                                  <div className="font-medium text-gray-700">{listing.name}</div>
-                                  <div className="text-sm text-gray-500">{listing.location}</div>
-                                  <div className="text-sm font-bold text-[#15361F] mt-1">
-                                    ${listing.price}
-                                  </div>
-                                </div>
-                                <button 
-                                  className="p-2 text-gray-400 hover:text-red-500 self-start"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setFavoriteListings(favoriteListings.filter(item => item.id !== listing.id));
-                                  }}
-                                >
-                                  <X size={16} />
-                                </button>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </>
-                  )}
-                </div>
               </div>
-            </div>
+ 
               {/* Profile */}
               <div className="relative">
-                {/* Greeting */}
-                <span className="text-sm text-gray-700 font-medium">
-                  {user ? `Welcome, ${user.displayName || "User"}` : "Please sign in"}
-                </span>
-
                 <motion.button
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
@@ -494,7 +720,7 @@ const ProductDetailPage = () => {
                 >
                   <User className="w-5 h-5 text-gray-600" />
                 </motion.button>
-
+ 
                 <AnimatePresence>
                   {showProfile && (
                     <motion.div
@@ -518,12 +744,11 @@ const ProductDetailPage = () => {
           </div>
         </div>
       </div>
-
-      {/* image gallery */}
-      {showAllImages && (
+ 
+      {/* Image Gallery Modal */}
+      {showAllImages && allImages.length > 0 && (
         <div className="fixed inset-0 bg-black bg-opacity-90 z-50 flex flex-col items-center justify-center p-4">
           <div className="w-full max-w-4xl">
-            {/* close buttion */}
             <div className="flex justify-end mb-2">
               <button 
                 onClick={() => setShowAllImages(false)}
@@ -533,7 +758,6 @@ const ProductDetailPage = () => {
               </button>
             </div>
             
-            {/* showing image */}
             <div className="relative mb-4">
               <div className="h-96 flex items-center justify-center">
                 <img 
@@ -543,521 +767,424 @@ const ProductDetailPage = () => {
                 />
               </div>
               
-              {/* left arrow */}
-              <button 
-                onClick={goToPrevImage}
-                className="absolute left-0 top-1/2 transform -translate-y-1/2 p-2 bg-white bg-opacity-80 rounded-full text-gray-800 hover:bg-opacity-100 transition"
-                aria-label="Previous image"
-              >
-                <ArrowLeft size={24} />
-              </button>
+              {allImages.length > 1 && (
+                <button 
+                  onClick={goToPrevImage}
+                  className="absolute left-0 top-1/2 transform -translate-y-1/2 p-2 bg-white bg-opacity-80 rounded-full text-gray-800 hover:bg-opacity-100 transition"
+                  aria-label="Previous image"
+                >
+                  <ArrowLeft size={24} />
+                </button>
+              )}
               
-              {/* right arrow */}
-              <button 
-                onClick={goToNextImage}
-                className="absolute right-0 top-1/2 transform -translate-y-1/2 p-2 bg-white bg-opacity-80 rounded-full text-gray-800 hover:bg-opacity-100 transition"
-                aria-label="Next image"
-              >
-                <ArrowRight size={24} />
-              </button>
+              {allImages.length > 1 && (
+                <button 
+                  onClick={goToNextImage}
+                  className="absolute right-0 top-1/2 transform -translate-y-1/2 p-2 bg-white bg-opacity-80 rounded-full text-gray-800 hover:bg-opacity-100 transition"
+                  aria-label="Next image"
+                >
+                  <ArrowRight size={24} />
+                </button>
+              )}
             </div>
             
-            {/* image index */}
             <div className="text-white text-center mb-4">
               {activeImage + 1} / {allImages.length}
             </div>
             
-            {/* show main image */}
-            <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
-              {allImages.map((img, index) => (
-                <div 
-                  key={index}
-                  className={`h-20 rounded-lg overflow-hidden cursor-pointer border-2 ${activeImage === index ? 'border-orange-500' : 'border-transparent'}`}
-                  onClick={() => setActiveImage(index)}
-                >
-                  <img 
-                    src={img}
-                    alt={`Thumbnail ${index + 1}`}
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-              ))}
-            </div>
+            {allImages.length > 1 && (
+              <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
+                {allImages.map((img, index) => (
+                  <div 
+                    key={index}
+                    className={`h-20 rounded-lg overflow-hidden cursor-pointer border-2 ${activeImage === index ? 'border-orange-500' : 'border-transparent'}`}
+                    onClick={() => setActiveImage(index)}
+                  >
+                    <img 
+                      src={img}
+                      alt={`Thumbnail ${index + 1}`}
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                ))}
+              </div>
+            )}
             
-            {/* keyboard usage info */}
             <div className="text-white text-center mt-4 text-sm opacity-70">
-               ← → key can move the image. ESC for exit.
+               ← → keys to navigate. ESC to exit.
             </div>
           </div>
         </div>
       )}
-
-      {/* main */}   
-        <div className="max-w-4xl mx-auto p-6">
-          {/* back button*/}
-          <button 
-            onClick={() => router.push('/sale/browse')}
-            className="flex items-center text-orange-600 hover:text-orange-800 mb-6 font-medium cursor-pointer"
-          >
-            <ChevronLeft className="w-5 h-5 mr-1" />
-            Home Page
-          </button>
-
-          {/* main contents box */}
-          <div className="bg-white p-6 rounded-lg shadow-md mb-6">
-            {/* image section */}
-            <div className="flex flex-col md:flex-row md:gap-4 mb-6">
-              {/* main picture */}
-              <div className="md:w-2/3 h-72 md:h-96 rounded-lg overflow-hidden mb-4 md:mb-0">
+ 
+      {/* Main Content */}   
+      <div className="max-w-4xl mx-auto p-6">
+        {/* Back Button */}
+        <button 
+          onClick={() => router.push('/sale/browse')}
+          className="flex items-center text-orange-600 hover:text-orange-800 mb-6 font-medium cursor-pointer"
+        >
+          <ChevronLeft className="w-5 h-5 mr-1" />
+          Back to Browse
+        </button>
+ 
+        {/* Main Content Box */}
+        <div className="bg-white p-6 rounded-lg shadow-md mb-6">
+          {/* Image Section */}
+          <div className="flex flex-col md:flex-row md:gap-4 mb-6">
+            {/* Main Picture */}
+            <div className="md:w-2/3 h-72 md:h-96 rounded-lg overflow-hidden mb-4 md:mb-0">
+              {allImages.length > 0 ? (
                 <img 
-                  src={activeImage === 0 ? product.image : product.additionalImages[activeImage - 1]}
+                  src={allImages[activeImage] || product.image}
                   alt={product.name}
-                  className="w-full h-full object-cover"
+                  className="w-full h-full object-cover cursor-pointer"
+                  onClick={() => setShowAllImages(true)}
                 />
-              </div>
-              
-              {/* additional pictures */}
+              ) : (
+                <div className="w-full h-full bg-gray-200 flex items-center justify-center">
+                  <Package className="w-24 h-24 text-gray-400" />
+                  <span className="ml-2 text-gray-500">No image available</span>
+                </div>
+              )}
+            </div>
+            
+            {/* Additional Pictures */}
+            {allImages.length > 1 && (
               <div className="md:w-1/3">
                 <div className="grid grid-cols-2 gap-2 h-full">
-                  <div 
-                    className={`h-24 md:h-auto rounded-lg overflow-hidden cursor-pointer border-2 ${activeImage === 0 ? 'border-orange-500' : 'border-transparent'}`}
-                    onClick={() => setActiveImage(0)}
-                  >
-                    <img 
-                      src={product.image}
-                      alt="Main view"
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
-                  
-                  {product.additionalImages && product.additionalImages.slice(0, 2).map((img, index) => (
+                  {allImages.slice(0, 3).map((img, index) => (
                     <div 
                       key={index}
-                      className={`h-24 md:h-auto rounded-lg overflow-hidden cursor-pointer border-2 ${activeImage === index + 1 ? 'border-orange-500' : 'border-transparent'}`}
-                      onClick={() => setActiveImage(index + 1)}
+                      className={`h-24 md:h-auto rounded-lg overflow-hidden cursor-pointer border-2 ${activeImage === index ? 'border-orange-500' : 'border-transparent'}`}
+                      onClick={() => setActiveImage(index)}
                     >
                       <img 
                         src={img}
-                        alt={`Additional view ${index + 1}`}
+                        alt={`View ${index + 1}`}
                         className="w-full h-full object-cover"
                       />
                     </div>
                   ))}
                   
-                  {/* + button - to see all images */}
-                  <div 
-                    className="h-24 md:h-auto rounded-lg bg-gray-100 flex items-center justify-center cursor-pointer hover:bg-gray-200 transition"
-                    onClick={() => setShowAllImages(true)}
-                  >
-                    <Plus className="text-gray-500" />
-                  </div>
+                  {/* Show All Images Button */}
+                  {allImages.length > 3 && (
+                    <div 
+                      className="h-24 md:h-auto rounded-lg bg-gray-100 flex items-center justify-center cursor-pointer hover:bg-gray-200 transition"
+                      onClick={() => setShowAllImages(true)}
+                    >
+                      <Plus className="text-gray-500" />
+                      <span className="text-xs text-gray-500 ml-1">+{allImages.length - 3}</span>
+                    </div>
+                  )}
                 </div>
               </div>
+            )}
+          </div>
+ 
+          {/* Seller Profile Section */}
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center space-x-4">
+              {seller.photoURL ? (
+                <img src={seller.photoURL} alt="Seller" className="w-24 h-24 rounded-full border-2 border-gray-300" />
+              ) : (
+                <div className="w-24 h-24 bg-gray-300 rounded-full flex items-center justify-center">
+                  <User className="w-12 h-12 text-gray-500" />
+                </div>
+              )}
+              <div>
+                <h2 className="text-xl font-bold text-gray-700">{seller.name}</h2>
+                <p className="text-gray-500 text-sm">{seller.email}</p>
+                {isCurrentUserSeller && (
+                  <p className="text-orange-600 text-sm font-medium mt-1">This is your listing</p>
+                )}
+              </div>
             </div>
-
-    
-      {/* Seller Profile Picture */}
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center space-x-4">
-          {seller.photoURL ? (
-            <img src={seller.photoURL} alt="Seller" className="w-24 h-24 rounded-full border-2 border-gray-300" />
-          ) : (
-            <div className="w-24 h-24 bg-gray-300 rounded-full" />
-          )}
-          <div>
-            <h2 className="text-xl font-bold text-gray-700">{seller.name}</h2>
-            <p className="text-gray-500 text-sm">{seller.email}</p>
+ 
+            {/* Report Button - Only for other users */}
+            {!isCurrentUserSeller && (
+              <button
+                title="Report seller"
+                onClick={() => alert('Reported seller')}
+                className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 cursor-pointer"
+              >
+                <Flag size={20} />
+              </button>
+            )}
+          </div>
+ 
+          {/* Product Information */}
+          <div className="bg-white rounded-lg shadow p-6 mb-6">
+            <h1 className="text-2xl font-bold mb-2 text-gray-700">{product.name}</h1>
+            <p className="text-gray-600 mb-4">{product.shortDescription || product.description}</p>
+ 
+            <div className="flex items-center space-x-4 mb-4">
+              <div className="text-xl font-bold text-green-600">${product.price}</div>
+              {product.originalPrice && product.originalPrice !== product.price && (
+                <div className="text-sm text-gray-500 line-through">${product.originalPrice}</div>
+              )}
+              <div className="flex items-center space-x-1 text-gray-500">
+                <MapPin className="w-4 h-4" />
+                <span className="capitalize">{product.location?.replace("-", " ")}</span>
+              </div>
+            </div>
+ 
+            {/* Action Buttons - Show for both sellers and buyers, but different actions */}
+            <div className="space-y-4">
+              {isCurrentUserSeller ? (
+                // Seller view - route to messages
+                <button 
+                  onClick={() => router.push('/sublease/search/list')}
+                  className="w-full bg-blue-500 text-white px-6 py-3 rounded-lg hover:bg-blue-600 transition flex items-center justify-center cursor-pointer"
+                >
+                  <MessageCircle className="mr-2" />
+                  View Your Messages
+                </button>
+              ) : (
+                // Buyer view - existing functionality
+                <>
+                  {/* Connect Options */}
+                  {showConnectOptions && (
+                    <div className="grid gap-4 mb-4">
+                      <button 
+                        onClick={navigateToMessage}
+                        disabled={creatingConversation}
+                        className="bg-orange-100 hover:bg-orange-200 text-orange-800 p-4 rounded-lg flex flex-col items-center justify-center transition disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {creatingConversation ? (
+                          <>
+                            <div className="w-8 h-8 border-4 border-orange-500 border-t-transparent rounded-full animate-spin mb-2"></div>
+                            <span className="font-medium">Starting conversation...</span>
+                          </>
+                        ) : (
+                          <>
+                            <MessageCircle className="w-8 h-8 mb-2" />
+                            <span className="font-medium">Send Message</span>
+                          </>
+                        )}
+                        <span className="text-xs text-gray-600 mt-1">Chat with the seller</span>
+                      </button>
+                    </div>
+                  )}
+ 
+                  <div className="flex space-x-4">
+                    <button 
+                      onClick={() => toggleFavorite(product)}
+                      className={`flex-1 ${isCurrentListingFavorited ? 'bg-red-500 text-white' : 'bg-gray-100 text-gray-800'} px-6 py-3 rounded-lg ${isCurrentListingFavorited ? 'hover:bg-red-600' : 'hover:bg-red-200'} transition flex items-center justify-center cursor-pointer`}
+                    >
+                      <Heart className={`mr-2 ${isCurrentListingFavorited ? 'fill-current' : ''}`} />
+                      {isCurrentListingFavorited ? 'Remove from Favorites' : 'Add to Favorites'}
+                    </button>
+                    
+                    <button 
+                      onClick={() => setShowConnectOptions(!showConnectOptions)} 
+                      disabled={creatingConversation}
+                      className={`flex-1 ${showConnectOptions ? 'bg-orange-600' : 'bg-orange-500'} text-white px-6 py-3 rounded-lg hover:bg-orange-600 transition border flex items-center justify-center cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed`}
+                    >
+                      {showConnectOptions ? 'Hide Options' : 'Message'}
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        
+          {/* Details Section */}
+          <div className="bg-white rounded-lg shadow p-6">
+            <h3 className="font-semibold text-gray-600 mb-4">Details</h3>
+            <div className="space-y-3">
+              <p className="text-gray-600">{product.description}</p>
+              
+              {/* Additional Product Details */}
+              <div className="grid grid-cols-2 gap-4 mt-4 pt-4 border-t border-gray-200">
+                <div>
+                  <span className="font-medium text-gray-700">Condition:</span>
+                  <span className="ml-2 text-gray-600">{product.condition || 'Not specified'}</span>
+                </div>
+                
+                {product.category && (
+                  <div>
+                    <span className="font-medium text-gray-700">Category:</span>
+                    <span className="ml-2 text-gray-600">{product.category}</span>
+                  </div>
+                )}
+                
+                {product.views !== undefined && (
+                  <div>
+                    <span className="font-medium text-gray-700">Views:</span>
+                    <span className="ml-2 text-gray-600">{product.views}</span>
+                  </div>
+                )}
+                
+                {product.availableUntil && (
+                  <div>
+                    <span className="font-medium text-gray-700">Available Until:</span>
+                    <span className="ml-2 text-gray-600">{product.availableUntil}</span>
+                  </div>
+                )}
+                
+                <div>
+                  <span className="font-medium text-gray-700">Delivery:</span>
+                  <span className="ml-2 text-gray-600">
+                    {product.deliveryAvailable ? 'Available' : 'Not Available'}
+                  </span>
+                </div>
+                
+                <div>
+                  <span className="font-medium text-gray-700">Pickup:</span>
+                  <span className="ml-2 text-gray-600">
+                    {product.pickupAvailable ? 'Available' : 'Not Available'}
+                  </span>
+                </div>
+                
+                {product.priceType && (
+                  <div>
+                    <span className="font-medium text-gray-700">Price Type:</span>
+                    <span className="ml-2 text-gray-600 capitalize">{product.priceType}</span>
+                  </div>
+                )}
+                
+                {product.priceType === 'negotiable' && product.minPrice && product.maxPrice && (
+                  <div>
+                    <span className="font-medium text-gray-700">Price Range:</span>
+                    <span className="ml-2 text-gray-600">${product.minPrice} - ${product.maxPrice}</span>
+                  </div>
+                )}
+              </div>
+              
+              {/* Listing Timestamp */}
+              {product.createdAt && (
+                <div className="pt-4 border-t border-gray-200">
+                  <span className="font-medium text-gray-700">Listed:</span>
+                  <span className="ml-2 text-gray-600">
+                    {product.createdAt instanceof Date 
+                      ? product.createdAt.toLocaleDateString() + ' at ' + product.createdAt.toLocaleTimeString()
+                      : new Date(product.createdAt).toLocaleDateString() + ' at ' + new Date(product.createdAt).toLocaleTimeString()
+                    }
+                  </span>
+                </div>
+              )}
+            </div>
           </div>
         </div>
-
-      {/* Main report button */}
-      <button
-        title="Report seller"
-        onClick={() => setShowReportForm((prev) => !prev)}
-        className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 flex items-center gap-1"
-      >
-        <Flag size={18} />
-        <span className="text-sm">Report</span>
-      </button>
-
-      {/* Report form */}
-      {showReportForm && (
-        <div className="mt-2 p-4 bg-white border border-gray-300 rounded-lg shadow-md w-200 absolute z-10">
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Reason for report
-          </label>
-          <select
-            value={reportReason}
-            onChange={(e) => setReportReason(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded mb-3"
-          >
-            <option value="">-- Select a reason --</option>
-            <option value="information">Some proudct information is missing, inaccurate or could be improved</option>
-            <option value="mismatch">Parts of this page don't match</option>
-            <option value="price">I have an issue with the price</option>
-            <option value="offensive">This product or content is offensive</option>
-            <option value="unsafe">This product or content is illegal, unsafe or suspicious</option>
-            <option value="seller">I have an issue with a Seller</option>
-            <option value="scam">I think this is a scam</option>
-            <option value="other">Other</option>
-          </select>
-
-          {reportReason === "scam" && (
-            <div className="mb-3">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Scam Details
-              </label>
-              <select
-                value={scamDetails}
-                onChange={(e) => setScamDetails(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded"
-              >
-                <option value="">-- Select a type --</option>
-                <option value="suspicious-payment">Asked for a suspicious way of payment</option>
-                <option value="fake-listing">Fake product listing</option>
-                <option value="other-scam">Other issues</option>
-              </select>
-            </div>
-          )}
-
-          {reportReason === "information" && (
-            <div className="mb-3">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Missing information
-              </label>
-              <select
-                value={informationDetails}
-                onChange={(e) => setInformationDetails(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded"
-              >
-                <option value="">-- Select missing information --</option>
-                <option value="image">Images</option>
-                <option value="size">Size</option>
-                <option value="release-info">Release Information</option>
-                <option value="model">Model</option>
-                <option value="brand">Brand</option>
-                <option value="condition">Condition</option>
-                <option value="other-info">Other missing information</option>
-              </select>
-            </div>
-          )}
-
-          {reportReason === "mismatch" && (
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Mismatch Details (Select all that apply)
-              </label>
-              <div className="space-y-2">
-                {mismatchOptions.map((option) => (
-                  <label
-                    key={option.value}
-                    className="flex items-center space-x-2 cursor-pointer"
+ 
+        {/* Other Items by This Seller */}
+        {otherSellerItems.length > 0 && (
+          <div className="bg-white rounded-lg shadow p-6 mt-6">
+            <h3 className="text-xl font-bold mb-4 text-gray-600">Other items by {seller.name}</h3>
+            
+            {loadingRecommendations ? (
+              <div className="flex justify-center py-8">
+                <div className="w-8 h-8 border-4 border-orange-500 border-t-transparent rounded-full animate-spin"></div>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                {otherSellerItems.slice(0, 8).map(item => (
+                  <div 
+                    key={item.id}
+                    onClick={() => router.push(`/sale/browse/product/${item.id}`)}
+                    className="cursor-pointer bg-gray-50 rounded-lg overflow-hidden hover:shadow-md transition-shadow"
                   >
-                    <input
-                      type="checkbox"
-                      checked={matchDetails.includes(option.value)}
-                      onChange={(e) => {
-                        const newValues = e.target.checked
-                          ? [...matchDetails, option.value]
-                          : matchDetails.filter((val) => val !== option.value);
-                        setMatchDetails(newValues);
-                      }}
-                      className="h-4 w-4 text-orange-500 border-gray-300 rounded"
+                    <img 
+                      src={item.image || '/api/placeholder/200/150'} 
+                      alt={item.name}
+                      className="w-full h-32 object-cover"
                     />
-                    <span className="text-sm text-gray-700">{option.label}</span>
-                  </label>
+                    <div className="p-3">
+                      <h4 className="font-medium text-sm truncate text-gray-700">{item.name}</h4>
+                      <p className="text-green-600 font-bold text-sm">${item.price}</p>
+                      <p className="text-gray-500 text-xs capitalize">{item.location?.replace("-", " ")}</p>
+                      {item.condition && (
+                        <p className="text-gray-400 text-xs mt-1">{item.condition}</p>
+                      )}
+                    </div>
+                  </div>
                 ))}
               </div>
-            </div>
-          )}
-
-          {reportReason === "price" && (
-            <div className="mb-3">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Price Issues
-              </label>
-              <select
-                value={priceDetails}
-                onChange={(e) => setPriceDetails(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded"
-              >
-                <option value="">-- Select an issue --</option>
-                <option value="price-disparity">Price disparity between single and multi-pack</option>
-                <option value="discount">Discount error</option>
-                <option value="price-condition">Prices for conditions higher than new</option>
-                <option value="other-price">Other issues</option>
-              </select>
-            </div>
-          )}
-
-          {reportReason === "offensive" && (
-            <div className="mb-3">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Reason why it's offensive
-              </label>
-              <select
-                value={offensiveDetails}
-                onChange={(e) => setOffensiveDetails(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded"
-              >
-                <option value="">-- Select a reason --</option>
-                <option value="sexual">Sexually explicit content</option>
-                <option value="choice">Too offensive word choices</option>
-                <option value="other-offensive">Other reasons</option>
-              </select>
-            </div>
-          )}
-
-          {reportReason === "unsafe" && (
-            <div className="mb-3">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Reason why it's unsafe
-              </label>
-              <select
-                value={unsafeDetails}
-                onChange={(e) => setUnsafeDetails(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded"
-              >
-                <option value="">-- Select a reason --</option>
-                <option value="counterfeit">It's counterfeit</option>
-                <option value="intellectual">Uses my intellectual property without permission</option>
-                <option value="safety-regulation">Not safe or compliant with product safety regulations</option>
-                <option value="reviews">Reviews and Answers contain illegal content</option>
-                <option value="other-unsafe">Other reasons</option>
-              </select>
-            </div>
-          )}
-
-          {reportReason === "seller" && (
-            <div className="mb-3">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Problem about the seller
-              </label>
-              <select
-                value={sellerProblem}
-                onChange={(e) => setSellerProblem(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded"
-              >
-                <option value="">-- Select a problem --</option>
-                <option value="identity">Using false or misleading identity information</option>
-                <option value="contact">Using false or misleading contact information</option>
-                <option value="reviews">Attempting to manipulate reviews</option>
-                <option value="inappropriate">Engaging in other inappropriate activity</option>
-                <option value="stolen">Selling a potentially stolen product</option>
-                <option value="other-seller">Other problems</option>
-              </select>
-            </div>
-          )}
-
-          
-
-          <textarea
-            value={details}
-            onChange={(e) => setDetails(e.target.value)}
-            placeholder="Additional details (optional)"
-            className="w-full px-3 py-2 border border-gray-300 rounded mb-3 resize-none"
-            rows={3}
-          />
-
-          <div className="flex justify-between">
-            <button
-              onClick={handleSubmitReport}
-              className="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600 text-sm"
-            >
-              Submit
-            </button>
-            <button
-              onClick={() => setShowReportForm(false)}
-              className="text-gray-500 text-sm hover:underline"
-            >
-              Cancel
-            </button>
+            )}
           </div>
-        </div>
-      )}
-      </div>
-
-      {/* Product Info */}
-      <div className="bg-white rounded-lg shadow p-6 mb-6">
-        <h1 className="text-2xl font-bold mb-2 text-gray-700">{product.name}</h1>
-        <p className="text-gray-600 mb-4">{product.shortDescription}</p>
-
-        <div className="flex items-center space-x-4 mb-4">
-          <div className="text-xl font-bold text-green-600">${product.price}</div>
-          <div className="flex items-center space-x-1 text-gray-500">
-            <MapPin className="w-4 h-4" />
-            <span className="capitalize">{product.location?.replace("-", " ")}</span>
+        )}
+ 
+        {/* Similar Products */}
+        {similarProducts.length > 0 && (
+          <div className="bg-white rounded-lg shadow p-6 mt-6">
+            <h3 className="text-xl font-bold mb-4 text-gray-600">Similar Products</h3>
+            
+            {loadingRecommendations ? (
+              <div className="flex justify-center py-8">
+                <div className="w-8 h-8 border-4 border-orange-500 border-t-transparent rounded-full animate-spin"></div>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                {similarProducts.map(item => (
+                  <div 
+                    key={item.id}
+                    onClick={() => router.push(`/sale/browse/product/${item.id}`)}
+                    className="cursor-pointer bg-gray-50 rounded-lg overflow-hidden hover:shadow-md transition-shadow relative"
+                  >
+                    {/* Similarity Badge */}
+                    {item.similarity && item.similarity > 0.6 && (
+                      <div className="absolute top-2 right-2 bg-green-500 text-white text-xs px-2 py-1 rounded-full z-10">
+                        {Math.round(item.similarity * 100)}% match
+                      </div>
+                    )}
+                    
+                    <img 
+                      src={item.image || '/api/placeholder/200/150'} 
+                      alt={item.name}
+                      className="w-full h-32 object-cover"
+                    />
+                    <div className="p-3">
+                      <h4 className="font-medium text-sm truncate text-gray-700">{item.name}</h4>
+                      <p className="text-orange-600 font-bold text-sm">${item.price}</p>
+                      <p className="text-gray-500 text-xs capitalize">{item.location?.replace("-", " ")}</p>
+                      
+                      {/* Show Why It's Similar */}
+                      <div className="mt-2 flex flex-wrap gap-1">
+                        {item.category === product.category && (
+                          <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">Same category</span>
+                        )}
+                        {item.location === product.location && (
+                          <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded">Same location</span>
+                        )}
+                        {Math.abs(item.price - product.price) / product.price < 0.3 && (
+                          <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded">Similar price</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+            
+            {/* Algorithm Explanation */}
+            <div className="mt-4 p-3 bg-gray-50 rounded-lg">
+              <p className="text-sm text-gray-600">
+                <strong>How we find similar products:</strong> We match based on category, price range (±30%), 
+                location, and product name similarity. Items with higher match percentages are more similar to this product.
+              </p>
+            </div>
           </div>
-        </div>
-
-        {/* add favorites and connect */}
-        <div className="space-y-4 ">
-          {/* Connect Options - it can be seen when showConnectOptions is true */}
-          {showConnectOptions && (
-            <div className="grid gap-4 mb-4 ">
-
+        )}
+ 
+        {/* No Recommendations Message */}
+        {!loadingRecommendations && otherSellerItems.length === 0 && similarProducts.length === 0 && (
+          <div className="bg-white rounded-lg shadow p-6 mt-6">
+            <div className="text-center py-8 text-gray-500">
+              <Package className="w-16 h-16 mx-auto mb-4 opacity-50" />
+              <h3 className="text-lg font-medium mb-2">No recommendations available</h3>
+              <p className="text-sm">This seller has no other items, and we couldn't find similar products at the moment.</p>
               <button 
-                  onClick={navigateToMessage}
-                  className="bg-orange-100 hover:bg-orange-200 text-orange-800 p-4 rounded-lg flex flex-col items-center justify-center transition"
+                onClick={() => router.push('/sale/browse')}
+                className="mt-4 px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition"
               >
-                  <MessageCircle className="w-8 h-8 mb-2" />
-                  <span className="font-medium">Send Message</span>
-                  <span className="text-xs text-gray-600 mt-1">Chat with the host</span>
+                Browse All Products
               </button>
             </div>
-          )}
-          <div className="grid grid-cols-3 gap-4">
-            {/* Favorite Button */}
-            <button 
-              onClick={() => toggleFavorite(product)}
-              className={`flex items-center justify-center px-6 py-3 rounded-lg transition cursor-pointer
-                ${isCurrentListingFavorited ? 'bg-red-500 text-white hover:bg-red-600' : 'bg-gray-100 text-gray-800 hover:bg-red-200'}`}
-            >
-              <Heart className={`mr-2 ${isCurrentListingFavorited ? 'fill-current' : ''}`} />
-              {isCurrentListingFavorited ? 'Remove' : 'Favorite'}
-            </button>
-
-            {/* Buy Button */}
-            <button 
-              onClick={handleBuyProduct} // <-- You should define this function
-              className="px-6 py-3 rounded-lg text-white transition flex items-center justify-center cursor-pointer bg-orange-500 hover:bg-orange-600"
-            >
-              Buy Now
-            </button>
-
-            {/* Message Button */}
-            <button 
-              onClick={() => setShowConnectOptions(!showConnectOptions)} 
-              className={`px-6 py-3 rounded-lg text-white transition flex items-center justify-center cursor-pointer 
-                ${showConnectOptions ? 'bg-orange-600' : 'bg-orange-500 hover:bg-orange-600'}`}
-            >
-              {showConnectOptions ? 'Hide' : 'Message'}
-            </button>
           </div>
-        </div>
+        )}
+ 
       </div>
-      
-      
-
-    {/*Detail */}
-    <div className="bg-white  rounded-lg shadow p-6">
-      <p className="font-semibold text-gray-600 mb-4">Detail</p>
-      <h1 className="text-xl font-medium mb-2 text-gray-600">{product.description}</h1>
-    </div>
-
-    {/* Other Items by This Seller */}
-    <div className="bg-white rounded-lg shadow p-6 mt-6">
-      <h3 className="text-xl font-bold mb-4 text-gray-600">Other items by {seller.name}</h3>
-      
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-        {products
-          .filter(item => item.sellerID === product.sellerID && item.id !== product.id)
-          .slice(0, 8) // max 8 items
-          .map(item => (
-            <div 
-              key={item.id}
-              onClick={() => router.push(`/sale/browse/product/${item.id}`)}
-              className="cursor-pointer bg-gray-50 rounded-lg overflow-hidden hover:shadow-md transition-shadow"
-            >
-              <img 
-                src={item.image} 
-                alt={item.name}
-                className="w-full h-32 object-cover"
-              />
-              <div className="p-3">
-                <h4 className="font-medium text-sm truncate text-gray-700">{item.name}</h4>
-                <p className="text-green-600 font-bold text-sm">${item.price}</p>
-                <p className="text-gray-500 text-xs">{item.location}</p>
-              </div>
-            </div>
-          ))}
-      </div>
-      
-      {/* if there is no other items */}
-      {products.filter(item => item.sellerID === product.sellerID && item.id !== product.id).length === 0 && (
-        <p className="text-gray-500 text-center py-8">This seller has no other items listed.</p>
-      )}
-    </div>
-
-    {/* similar product matching */}
-    <div className="bg-white rounded-lg shadow p-6 mt-6">
-      <h3 className="text-xl font-bold mb-4 text-gray-600">Similar Products</h3>
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-        {products
-          .filter(item => {
-            if (item.id === product.id) return false;
-            
-            const productWords = product.name.toLowerCase().split(/\s+/);
-            const itemWords = item.name.toLowerCase().split(/\s+/);
-            
-            // find product with same word
-            return productWords.some(word => 
-              word.length > 2 && itemWords.some(itemWord => 
-                itemWord.includes(word) || word.includes(itemWord)
-              )
-            );
-          })
-          .slice(0, 8)
-          .map(item => (
-            <div 
-              key={item.id}
-              onClick={() => router.push(`/sale/browse/product/${item.id}`)}
-              className="cursor-pointer bg-gray-50 rounded-lg overflow-hidden hover:shadow-md transition-shadow"
-            >
-              <img 
-                src={item.image} 
-                alt={item.name}
-                className="w-full h-32 object-cover"
-              />
-              <div className="p-3">
-                <h4 className="font-medium text-sm truncate text-gray-700">{item.name}</h4>
-                <p className="text-orange-600 font-bold text-sm">${item.price}</p>
-                <p className="text-gray-500 text-xs">{item.location}</p>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-    </div>
-    {/* Review Section */}
-    <div className="mt-12 mb-16 border-t pt-8 px-4 md:px-8">
-      <h2 className="text-xl font-semibold mb-4 text-gray-800">Leave a Review</h2>
-
-      {/* Rating */}
-      <div className="mb-4 flex items-center space-x-2">
-        {[1, 2, 3, 4, 5].map((star) => (
-          <button
-            key={star}
-            onClick={() => setRating(star)}
-            className={`text-2xl ${
-              star <= rating ? "text-yellow-400" : "text-gray-300"
-            }`}
-          >
-            ★
-          </button>
-        ))}
-        <span className="ml-2 text-sm text-gray-600">{rating} / 5</span>
-      </div>
-
-      {/* Review Text */}
-      <textarea
-        rows={4}
-        value={reviewText}
-        onChange={(e) => setReviewText(e.target.value)}
-        placeholder="Write your thoughts about this product..."
-        className="w-full border px-4 py-2 rounded-lg focus:ring-2 focus:ring-orange-500 focus:outline-none mb-4"
-      />
-
-      {/* Submit Button */}
-      <button
-        onClick={handleSubmitReview}
-        disabled={isSubmitting || rating === 0 || reviewText.trim() === ""}
-        className="bg-orange-500 hover:bg-orange-600 text-white font-semibold py-2 px-6 rounded-lg transition disabled:opacity-60"
-      >
-        {isSubmitting ? "Submitting..." : "Submit Review"}
-      </button>
-    </div>
     </div>
   );
 }
