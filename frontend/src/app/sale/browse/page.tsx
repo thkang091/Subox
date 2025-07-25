@@ -982,7 +982,7 @@ const NotificationsButton = ({ notifications }: { notifications: Notification[] 
               <div className="p-4 space-y-6">
                 {/* Header */}
                 <div className="flex justify-between items-center mb-4">
-                  <h3 className="text-lg font-semibold text-gray-900">Filters</h3>
+                  <h3 className="text-lg font-semibold text-orange-600">Filters</h3>
                   <button onClick={() => setShowFilters(false)} className="text-gray-500 hover:text-gray-700">
                     ✕
                   </button>
@@ -990,60 +990,90 @@ const NotificationsButton = ({ notifications }: { notifications: Notification[] 
  
                 {/* Category */}
                 <div className="mt-11">
-                  <FilterSection title={`${selectedCategory}`} id="category">
+                  <h3 className="text-sm font-semibold text-orange-600 mb-2">Category</h3>
+                  <div className="space-y-2">
                     {categories.map(category => (
-                      <button
+                      <label
                         key={category}
-                        onClick={() => setSelectedCategory(category)}
-                        className={`w-full text-left px-3 py-2 rounded-lg text-sm capitalize transition-colors ${
+                        className={`flex items-center space-x-3 px-3 py-2 rounded-lg text-sm capitalize cursor-pointer transition-colors ${
                           selectedCategory === category 
                             ? "bg-orange-100 text-orange-700 font-medium" 
                             : "hover:bg-gray-50 text-gray-700"
                         }`}
                       >
-                        {category === "All Categories" ? "All Categories" : category}
-                      </button>
+                        <input
+                          type="radio"
+                          name="category"
+                          value={category}
+                          checked={selectedCategory === category}
+                          onChange={() => setSelectedCategory(category)}
+                          className="w-4 h-4 border-gray-400 text-orange-500 accent-orange-500"
+                        />
+                        <span>{category === "All Categories" ? "All Categories" : category}</span>
+                      </label>
                     ))}
-                  </FilterSection>
+                  </div>
                 </div>
  
                 {/* Location */}
-                <FilterSection title={`${selectedLocation}`} id="location">
-                  {locations.map(location => (
-                    <button
-                      key={location}
-                      onClick={() => setSelectedLocation(location)}
-                      className={`w-full text-left px-3 py-2 rounded-lg text-sm capitalize transition-colors ${
-                        selectedLocation === location 
-                          ? "bg-orange-100 text-orange-700 font-medium" 
-                          : "hover:bg-gray-50 text-gray-700"
-                      }`}
-                    >
-                      {location === "All Locations" ? "All Locations" : location}
-                    </button>
-                  ))}
-                </FilterSection>
+                <div className="mt-11">
+                  <h3 className="text-sm font-semibold text-orange-600 mb-2">Location</h3>
+                  <div className="space-y-2">
+                    {locations.map((location) => (
+                      <label
+                        key={location}
+                        className={`flex items-center space-x-3 px-3 py-2 rounded-lg text-sm capitalize cursor-pointer transition-colors ${
+                          selectedLocation === location
+                            ? "bg-orange-100 text-orange-700 font-medium"
+                            : "hover:bg-gray-50 text-gray-700"
+                        }`}
+                      >
+                        <input
+                          type="radio"
+                          name="location"
+                          value={location}
+                          checked={selectedLocation === location}
+                          onChange={() => setSelectedLocation(location)}
+                          className="w-4 h-4 border-gray-400 text-orange-500 accent-orange-500"
+                        />
+                        <span>{location === "All Locations" ? "All Locations" : location}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
  
                 {/* Condition */}
-                <FilterSection title={`${selectedCondition}`} id="condition">
-                  {conditions.map(condition => (
-                    <button
-                      key={condition}
-                      onClick={() => setSelectedCondition(condition)}
-                      className={`w-full text-left px-3 py-2 rounded-lg text-sm capitalize transition-colors ${
-                        selectedCondition === condition 
-                          ? "bg-orange-100 text-orange-700 font-medium" 
-                          : "hover:bg-gray-50 text-gray-700"
-                      }`}
-                    >
-                      {condition === "All Conditions" ? "All Conditions" : condition}
-                    </button>
-                  ))}
-                </FilterSection>
+                <div className="mt-11">
+                  <h3 className="text-sm font-semibold text-orange-600 mb-2">Condition</h3>
+                  <div className="space-y-2">
+                    {conditions.map((condition) => (
+                      <label
+                        key={condition}
+                        className={`flex items-center space-x-3 px-3 py-2 rounded-lg text-sm capitalize cursor-pointer transition-colors ${
+                          selectedCondition === condition
+                            ? "bg-orange-100 text-orange-700 font-medium"
+                            : "hover:bg-gray-50 text-gray-700"
+                        }`}
+                      >
+                        <input
+                          type="radio"
+                          name="condition"
+                          value={condition}
+                          checked={selectedCondition === condition}
+                          onChange={() => setSelectedCondition(condition)}
+                          className="w-4 h-4 border-gray-400 text-orange-500 accent-orange-500"
+                        />
+                        <span>
+                          {condition === "All Conditions" ? "All Conditions" : condition}
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
  
                 {/* Price Range */}
                 <div className="mb-3 mt-6">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-orange-600 mb-2">
                     Price Range (${priceRange[0]} - ${priceRange[1]})
                   </label>
                   <div className="flex gap-2 mb-3">
@@ -1114,14 +1144,16 @@ const NotificationsButton = ({ notifications }: { notifications: Notification[] 
     
                 {/* Available Date */}
                 <div className="space-y-4">
-                  <h2 className="text-medium font-semibold text-gray-700">Available Until</h2>
+                  <h2 className="text-medium font-semibold text-orange-600">Available Until</h2>
                   <DatePicker
                     selected={showAvailableDate}
                     onChange={(date) => setShowAvailableDate(date)}
                     dateFormat="yyyy-MM-dd"
-                    className="border border-gray-300 rounded px-3 py-2 w-full text-gray-700"
-                    placeholderText="Select a date"
-                    minDate={new Date()}
+                    inline
+                    calendarClassName="bg-white border border-orange-400 rounded-lg shadow-md p-2"
+                    dayClassName={(date) => 
+                      "rounded-full text-gray-700 transition hover:bg-orange-400"
+                    }
                   />
                 </div>
               </div>
