@@ -393,7 +393,7 @@ export default function ItemListingPage() {
                   {notifications.map(notif => (
                     <button
                       key={notif.id}
-                      onClick={() => router.push(`browse/notificationDetail/${notif.id}`)}
+                      onClick={() => router.push(`/sale/browse/notification?id=${notif.id}`)}
                       className="w-full flex items-start space-x-3 p-2 rounded-lg hover:bg-orange-50 text-left"
                     >
                       <div className="w-2 h-2 bg-orange-500 rounded-full mt-2"></div>
@@ -406,7 +406,7 @@ export default function ItemListingPage() {
                 </div>
 
                 <button
-                  onClick={() => router.push(`browse/notification/`)}
+                  onClick={() => router.push(`/sale/browse/notification/`)}
                   className="mt-3 text-sm text-orange-600 hover:underline"
                 >
                   See all notifications

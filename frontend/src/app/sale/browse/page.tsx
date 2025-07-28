@@ -358,7 +358,7 @@ const NotificationsButton = ({ notifications }: { notifications: Notification[] 
                 {notifications.map(notif => (
                   <button
                     key={notif.id}
-                    onClick={() => router.push(`browse/notificationDetail/${notif.id}`)}
+                    onClick={() => router.push(`browse/notification?id=${notif.id}`)}
                     className="w-full flex items-start space-x-3 p-2 rounded-lg hover:bg-orange-50 text-left"
                   >
                     <div className="w-2 h-2 bg-orange-500 rounded-full mt-2"></div>
