@@ -1111,12 +1111,12 @@ const NotificationsButton = ({ notifications }: { notifications: Notification[] 
                   className={`w-8 h-8 rounded-full flex items-center justify-center ${
                         selectedDelivery 
                           ? "bg-orange-500 text-white" 
-                          : "bg-white/90 text-gray-600 hover:bg-orange-50 hover:text-orange-500"
+                          : "bg-white/90 text-black hover:bg-orange-50 hover:text-orange-500"
                       }`}
                 >
                   <Truck
                     size = {24}
-                    className="w-4 h-4 text-black"
+                    className="w-4 h-4"
                     fill={selectedDelivery ? "currentColor" : "none"}
                   />
                 </motion.button>
@@ -1130,15 +1130,14 @@ const NotificationsButton = ({ notifications }: { notifications: Notification[] 
                   className={`w-8 h-8 rounded-full flex items-center justify-center ${
                         selectedPickup 
                           ? "bg-orange-500 text-white" 
-                          : "bg-white/90 text-gray-600 hover:bg-orange-50 hover:text-orange-500"
+                          : "bg-white/90 text-black hover:bg-orange-50 hover:text-orange-500"
                       }`}
                 >
-                  <img 
-                  
-                  src="../../../../images/heart-handshake.png" 
-                  alt="pickup" 
-                  className="w-4 h-4 object-cover rounded"
-                />
+                  <Package
+                    size = {24}
+                    className="w-4 h-4"
+                    fill={selectedPickup ? "currentColor" : "none"}
+                  />
                 </motion.button>
               </div>
     

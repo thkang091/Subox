@@ -10,6 +10,7 @@ import {
   storage
  } from "@/lib/firebase";
 import { fetchSignInMethodsForEmail } from "firebase/auth";
+import { motion, AnimatePresence } from "framer-motion";
 import { updateProfile } from "firebase/auth";
 import { 
   createUserWithEmailAndPassword, 
@@ -72,6 +73,10 @@ export default function AuthPage() {
   const [rated, setRated] = useState<number[]>([]);
   const [averageRate, setAverageRate] = useState<number[]>([]);
   const [rateError, setRateError] = useState(0);
+
+  // Steps
+  const [step, setStep] = useState(0);
+  const steps = 3;
 
   const calculateRateError = (userRatings: number[], averageRatings: number[]) => {
     if (
@@ -171,6 +176,48 @@ export default function AuthPage() {
       };
       reader.readAsDataURL(file);
     }
+  };
+
+  const bgColors = ["#ffffff", "#fff7ed", "#eefaf5"];
+
+  const contentVariants = {
+    initial: { opacity: 0, y: 10 },
+    animate: { opacity: 1, y: 0 },
+    exit: { opacity: 0, y: -10 },
+  };
+
+  const handleNext = () => {
+    setError("");
+    // Validate step 0 (required)
+    if (step === 0) {
+      if (!fullName.trim() || !dob) {
+        setError("Please enter your full name and date of birth to continue.");
+        return;
+      }
+    }
+    setStep((s) => Math.min(s + 1, steps - 1));
+  };
+
+  const handleBack = () => {
+    setError("");
+    setStep((s) => Math.max(s - 1, 0));
+  };
+
+  const handleSubmit = () => {
+    // Final submit logic here — replace with your API call
+    console.log({
+      fullName,
+      dob,
+      schoolEmail,
+      isAlumni,
+      graduationDate,
+      phoneNumber,
+      isPhoneVerified,
+      quickBio,
+      socialLink,
+      address,
+    });
+    alert("Submitted (demo) — replace with real submit handler");
   };
 
   const sendPhoneVerification = async () => {
@@ -480,20 +527,124 @@ export default function AuthPage() {
       <div className="w-full max-w-2xl">
         {/* Header */}
         <div className="text-center mb-8">
-          <div className="flex items-center justify-center mb-4">
-            <div className="flex items-center space-x-2">
-              <svg className="w-10 h-10" viewBox="0 0 50 50" fill="none">
-                <path d="M25 5L40 15V35L25 45L10 35V15L25 5Z" fill="#E97451" />
-                <rect x="20" y="20" width="10" height="10" fill="white" />
-              </svg>
-              <svg className="w-8 h-8 -ml-1" viewBox="0 0 40 40" fill="none">
-                <path d="M5 10L20 5L35 10L30 35L15 40L5 35L5 10Z" fill="#E97451" />
-                <circle cx="15" cy="15" r="3" fill="white" />
-              </svg>
-              <h1 className="text-4xl font-bold text-gray-800">Subox</h1>
-            </div>
+          <div className="flex items-center justify-center -mb-4 mr-17">
+            {/* Logo */}
+                <motion.div 
+                    className="flex items-center space-x-6 relative mt-3"
+                    whileHover={{ scale: 1.05 }}
+                    onClick={() => {isLoggedIn ? (router.push("/find")) : router.push("/")}}
+                >
+                {/* Main Subox Logo */}
+                <motion.div className="relative">
+                {/* House Icon */}
+                <motion.svg 
+                    className="w-12 h-12" 
+                    viewBox="0 0 100 100" 
+                    fill="none"
+                    whileHover={{ rotate: [0, -5, 5, 0] }}
+                    transition={{ duration: 0.5 }}
+                >
+                    {/* House Base */}
+                    <motion.path
+                    d="M20 45L50 20L80 45V75C80 78 77 80 75 80H25C22 80 20 78 20 75V45Z"
+                    fill="#E97451"
+                    animate={{ 
+                        fill: ["#E97451", "#F59E0B", "#E97451"],
+                        scale: [1, 1.02, 1]
+                    }}
+                    transition={{ duration: 3, repeat: Infinity }}
+                    />
+                    {/* House Roof */}
+                    <motion.path
+                    d="M15 50L50 20L85 50L50 15L15 50Z"
+                    fill="#D97706"
+                    animate={{ rotate: [0, 1, 0] }}
+                    transition={{ duration: 4, repeat: Infinity }}
+                    />
+                    {/* Window */}
+                    <motion.rect
+                    x="40"
+                    y="50"
+                    width="20"
+                    height="15"
+                    fill="white"
+                    animate={{ 
+                        opacity: [1, 0.8, 1],
+                        scale: [1, 1.1, 1]
+                    }}
+                    transition={{ duration: 2, repeat: Infinity }}
+                    />
+                    {/* Door */}
+                    <motion.rect
+                    x="45"
+                    y="65"
+                    width="10"
+                    height="15"
+                    fill="white"
+                    animate={{ scaleY: [1, 1.05, 1] }}
+                    transition={{ duration: 2.5, repeat: Infinity }}
+                    />
+                </motion.svg>
+
+                {/* Tag Icon */}
+                <motion.svg 
+                    className="w-8 h-8 absolute -top-2 -right-2" 
+                    viewBox="0 0 60 60" 
+                    fill="none"
+                    whileHover={{ rotate: 360 }}
+                    transition={{ duration: 0.8 }}
+                >
+                    <motion.path
+                    d="M5 25L25 5H50V25L30 45L5 25Z"
+                    fill="#E97451"
+                    animate={{ 
+                        rotate: [0, 5, -5, 0],
+                        scale: [1, 1.1, 1]
+                    }}
+                    transition={{ duration: 3, repeat: Infinity }}
+                    />
+                    <motion.circle
+                    cx="38"
+                    cy="17"
+                    r="4"
+                    fill="white"
+                    animate={{ 
+                        scale: [1, 1.3, 1],
+                        opacity: [1, 0.7, 1]
+                    }}
+                    transition={{ duration: 1.5, repeat: Infinity }}
+                    />
+                </motion.svg>
+                </motion.div>
+
+                {/* Subox Text */}
+                <motion.div className="flex flex-col -mx-4">
+                <motion.span 
+                    className="text-3xl font-bold text-gray-900"
+                    animate={{
+                    background: [
+                        "linear-gradient(45deg, #1F2937, #374151)",
+                        "linear-gradient(45deg, #E97451, #F59E0B)",
+                        "linear-gradient(45deg, #1F2937, #374151)"
+                    ],
+                    backgroundClip: "text",
+                    WebkitBackgroundClip: "text",
+                    color: "transparent"
+                    }}
+                    transition={{ duration: 4, repeat: Infinity }}
+                >
+                    Subox
+                </motion.span>
+                <motion.span 
+                    className="text-xs text-gray-500 font-medium tracking-wider"
+                    animate={{ opacity: [0.7, 1, 0.7] }}
+                    transition={{ duration: 2, repeat: Infinity }}
+                >
+                    SUBLETS & MOVING SALES
+                </motion.span>
+                </motion.div>
+                </motion.div>
           </div>
-          <p className="text-gray-600">Sublets & Moving Sales</p>
         </div>
 
         {/* Auth Card */}
@@ -537,228 +688,285 @@ export default function AuthPage() {
           <div className="space-y-4">
             {/* Signup Fields */}
             {!isLogin && (
-              <>
-                {/* Required Fields */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Full Name <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="John Doe"
-                      value={fullName}
-                      onChange={(e) => setFullName(e.target.value)}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all"
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Date of Birth <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="date"
-                      value={dob}
-                      onChange={(e) => setDob(e.target.value)}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all"
-                    />
-                  </div>
-                </div>
-
-                {/* Optional Fields */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    School Email 
-                    <span className="text-gray-400 font-normal"> (Optional)</span>
-                    <span className="ml-1 inline-flex items-center">
-                      <svg className="w-4 h-4 text-blue-500 cursor-help" fill="currentColor" viewBox="0 0 20 20" title="Including a school email (.edu) will earn you a verified student badge">
-                        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-                      </svg>
-                    </span>
-                  </label>
-                  <input
-                    type="email"
-                    value={schoolEmail}
-                    onChange={(e) => {
-                      setSchoolEmail(e.target.value);
-                      setSchoolEmailError('');
-                    }}
-                    placeholder="example@school.edu"
-                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                  />
-                  {schoolEmailError && (
-                    <p className="text-red-500 text-sm mt-1">{schoolEmailError}</p>
-                  )}
-                  <div className="mt-1 flex items-center space-x-2">
-                    <p className="text-xs text-blue-600">
-                      <svg className="w-3 h-3 inline mr-1" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-                      </svg>
-                      School emails (.edu) earn a "Verified Student" badge.
-                      Feel free to write your email even if you have graduated. WE HAVE SPECIAL BADGE FOR YOU!!
-                    </p>
-                    {schoolEmail && isSchoolEmail(schoolEmail) && !isAlumni && (
-                      <span className="text-green-600 text-xs"> Student Badge Eligible</span>
-                    )}
-                    {schoolEmail && isSchoolEmail(schoolEmail) && isAlumni && (
-                      <span className="text-green-600 text-xs"> Alumni Badge Eligible</span>
-                    )}
-                  </div>
-                  {/* Alumni */}
-                  <div className="mt-4">
-                    <label className="flex items-center space-x-2">
-                      <input
-                        type="checkbox"
-                        checked={isAlumni}
-                        onChange={(e) => setIsAlumni(e.target.checked)}
-                        className="form-checkbox h-5 w-5 text-green-600"
-                      />
-                      <span className="text-sm font-medium text-gray-700">Currently graduated</span>
-                    </label>
-
-                    {isAlumni && (
-                      <div className="mt-3 space-y-2">
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700">
-                            Graduation Date
-                          </label>
-                          <input
-                            type="date"
-                            value={graduationDate}
-                            onChange={(e) => setGraduationDate(e.target.value)}
-                            className="mt-1 block w-full rounded-md border border-gray-300 shadow-sm p-2 text-sm"
-                          />
-                        </div>
-                      </div>
-                    )}
-                    {error && (
-                      <p className="text-red-500 text-sm mt-2">{error}</p>
-                    )}
-                  </div>
-                </div>
-
-                {/* Phone Number with Verification */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Phone Number <span className="text-gray-400">(Optional)</span>
-                    {isPhoneVerified && (
-                      <span className="ml-2 text-green-600 text-sm">📱 Verified</span>
-                    )}
-                  </label>
-                  <div className="flex space-x-2">
-                    <input
-                      type="tel"
-                      placeholder="+1 (555) 123-4567"
-                      value={phoneNumber}
-                      onChange={(e) => setPhoneNumber(e.target.value)}
-                      className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all"
-                    />
-                    {phoneNumber && !isPhoneVerified && (
-                      <button
-                        type="button"
-                        onClick={sendPhoneVerification}
-                        className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors text-sm whitespace-nowrap"
-                      >
-                        Verify
-                      </button>
-                    )}
-                  </div>
-                  
-                  {phoneNumber && (
-                    <p className="text-xs text-blue-600 mt-1">
-                      <svg className="w-3 h-3 inline mr-1" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-                      </svg>
-                      Verified phone numbers earn a "📱 Verified" badge
-                    </p>
-                  )}
-                  
-                  {showPhoneVerification && (
-                    <div className="mt-3 p-4 bg-orange-50 border border-orange-200 rounded-lg">
-                      <p className="text-sm text-gray-700 mb-3 font-medium">Enter the 6-digit verification code:</p>
-                      <div className="flex space-x-2">
-                        <input
-                          type="text"
-                          placeholder="123456"
-                          value={phoneVerificationCode}
-                          onChange={(e) => setPhoneVerificationCode(e.target.value)}
-                          className="flex-1 px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                        />
-                        <button
-                          type="button"
-                          onClick={verifyPhoneCode}
-                          className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 transition-colors text-sm whitespace-nowrap"
-                        >
-                          Verify
-                        </button>
-                      </div>
-                      <p className="text-xs text-gray-500 mt-2">Demo mode: Any 6-digit code will work</p>
+              <motion.div
+                animate={{ backgroundColor: bgColors[step] }}
+                transition={{ duration: 0.45 }}
+                className="flex items-center justify-center px-4"
+              >
+                <div className="w-full max-w-3xl mx-auto p-6">
+                  {/* Header + Progress */}
+                  <div className="mb-6">
+                    <div className="flex items-center justify-between mb-2">
+                      <h2 className="text-xl font-semibold text-gray-800">Create account</h2>
+                      <div className="text-sm text-gray-600">Step {step + 1} of {steps}</div>
                     </div>
-                  )}
-                </div>
 
-                {/* Social Link */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Social Media Link <span className="text-gray-400">(Optional)</span>
-                  </label>
-                  <input
-                    type="url"
-                    placeholder="https://instagram.com/johndoe or https://linkedin.com/in/johndoe"
-                    value={socialLink}
-                    onChange={(e) => setSocialLink(e.target.value)}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">Add credibility to your profile with a social media link</p>
-                </div>
+                    <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+                      <div
+                        className="h-full rounded-full"
+                        style={{
+                          background: "#fb923c", // orange
+                          width: `${((step) / (steps - 1)) * 100}%`,
+                          transition: "width 360ms ease",
+                        }}
+                      />
+                    </div>
+                  </div>
 
-                {/* Quick Bio */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Quick Bio <span className="text-gray-400">(Optional)</span>
-                  </label>
-                  <textarea
-                    placeholder="Tell others a bit about yourself in one line..."
-                    value={quickBio}
-                    onChange={(e) => setQuickBio(e.target.value)}
-                    maxLength={120}
-                    rows={2}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all resize-none"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">{quickBio.length}/120 characters</p>
+                  {/* form (prevent full page refresh) */}
+                  <form
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      if (step < steps - 1) handleNext();
+                      else handleSubmit();
+                    }}
+                    className="bg-white/80 backdrop-blur-sm p-6 rounded-xl shadow"
+                  >
+                    <AnimatePresence mode="wait">
+                      <motion.div
+                        key={step}
+                        variants={contentVariants}
+                        initial="initial"
+                        animate="animate"
+                        exit="exit"
+                        transition={{ duration: 0.32 }}
+                      >
+                        {/* === STEP 0: Required fields === */}
+                        {step === 0 && (
+                          <>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                  Full Name <span className="text-red-500">*</span>
+                                </label>
+                                <input
+                                  type="text"
+                                  placeholder="John Doe"
+                                  value={fullName}
+                                  onChange={(e) => setFullName(e.target.value)}
+                                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all"
+                                  autoFocus
+                                />
+                              </div>
+
+                              <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                  Date of Birth <span className="text-red-500">*</span>
+                                </label>
+                                <input
+                                  type="date"
+                                  value={dob}
+                                  onChange={(e) => setDob(e.target.value)}
+                                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all"
+                                />
+                              </div>
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">
+                                Email
+                              </label>
+                              <input
+                                type="email"
+                                placeholder="you@example.com"
+                                value={email}
+                                onChange={(e) => setEmail(e.target.value)}
+                                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">
+                                Password
+                              </label>
+                              <input
+                                type="password"
+                                placeholder="••••••••"
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all"
+                              />
+                            </div>
+
+                            {error && <p className="text-red-500 text-sm mt-3">{error}</p>}
+                          </>
+                        )}
+
+                        {/* === STEP 1: Optional — school / alumni === */}
+                        {step === 1 && (
+                          <>
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">
+                                School Email <span className="text-gray-400">(Optional)</span>
+                              </label>
+                              <input
+                                type="email"
+                                value={schoolEmail}
+                                onChange={(e) => setSchoolEmail(e.target.value)}
+                                placeholder="example@school.edu"
+                                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                              />
+                              <p className="text-xs text-gray-500 mt-2">
+                                School emails (.edu) earn a verified student badge. You may enter one even if graduated.
+                              </p>
+                            </div>
+
+                            <div className="mt-4">
+                              <label className="flex items-center space-x-2">
+                                <input
+                                  type="checkbox"
+                                  checked={isAlumni}
+                                  onChange={(e) => setIsAlumni(e.target.checked)}
+                                  className="form-checkbox h-5 w-5 text-green-600"
+                                />
+                                <span className="text-sm font-medium text-gray-700">Currently graduated</span>
+                              </label>
+
+                              {isAlumni && (
+                                <div className="mt-3">
+                                  <label className="block text-sm text-gray-700">Graduation Date</label>
+                                  <input
+                                    type="date"
+                                    value={graduationDate}
+                                    onChange={(e) => setGraduationDate(e.target.value)}
+                                    className="mt-1 block w-full rounded-md border border-gray-300 shadow-sm p-2 text-sm"
+                                  />
+                                </div>
+                              )}
+                            </div>
+                          </>
+                        )}
+
+                        {/* === STEP 2: Optional — phone, social, bio, address === */}
+                        {step === 2 && (
+                          <>
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">
+                                Phone Number <span className="text-gray-400">(Optional)</span>
+                              </label>
+                              <div className="flex space-x-2">
+                                <input
+                                  type="tel"
+                                  placeholder="+1 (555) 123-4567"
+                                  value={phoneNumber}
+                                  onChange={(e) => setPhoneNumber(e.target.value)}
+                                  className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    // demo verification toggler — replace with real flow
+                                    if (!phoneNumber) { setError("Enter your phone to verify"); return; }
+                                    setIsPhoneVerified(true);
+                                    setError("");
+                                  }}
+                                  className="px-3 py-2 bg-orange-500 hover:bg-orange-600 transform hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg text-sm"
+                                >
+                                  {isPhoneVerified ? "Verified" : "Verify"}
+                                </button>
+                              </div>
+                              <p className="text-xs text-blue-600 mt-1">Verified phones earn a "📱 Verified" badge</p>
+                            </div>
+                            
+
+                            <div className="mt-4">
+                              <label className="block text-sm font-medium text-gray-700 mb-1">Social Media Link <span className="text-gray-400">(Optional)</span></label>
+                              <input
+                                type="url"
+                                placeholder="https://instagram.com/you"
+                                value={socialLink}
+                                onChange={(e) => setSocialLink(e.target.value)}
+                                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all"
+                              />
+                            </div>
+
+                            <div className="mt-4">
+                              <label className="block text-sm font-medium text-gray-700 mb-1">Quick Bio <span className="text-gray-400">(Optional)</span></label>
+                              <textarea
+                                placeholder="One-line about you..."
+                                value={quickBio}
+                                onChange={(e) => setQuickBio(e.target.value)}
+                                maxLength={120}
+                                rows={2}
+                                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all resize-none"
+                              />
+                              <p className="text-xs text-gray-500 mt-1">{quickBio.length}/120 characters</p>
+                            </div>
+
+                            <div className="mt-4">
+                              <label className="block text-sm font-medium text-gray-700 mb-1">Address <span className="text-gray-400">(Optional)</span></label>
+                              <input
+                                type="text"
+                                placeholder="Enter your address"
+                                value={address}
+                                onChange={(e) => setAddress(e.target.value)}
+                                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all"
+                              />
+                            </div>
+                          </>
+                        )}
+                      </motion.div>
+                    </AnimatePresence>
+
+                    {/* Buttons */}
+                    <div className="mt-6 flex items-center justify-between">
+                      <div>
+                        {step > 0 ? (
+                          <button
+                            type="button"
+                            onClick={handleBack}
+                            className="px-4 py-2 bg-orange-500 text-white hover:bg-orange-600 rounded-md text-sm transform hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            ← Back
+                          </button>
+                        ) : (
+                          <div />
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-3">
+                        {step < steps - 1 ? (
+                          <button
+                            type="button"
+                            onClick={handleNext}
+                            className="px-4 py-2 bg-orange-500 hover:bg-orange-600 transition-all transform hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-md"
+                          >
+                            Next
+                          </button>
+                        ) : (
+                          <button
+                            onClick={handleAuth}
+                            disabled={loading}
+                            type="submit"
+                            className="px-4 py-2 bg-orange-500 hover:bg-orange-600 transition-all transform hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-md"
+                          >
+                            Create account
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    {error && <p className="text-red-500 text-sm mt-4">{error}</p>}
+                  </form>
                 </div>
-                {/* Address */}
-                <div className="mt-6">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Address <span className="text-gray-400">(Optional)</span>
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="Enter your address"
-                    value={address}
-                    onChange={(e) => setAddress(e.target.value)}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all"
-                  />
-                </div>
-              </>
+              </motion.div>
             )}
 
             {/* Email and Password (Both modes) */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Email
-              </label>
-              <input
-                type="email"
-                placeholder="you@example.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all"
-              />
-            </div>
+            {isLogin && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Email
+                </label>
+                <input
+                  type="email"
+                  placeholder="you@example.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all"
+                />
+              </div>
+            )}
 
-            {!forgotMode && (
+            {!forgotMode && isLogin && (
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Password

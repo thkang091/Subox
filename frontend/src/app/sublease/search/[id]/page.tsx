@@ -8,7 +8,7 @@ import {
   Calendar, ChevronLeft, ChevronRight, MapPin, Users, Home, 
   Search, X, Bookmark, Star, Wifi, Droplets, Sparkles, 
   Filter, BedDouble, DollarSign, LogIn, Heart, User, Plus,
-  ArrowLeft, ArrowRight,Video, MessageCircle, Package, Bell, AlertCircle, Menu, MessagesSquare
+  ArrowLeft, ArrowRight,Video, MessageCircle, Package, Bell, AlertCircle, Menu, MessagesSquare, Image
 } from 'lucide-react';
 import { doc, getDoc, addDoc, collection, query, where, getDocs, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
@@ -1300,7 +1300,7 @@ const NotificationsButton = ({ notifications }: { notifications: Notification[] 
                     className="h-24 md:h-auto rounded-lg bg-gray-100 flex items-center justify-center cursor-pointer hover:bg-gray-200 transition"
                     onClick={() => setShowAllImages(true)}
                   >
-                    <Plus className="text-gray-500" />
+                    <Image className="text-gray-500" />
                   </div>
                 </div>
               </div>

@@ -8,7 +8,7 @@ import {
   Calendar, Bus, Bike, Filter, DollarSign, Sparkles,
   Grid3X3, List, Bell, User, Plus, X, Zap, Upload,
   Scan, Image as ImageIcon, ShoppingBag, MessageCircle,
-  Navigation, Clock, Video, Phone,
+  Clock, Video, Phone,
   Brain, Wand2, MessageSquare, Cpu, RefreshCw, CheckCircle,
   AlertCircle, Smartphone, Send, ChevronLeft, FileText, Target,
   ThumbsUp, BedDouble, Lightbulb, ChevronDown, Award, TrendingUp,
@@ -18,6 +18,10 @@ import {
   Building, TreePine, Coffee, Shield, Edit
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { Swiper, SwiperSlide } from "swiper/react";
+import { Navigation, Autoplay } from "swiper/modules";
+import "swiper/css";
+import "swiper/css/navigation";
 
 
 const SuboxHomepage = () => {
@@ -194,7 +198,8 @@ const SuboxHomepage = () => {
             <motion.div 
               className="flex items-center space-x-4 relative"
               whileHover={{ scale: 1.05 }}
-            >              {/* Main Subox Logo */}
+            >              
+            {/* Main Subox Logo */}
               <motion.div className="relative">
                 {/* House Icon */}
                 <motion.svg 
@@ -1278,22 +1283,22 @@ const useCases = [
   {
     title: "Post",
     description: "Subox helps you post your sublease easy and fast with AI.",
-    image: "/use-cases/students.png",
+    image: "post.png",
   },
   {
     title: "Rent",
     description: "Subox helps you browse verified subleases and contact the host instantly.",
-    image: "/use-cases/renters.png",
+    image: "rent.png",
   },  
   {
     title: "Sell",
     description: "Subox helps you sell your product easy and fast through AI auto listing.",
-    image: "/use-cases/sellers.png",
+    image: ["movesale.png", "sell.png", "sell2.png"]
   },
   {
-    title: "Buyers",
+    title: "Buy",
     description: "Subox helps you discover great deals on moving sale products from fellow students, alumnis, and users in Minnesota",
-    image: "/use-cases/buyers.png",
+    image: "movebrowse.png",
   },
 ];
 
@@ -1342,16 +1347,41 @@ function UseCasesSection() {
       >
         <div className="hidden md:block md:w-1/2 sticky top-20 h-[400px]">
           <AnimatePresence mode="wait">
-            <motion.img
+            <motion.div
               key={useCases[activeIndex].image}
-              src={useCases[activeIndex].image}
-              alt={useCases[activeIndex].title}
               initial={{ opacity: 0, x: -50 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: 50 }}
               transition={{ duration: 0.5 }}
-              className="w-full h-full object-contain rounded-xl shadow-lg"
-            />
+              className="w-full h-full"
+            >
+            {Array.isArray(useCases[activeIndex].image) ? (
+                <Swiper
+                  modules={[Navigation, Autoplay]}
+                  spaceBetween={20}
+                  slidesPerView={1}
+                  navigation
+                  autoplay={{ delay: 3000, disableOnInteraction: false }}
+                  loop
+                >
+                  {useCases[activeIndex].image.map((imgSrc, idx) => (
+                    <SwiperSlide key={imgSrc}>
+                      <img
+                        src={imgSrc}
+                        alt={`Slide ${idx}`}
+                        className="w-full h-full object-contain rounded-xl shadow-lg"
+                      />
+                    </SwiperSlide>
+                  ))}
+                </Swiper>
+              ) : (
+                <img
+                  src={useCases[activeIndex].image}
+                  alt={useCases[activeIndex].title}
+                  className="w-full h-full object-contain rounded-xl shadow-lg"
+                />
+              )}
+            </motion.div>
           </AnimatePresence>
         </div>
 
@@ -1408,25 +1438,25 @@ const HowItWorksSection = ({ howY }) => {
           {[
             {
               title: <>Post a <span className="text-orange-500">Sublease</span></>,
-              image: "/how/post-sublease.png",
+              image: "post.png",
               hoverImage: "/how/post-sublease-anim.gif",
               description: <>Easily post your sublease with a <span className="text-orange-500">few clicks</span> and <span className="text-orange-500">photos</span>.</>,
             },            
             {
               title: <><span className='text-orange-500'>Rent </span>a Place</>,
-              image: "/how/rent-sublease.png",
+              image: "rent.png",
               hoverImage: "/how/rent-sublease-anim.gif",
               description: <>Browse local subleases from trusted <span className="text-orange-500">students</span>, <span className="text-orange-500">alumnis</span>, and <span className="text-orange-500">users in Minnesota</span> and contact directly.</>,
             },
             {
               title: <>Sell a <span className='text-orange-500'>Product</span></>,
-              image: "/how/post-product.png",
+              image: "sell.png",
               hoverImage: "/how/post-product-anim.gif",
               description: <>Snap a photo and let <span className="text-orange-500">AI</span> handle the rest of your <span className="text-orange-500">item listing</span>.</>,
             },
             {
               title: <><span className='text-orange-500'>Buy </span>a Product</>,
-              image: "/how/buy-product.png",
+              image: "movebrowse.png",
               hoverImage: "/how/buy-product-anim.gif",
               description: <>Buy what you need <span className="text-orange-500">easily</span> and <span className="text-orange-500">quickly</span> by contacting directly.</>,
             },
