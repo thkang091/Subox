@@ -47,6 +47,8 @@ const SuboxHomepage = () => {
   const { scrollYProgress } = useScroll();
 
   const router = useRouter();
+
+  const [showMenu, setShowMenu] = useState(false);
   
   // Parallax transforms
   const heroY = useTransform(scrollYProgress, [0, 0.3], [0, -100]);
@@ -184,7 +186,7 @@ const SuboxHomepage = () => {
 
       {/* Navigation */}
       <motion.nav 
-        className={`fixed top-0 z-50 transition-all duration-300 w-fit left-1/2 -translate-x-1/2 ${
+        className={`hidden md:block fixed top-0 z-50 transition-all duration-300 w-fit left-1/2 -translate-x-1/2 ${
           scrolledPastTop && showNav
             ? 'bg-white/80 backdrop-blur-md border border-gray-200/50 shadow-md rounded-xl py-2 px-4 w-fit mx-auto'
             : 'bg-transparent border-none shadow-none rounded-none py-4 px-6'
@@ -365,6 +367,100 @@ const SuboxHomepage = () => {
         </div>
       </motion.nav>
 
+    <div className="block md:hidden ">
+      <motion.div
+        initial={{ y: 0 }}
+        animate={{ y: 0 }}
+        transition={{ duration: 0.5, ease: "easeOut" }}
+        className="min-h-screen py-6 px-4 relative fixed"
+      >
+        {/* Header Row with Logo + Menu Button */}
+        <div className="flex justify-between items-center mb-6">
+          {/* Logo */}
+          <motion.div
+            className="flex items-center space-x-3"
+            whileHover={{ scale: 1.05 }}
+          >
+            {/* Your Logo SVGs here (kept same as your original) */}
+            <span className="text-2xl font-bold">Subox</span>
+          </motion.div>
+
+          {/* Menu Button */}
+          <button
+            onClick={() => setShowMenu(!showMenu)}
+            className="p-2 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 fixed top-4 right-4 z-50"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-7 w-7 text-gray-700"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              {showMenu ? (
+                // X icon
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M6 18L18 6M6 6l12 12"
+                />
+              ) : (
+                // Hamburger icon
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M4 6h16M4 12h16M4 18h16"
+                />
+              )}
+            </svg>
+          </button>
+        </div>
+
+        {/* Dropdown Menu */}
+        {showMenu && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3 }}
+            className="fixed top-0 right-0 w-64 flex flex-col gap-4 mt-4 bg-white z-50 p-4"
+          >
+            {["Use Cases", "How it works", "Pricing", "Help"].map((item) => {
+              const help = item === "Help";
+              const link = help
+                ? "/help"
+                : `#${item.toLowerCase().replace(/ /g, "-")}`;
+
+              return (
+                <a
+                  key={item}
+                  href={link}
+                  className="text-gray-600 hover:text-orange-500 font-medium"
+                >
+                  {item}
+                </a>
+              );
+            })}
+
+            {/* Auth Buttons */}
+            <button
+              className="px-4 py-2 text-gray-600 hover:text-orange-500 font-medium transition-colors"
+              onClick={() => router.push("auth/")}
+            >
+              Log in
+            </button>
+            <button
+              className="px-6 py-3 bg-gradient-to-r from-orange-500 to-orange-600 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all"
+              onClick={() => router.push("auth?mode=signup")}
+            >
+              Get Started
+            </button>
+          </motion.div>
+        )}
+      </motion.div>
+    </div>
+
       {/* Hero Section with Furniture Animation */}
       <motion.section 
         className="relative z-10 max-w-7xl mx-auto px-6 py-20"
@@ -373,7 +469,7 @@ const SuboxHomepage = () => {
         <div className="flex flex-col lg:flex-row items-center justify-between gap-16 mb-16">
           {/* Hero Text - Left Side */}
           <motion.div
-            className="flex-1 text-center lg:text-left"
+            className="flex-1 text-center lg:text-left hidden md:block"
             initial={{ opacity: 0, y: 50 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 1, ease: "easeOut" }}
@@ -737,6 +833,42 @@ const SuboxHomepage = () => {
                 ))}
               </motion.div>
             </motion.div>
+
+          <motion.section 
+            className="relative z-10 max-w-7xl mx-auto px-4 py-12 sm:px-6 sm:py-20 block md:hidden"
+            style={{ y: heroY }}
+          >
+            <div className="flex flex-col lg:flex-row items-center lg:items-start justify-between gap-8 sm:gap-16 mb-12">
+              <motion.div
+                className="flex-1 text-center lg:text-left"
+                initial={{ opacity: 0, y: 50 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 1, ease: "easeOut" }}
+              >
+                <motion.h1 
+                  className="text-3xl sm:text-4xl md:text-7xl font-bold text-gray-900 mb-4 sm:mb-6 leading-tight"
+                >
+                  Student life.<br />
+                  <span className="text-orange-500">Simplified.</span>
+                </motion.h1>
+
+                <motion.p 
+                  className="text-base sm:text-lg md:text-xl text-gray-600 mb-6 sm:mb-8 max-w-xl mx-auto lg:mx-0"
+                >
+                  The all-in-one platform for student housing and campus marketplace.{" "}
+                  <span className="font-semibold bg-gradient-to-r from-orange-500 to-purple-600 bg-clip-text text-transparent">
+                    Capture, list, and sell your items instantly with AI-powered magic.
+                  </span>
+                </motion.p>
+
+                <motion.div className="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-3 sm:gap-4">
+                  <button className="w-full sm:w-auto px-6 py-3 bg-gradient-to-r from-orange-500 to-orange-600 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all">
+                    Get Started Free
+                  </button>
+                </motion.div>
+              </motion.div>
+            </div>
+          </motion.section>
 
             {/* Purple decorative dots positioned like in image 2 */}
             <motion.div
