@@ -217,7 +217,6 @@ export default function AuthPage() {
       socialLink,
       address,
     });
-    alert("Submitted (demo) — replace with real submit handler");
   };
 
   const sendPhoneVerification = async () => {
@@ -1016,6 +1015,7 @@ export default function AuthPage() {
             )}
 
             {/* Submit Button */}
+            {isLogin && (
             <button
               onClick={handleAuth}
               disabled={loading}
@@ -1028,9 +1028,10 @@ export default function AuthPage() {
                   <div className="w-2 h-2 bg-white rounded-full animate-bounce [animation-delay:0.2s]" />
                 </div>
               ) : (
-                forgotMode ? "Send Reset Email" : isLogin ? "Sign In" : "Create Account"
+                forgotMode ? "Send Reset Email" : "Sign In"
               )}
             </button>
+            )}
 
           {/* Divider */}
           <div className="relative my-6">

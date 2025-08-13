@@ -4,6 +4,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from "framer-motion";
+import Badges from '@/data/badge';
 import { 
   Calendar, ChevronLeft, ChevronRight, MapPin, Users, Home, 
   Search, X, Bookmark, Star, Wifi, Droplets, Tv, Sparkles, 
@@ -804,6 +805,21 @@ const clearCommuteSearch = () => {
         return '/mo';
     }
   };
+
+  // Badge function
+  const [badgeList, setBadgeList] = useState([]);
+  
+  useEffect(() => {
+    const list = [];
+
+    if (isLoggedIn) {
+      list.push(Badges.schoolBadge());
+    }
+    else {
+      list.push(Badges.alumniBadge());
+    }
+    setBadgeList(list);
+  }, []);
 
   const handleSearch = () => {
     setIsSearching(true);
@@ -2763,6 +2779,13 @@ const renderCommuteInfo = (listing) => {
                     transition={{ duration: 2, repeat: Infinity }}
                 >
                     SUBLEASE
+                    {badgeList.map((badge, i) => (
+                      <span key={i} className="inline-flex items-center translate-y-1">
+                        {React.cloneElement(badge as React.ReactElement, {
+                          className: "w-4 h-4 ml-1"
+                        })}
+                      </span>
+                    ))}
                 </motion.span>
                 </motion.div>
                 </motion.div>

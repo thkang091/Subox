@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import Badges from "@/data/badge";
 import { 
   Search,  Filter, 
   Heart, 
@@ -100,6 +101,21 @@ const MoveOutSalePage = () => {
     } catch (error) {
       console.error('Error loading favorites from localStorage:', error);
     }
+  }, []);
+
+  // Badge function
+  const [badgeList, setBadgeList] = useState([]);
+  
+  useEffect(() => {
+    const list = [];
+
+    if (isLoggedIn) {
+      list.push(Badges.schoolBadge());
+    }
+    else {
+      list.push(Badges.alumniBadge());
+    }
+    setBadgeList(list);
   }, []);
 
   // update localStorage when favoriteListings is changed
@@ -706,7 +722,14 @@ const NotificationsButton = ({ notifications }: { notifications: Notification[] 
                   animate={{ opacity: [0.7, 1, 0.7] }}
                   transition={{ duration: 2, repeat: Infinity }}
               >
-                  MOVING SALES
+                  MOVING SALES 
+                    {badgeList.map((badge, i) => (
+                      <span key={i} className="inline-flex items-center translate-y-1">
+                        {React.cloneElement(badge as React.ReactElement, {
+                          className: "w-4 h-4 ml-1"
+                        })}
+                      </span>
+                    ))}
               </motion.span>
               </motion.div>
               </motion.div>
@@ -798,6 +821,7 @@ const NotificationsButton = ({ notifications }: { notifications: Notification[] 
                       exit={{ opacity: 0, y: -10 }}
                       className="absolute right-0 mt-2 w-64 bg-white rounded-lg shadow-lg border border-gray-200 z-50"
                   >
+
                       <div className="p-4 space-y-2">
                       <button onClick={() => handleTabClick("purchased")} className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-orange-50 transition-colors">What I Purchased</button>
                       <button onClick={() => handleTabClick("returned")} className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-orange-50 transition-colors">What I Returned</button>
@@ -1294,6 +1318,7 @@ const NotificationsButton = ({ notifications }: { notifications: Notification[] 
                               <span className="text-sm font-medium text-gray-600">{product.sellerRating}</span>
                             </div>
                             <span className="text-gray-500 text-sm">• {product.views} views</span>
+                            <span className="text-sm">{Badges.schoolBadge()}</span>
                           </div>
                         </div>
                       </div>
