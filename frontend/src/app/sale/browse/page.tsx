@@ -81,6 +81,7 @@ const MoveOutSalePage = () => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       if (user) {
         setUserId(user.uid);
+        setIsLoggedIn(true);
       } else {
         setUserId(null);
       }

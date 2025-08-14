@@ -1,15 +1,18 @@
 'use client'
 
 import { useEffect, useState } from 'react';
+import { onAuthStateChanged } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
 import { useParams } from 'next/navigation';
 import { motion, AnimatePresence } from "framer-motion";
-import { db } from '@/lib/firebase';
+import { db, auth } from '@/lib/firebase';
 import { doc, getDoc, updateDoc, increment, collection, query, where, getDocs, limit, orderBy, addDoc, serverTimestamp } from 'firebase/firestore';
 import { useAuth } from '@/app/contexts/AuthInfo';
 import { MapPin, Heart, User, Package, Bell, X, ArrowLeft, ArrowRight,
         ChevronLeft, Plus, Flag, MessageCircle
 } from 'lucide-react';
+import React from 'react';
+import Badges from '@/data/badge';
 
 // Interfaces
 interface PageParams {
@@ -242,6 +245,22 @@ const ProductDetailPage = () => {
     }
   };
 
+  const [userId, setUserId] = useState(null);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        setUserId(user.uid);
+        setIsLoggedIn(true);
+      } else {
+        setUserId(null);
+      }
+    });
+
+    return () => unsubscribe();
+  }, []);
+
   // Fetch other items by the same seller
   const fetchOtherSellerItems = async (hostId: string, currentProductId: string) => {
     try {
@@ -272,6 +291,21 @@ const ProductDetailPage = () => {
       console.error('Error fetching other seller items:', error);
     }
   };
+
+  // Badge function
+  const [badgeList, setBadgeList] = useState([]);
+  
+  useEffect(() => {
+    const list = [];
+
+    if (isLoggedIn) {
+      list.push(Badges.schoolBadge());
+    }
+    else {
+      list.push(Badges.alumniBadge());
+    }
+    setBadgeList(list);
+  }, []);
 
   // Enhanced algorithm for finding similar products
   const fetchSimilarProducts = async (currentProduct: ProductData) => {
@@ -620,14 +654,129 @@ const ProductDetailPage = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             {/* Logo */}
-            <div className="flex items-center space-x-3">
-              <div className="w-8 h-8 bg-gradient-to-br from-orange-500 to-red-600 rounded-lg flex items-center justify-center">
-                <Package className="w-5 h-5 text-white" />
-              </div>
-              <span className="text-2xl font-bold text-gray-900">Subox</span>
-              <span className="text-sm text-gray-500 hidden sm:block">Move Out Sales</span>
-            </div>
- 
+            <motion.div 
+                className="flex items-center space-x-6 relative mt-1"
+                whileHover={{ scale: 1.05 }}
+                onClick={() => {isLoggedIn ? (router.push("/find")) : router.push("/")}}
+            >
+            {/* Main Subox Logo */}
+            <motion.div className="relative">
+            {/* House Icon */}
+            <motion.svg 
+                className="w-12 h-12" 
+                viewBox="0 0 100 100" 
+                fill="none"
+                whileHover={{ rotate: [0, -5, 5, 0] }}
+                transition={{ duration: 0.5 }}
+            >
+                {/* House Base */}
+                <motion.path
+                d="M20 45L50 20L80 45V75C80 78 77 80 75 80H25C22 80 20 78 20 75V45Z"
+                fill="#E97451"
+                animate={{ 
+                    fill: ["#E97451", "#F59E0B", "#E97451"],
+                    scale: [1, 1.02, 1]
+                }}
+                transition={{ duration: 3, repeat: Infinity }}
+                />
+                {/* House Roof */}
+                <motion.path
+                d="M15 50L50 20L85 50L50 15L15 50Z"
+                fill="#D97706"
+                animate={{ rotate: [0, 1, 0] }}
+                transition={{ duration: 4, repeat: Infinity }}
+                />
+                {/* Window */}
+                <motion.rect
+                x="40"
+                y="50"
+                width="20"
+                height="15"
+                fill="white"
+                animate={{ 
+                    opacity: [1, 0.8, 1],
+                    scale: [1, 1.1, 1]
+                }}
+                transition={{ duration: 2, repeat: Infinity }}
+                />
+                {/* Door */}
+                <motion.rect
+                x="45"
+                y="65"
+                width="10"
+                height="15"
+                fill="white"
+                animate={{ scaleY: [1, 1.05, 1] }}
+                transition={{ duration: 2.5, repeat: Infinity }}
+                />
+            </motion.svg>
+
+            {/* Tag Icon */}
+            <motion.svg 
+                className="w-8 h-8 absolute -top-2 -right-2" 
+                viewBox="0 0 60 60" 
+                fill="none"
+                whileHover={{ rotate: 360 }}
+                transition={{ duration: 0.8 }}
+            >
+                <motion.path
+                d="M5 25L25 5H50V25L30 45L5 25Z"
+                fill="#E97451"
+                animate={{ 
+                    rotate: [0, 5, -5, 0],
+                    scale: [1, 1.1, 1]
+                }}
+                transition={{ duration: 3, repeat: Infinity }}
+                />
+                <motion.circle
+                cx="38"
+                cy="17"
+                r="4"
+                fill="white"
+                animate={{ 
+                    scale: [1, 1.3, 1],
+                    opacity: [1, 0.7, 1]
+                }}
+                transition={{ duration: 1.5, repeat: Infinity }}
+                />
+            </motion.svg>
+            </motion.div>
+
+            {/* Subox Text */}
+            <motion.div className="flex flex-col -mx-4">
+            <motion.span 
+                className="text-3xl font-bold text-gray-900"
+                animate={{
+                background: [
+                    "linear-gradient(45deg, #1F2937, #374151)",
+                    "linear-gradient(45deg, #E97451, #F59E0B)",
+                    "linear-gradient(45deg, #1F2937, #374151)"
+                ],
+                backgroundClip: "text",
+                WebkitBackgroundClip: "text",
+                color: "transparent"
+                }}
+                transition={{ duration: 4, repeat: Infinity }}
+            >
+                Subox
+            </motion.span>
+            <motion.span 
+                className="text-xs text-gray-500 font-medium tracking-wider"
+                animate={{ opacity: [0.7, 1, 0.7] }}
+                transition={{ duration: 2, repeat: Infinity }}
+            >
+                SUBLEASE
+                {badgeList.map((badge, i) => (
+                  <span key={i} className="inline-flex items-center translate-y-1">
+                    {React.cloneElement(badge as React.ReactElement, {
+                      className: "w-4 h-4 ml-1"
+                    })}
+                  </span>
+                ))}
+            </motion.span>
+            </motion.div>
+            </motion.div>
+
             {/* Header Actions */}
             <div className="flex items-center space-x-4">
               {/* Notifications */}
