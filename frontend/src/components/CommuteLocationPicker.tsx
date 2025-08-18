@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { 
   Search, MapPin, X, Navigation, Car, Bike, Users, 
-  Clock, Route, AlertCircle, Calculator, Zap, Train, Bus
+  Clock, Route, Settings, Check, DollarSign, Info, AlertCircle, Calculator, Zap, Train, Bus, PersonStanding
 } from 'lucide-react';
 
 interface CommuteLocationPickerProps {
@@ -943,22 +943,37 @@ export default function CommuteLocationPicker({
   );
 
   const renderTransportModeSelector = () => (
-    <div className="grid grid-cols-2 md:grid-cols-5 gap-2 mb-4">
+    <div className="flex items-center justify-center md:grid-cols-5 gap-15 mb-4 ">
       {[
-        { mode: 'walking' as TransportMode, label: 'Walk', icon: <Users size={16} /> },
-        { mode: 'transit' as TransportMode, label: 'Transit', icon: <Train size={16} /> },
-        { mode: 'bicycling' as TransportMode, label: 'Bike', icon: <Bike size={16} /> },
-        { mode: 'scooter' as TransportMode, label: 'Scooter', icon: <Zap size={16} /> },
-        { mode: 'driving' as TransportMode, label: 'Drive', icon: <Car size={16} /> }
+        // { mode: 'walking' as TransportMode, label: 'Walk', icon: <Users size={16} /> },
+        // { mode: 'transit' as TransportMode, label: 'Transit', icon: <Train size={16} /> },
+        // { mode: 'bicycling' as TransportMode, label: 'Bike', icon: <Bike size={16} /> },
+        // { mode: 'scooter' as TransportMode, label: 'Scooter', icon: <Zap size={16} /> },
+        // { mode: 'driving' as TransportMode, label: 'Drive', icon: <Car size={16} /> }
+        // { mode: 'walking' as TransportMode, label: 'Walk', icon: '🚶' },
+        // { mode: 'transit' as TransportMode, label: 'Transit', icon: '🚌' },
+        // { mode: 'bicycling' as TransportMode, label: 'Bike', icon: '🚲' },
+        // { mode: 'scooter' as TransportMode, label: 'Scooter', icon: '🛴' },
+        // { mode: 'driving' as TransportMode, label: 'Drive', icon: '🚗'}
+        { mode: 'walking' as TransportMode,  icon: <PersonStanding size={16} /> },
+        { mode: 'transit' as TransportMode, icon: <Train size={16} /> },
+        { mode: 'bicycling' as TransportMode,  icon: <Bike size={16} /> },
+        { mode: 'scooter' as TransportMode,  icon: <Zap size={16} /> },
+        { mode: 'driving' as TransportMode, icon: <Car size={16} /> }
       ].map(({ mode, label, icon }) => (
         <button
           key={mode}
           onClick={() => handleTransportModeChange(mode)}
           disabled={!!mapsError}
-          className={`flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+          // className={`flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+          //   selectedTransportMode === mode
+          //     ? 'bg-orange-500 text-white'
+          //     : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+          // }`}
+           className={`p-3 rounded-lg text-center transition-all ${
             selectedTransportMode === mode
-              ? 'bg-orange-500 text-white'
-              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              ? 'bg-orange-400 text-white shadow-md'
+              : 'bg-white border border-gray-200 text-gray-700 hover:border-gray-300'
           }`}
         >
           {icon}
@@ -968,94 +983,55 @@ export default function CommuteLocationPicker({
     </div>
   );
 
-  const renderAdvancedOptions = () => (
-    <div className="mt-4 p-4 bg-gray-50 rounded-lg border">
-      <h4 className="font-medium text-gray-800 mb-3 flex items-center gap-2">
-        <Route size={16} />
-        Advanced Route Options
-      </h4>
+const renderCommutePreferences = () => (
+  <div className="space-y-4 mb-6">
+    
+    {/* Max Commute Time */}
+    <div className="bg-white border border-gray-200 rounded-xl p-4 sm:p-6 transition-all duration-200 hover:border-orange-500 hover:shadow-md">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 sm:mb-6">
+        <div className="flex items-center gap-3 mb-2 sm:mb-0">
+          <div className="w-8 h-8 bg-orange-500 rounded-lg flex items-center justify-center text-white flex-shrink-0">
+            <Clock size={18} />
+          </div>
+          <div className="text-base font-semibold text-gray-700">Max Commute Time</div>
+        </div>
+        <div className="flex items-center gap-1">
+          <span className="text-xl sm:text-2xl font-bold text-orange-500">{maxCommuteTime}</span>
+          <span className="text-sm sm:text-base font-medium text-gray-500">min</span>
+        </div>
+      </div>
       
-      <div className="space-y-3">
-        {/* Show Alternatives */}
-        <label className="flex items-center gap-3 cursor-pointer">
-          <input
-            type="checkbox"
-            checked={showAlternatives}
-            onChange={(e) => handleCommutePreferencesChange(
-              maxCommuteTime, 
+      {/* Quick Time Presets */}
+      <div className="grid grid-cols-4 gap-2 mb-4">
+        {[15, 30, 45, 60].map(time => (
+          <button
+            key={time}
+            onClick={() => handleCommutePreferencesChange(
+              time, 
               maxDistance, 
-              e.target.checked, 
+              showAlternatives, 
               avoidTolls, 
               avoidHighways
             )}
-            className="w-4 h-4 text-orange-500 border-gray-300 rounded focus:ring-orange-500"
-          />
-          <span className="text-sm text-gray-700">Show alternative routes</span>
-        </label>
-
-        {/* Driving-specific options */}
-        {(selectedTransportMode === 'driving' || selectedTransportMode === 'scooter') && (
-          <>
-            <label className="flex items-center gap-3 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={avoidTolls}
-                onChange={(e) => handleCommutePreferencesChange(
-                  maxCommuteTime, 
-                  maxDistance, 
-                  showAlternatives, 
-                  e.target.checked, 
-                  avoidHighways
-                )}
-                className="w-4 h-4 text-orange-500 border-gray-300 rounded focus:ring-orange-500"
-              />
-              <span className="text-sm text-gray-700">Avoid tolls</span>
-            </label>
-
-            <label className="flex items-center gap-3 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={avoidHighways}
-                onChange={(e) => handleCommutePreferencesChange(
-                  maxCommuteTime, 
-                  maxDistance, 
-                  showAlternatives, 
-                  avoidTolls, 
-                  e.target.checked
-                )}
-                className="w-4 h-4 text-orange-500 border-gray-300 rounded focus:ring-orange-500"
-              />
-              <span className="text-sm text-gray-700">Avoid highways</span>
-            </label>
-          </>
-        )}
-
-        {/* Transit-specific info */}
-        {selectedTransportMode === 'transit' && (
-          <div className="text-sm text-blue-700 bg-blue-50 p-2 rounded">
-            <Bus size={14} className="inline mr-1" />
-            Routes will include buses, trains, and light rail with transfer information
-          </div>
-        )}
-
-        {/* Biking-specific info */}
-        {selectedTransportMode === 'bicycling' && (
-          <div className="text-sm text-green-700 bg-green-50 p-2 rounded">
-            <Bike size={14} className="inline mr-1" />
-            Routes will prefer bike lanes and bike-friendly streets
-          </div>
-        )}
+            className={`px-3 py-2 text-xs sm:text-sm font-medium rounded-lg transition-all duration-200 ${
+              maxCommuteTime === time
+                ? 'bg-orange-500 text-white shadow-md'
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+            }`}
+          >
+            {time}m
+          </button>
+        ))}
       </div>
-    </div>
-  );
-
-  const renderCommutePreferences = () => (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          Max Commute Time: {maxCommuteTime} minutes
-        </label>
-        <input
+      
+      <div className="relative mb-4">
+        <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+          <div 
+            className="h-full bg-orange-500 rounded-full transition-all duration-300"
+            style={{ width: `${((maxCommuteTime - 5) / (60 - 5)) * 100}%` }}
+          />
+        </div>
+        <input 
           type="range"
           min="5"
           max="60"
@@ -1068,19 +1044,62 @@ export default function CommuteLocationPicker({
             avoidTolls, 
             avoidHighways
           )}
-          className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider-orange"
+          className="absolute top-0 w-full h-1.5 bg-transparent appearance-none cursor-pointer commute-slider"
         />
-        <div className="flex justify-between text-xs text-gray-500 mt-1">
-          <span>5 min</span>
-          <span>60 min</span>
+      </div>
+      
+      <div className="flex justify-between text-xs sm:text-sm text-gray-500">
+        <span>5 min</span>
+        <span>60 min</span>
+      </div>
+    </div>
+
+    {/* Max Distance */}
+    <div className="bg-white border border-gray-200 rounded-xl p-4 sm:p-6 transition-all duration-200 hover:border-orange-500 hover:shadow-md">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 sm:mb-6">
+        <div className="flex items-center gap-3 mb-2 sm:mb-0">
+          <div className="w-8 h-8 bg-orange-500 rounded-lg flex items-center justify-center text-white flex-shrink-0">
+            <MapPin size={18} />
+          </div>
+          <div className="text-base font-semibold text-gray-700">Max Distance</div>
+        </div>
+        <div className="flex items-center gap-1">
+          <span className="text-xl sm:text-2xl font-bold text-orange-500">{maxDistance}</span>
+          <span className="text-sm sm:text-base font-medium text-gray-500">mi</span>
         </div>
       </div>
       
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          Max Distance: {maxDistance} miles
-        </label>
-        <input
+      {/* Quick Distance Presets */}
+      <div className="grid grid-cols-4 gap-2 mb-4">
+        {[5, 10, 15, 25].map(distance => (
+          <button
+            key={distance}
+            onClick={() => handleCommutePreferencesChange(
+              maxCommuteTime, 
+              distance, 
+              showAlternatives, 
+              avoidTolls, 
+              avoidHighways
+            )}
+            className={`px-3 py-2 text-xs sm:text-sm font-medium rounded-lg transition-all duration-200 ${
+              maxDistance === distance
+                ? 'bg-orange-500 text-white shadow-md'
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+            }`}
+          >
+            {distance}mi
+          </button>
+        ))}
+      </div>
+      
+      <div className="relative mb-4">
+        <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+          <div 
+            className="h-full bg-orange-500 rounded-full transition-all duration-300"
+            style={{ width: `${((maxDistance - 1) / (25 - 1)) * 100}%` }}
+          />
+        </div>
+        <input 
           type="range"
           min="1"
           max="25"
@@ -1093,15 +1112,188 @@ export default function CommuteLocationPicker({
             avoidTolls, 
             avoidHighways
           )}
-          className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider-orange"
+          className="absolute top-0 w-full h-1.5 bg-transparent appearance-none cursor-pointer commute-slider"
         />
-        <div className="flex justify-between text-xs text-gray-500 mt-1">
-          <span>1 mi</span>
-          <span>25 mi</span>
-        </div>
+      </div>
+      
+      <div className="flex justify-between text-xs sm:text-sm text-gray-500">
+        <span>1 mi</span>
+        <span>25 mi</span>
       </div>
     </div>
-  );
+  </div>
+);
+
+const renderAdvancedOptions = () => (
+  <div className="bg-white border border-gray-200 rounded-xl p-4 sm:p-6 transition-all duration-200 hover:border-orange-500 hover:shadow-md mb-6">
+    <div className="flex items-center gap-3 mb-4 sm:mb-6">
+      <div className="w-8 h-8 bg-orange-500 rounded-lg flex items-center justify-center text-white flex-shrink-0">
+        <Settings size={18} />
+      </div>
+      <div className="text-base font-semibold text-gray-700">Advanced Route Options</div>
+    </div>
+    
+    <div className="space-y-4">
+      {/* Show Alternatives - Always available */}
+      <div 
+        className={`flex items-center justify-between p-4 border rounded-lg cursor-pointer transition-all duration-200 hover:shadow-sm ${
+          showAlternatives
+            ? 'bg-orange-50 border-orange-200' 
+            : 'bg-gray-50 border-gray-200 hover:border-gray-300'
+        }`}
+        onClick={() => handleCommutePreferencesChange(
+          maxCommuteTime, 
+          maxDistance, 
+          !showAlternatives, 
+          avoidTolls, 
+          avoidHighways
+        )}
+      >
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center text-white">
+            <Route size={18} />
+          </div>
+          <div>
+            <div className="font-medium text-gray-900">Show Alternative Routes</div>
+            <div className="text-sm text-gray-600">Compare multiple route options</div>
+          </div>
+        </div>
+        <div className={`w-12 h-6 rounded-full transition-all duration-200 ${
+          showAlternatives ? 'bg-orange-500' : 'bg-gray-300'
+        }`}>
+          <div className={`w-5 h-5 bg-white rounded-full shadow-md transition-all duration-200 mt-0.5 ${
+            showAlternatives ? 'ml-6' : 'ml-0.5'
+          }`} />
+        </div>
+      </div>
+
+      {/* Driving-specific options */}
+      {(selectedTransportMode === 'driving' || selectedTransportMode === 'scooter') && (
+        <>
+          {/* Avoid Tolls */}
+          <div 
+            className={`flex items-center justify-between p-4 border rounded-lg cursor-pointer transition-all duration-200 hover:shadow-sm ${
+              avoidTolls
+                ? 'bg-orange-50 border-orange-200' 
+                : 'bg-gray-50 border-gray-200 hover:border-gray-300'
+            }`}
+            onClick={() => handleCommutePreferencesChange(
+              maxCommuteTime, 
+              maxDistance, 
+              showAlternatives, 
+              !avoidTolls, 
+              avoidHighways
+            )}
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-gradient-to-br from-red-500 to-red-600 rounded-lg flex items-center justify-center text-white">
+                <DollarSign size={18} />
+              </div>
+              <div>
+                <div className="font-medium text-gray-900">Avoid Tolls</div>
+                <div className="text-sm text-gray-600">Skip toll roads and bridges</div>
+              </div>
+            </div>
+            <div className={`w-12 h-6 rounded-full transition-all duration-200 ${
+              avoidTolls ? 'bg-orange-500' : 'bg-gray-300'
+            }`}>
+              <div className={`w-5 h-5 bg-white rounded-full shadow-md transition-all duration-200 mt-0.5 ${
+                avoidTolls ? 'ml-6' : 'ml-0.5'
+              }`} />
+            </div>
+          </div>
+
+          {/* Avoid Highways */}
+          <div 
+            className={`flex items-center justify-between p-4 border rounded-lg cursor-pointer transition-all duration-200 hover:shadow-sm ${
+              avoidHighways
+                ? 'bg-orange-50 border-orange-200' 
+                : 'bg-gray-50 border-gray-200 hover:border-gray-300'
+            }`}
+            onClick={() => handleCommutePreferencesChange(
+              maxCommuteTime, 
+              maxDistance, 
+              showAlternatives, 
+              avoidTolls, 
+              !avoidHighways
+            )}
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-gradient-to-br from-green-500 to-green-600 rounded-lg flex items-center justify-center text-white">
+                <Navigation size={18} />
+              </div>
+              <div>
+                <div className="font-medium text-gray-900">Avoid Highways</div>
+                <div className="text-sm text-gray-600">Take local streets and surface roads</div>
+              </div>
+            </div>
+            <div className={`w-12 h-6 rounded-full transition-all duration-200 ${
+              avoidHighways ? 'bg-orange-500' : 'bg-gray-300'
+            }`}>
+              <div className={`w-5 h-5 bg-white rounded-full shadow-md transition-all duration-200 mt-0.5 ${
+                avoidHighways ? 'ml-6' : 'ml-0.5'
+              }`} />
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* Transport Mode Info Cards */}
+      {selectedTransportMode === 'transit' && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <div className="flex items-center gap-3 mb-2">
+            <div className="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center text-white">
+              <Bus size={16} />
+            </div>
+            <div className="font-medium text-blue-800">Public Transit Routes</div>
+          </div>
+          <div className="text-sm text-blue-700">
+            Routes will include buses, trains, and light rail with real-time schedules and transfer information.
+          </div>
+        </div>
+      )}
+
+      {selectedTransportMode === 'bicycling' && (
+        <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+          <div className="flex items-center gap-3 mb-2">
+            <div className="w-8 h-8 bg-green-500 rounded-lg flex items-center justify-center text-white">
+              <Bike size={16} />
+            </div>
+            <div className="font-medium text-green-800">Bike-Friendly Routes</div>
+          </div>
+          <div className="text-sm text-green-700">
+            Routes will prioritize bike lanes, bike paths, and bike-friendly streets with elevation considerations.
+          </div>
+        </div>
+      )}
+
+      {selectedTransportMode === 'walking' && (
+        <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+          <div className="flex items-center gap-3 mb-2">
+            <div className="w-8 h-8 bg-purple-500 rounded-lg flex items-center justify-center text-white">
+              <Users size={16} />
+            </div>
+            <div className="font-medium text-purple-800">Walking Routes</div>
+          </div>
+          <div className="text-sm text-purple-700">
+            Routes will prioritize pedestrian-friendly paths, sidewalks, and crosswalks for safe walking.
+          </div>
+        </div>
+      )}
+    </div>
+
+    {/* Summary Section */}
+    <div className="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-start gap-3">
+      <Info size={20} className="text-blue-600 flex-shrink-0 mt-0.5" />
+      <div className="text-sm text-blue-800 font-medium leading-relaxed">
+        <strong>Current Settings:</strong> {selectedTransportMode ? selectedTransportMode.charAt(0).toUpperCase() + selectedTransportMode.slice(1) : 'Driving'} • Max {maxCommuteTime} min • {maxDistance} miles
+        {showAlternatives && ' • With alternatives'}
+        {avoidTolls && ' • No tolls'}
+        {avoidHighways && ' • No highways'}
+      </div>
+    </div>
+  </div>
+);
 
   // =====================
   // MAIN RENDER
@@ -1111,9 +1303,10 @@ export default function CommuteLocationPicker({
     <div className="relative">
       {/* Search Input */}
       <div className="relative">
-        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+        <div className=" absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
           <Search size={20} className="text-gray-400" />
         </div>
+
         <input
           ref={inputRef}
           type="text"
@@ -1122,7 +1315,7 @@ export default function CommuteLocationPicker({
           onFocus={() => searchQuery && setShowSuggestions(suggestions.length > 0)}
           placeholder="Search for your work, school, or commute destination..."
           disabled={!!mapsError}
-          className="w-full pl-10 pr-10 py-4 border border-gray-300 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-transparent bg-white text-lg disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full pl-10 pr-10 py-4 border border-gray-300 text-gray-600 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-transparent bg-white text-lg disabled:opacity-50 disabled:cursor-not-allowed"
         />
         {searchQuery && (
           <button
@@ -1137,26 +1330,55 @@ export default function CommuteLocationPicker({
             <div className="animate-spin rounded-full h-5 w-5 border-2 border-orange-500 border-t-transparent"></div>
           </div>
         )}
+
+         {/* Suggestions Dropdown */}
+      {showSuggestions && suggestions.length > 0 && (
+        <div className="absolute top-full left-0 right-0 z-50 bg-white border border-gray-300 rounded-lg shadow-lg mt-1">
+          {suggestions.map((suggestion, index) => (
+            <button
+              key={`${suggestion.place_id}-${index}`}
+              onClick={() => selectPlace(suggestion)}
+              className={`w-full px-4 py-4 text-left hover:bg-gray-50 border-b border-gray-100 last:border-b-0 flex items-start gap-3 transition-colors ${
+                index === 0 ? 'rounded-t-xl' : ''
+              } ${index === suggestions.length - 1 ? 'rounded-b-xl' : ''}`}
+            >
+              <div className="mt-1 flex-shrink-0">
+                {getPlaceIcon(suggestion.types)}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="font-medium text-gray-900 truncate">
+                  {suggestion.structured_formatting.main_text}
+                </p>
+                <p className="text-sm text-gray-600 mt-1 truncate">
+                  {suggestion.structured_formatting.secondary_text}
+                </p>
+              </div>
+            </button>
+          ))}
+        </div>
+      )}
+
       </div>
+
+      
 
       {/* Error Messages */}
       {mapsError && renderErrorMessage(mapsError)}
       {locationError && renderErrorMessage(locationError)}
 
-
-
+      
       {/* Transport Mode & Preferences */}
       <div className="mt-6 p-4 bg-gray-50 border border-gray-200 rounded-xl">
-        <h3 className="font-semibold text-gray-800 mb-4 flex items-center gap-2">
+        {/* <h3 className="font-semibold text-gray-800 mb-4 flex items-center gap-2">
           <Route size={18} />
           Enhanced Commute Preferences
-        </h3>
+        </h3> */}
         
         {renderTransportModeSelector()}
         {renderCommutePreferences()}
         {renderAdvancedOptions()}
         
-        <div className="text-sm text-gray-600 mb-4">
+        <div className="text-md text-gray-600 mb-4 mt-4 mx-2">
           <p className="flex items-center gap-1">
             <Clock size={14} />
             Selected: {getTransportLabel(selectedTransportMode)} • Max {maxCommuteTime} min • {maxDistance} miles
@@ -1269,35 +1491,8 @@ export default function CommuteLocationPicker({
         </div>
       )}
 
-      {/* Suggestions Dropdown */}
-      {showSuggestions && suggestions.length > 0 && (
-        <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-200 rounded-xl shadow-2xl z-50 max-h-80 overflow-y-auto">
-          {suggestions.map((suggestion, index) => (
-            <button
-              key={`${suggestion.place_id}-${index}`}
-              onClick={() => selectPlace(suggestion)}
-              className={`w-full px-4 py-4 text-left hover:bg-gray-50 border-b border-gray-100 last:border-b-0 flex items-start gap-3 transition-colors ${
-                index === 0 ? 'rounded-t-xl' : ''
-              } ${index === suggestions.length - 1 ? 'rounded-b-xl' : ''}`}
-            >
-              <div className="mt-1 flex-shrink-0">
-                {getPlaceIcon(suggestion.types)}
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="font-medium text-gray-900 truncate">
-                  {suggestion.structured_formatting.main_text}
-                </p>
-                <p className="text-sm text-gray-600 mt-1 truncate">
-                  {suggestion.structured_formatting.secondary_text}
-                </p>
-              </div>
-            </button>
-          ))}
-        </div>
-      )}
-
       {/* Popular Destinations */}
-      {!searchQuery && !selectedLocation && (
+      {/* {!searchQuery && !selectedLocation && (
         <div className="mt-6">
           <p className="text-sm font-semibold text-gray-700 mb-3">Popular commute destinations:</p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mb-4">
@@ -1336,7 +1531,7 @@ export default function CommuteLocationPicker({
             </div>
           </div>
         </div>
-      )}
+      )} */}
 
       {/* Loading Status */}
       {!isGoogleMapsReady && !mapsError && (

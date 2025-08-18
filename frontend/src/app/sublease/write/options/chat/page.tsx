@@ -287,6 +287,23 @@ function ListingFormContent() {
     }
   }, [messages]);
 
+  useEffect(() => {
+  setMessages(prev => {
+    const uniqueMessages = [];
+    const seen = new Set();
+    
+    for (const msg of prev) {
+      const key = `${msg.isUser}-${msg.text}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        uniqueMessages.push(msg);
+      }
+    }
+    
+    return uniqueMessages.length === prev.length ? prev : uniqueMessages;
+  });
+}, [messages.length]);
+
   // ========================================================================================
   // UTILITY FUNCTIONS
   // ========================================================================================
@@ -319,37 +336,87 @@ function ListingFormContent() {
   // MESSAGE MANAGEMENT
   // ========================================================================================
 
-  const addMessage = (message: Omit<ChatMessage, 'id' | 'timestamp'>, delay = 0) => {
-    const timeout = setTimeout(() => {
-      setMessages(prev => [...prev, {
-        ...message,
-        id: Date.now() + Math.random(),
-        timestamp: new Date()
-      }]);
-      if (delay > 0) {
-        setIsTyping(false);
-      }
-    }, delay);
-    timeoutRefs.current.push(timeout);
-  };
+  // const addMessage = (message: Omit<ChatMessage, 'id' | 'timestamp'>, delay = 0) => {
+  //   const timeout = setTimeout(() => {
+  //     setMessages(prev => [...prev, {
+  //       ...message,
+  //       id: Date.now() + Math.random(),
+  //       timestamp: new Date()
+  //     }]);
+  //     if (delay > 0) {
+  //       setIsTyping(false);
+  //     }
+  //   }, delay);
+  //   timeoutRefs.current.push(timeout);
+  // };
   
-  const addUserMessage = (text: string, step?: string) => {
-    addMessage({ text, isUser: true, step });
-  };
+  // const addUserMessage = (text: string, step?: string) => {
+  //   addMessage({ text, isUser: true, step });
+  // };
   
-  const addSystemMessage = (text: string, options?: ChatMessage['options'], input?: ChatMessage['input'], step?: string) => {
-    setIsTyping(true);
-    setShowInput(false);
-    addMessage({ text, isUser: false, options, input, step }, 1200);
+  // const addSystemMessage = (text: string, options?: ChatMessage['options'], input?: ChatMessage['input'], step?: string) => {
+  //   setIsTyping(true);
+  //   setShowInput(false);
+  //   addMessage({ text, isUser: false, options, input, step }, 1200);
     
-    if (input && (input.type === "text" || input.type === "number" || input.type === "textarea")) {
-      setTimeout(() => {
-        setShowInput(true);
-        setTimeout(() => inputRef.current?.focus(), 100);
-      }, 1300);
-    }
-  };
+  //   if (input && (input.type === "text" || input.type === "number" || input.type === "textarea")) {
+  //     setTimeout(() => {
+  //       setShowInput(true);
+  //       setTimeout(() => inputRef.current?.focus(), 100);
+  //     }, 1300);
+  //   }
+  // };
 
+const lastAddedMessage = useRef<{text: string, timestamp: number, isUser: boolean} | null>(null);
+
+const addMessage = (message: Omit<ChatMessage, 'id' | 'timestamp'>, delay = 0) => {
+  const now = Date.now();
+  
+  if (lastAddedMessage.current && 
+      lastAddedMessage.current.text === message.text &&
+      lastAddedMessage.current.isUser === message.isUser &&
+      now - lastAddedMessage.current.timestamp < 3000) {
+    console.log('🚫 Recent duplicate prevented');
+    return;
+  }
+  
+  const timeout = setTimeout(() => {
+    setMessages(prev => [...prev, {
+      ...message,
+      id: Date.now() + Math.random(),
+      timestamp: new Date()
+    }]);
+    
+    if (delay > 0) {
+      setIsTyping(false);
+    }
+    
+      lastAddedMessage.current = {
+      text: message.text,
+      timestamp: now,
+      isUser: message.isUser
+    };
+  }, delay);
+  
+  timeoutRefs.current.push(timeout);
+};
+
+const addUserMessage = (text: string, step?: string) => {
+  addMessage({ text, isUser: true, step });
+};
+
+const addSystemMessage = (text: string, options?: ChatMessage['options'], input?: ChatMessage['input'], step?: string) => {
+  setIsTyping(true);
+  setShowInput(false);
+  addMessage({ text, isUser: false, options, input, step }, 1200);
+  
+  if (input && (input.type === "text" || input.type === "number" || input.type === "textarea")) {
+    setTimeout(() => {
+      setShowInput(true);
+      setTimeout(() => inputRef.current?.focus(), 100);
+    }, 1300);
+  }
+};
 
 
   // ========================================================================================
@@ -449,6 +516,7 @@ function ListingFormContent() {
       { value: "edit-details", label: "✨ Additional Details", action: () => handleEditStep("additionalDetails") },
       { value: "edit-partial", label: "⏰ Partial Availability", action: () => handleEditStep("partialAvailability") },
       { value: "edit-contact", label: "📱 Contact Info", action: () => handleEditStep("contactInfo") },
+      { value: "edit-title", label: "📝 Title", action: () => handleEditStep("listingTitle") },
       { value: "back-summary", label: "⬅️ Back to Summary", action: () => showListingSummaryWithData(formData) },
     ], undefined, "editMenu");
   };
@@ -541,19 +609,19 @@ function ListingFormContent() {
       try {
         switch(option) {
           case "Summer (May–Aug)": 
-            startDate = `${currentYear}-05-01`; 
-            endDate = `${currentYear}-08-31`; 
+            startDate = `${currentYear}-05-02`; 
+            endDate = `${currentYear}-09-01`; 
             break;
           case "Fall (Sept–Dec)": 
-            startDate = `${currentYear}-09-01`; 
-            endDate = `${currentYear}-12-31`; 
+            startDate = `${currentYear}-08-31`; 
+            endDate = `${currentYear}-12-16`; 
             break;
           case "Spring (Jan–Apr)": 
-            startDate = `${currentYear}-01-01`; 
+            startDate = `${currentYear}-01-02`; 
             endDate = `${currentYear}-04-30`; 
             break;
           case "Full Year": 
-            startDate = `${currentYear}-01-01`; 
+            startDate = `${currentYear}-01-02`; 
             endDate = `${currentYear}-12-31`; 
             break;
           default:
@@ -1152,27 +1220,101 @@ function ListingFormContent() {
   // STEP 17: CONTACT INFORMATION (MOVED FROM STEP 16)
   // ========================================================================================
 
+  // const askContactInfo = () => {
+  //   addSystemMessage("How would you like potential renters to contact you? 📱\n\nWe have our built-in chat system, but you can also provide additional contact methods if you prefer.", undefined, {
+  //     type: "contact-info",
+  //     action: (contactData: any) => {
+  //       setFormData(prev => {
+  //         const updatedData = { ...prev, contactInfo: contactData };
+  //         // setTimeout(() => {
+  //         //   console.log("About to show summary with data:", updatedData);
+  //         //   showListingSummaryWithData(updatedData);
+  //         // }, 100);
+  //           setTimeout(() => {
+  //             askTitleOfListing();
+  //           }, 100);
+  //         // return updatedData;
+  //       });
+        
+  //       const selectedMethods = contactData.methods
+  //         .filter((m: any) => m.selected && m.value.trim())
+  //         .map((m: any) => `${m.name}: ${m.value}`)
+  //         .join(", ");
+        
+  //       addUserMessage(`Contact methods: ${selectedMethods || "Built-in chat only"}${contactData.note ? `\nNote: ${contactData.note}` : ""}`, "contactInfo");
+  //     }
+  //   }, "contactInfo");
+  // };
+
   const askContactInfo = () => {
-    addSystemMessage("How would you like potential renters to contact you? 📱\n\nWe have our built-in chat system, but you can also provide additional contact methods if you prefer.", undefined, {
-      type: "contact-info",
-      action: (contactData: any) => {
-        setFormData(prev => {
-          const updatedData = { ...prev, contactInfo: contactData };
+  addSystemMessage("How would you like potential renters to contact you? 📱\n\nWe have our built-in chat system, but you can also provide additional contact methods if you prefer.", undefined, {
+    type: "contact-info",
+    action: (contactData: any) => {
+       setFormData(prev => {
+        const updatedData = { ...prev, contactInfo: contactData };
+        
+        setTimeout(() => {
+          const selectedMethods = contactData.methods
+            .filter((m: any) => m.selected && m.value.trim())
+            .map((m: any) => `${m.name}: ${m.value}`)
+            .join(", ");
+          
+          addUserMessage(`Contact methods: ${selectedMethods || "Built-in chat only"}${contactData.note ? `\nNote: ${contactData.note}` : ""}`, "contactInfo");
+          
+          setTimeout(() => {
+            askTitleOfListing();
+          }, 50);
+        }, 10);
+        
+        return updatedData;
+      });
+    }
+  }, "contactInfo");
+};
+
+  // ========================================================================================
+  // STEP 18: Listing Title (MOVED FROM STEP 17)
+  // ========================================================================================
+
+    const askTitleOfListing = () => {
+      const hasTitleMessage = messages.some(msg => 
+          msg.content && msg.content.includes("create a catchy title")
+        );
+        
+        if (hasTitleMessage) {
+          console.log('Title message already exists, skipping');
+          return;
+        }
+        addSystemMessage("Finally, let's create a catchy title for your listing! 📝\n\nWrite a short, descriptive title that will attract potential renters:", undefined, {
+          type: "textarea",
+          placeholder: "e.g., Cozy Room Near Campus with Great Amenities",
+          action: (title: string) => {
+              const hasTitleResponse = messages.some(msg => 
+                msg.type === 'user' && 
+                msg.content && 
+                msg.content.includes(`Listing title: "${title}"`)
+              );
+              
+              if (hasTitleResponse) {
+                console.log('Title response already exists, skipping');
+                return;
+              }
+
+            setFormData(prev => {
+              const updatedData = { ...prev, listingTitle: title };
+              
+              addUserMessage(`Listing title: "${title}"`, "listingTitle");
+          
+
           setTimeout(() => {
             console.log("About to show summary with data:", updatedData);
             showListingSummaryWithData(updatedData);
           }, 100);
+          
           return updatedData;
         });
-        
-        const selectedMethods = contactData.methods
-          .filter((m: any) => m.selected && m.value.trim())
-          .map((m: any) => `${m.name}: ${m.value}`)
-          .join(", ");
-        
-        addUserMessage(`Contact methods: ${selectedMethods || "Built-in chat only"}${contactData.note ? `\nNote: ${contactData.note}` : ""}`, "contactInfo");
       }
-    }, "contactInfo");
+    }, "listingTitle");
   };
 
   // ========================================================================================
@@ -1266,6 +1408,7 @@ function ListingFormContent() {
     
     let summary = `Here's your listing summary! ✨
 
+🏠 Title: ${currentFormData.listingTitle || "Not set"}
 📝 Type: ${currentFormData.listingType || "Not set"}
 👤 Gender Preference: ${currentFormData.preferredGender || "Not set"}
 📅 Available: ${formatDate(currentFormData.startDate)} to ${formatDate(currentFormData.endDate)}
@@ -2002,7 +2145,8 @@ function ListingFormContent() {
       console.log("✅ All validations passed, creating listing...");
       
       const tempListingData = {
-        title: `${dataToSubmit.listingType} in ${dataToSubmit.location}`,
+        // title: `${dataToSubmit.listingType} in ${dataToSubmit.location}`,
+        title: dataToSubmit.listingTitle,
         listingType: dataToSubmit.listingType,
         location: dataToSubmit.location,
         hostId: user.uid,
@@ -2023,7 +2167,7 @@ function ListingFormContent() {
       }
       
       const completeListingData = {
-        title: `${dataToSubmit.listingType} in ${dataToSubmit.location}`,
+        title: String(dataToSubmit.listingTitle),
         listingType: String(dataToSubmit.listingType),
         location: String(dataToSubmit.location),
         
@@ -2202,16 +2346,7 @@ function ListingFormContent() {
                 <span className="hidden sm:inline font-medium">Back</span>
               </button>
               
-              <div className="flex items-center space-x-3">
-                {/* Logo */}
-                <div className="flex items-center space-x-2">
-                  <div className="w-8 h-8 bg-gradient-to-br from-orange-300 to-purple-600 rounded-lg flex items-center justify-center">
-                    <span className="text-white font-bold text-sm">S</span>
-                  </div>
-                  <h1 className="text-lg font-bold text-gray-800 hidden sm:block">Create Listing</h1>
-                </div>
-              </div>
-              
+             
               {/* User Menu */}
               <div className="relative">
                 <button

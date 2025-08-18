@@ -1,73 +1,113 @@
 "use client"
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useParams } from 'next/navigation';
+import { motion, AnimatePresence } from "framer-motion";
+import Script from "next/script"; // Add this import
 import { 
   Calendar, ChevronLeft, ChevronRight, MapPin, Users, Home, 
   Search, X, Bookmark, Star, Wifi, Droplets, Sparkles, 
   Filter, BedDouble, DollarSign, LogIn, Heart, User, Plus,
-  ArrowLeft, ArrowRight,Video, MessageCircle
+  ArrowLeft, ArrowRight,Video, MessageCircle, Package, Bell, AlertCircle, Menu, MessagesSquare, Info,
+  Expand, Eye, EyeOff, Navigation, Check, Volume2,CalendarCheck,Zap,Cigarette, BookOpen, Thermometer, Utensils, Dumbbell, Trees,
+  Building, Flame, ArrowUp, Shield, Accessibility, Sofa, Gamepad2, Play, Trash2
 } from 'lucide-react';
-import { doc, getDoc, addDoc, collection, query, where, getDocs, serverTimestamp } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { doc, getDoc, addDoc, updateDoc, collection, query, where, getDocs, serverTimestamp, increment, orderBy } from 'firebase/firestore';import { db } from '@/lib/firebase';
 import { useAuth } from '@/app/contexts/AuthInfo';
 import { featuredListings } from '../../../../data/listings';
-import NeighborhoodDetector from '@/components/NeighborhoodDetector'; // Adjust path as needed
 
-
-  // gender information icon
-  const getGenderInfo = (preferredGender) => {
-    switch(preferredGender) {
-      case 'male':
-        return { icon: <User className="w-4 h-4 mr-2 text-orange-500" />, text: "Male Only" };
-      case 'female':
-        return { icon: <User className="w-4 h-4 mr-2 text-pink-500" />, text: "Female Only" };
-      case 'any':
-      default:
-        return { icon: <Users className="w-4 h-4 mr-2 text-green-500" />, text: "Any" };
-    }
-  };
-
-// Updated NeighborhoodDetectorWrapper using the new custom map
-// Updated NeighborhoodDetectorWrapper using the new custom map
+// gender information icon
+const getGenderInfo = (preferredGender) => {
+  switch(preferredGender) {
+    case 'Male':
+      return { icon: <User className="w-4 h-4 mr-2 text-orange-500" />, text: "Male Only" };
+    case 'Female':
+      return { icon: <User className="w-4 h-4 mr-2 text-pink-500" />, text: "Female Only" };
+    case 'any':
+    default:
+      return { icon: <Users className="w-4 h-4 mr-2 text-green-500" />, text: "Any" };
+  }
+};
+// Updated NeighborhoodDetectorWrapper with better error handling
 const NeighborhoodDetectorWrapper = ({ listing, onNeighborhoodDetected }: { 
   listing: any, 
   onNeighborhoodDetected: (neighborhood: string) => void 
 }) => {
   const [coordinates, setCoordinates] = useState<{lat: number, lng: number} | null>(null);
-  const [isGeocoding, setIsGeocoding] = useState(false);
   const [locationType, setLocationType] = useState<'specific' | 'neighborhood' | 'none'>('none');
   const [locationName, setLocationName] = useState<string>('');
-  const [debugInfo, setDebugInfo] = useState<string>('');
+  const [isSearching, setIsSearching] = useState(false);
+  const [googleMapsLoaded, setGoogleMapsLoaded] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const mapRef = useRef<HTMLDivElement>(null);
+  const [mapInstance, setMapInstance] = useState<google.maps.Map | null>(null);
+
+  // Load Google Maps API
+  useEffect(() => {
+    const loadGoogleMaps = () => {
+      // Check if already loaded
+      if (window.google?.maps?.places) {
+        setGoogleMapsLoaded(true);
+        return;
+      }
+
+      // Check if script is already added
+      if (document.querySelector('script[src*="maps.googleapis.com"]')) {
+        // Wait for it to load
+        const checkInterval = setInterval(() => {
+          if (window.google?.maps?.places) {
+            setGoogleMapsLoaded(true);
+            clearInterval(checkInterval);
+          }
+        }, 500);
+        return;
+      }
+
+      const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+      if (!apiKey) {
+        setLoadError('Google Maps API key not found');
+        return;
+      }
+
+      // Create and load the script
+      const script = document.createElement('script');
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places&v=weekly`;
+      script.async = true;
+      script.defer = true;
+      
+      script.onload = () => {
+        setGoogleMapsLoaded(true);
+        setLoadError(null);
+      };
+      
+      script.onerror = () => {
+        setLoadError('Failed to load Google Maps');
+      };
+      
+      document.head.appendChild(script);
+    };
+
+    loadGoogleMaps();
+  }, []);
 
   useEffect(() => {
-    const processListingLocation = async () => {
+    const processListingLocation = () => {
       if (!listing) return;
-      
-      console.log('🔍 Processing listing:', {
-        location: listing.location,
-        customLocation: listing.customLocation,
-        address: listing.address
-      });
       
       // ✅ CASE 1: Has specific coordinates in customLocation
       if (listing?.customLocation?.lat && listing?.customLocation?.lng) {
-        console.log('✅ Found specific coordinates in customLocation');
         setCoordinates({
           lat: listing.customLocation.lat,
           lng: listing.customLocation.lng
         });
         setLocationType('specific');
         
-        // Use the placeName, address, or default to "Specific Location"
         const locationDisplayName = listing.customLocation.placeName || 
                                    listing.customLocation.address || 
                                    'Specific Location';
         setLocationName(locationDisplayName);
-        setDebugInfo(`Specific coordinates: ${listing.customLocation.lat.toFixed(4)}, ${listing.customLocation.lng.toFixed(4)}`);
         
-        // Notify parent component
         if (listing.customLocation.placeName) {
           onNeighborhoodDetected(listing.customLocation.placeName);
         }
@@ -76,125 +116,155 @@ const NeighborhoodDetectorWrapper = ({ listing, onNeighborhoodDetected }: {
       
       // ✅ CASE 2: Has neighborhood name (but not "Other")
       if (listing?.location && listing.location !== 'Other') {
-        console.log('✅ Found neighborhood name, will geocode:', listing.location);
         setLocationName(listing.location);
-        setIsGeocoding(true);
+        setLocationType('neighborhood');
+        onNeighborhoodDetected(listing.location);
         
-        try {
-          // Wait for Google Maps to be loaded
-          let attempts = 0;
-          const maxAttempts = 20;
-          
-          const waitForGoogleMaps = () => {
-            return new Promise<void>((resolve, reject) => {
-              const checkGoogle = () => {
-                attempts++;
-                if (window.google?.maps) {
-                  console.log('✅ Google Maps loaded');
-                  resolve();
-                } else if (attempts < maxAttempts) {
-                  console.log(`⏳ Waiting for Google Maps... (${attempts}/${maxAttempts})`);
-                  setTimeout(checkGoogle, 500);
-                } else {
-                  reject(new Error('Google Maps API not loaded after waiting'));
-                }
-              };
-              checkGoogle();
-            });
-          };
-          
-          await waitForGoogleMaps();
-          
-          // Geocode the neighborhood name
-          const geocodedLocation = await geocodeLocation(listing.location);
-          
-          if (geocodedLocation) {
-            setCoordinates({
-              lat: geocodedLocation.lat,
-              lng: geocodedLocation.lng
-            });
-            setLocationType('neighborhood'); // Always neighborhood for location field
-            onNeighborhoodDetected(listing.location);
-            console.log('✅ Successfully geocoded neighborhood');
-          } else {
-            setDebugInfo('Could not geocode neighborhood');
-            setLocationType('none');
-          }
-        } catch (error) {
-          console.error('Error geocoding neighborhood:', error);
-          setDebugInfo(`Error: ${error.message}`);
-          setLocationType('none');
-        } finally {
-          setIsGeocoding(false);
+        // Set default coordinates immediately
+        setCoordinates({
+          lat: 44.9778,
+          lng: -93.2650
+        });
+
+        // Search for the neighborhood if Google Maps is loaded
+        if (googleMapsLoaded) {
+          searchForNeighborhood(listing.location);
         }
         return;
       }
       
       // ✅ CASE 3: Location is "Other" but no customLocation
       if (listing?.location === 'Other' && !listing?.customLocation) {
-        console.log('⚠️ Location is "Other" but no specific coordinates provided');
         setLocationName('Location not specified');
         setLocationType('none');
-        setDebugInfo('Location marked as "Other" with no specific coordinates');
         return;
       }
       
       // ✅ CASE 4: No location data at all
-      console.log('❌ No location data found');
       setLocationName('No location');
       setLocationType('none');
-      setDebugInfo('No location data available');
     };
 
     processListingLocation();
-  }, [listing]);
+  }, [listing, googleMapsLoaded]);
 
-  // Geocoding function
-  const geocodeLocation = async (locationQuery: string): Promise<{lat: number, lng: number} | null> => {
-    if (!window.google?.maps) {
-      setDebugInfo('Google Maps not loaded');
-      return null;
+  const searchForNeighborhood = (neighborhood: string) => {
+    if (!googleMapsLoaded || !window.google?.maps?.places?.PlacesService) {
+      return;
     }
-    
-    // Add Minneapolis context for better geocoding
-    const searchQuery = locationQuery.includes('Minneapolis') || locationQuery.includes('MN') 
-      ? locationQuery 
-      : `${locationQuery}, Minneapolis, MN`;
-    
-    console.log('🔍 Geocoding location:', searchQuery);
-    
-    return new Promise((resolve) => {
-      const geocoder = new window.google.maps.Geocoder();
+
+    setIsSearching(true);
+    performPlacesSearch(neighborhood);
+  };
+
+  const performPlacesSearch = (neighborhood: string) => {
+    try {
+      const mapDiv = document.createElement('div');
+      const map = new window.google.maps.Map(mapDiv, {
+        center: { lat: 44.9778, lng: -93.2650 },
+        zoom: 13
+      });
+
+      const service = new window.google.maps.places.PlacesService(map);
       
-      geocoder.geocode(
-        { address: searchQuery },
-        (results, status) => {
-          console.log('🔍 Geocoding result:', { results, status });
+      const request = {
+        query: `${neighborhood}, Minneapolis, MN`,
+        fields: ['name', 'geometry', 'place_id', 'formatted_address']
+      };
+
+      service.textSearch(request, (results, status) => {
+        setIsSearching(false);
+        
+        if (status === window.google.maps.places.PlacesServiceStatus.OK && results && results[0]) {
+          const place = results[0];
+          const location = place.geometry?.location;
           
-          if (status === 'OK' && results?.[0]?.geometry?.location) {
-            const location = results[0].geometry.location;
+          if (location) {
             const coords = {
               lat: location.lat(),
               lng: location.lng()
             };
             
-            console.log('✅ Geocoded successfully:', coords);
-            setDebugInfo(`Geocoded: ${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)}`);
-            resolve(coords);
-          } else {
-            console.log('❌ Geocoding failed:', status);
-            setDebugInfo(`Geocoding failed: ${status}`);
-            resolve(null);
+            setCoordinates(coords);
           }
         }
-      );
-    });
+      });
+    } catch (error) {
+      setIsSearching(false);
+    }
   };
 
-  // Loading state
-  if (isGeocoding) {
+  // Create map when coordinates are available and Google Maps is loaded
+  useEffect(() => {
+    if (!mapRef.current || !googleMapsLoaded || !window.google?.maps || !coordinates || mapInstance) return;
+
+    try {
+      const map = new window.google.maps.Map(mapRef.current, {
+        center: { lat: coordinates.lat, lng: coordinates.lng },
+        zoom: 14,
+        mapTypeControl: false,
+        streetViewControl: false,
+        fullscreenControl: false,
+        zoomControl: true,
+        styles: [
+          {
+            featureType: "poi",
+            elementType: "labels",
+            stylers: [{ visibility: "off" }]
+          },
+          {
+            featureType: "transit",
+            elementType: "labels",
+            stylers: [{ visibility: "off" }]
+          }
+        ]
+      });
+
+      // Add a marker
+      new window.google.maps.Marker({
+        position: { lat: coordinates.lat, lng: coordinates.lng },
+        map: map,
+        title: locationName,
+        icon: {
+          url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
+            <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="16" cy="16" r="12" fill="#f97316" stroke="#fff" stroke-width="2"/>
+              <circle cx="16" cy="16" r="4" fill="#fff"/>
+            </svg>
+          `),
+          scaledSize: new google.maps.Size(32, 32),
+          anchor: new google.maps.Point(16, 16)
+        }
+      });
+
+      setMapInstance(map);
+    } catch (error) {
+      // Silent error handling
+    }
+  }, [coordinates, locationName, mapInstance, googleMapsLoaded]);
+
+  // Reset map instance when coordinates change
+  useEffect(() => {
+    setMapInstance(null);
+  }, [coordinates]);
+
+  // Show error if Google Maps failed to load
+  if (loadError) {
     return (
-      <div className="flex items-center gap-2 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+      <div className="flex items-center gap-3 p-4 bg-red-50 border border-red-200 rounded-lg">
+        <MapPin size={20} className="text-red-500" />
+        <div>
+          <span className="text-red-700 font-medium">Maps unavailable</span>
+          <p className="text-red-600 text-sm mt-1">Failed to load Google Maps</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show loading if searching
+  if (isSearching) {
+    return (
+      <div className="flex items-center gap-3 p-4 bg-blue-50 border border-blue-200 rounded-lg">
         <div className="animate-spin rounded-full h-5 w-5 border-2 border-blue-500 border-t-transparent"></div>
         <span className="text-blue-700 font-medium">Finding {locationName} on map...</span>
       </div>
@@ -204,65 +274,66 @@ const NeighborhoodDetectorWrapper = ({ listing, onNeighborhoodDetected }: {
   // No location available
   if (locationType === 'none' || !coordinates) {
     return (
-      <div className="flex flex-col gap-3 p-4 bg-gray-50 border border-gray-200 rounded-lg">
-        <div className="flex items-center gap-2">
-          <MapPin size={20} className="text-gray-400" />
-          <div>
-            <span className="text-gray-700 font-medium">Location not available</span>
-            <p className="text-gray-500 text-sm mt-1">No location information provided for this listing</p>
-          </div>
+      <div className="flex items-center gap-3 p-4 bg-gray-50 border border-gray-200 rounded-lg">
+        <MapPin size={20} className="text-gray-400" />
+        <div>
+          <span className="text-gray-700 font-medium">Location not available</span>
+          <p className="text-gray-500 text-sm mt-1">No location information provided for this listing</p>
         </div>
-        {debugInfo && (
-          <div className="text-xs text-gray-500 bg-gray-100 p-2 rounded">
-            Debug: {debugInfo}
-          </div>
-        )}
       </div>
     );
   }
 
-  // Show map for both specific locations and neighborhood areas
+  // Show location with map
   return (
-    <div className="space-y-4">
-      {/* Map Component */}
-      <NeighborhoodDetector
-        latitude={coordinates.lat}
-        longitude={coordinates.lng}
-        onNeighborhoodDetected={onNeighborhoodDetected}
-        showMap={true}
-        locationType={locationType}
-        locationName={locationName}
-      />
-      
-      {/* Location Summary */}
-      <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200">
+    <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+      {/* Header */}
+      <div className="p-4 border-b border-gray-100">
         <div className="flex items-center gap-2">
-          {locationType === 'specific' ? (
-            <>
-              <MapPin size={16} className="text-red-500" />
-              <span className="text-sm font-medium text-gray-700">Exact Address Provided</span>
-            </>
-          ) : (
-            <>
-              <Home size={16} className="text-blue-500" />
-              <span className="text-sm font-medium text-gray-700">Neighborhood Area</span>
-            </>
-          )}
+          <MapPin size={20} className="text-orange-500" />
+          <div>
+            <h3 className="font-semibold text-gray-900">Location</h3>
+            <p className="text-sm text-gray-600">{locationName}</p>
+          </div>
         </div>
-        <div className="text-xs text-gray-500">
-          {coordinates.lat.toFixed(4)}, {coordinates.lng.toFixed(4)}
-        </div>
+      </div>
+      
+      {/* Map */}
+      <div className="relative">
+        {googleMapsLoaded ? (
+          <div 
+            ref={mapRef}
+            className="w-full h-64"
+            style={{ minHeight: '256px' }}
+          />
+        ) : (
+          <div className="w-full h-64 bg-gray-200 flex items-center justify-center">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-6 w-6 border-2 border-orange-500 border-t-transparent mx-auto mb-2"></div>
+              <p className="text-gray-600">Loading map...</p>
+            </div>
+          </div>
+        )}
+        
+        {/* Map overlay info */}
+        {googleMapsLoaded && (
+          <div className="absolute top-3 left-3 bg-white/90 backdrop-blur-sm px-3 py-2 rounded-lg shadow-sm">
+            <p className="text-sm font-medium text-gray-900">{locationName}</p>
+            <p className="text-xs text-gray-600">
+              {locationType === 'specific' ? 'Exact location' : 'Neighborhood area'}
+            </p>
+          </div>
+        )}
       </div>
     </div>
   );
 };
 
-
-
 const ListingDetailPage = () => {
   const router = useRouter();
   const params = useParams();
   const id = params?.id;
+  const [hostData, setHostData] = useState(null);
   
   // ALL useState hooks first
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -279,7 +350,22 @@ const ListingDetailPage = () => {
   const [newReviewRating, setNewReviewRating] = useState(5);
   const [newReviewComment, setNewReviewComment] = useState('');
   const [hostReviews, setHostReviews] = useState([]);
+  const [showProfile, setShowProfile] = useState(false);
+  const [showMenu, setShowMenu] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  
+  // Calendar-related state variables
+  const [showAvailabilityCalendar, setShowAvailabilityCalendar] = useState(false);
+  const [unavailableDates, setUnavailableDates] = useState([]);
+  const [selectedDateRanges, setSelectedDateRanges] = useState([]);
+  const [isSelectingRange, setIsSelectingRange] = useState(false);
+  const [rangeStart, setRangeStart] = useState(null);
+  const [currentMonth, setCurrentMonth] = useState(null); // Add this line
+
+  
   const { user } = useAuth();
+
+  // Debug useEffect
   useEffect(() => {
     if (listing) {
       console.log('🔍 DEBUG: Listing data:', listing);
@@ -296,11 +382,13 @@ const ListingDetailPage = () => {
       });
     }
   }, [listing]);
-  // ALL useEffect hooks next
+
+  // Mount effect
   useEffect(() => {
     setIsMounted(true);
   }, []);
     
+  // Favorites loading effect
   useEffect(() => {
     if (isMounted) {
       try {
@@ -314,6 +402,7 @@ const ListingDetailPage = () => {
     }
   }, [isMounted]);
 
+  // Favorites saving effect
   useEffect(() => {
     if (isMounted) {
       try {
@@ -324,6 +413,7 @@ const ListingDetailPage = () => {
     }
   }, [favoriteListings, isMounted]);
 
+  // Fetch listing effect
   useEffect(() => {
     const fetchListing = async () => {
       if (!id) return;
@@ -360,72 +450,81 @@ const ListingDetailPage = () => {
             return new Date();
           };
         
-const formattedListing = {
-  id: docSnap.id,
-  
-  // Basic info
-  title: firestoreData.title || `${firestoreData.listingType || 'Sublease'} in ${firestoreData.location || 'Campus Area'}`,
-  listingType: firestoreData.listingType || 'Sublease',
-  location: firestoreData.location || 'Campus Area',
-  
-  // ✅ CRITICAL: Preserve customLocation data from Firestore
-  customLocation: firestoreData.customLocation || null,
-  
-  // ✅ ALSO: Preserve address field
-  address: firestoreData.address || firestoreData.customLocation?.address || '',
-  
-  // Images - handle both single and multiple images
-  image: firestoreData.image || "https://images.unsplash.com/photo-1543852786-1cf6624b9987?q=80&w=800&h=500&auto=format&fit=crop",
-  additionalImages: firestoreData.additionalImages || [],
-  
-  // Dates
-  availableFrom: convertFirestoreDate(firestoreData.availableFrom || firestoreData.startDate),
-  availableTo: convertFirestoreDate(firestoreData.availableTo || firestoreData.endDate),
-  dateRange: firestoreData.dateRange || (() => {
-    const start = convertFirestoreDate(firestoreData.availableFrom || firestoreData.startDate);
-    const end = convertFirestoreDate(firestoreData.availableTo || firestoreData.endDate);
-    return `${start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${end.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
-  })(),
-  
-  // Pricing
-  price: Number(firestoreData.price || firestoreData.rent || 0),
-  rent: Number(firestoreData.rent || firestoreData.price || 0),
-  
-  // Property details
-  bedrooms: Number(firestoreData.bedrooms || 1),
-  bathrooms: Number(firestoreData.bathrooms || 1),
-  distance: Number(firestoreData.distance || 0.5),
-  
-  // Ratings
-  rating: Number(firestoreData.rating || 4.2),
-  reviews: Number(firestoreData.reviews || 8),
-  
-  // Amenities
-  amenities: Array.isArray(firestoreData.amenities) ? firestoreData.amenities : [],
-  
-  // Host information
-  hostId: firestoreData.hostId || firestoreData.userId || firestoreData.createdBy?.uid || docSnap.id,
-  hostName: firestoreData.hostName || firestoreData.createdBy?.displayName || 'Anonymous',
-  hostEmail: firestoreData.hostEmail || firestoreData.createdBy?.email || '',
-  hostBio: firestoreData.hostBio || `Hello, I'm ${firestoreData.hostName || 'a student'} looking to sublease my place.`,
-  hostImage: firestoreData.hostImage || "https://images.unsplash.com/photo-1587300003388-59208cc962cb?q=80&w=800&h=500&auto=format&fit=crop",
-  
-  // Description
-  description: firestoreData.description || firestoreData.additionalDetails || 'No description available',
-  
-  // Additional fields for detail page
-  accommodationType: firestoreData.accommodationType || (firestoreData.isPrivateRoom ? 'private' : 'entire'),
-  preferredGender: firestoreData.roommatePreferences?.gender || firestoreData.preferredGender || 'any',
-  isVerifiedUMN: Boolean(firestoreData.isVerifiedUMN || false),
-  hostReviews: firestoreData.hostReviews || [],
-  
-  // Booleans
-  isPrivateRoom: Boolean(firestoreData.isPrivateRoom),
-  utilitiesIncluded: Boolean(firestoreData.utilitiesIncluded),
-  hasRoommates: Boolean(firestoreData.hasRoommates),
-};
+          const formattedListing = {
+            id: docSnap.id,
+            
+            // Basic info
+            title: firestoreData.title || `${firestoreData.listingType || 'Sublease'} in ${firestoreData.location || 'Campus Area'}`,
+            listingType: firestoreData.listingType || 'Sublease',
+            location: firestoreData.location || 'Campus Area',
+            
+            // ✅ CRITICAL: Preserve customLocation data from Firestore
+            customLocation: firestoreData.customLocation || null,
+            
+            // ✅ ALSO: Preserve address field
+            address: firestoreData.address || firestoreData.customLocation?.address || '',
+            
+            // Images - handle both single and multiple images
+            image: firestoreData.image || "https://images.unsplash.com/photo-1543852786-1cf6624b9987?q=80&w=800&h=500&auto=format&fit=crop",
+            additionalImages: firestoreData.additionalImages || [],
+            
+            // Dates
+            availableFrom: convertFirestoreDate(firestoreData.availableFrom || firestoreData.startDate),
+            availableTo: convertFirestoreDate(firestoreData.availableTo || firestoreData.endDate),
+            dateRange: firestoreData.dateRange || (() => {
+              const start = convertFirestoreDate(firestoreData.availableFrom || firestoreData.startDate);
+              const end = convertFirestoreDate(firestoreData.availableTo || firestoreData.endDate);
+              return `${start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${end.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
+            })(),
+            partialDatesOk: Boolean(firestoreData.partialDatesOk || false),
+            
+            // Pricing
+            price: Number(firestoreData.price || firestoreData.rent || 0),
+            rent: Number(firestoreData.rent || firestoreData.price || 0),
+            negotiable: Boolean(firestoreData.rentNegotiation?.isNegotiable || false),
+            utilitiesIncluded : Boolean(firestoreData.utilitiesIncluded || false),
+            approximateUtilities: Number(firestoreData.approximateUtilities || 0),
 
+            // Property details
+            bedrooms: Number(firestoreData.bedrooms || 1),
+            bathrooms: Number(firestoreData.bathrooms || 1),
+            distance: Number(firestoreData.distance || 0.5),
+            includedItems: firestoreData.includedItems || [],
+            // Ratings
+            rating: Number(firestoreData.rating || 0),
+            reviews: Number(firestoreData.reviews || 0),
+            averageRating: Number(firestoreData.averageRating || firestoreData.reviewStats?.averageRating || 0),
+totalReviews: Number(firestoreData.totalReviews || firestoreData.reviewStats?.totalReviews || 0),
+            // Amenities
+            amenities: Array.isArray(firestoreData.amenities) ? firestoreData.amenities : [],
+            
+            // Host information
+            hostId: firestoreData.hostId || firestoreData.userId || firestoreData.createdBy?.uid || docSnap.id,
+            hostName: firestoreData.hostName || firestoreData.createdBy?.displayName || 'Anonymous',
+            hostEmail: firestoreData.hostEmail || firestoreData.createdBy?.email || '',
+            hostBio: firestoreData.hostBio || `Hello, I'm ${firestoreData.hostName || 'a student'} looking to sublease my place.`,
+            hostImage: firestoreData.hostImage || "https://images.unsplash.com/photo-1587300003388-59208cc962cb?q=80&w=800&h=500&auto=format&fit=crop",
+            
+            // Description
+            description: firestoreData.description || firestoreData.additionalDetails || 'No description available',
+            
+            // Additional fields for detail page
+            accommodationType: firestoreData.accommodationType || (firestoreData.isPrivateRoom ? 'private' : 'entire'),
+            preferredGender: firestoreData.preferredGender || 'any',
+            isVerifiedUMN: Boolean(firestoreData.isVerifiedUMN || false),
+            hostReviews: firestoreData.hostReviews || [],
+            noiseLevel: firestoreData.roommatePreferences?.noiseLevel,
+            cleanliness : firestoreData.roommatePreferences?.cleanlinessLevel,
 
+            
+            // Booleans
+            isPrivateRoom: Boolean(firestoreData.isPrivateRoom),
+            hasRoommates: Boolean(firestoreData.hasRoommates),
+            smokingAllowed : Boolean(firestoreData.roommatePreferences?.smokingAllowed),
+            petsAllowed : Boolean(firestoreData.roommatePreferences?.petsAllowed),
+
+            contactMethods: firestoreData.contactInfo?.methods?.filter(method => method.selected) || [],
+          };
           
           setListing(formattedListing);
         } else {
@@ -443,13 +542,14 @@ const formattedListing = {
     fetchListing();
   }, [id]);
 
-  useEffect(() => {
-    if (listing?.hostReviews) {
-      setHostReviews(listing.hostReviews);
-    }
-  }, [listing]);
+  // Host reviews effect
+useEffect(() => {
+  if (listing?.hostId) {
+    fetchHostReviews();
+  }
+}, [listing?.hostId]);
 
-  // use keyboard to move image
+  // Keyboard navigation effect
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (!showAllImages) return;
@@ -468,6 +568,321 @@ const formattedListing = {
       window.removeEventListener('keydown', handleKeyDown);
     };
   }, [showAllImages]);
+
+  // Fetch unavailable dates effect
+  useEffect(() => {
+    if (listing?.id && listing?.partialDatesOk) {
+      fetchUnavailableDates();
+    }
+  }, [listing?.id, listing?.partialDatesOk]);
+
+  // Calendar functions
+  const fetchUnavailableDates = async () => {
+    if (!listing?.id) return;
+    
+    try {
+      const docRef = doc(db, 'listings', listing.id);
+      const docSnap = await getDoc(docRef);
+      
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        const unavailable = data.unavailableDates || [];
+        setUnavailableDates(unavailable);
+      }
+    } catch (error) {
+      console.error('Error fetching unavailable dates:', error);
+    }
+  };
+
+  const saveUnavailableDates = async (dates) => {
+    if (!listing?.id) return;
+    
+    try {
+      const docRef = doc(db, 'listings', listing.id);
+      await updateDoc(docRef, {
+        unavailableDates: dates,
+        updatedAt: serverTimestamp()
+      });
+      console.log('Unavailable dates saved successfully');
+    } catch (error) {
+      console.error('Error saving unavailable dates:', error);
+      alert('Failed to save unavailable dates. Please try again.');
+    }
+  };
+
+  const fetchHostData = async (hostId) => {
+  if (!hostId) return;
+  
+  try {
+    const hostDocRef = doc(db, 'users', hostId);
+    const hostDocSnap = await getDoc(hostDocRef);
+    
+    if (hostDocSnap.exists()) {
+      const data = hostDocSnap.data();
+      setHostData(data);
+    } else {
+      console.log('No host data found');
+      setHostData(null);
+    }
+  } catch (error) {
+    console.error('Error fetching host data:', error);
+    setHostData(null);
+  }
+};
+
+  const formatDateString = (date) => {
+    return date.toISOString().split('T')[0];
+  };
+
+  const parseDate = (dateString) => {
+    return new Date(dateString + 'T00:00:00');
+  };
+
+  const isDateUnavailable = (date) => {
+    const dateString = formatDateString(date);
+    return unavailableDates.includes(dateString);
+  };
+
+  const isDateInRange = (date) => {
+    if (!listing?.availableFrom || !listing?.availableTo) return false;
+    
+    const availableFrom = listing.availableFrom.toDate ? listing.availableFrom.toDate() : new Date(listing.availableFrom);
+    const availableTo = listing.availableTo.toDate ? listing.availableTo.toDate() : new Date(listing.availableTo);
+    
+    return date >= availableFrom && date <= availableTo;
+  };
+useEffect(() => {
+  if (listing?.hostId) {
+    fetchHostData(listing.hostId);
+  }
+}, [listing?.hostId]);
+  const handleDateClick = (date) => {
+  if (!isDateInRange(date)) return;
+  
+  const dateString = formatDateString(date);
+  
+  if (isSelectingRange) {
+    if (!rangeStart) {
+      setRangeStart(date);
+    } else {
+      // Complete the range selection
+      const start = rangeStart <= date ? rangeStart : date;
+      const end = rangeStart <= date ? date : rangeStart;
+      
+      const datesInRange = [];
+      const currentDate = new Date(start);
+      
+      while (currentDate <= end) {
+        datesInRange.push(formatDateString(new Date(currentDate)));
+        currentDate.setDate(currentDate.getDate() + 1);
+      }
+      
+      // Toggle availability for the range
+      const newUnavailableDates = [...unavailableDates];
+      const allInRangeUnavailable = datesInRange.every(d => unavailableDates.includes(d));
+      
+      if (allInRangeUnavailable) {
+        // Remove all dates in range
+        datesInRange.forEach(d => {
+          const index = newUnavailableDates.indexOf(d);
+          if (index > -1) newUnavailableDates.splice(index, 1);
+        });
+      } else {
+        // Add all dates in range
+        datesInRange.forEach(d => {
+          if (!newUnavailableDates.includes(d)) {
+            newUnavailableDates.push(d);
+          }
+        });
+      }
+      
+      setUnavailableDates(newUnavailableDates);
+      saveUnavailableDates(newUnavailableDates);
+      setRangeStart(null);
+      setIsSelectingRange(false);
+    }
+  } else {
+    // Single date toggle
+    const newUnavailableDates = [...unavailableDates];
+    const index = newUnavailableDates.indexOf(dateString);
+    
+    if (index > -1) {
+      newUnavailableDates.splice(index, 1);
+    } else {
+      newUnavailableDates.push(dateString);
+    }
+    
+    setUnavailableDates(newUnavailableDates);
+    saveUnavailableDates(newUnavailableDates);
+  }
+  
+  // DO NOT reset currentMonth here - this was likely causing the issue
+};
+
+
+
+
+  // Calendar component
+// Calendar component
+const AvailabilityCalendar = () => {
+  if (!listing?.availableFrom || !listing?.availableTo || !currentMonth) return null;
+  
+  const availableFrom = listing.availableFrom.toDate ? listing.availableFrom.toDate() : new Date(listing.availableFrom);
+  const availableTo = listing.availableTo.toDate ? listing.availableTo.toDate() : new Date(listing.availableTo);
+
+  const getDaysInMonth = (date) => {
+    const year = date.getFullYear();
+    const month = date.getMonth();
+    const firstDay = new Date(year, month, 1);
+    const lastDay = new Date(year, month + 1, 0);
+    const daysInMonth = lastDay.getDate();
+    const startingDayOfWeek = firstDay.getDay();
+    
+    const days = [];
+    
+    // Add empty cells for days before the first day of the month
+    for (let i = 0; i < startingDayOfWeek; i++) {
+      days.push(null);
+    }
+    
+    // Add all days of the month
+    for (let day = 1; day <= daysInMonth; day++) {
+      days.push(new Date(year, month, day));
+    }
+    
+    return days;
+  };
+  
+  const goToPreviousMonth = () => {
+    setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1));
+  };
+  
+  const goToNextMonth = () => {
+    setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1));
+  };
+  
+  const days = getDaysInMonth(currentMonth);
+  const monthNames = ["January", "February", "March", "April", "May", "June",
+    "July", "August", "September", "October", "November", "December"];
+  const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  
+  return (
+    <div className="bg-white rounded-lg border border-gray-200 p-6">
+      <div className="flex items-center justify-between mb-6">
+        <h3 className="text-lg font-semibold text-gray-900">
+          {isUserHost ? 'Manage Availability' : 'Available Dates'}
+        </h3>
+        {isUserHost && (
+          <div className="flex items-center space-x-2">
+            <button
+              onClick={() => setIsSelectingRange(!isSelectingRange)}
+              className={`px-3 py-1 rounded-md text-sm font-medium ${
+                isSelectingRange 
+                  ? 'bg-orange-100 text-orange-700 border border-orange-300' 
+                  : 'bg-gray-100 text-gray-700 border border-gray-300'
+              }`}
+            >
+              {isSelectingRange ? 'Cancel Range' : 'Select Range'}
+            </button>
+          </div>
+        )}
+      </div>
+
+      
+      <div className="mb-4">
+        <div className="flex items-center justify-between mb-4">
+          <button
+            onClick={goToPreviousMonth}
+            className="p-2 hover:bg-gray-100 rounded-md"
+            disabled={currentMonth < new Date(availableFrom.getFullYear(), availableFrom.getMonth(), 1)}
+          >
+            <ChevronLeft className="w-5 h-5" />
+          </button>
+          <h4 className="font-medium text-lg">
+            {monthNames[currentMonth.getMonth()]} {currentMonth.getFullYear()}
+          </h4>
+          <button
+            onClick={goToNextMonth}
+            className="p-2 hover:bg-gray-100 rounded-md"
+            disabled={currentMonth > new Date(availableTo.getFullYear(), availableTo.getMonth(), 1)}
+          >
+            <ChevronRight className="w-5 h-5" />
+          </button>
+        </div>
+        
+        <div className="grid grid-cols-7 gap-1 mb-2">
+          {dayNames.map(day => (
+            <div key={day} className="p-2 text-center text-sm font-medium text-gray-500">
+              {day}
+            </div>
+          ))}
+        </div>
+        
+        <div className="grid grid-cols-7 gap-1">
+          {days.map((day, index) => {
+            if (!day) {
+              return <div key={index} className="p-2"></div>;
+            }
+            
+            const isInRange = isDateInRange(day);
+            const isUnavailable = isDateUnavailable(day);
+            const isRangeStart = rangeStart && formatDateString(day) === formatDateString(rangeStart);
+            
+            let dayClasses = "p-2 text-center text-sm rounded-md cursor-pointer transition-colors ";
+            
+            if (!isInRange) {
+              dayClasses += "text-gray-300 cursor-not-allowed bg-gray-50";
+            } else if (isUnavailable) {
+              dayClasses += "bg-red-100 text-red-800 hover:bg-red-200";
+            } else {
+              dayClasses += "bg-green-100 text-green-800 hover:bg-green-200";
+            }
+            
+            if (isRangeStart) {
+              dayClasses += " ring-2 ring-orange-500";
+            }
+            
+            if (!isUserHost) {
+              dayClasses = dayClasses.replace("cursor-pointer", "cursor-default");
+            }
+            
+            return (
+              <div
+                key={index}
+                className={dayClasses}
+                onClick={() => isUserHost && handleDateClick(day)}
+              >
+                {day.getDate()}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+      
+      <div className="flex items-center justify-center space-x-6 text-sm">
+        <div className="flex items-center">
+          <div className="w-3 h-3 bg-green-100 border border-green-300 rounded mr-2"></div>
+          <span className="text-gray-600">Available</span>
+        </div>
+        <div className="flex items-center">
+          <div className="w-3 h-3 bg-red-100 border border-red-300 rounded mr-2"></div>
+          <span className="text-gray-600">Unavailable</span>
+        </div>
+        <div className="flex items-center">
+          <div className="w-3 h-3 bg-gray-100 border border-gray-300 rounded mr-2"></div>
+          <span className="text-gray-600">Outside range</span>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+  useEffect(() => {
+  if (listing?.availableFrom && !currentMonth) {
+    const availableFrom = listing.availableFrom.toDate ? listing.availableFrom.toDate() : new Date(listing.availableFrom);
+    setCurrentMonth(new Date(availableFrom.getFullYear(), availableFrom.getMonth(), 1));
+  }
+}, [listing?.availableFrom, currentMonth]);
 
   // THEN your conditional returns and early exits
   if (listingLoading) {
@@ -569,7 +984,6 @@ const formattedListing = {
     return null;
   };
 
-
   const geocodeListingAddress = async (): Promise<{lat: number, lng: number} | null> => {
     if (!listing?.location || !window.google?.maps) return null;
     
@@ -592,11 +1006,73 @@ const formattedListing = {
     });
   };
   
-  
+  // Notification data
+  const notifications: Notification[] = [
+    { id: 1, type: "price-drop", message: "MacBook Pro price dropped by $50!", time: "2h ago" },
+    { id: 2, type: "new-item", message: "New furniture items in Dinkytown", time: "4h ago" },
+    { id: 3, type: "favorite", message: "Your favorited item is ending soon", time: "1d ago" }
+  ];
 
+  // Notifications dropdown component
+  const NotificationsButton = ({ notifications }: { notifications: Notification[] }) => {
+    const [showNotifications, setShowNotifications] = useState(false);
+    const router = useRouter();
 
-  
-  
+    return (
+      <div className="relative">
+        <motion.button
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          onClick={() => setShowNotifications(!showNotifications)}
+          className="p-2 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors relative"
+        >
+          <Bell className="w-5 h-5 text-gray-600" />
+          {notifications.length > 0 && (
+            <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center">
+              {notifications.length}
+            </span>
+          )}
+        </motion.button>
+
+        <AnimatePresence>
+          {showNotifications && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              className="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-lg border border-gray-200 z-50"
+            >
+              <div className="p-4">
+                <h3 className="font-semibold text-gray-900 mb-3">Notifications</h3>
+                <div className="space-y-3 max-h-64 overflow-y-auto">
+                  {notifications.map(notif => (
+                    <button
+                      key={notif.id}
+                      onClick={() => router.push(`browse/notificationDetail/${notif.id}`)}
+                      className="w-full flex items-start space-x-3 p-2 rounded-lg hover:bg-gray-50 text-left"
+                    >
+                      <div className="w-2 h-2 bg-orange-500 rounded-full mt-2"></div>
+                      <div className="flex-1">
+                        <p className="text-sm text-gray-900">{notif.message}</p>
+                        <p className="text-xs text-gray-500">{notif.time}</p>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+
+                <button
+                  onClick={() => router.push(`browse/notification/`)}
+                  className="mt-3 text-sm text-blue-600 hover:underline"
+                >
+                  See all notifications
+                </button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+    );
+  };
   
   // Rest of your component logic and functions...
   const toggleFavorite = (listing) => {
@@ -619,11 +1095,7 @@ const formattedListing = {
       
       setFavoriteListings([favoriteItem, ...favoriteListings]);
     }
-    
-    setIsSidebarOpen(true);
   };
-
-  
 
   // all image array
   const allImages = [
@@ -642,7 +1114,7 @@ const formattedListing = {
   };
 
   // check if the image already in the current listings
-  const isCurrentListingFavorited = favoriteListings.some(item => item.id === listing.id);
+  const isCurrentListingFavorited = favoriteListings.some(item => item.id === listing?.id);
   
   //connect option
   const navigateToTour = () => {
@@ -788,39 +1260,138 @@ const formattedListing = {
     }
   };
 
-
-  
-  // amenity icon
   const getAmenityIcon = (amenity) => {
-    switch (amenity) {
-      case 'wifi': return <Wifi size={16} />;
-      case 'parking': return <MapPin size={16} />;
-      case 'laundry': return <Droplets size={16} />;
-      case 'furnished': return <Home size={16} />;
-      case 'utilities': return <DollarSign size={16} />;
-      case 'ac': return <Sparkles size={16} />;
-      default: return <Star size={16} />;
+    const amenityLower = amenity.toLowerCase();
+    
+    if (amenityLower.includes('wifi') || amenityLower.includes('wi-fi')) {
+      return <Wifi size={16} />;
     }
+    if (amenityLower.includes('parking') || amenityLower.includes('garage')) {
+      return <MapPin size={16} />;
+    }
+    if (amenityLower.includes('washer') || amenityLower.includes('dryer') || amenityLower.includes('laundry')) {
+      return <Droplets size={16} />;
+    }
+    if (amenityLower.includes('pet') || amenityLower.includes('pet-friendly')) {
+      return <Heart size={16} />;
+    }
+    if (amenityLower.includes('air conditioning') || amenityLower.includes('heating')) {
+      return <Thermometer size={16} />;
+    }
+    if (amenityLower.includes('utilities')) {
+      return <DollarSign size={16} />;
+    }
+    if (amenityLower.includes('dishwasher')) {
+      return <Utensils size={16} />;
+    }
+    if (amenityLower.includes('gym') || amenityLower.includes('fitness')) {
+      return <Dumbbell size={16} />;
+    }
+    if (amenityLower.includes('sauna')) {
+      return <Droplets size={16} />;
+    }
+    if (amenityLower.includes('balcony') || amenityLower.includes('outdoor')) {
+      return <Trees size={16} />;
+    }
+    if (amenityLower.includes('rooftop')) {
+      return <Building size={16} />;
+    }
+    if (amenityLower.includes('grill') || amenityLower.includes('bbq')) {
+      return <Flame size={16} />;
+    }
+    if (amenityLower.includes('elevator')) {
+      return <ArrowUp size={16} />;
+    }
+    if (amenityLower.includes('security') || amenityLower.includes('secure')) {
+      return <Shield size={16} />;
+    }
+    if (amenityLower.includes('package') || amenityLower.includes('locker')) {
+      return <Package size={16} />;
+    }
+    if (amenityLower.includes('wheelchair') || amenityLower.includes('accessible')) {
+      return <Accessibility size={16} />;
+    }
+    if (amenityLower.includes('study') || amenityLower.includes('coworking')) {
+      return <BookOpen size={16} />;
+    }
+    if (amenityLower.includes('recreation') || amenityLower.includes('lounge')) {
+      return <Sofa size={16} />;
+    }
+    if (amenityLower.includes('game room')) {
+      return <Gamepad2 size={16} />;
+    }
+    if (amenityLower.includes('movie') || amenityLower.includes('media')) {
+      return <Play size={16} />;
+    }
+    if (amenityLower.includes('trash') || amenityLower.includes('recycling')) {
+      return <Trash2 size={16} />;
+    }
+    
+    // default
+    return <Star size={16} />;
   };
 
- 
-  
+const addReview = async () => {
+  if (!newReviewComment.trim()) {
+    alert('Please write a comment for your review.');
+    return;
+  }
 
-  const addReview = () => {
-    if (!newReviewComment.trim()) {
-      alert('Please write a comment for your review.');
+  if (!user) {
+    alert('Please sign in to write a review.');
+    return;
+  }
+
+  // Prevent self-review
+  if (user.uid === listing.hostId) {
+    alert('You cannot review your own listing!');
+    return;
+  }
+
+  try {
+    // Check if user already reviewed this host
+    const existingReviewQuery = query(
+      collection(db, 'reviews'),
+      where('reviewerId', '==', user.uid),
+      where('revieweeId', '==', listing.hostId),
+      where('listingId', '==', listing.id)
+    );
+    
+    const existingReviews = await getDocs(existingReviewQuery);
+    
+    if (!existingReviews.empty) {
+      alert('You have already reviewed this host for this listing!');
       return;
     }
-    const currentDate = new Date();
-    const formattedDate = currentDate.toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'long'
-    });
 
+    // Create the review document
+    const reviewData = {
+      reviewerId: user.uid,
+      reviewerName: user.displayName || user.email || 'Anonymous',
+      reviewerEmail: user.email,
+      revieweeId: listing.hostId,
+      revieweeName: listing.hostName,
+      listingId: listing.id,
+      listingTitle: listing.title,
+      rating: newReviewRating,
+      comment: newReviewComment.trim(),
+      interactionType: 'sublease',
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
+    };
+
+    // Add review to reviews collection
+    const reviewRef = await addDoc(collection(db, 'reviews'), reviewData);
+    console.log('Review added successfully:', reviewRef.id);
+
+    // Update the local state to show the new review immediately
     const newReview = {
-      id: Date.now(), // not the actual ID (need to change)
-      name: "You", // not the actual name (need to change)
-      date: formattedDate,
+      id: reviewRef.id,
+      name: user.displayName || user.email || 'Anonymous',
+      date: new Date().toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'long'
+      }),
       comment: newReviewComment,
       rating: newReviewRating
     };
@@ -828,626 +1399,996 @@ const formattedListing = {
     const updatedReviews = [newReview, ...hostReviews];
     setHostReviews(updatedReviews);
 
+    // Update the host's review statistics (you might want to do this server-side with Cloud Functions)
+    await updateHostReviewStats(listing.hostId, newReviewRating);
+
+    // Reset form
     setShowReviewModal(false);
     setNewReviewComment('');
     setNewReviewRating(5);
-  };
 
+    alert('Review submitted successfully!');
+
+  } catch (error) {
+    console.error('Error adding review:', error);
+    alert('Failed to submit review. Please try again.');
+  }
+};
+
+
+const updateHostReviewStats = async (hostId: string, newRating: number) => {
+  try {
+    // Get current user document
+    const userRef = doc(db, 'users', hostId);
+    const userDoc = await getDoc(userRef);
+    
+    if (userDoc.exists()) {
+      const userData = userDoc.data();
+      const currentStats = userData.reviewStats || {
+        averageRating: 0,
+        totalReviews: 0,
+        ratingDistribution: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 }
+      };
+
+      // Calculate new average
+      const totalReviews = currentStats.totalReviews + 1;
+      const newAverage = ((currentStats.averageRating * currentStats.totalReviews) + newRating) / totalReviews;
+
+      // Update rating distribution
+      const newDistribution = { ...currentStats.ratingDistribution };
+      newDistribution[newRating] = (newDistribution[newRating] || 0) + 1;
+
+      // Update user document
+      await updateDoc(userRef, {
+        reviewStats: {
+          averageRating: Math.round(newAverage * 10) / 10, // Round to 1 decimal
+          totalReviews: totalReviews,
+          ratingDistribution: newDistribution
+        },
+        averageRating: Math.round(newAverage * 10) / 10,
+        totalReviews: totalReviews
+      });
+    } else {
+      // Create initial review stats for new user
+      await updateDoc(userRef, {
+        reviewStats: {
+          averageRating: newRating,
+          totalReviews: 1,
+          ratingDistribution: {
+            1: newRating === 1 ? 1 : 0,
+            2: newRating === 2 ? 1 : 0,
+            3: newRating === 3 ? 1 : 0,
+            4: newRating === 4 ? 1 : 0,
+            5: newRating === 5 ? 1 : 0
+          }
+        },
+        averageRating: newRating,
+        totalReviews: 1
+      });
+    }
+  } catch (error) {
+    console.error('Error updating host review stats:', error);
+  }
+};
+
+const fetchHostReviews = async () => {
+  if (!listing?.hostId) return;
+
+  try {
+    const reviewsQuery = query(
+      collection(db, 'reviews'),
+      where('revieweeId', '==', listing.hostId),
+      orderBy('createdAt', 'desc')
+    );
+    
+    const reviewsSnapshot = await getDocs(reviewsQuery);
+    const reviews = reviewsSnapshot.docs.map(doc => {
+      const data = doc.data();
+      return {
+        id: doc.id,
+        name: data.reviewerName,
+        date: data.createdAt?.toDate().toLocaleDateString('en-US', {
+          year: 'numeric',
+          month: 'long'
+        }) || 'Recent',
+        comment: data.comment,
+        rating: data.rating
+      };
+    });
+    
+    setHostReviews(reviews);
+  } catch (error) {
+    console.error('Error fetching reviews:', error);
+  }
+};
   //calculate the average rating
   const hostReviewCount = hostReviews.length;
   const hostRating = hostReviews.length > 0 
     ? (hostReviews.reduce((sum, review) => sum + review.rating, 0) / hostReviews.length).toFixed(1)
     : "0.0";
 
+  const handleTabClick = (tab: string) => {
+    // Handle tab clicks for profile dropdown
+    setShowProfile(false);
+    // Add navigation logic here based on tab
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
-      {/* Navigation */}
-      <nav className="fixed md:left-0 md:top-0 md:bottom-0 md:h-full md:w-16 w-full top-0 left-0 h-16 bg-orange-200 text-white shadow-lg z-50 md:flex md:flex-col">
-        {/* navigation for mobile */}
-        <div className="w-full h-full flex items-center justify-between px-4 md:hidden">
-          <span className="font-bold text-lg">CampusSubleases</span>
-          <div className="flex items-center space-x-4">
-            <button
-              title="Add New"
-              className="group cursor-pointer outline-none hover:rotate-90 duration-300 p-2 rounded-lg hover:bg-orange-300"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" width="24px" height="24px" viewBox="0 0 24 24" className="stroke-slate-100 fill-none group-hover:fill-orange-500 group-active:stroke-slate-200 group-active:fill-orange-900 group-active:duration-0 duration-300">
-                <path d="M12 22C17.5 22 22 17.5 22 12C22 6.5 17.5 2 12 2C6.5 2 2 6.5 2 12C2 17.5 6.5 22 12 22Z" strokeWidth="1.5"></path>
-                <path d="M8 12H16" strokeWidth="1.5"></path>
-                <path d="M12 16V8" strokeWidth="1.5"></path>
-              </svg>
-            </button>
-            <button 
-              onClick={() => setIsSidebarOpen(!isSidebarOpen)} 
-              className="p-2 rounded-lg transition cursor-pointer hover:bg-orange-300"
-            >
-              <Heart size={20} />
-            </button>
-            <button className="p-2 rounded-lg transition cursor-pointer hover:bg-orange-300">
-              <User size={20} />
-            </button>
-          </div>
+       {/* Header */}
+       <div className="bg-white border-b border-gray-200 sticky top-0 z-50">
+         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+           <div className="flex items-center justify-between h-16">
+             {/* Logo */}
+             <ul className="space-y-2 ">
+             <div className="flex items-center space-x-3">
+               <div className="w-8 h-8 bg-gradient-to-br from-orange-500 to-red-600 rounded-lg flex items-center justify-center">
+                 <Package className="w-5 h-5 text-white" />
+               </div>
+               <li><a href="/sublease/search" className="text-2xl font-bold text-gray-900">Subox</a></li>
+               <span className="text-sm text-gray-500 hidden sm:block">Subleases</span> 
+             </div>
+             </ul>
+
+             {/* Header Actions */}
+             <div className="flex items-center space-x-4">
+               {/* Notifications */}
+               <NotificationsButton notifications={notifications} />
+ 
+               {/* messages */}
+               <motion.button 
+                 whileHover={{ scale: 1.05 }}
+                 whileTap={{ scale: 0.95 }}
+                 onClick={() => window.location.href = '/sublease/search/list'}
+                 className="p-2 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+               >
+                 <MessagesSquare size={20} className = "w-5 h-5 text-gray-600"/>
+               </motion.button>
+ 
+               {/* Profile */}
+               <div className="relative">
+                 <motion.button
+                   whileHover={{ scale: 1.05 }}
+                   whileTap={{ scale: 0.95 }}
+                   onClick={() => setShowProfile(!showProfile)}
+                   className="p-2 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                 >
+                   <User className="w-5 h-5 text-gray-600" />
+                 </motion.button>
+ 
+                 <AnimatePresence>
+                   {showProfile && (
+                     <motion.div
+                       initial={{ opacity: 0, y: -10 }}
+                       animate={{ opacity: 1, y: 0 }}
+                       exit={{ opacity: 0, y: -10 }}
+                       className="absolute right-0 mt-2 w-64 bg-white rounded-lg shadow-lg border border-gray-200 z-50"
+                     >
+                       <div className="p-4 space-y-2">
+                         <button onClick={() => handleTabClick("purchased")} className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors">What I Purchased</button>
+                         <button onClick={() => handleTabClick("returned")} className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors">What I Returned</button>
+                         <button onClick={() => handleTabClick("cancelled")} className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors">What I Cancelled</button>
+                         <button onClick={() => handleTabClick("sold")} className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors">What I Sold</button>
+                         <button onClick={() => handleTabClick("sublease")} className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors">Sublease</button>
+                         <button onClick={() => handleTabClick("reviews")} className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors">Reviews</button>
+                         <hr className="my-2" />
+                         <button onClick={() => handleTabClick("history")} className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors">History</button>
+                       </div>
+                     </motion.div>
+                   )}
+                 </AnimatePresence>
+               </div>
+ 
+               {/* menu */}
+               <div className="relative">
+                 <motion.button
+                   whileHover={{ scale: 1.05 }}
+                   whileTap={{ scale: 0.95 }}
+                   onClick={() => setShowMenu(!showMenu)}
+                   className="p-2 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                 >
+                   <Menu className="w-5 h-5 text-gray-600" />
+                 </motion.button>
+
+                 <AnimatePresence>
+                   {showMenu && (
+                     <motion.div
+                       initial={{ opacity: 0, y: -10 }}
+                       animate={{ opacity: 1, y: 0 }}
+                       exit={{ opacity: 0, y: -10 }}
+                       className="absolute right-0 mt-2 w-64 bg-white rounded-lg shadow-lg border border-gray-200 z-50"
+                     >
+                       <div className="p-4 space-y-2">
+                         <p className="text-medium font-semibold max-w-2xl mb-4 text-orange-700">
+                         Move Out Sale
+                         </p>
+                         <button 
+                           onClick={() => {
+                             router.push('/sale/browse');
+                             setShowMenu(false);
+                           }} 
+                           className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors"
+                         >
+                           Browse Items
+                         </button>                        
+                         <button 
+                           onClick={() => {
+                             router.push('/sale/create/options/nonai');
+                             setShowMenu(false);
+                           }} 
+                           className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors"
+                         >
+                           Sell Items
+                         </button> 
+                         <button 
+                           onClick={() => {
+                             router.push('/sale/browse');
+                             setShowMenu(false);
+                           }} 
+                           className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors"
+                         >
+                           My Items
+                         </button>   
+                         
+                         <p className="text-medium font-semibold max-w-2xl mb-4 text-orange-700">
+                           Sublease
+                         </p>
+                         <button 
+                           onClick={() => {
+                             router.push('/sublease/search');
+                             setShowMenu(false);
+                           }} 
+                           className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors"
+                         >
+                           Find Sublease
+                         </button>   
+                         <button 
+                           onClick={() => {
+                             router.push('/sublease/write/options/chat');
+                             setShowMenu(false);
+                           }} 
+                           className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors"
+                         >
+                           Post Sublease
+                         </button>   
+                         <button 
+                           onClick={() => {
+                             router.push('../search');
+                             setShowMenu(false);
+                           }} 
+                           className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors"
+                         >
+                           My Sublease Listing
+                         </button>
+                         <hr className="my-2" />
+                         <button                              
+                           onClick={() => {                               
+                             router.push('/favorite');                               
+                             setShowMenu(false);                             
+                           }}                              
+                           className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors flex items-center gap-2"
+                           >                             
+                           <Heart className="w-4 h-4 text-gray-600" />                             
+                           Favorites                           
+                         </button>
+                         <button 
+                           onClick={() => {
+                             router.push('/sublease/search/list');
+                             setShowMenu(false);
+                           }} 
+                           className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors flex items-center gap-2"
+                         >
+                           <MessagesSquare className="w-4 h-4 text-gray-600" />                             
+                           Messages
+                         </button>   
+                         <button 
+                           onClick={() => {
+                             router.push('../help');
+                             setShowMenu(false);
+                           }} 
+                           className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors"
+                         >
+                           Help & Support
+                         </button>
+
+                         {/* need change (when user didn't log in -> show log in button) */}
+                         <hr className="my-2" />
+                           {/* log in/ out */}
+                           {isLoggedIn ? (
+                             <button className="w-full text-left px-3 py-2 rounded-md text-sm text-red-600 hover:bg-red-50 hover:text-red-700 transition-colors">
+                               Logout
+                             </button>
+                           ) : (
+                             <button className="w-full text-left px-3 py-2 rounded-md text-sm text-blue-600 hover:bg-blue-50 hover:text-blue-700 transition-colors">
+                               Login
+                             </button>
+                           )}
+                       </div>
+                     </motion.div>
+                   )}
+                 </AnimatePresence>
+               </div>
+             </div>
+         </div>
+         </div>
+     </div>
+
+     {/* image gallery */}
+     {showAllImages && (
+       <div className="fixed inset-0 bg-black bg-opacity-90 z-50 flex flex-col items-center justify-center p-4">
+         <div className="w-full max-w-4xl">
+           {/* close button */}
+           <div className="flex justify-end mb-2">
+             <button 
+               onClick={() => setShowAllImages(false)}
+               className="p-1 bg-white rounded-full text-black hover:bg-gray-200"
+             >
+               <X size={24} />
+             </button>
+           </div>
+           
+           {/* showing image */}
+           <div className="relative mb-4">
+             <div className="h-96 flex items-center justify-center">
+               <img 
+                 src={allImages[activeImage]} 
+                 alt={`Image ${activeImage + 1}`}
+                 className="max-h-full max-w-full object-contain"
+               />
+             </div>
+             
+             {/* left arrow */}
+             <button 
+               onClick={goToPrevImage}
+               className="absolute left-0 top-1/2 transform -translate-y-1/2 p-2 bg-white bg-opacity-80 rounded-full text-gray-800 hover:bg-opacity-100 transition"
+               aria-label="Previous image"
+             >
+               <ArrowLeft size={24} />
+             </button>
+             
+             {/* right arrow */}
+             <button 
+               onClick={goToNextImage}
+               className="absolute right-0 top-1/2 transform -translate-y-1/2 p-2 bg-white bg-opacity-80 rounded-full text-gray-800 hover:bg-opacity-100 transition"
+               aria-label="Next image"
+             >
+               <ArrowRight size={24} />
+             </button>
+           </div>
+           
+           {/* image index */}
+           <div className="text-white text-center mb-4">
+             {activeImage + 1} / {allImages.length}
+           </div>
+           
+           {/* show main image */}
+           <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
+             {allImages.map((img, index) => (
+               <div 
+                 key={index}
+                 className={`h-20 rounded-lg overflow-hidden cursor-pointer border-2 ${activeImage === index ? 'border-orange-500' : 'border-transparent'}`}
+                 onClick={() => setActiveImage(index)}
+               >
+                 <img 
+                   src={img}
+                   alt={`Thumbnail ${index + 1}`}
+                   className="w-full h-full object-cover"
+                 />
+               </div>
+             ))}
+           </div>
+           
+           {/* keyboard usage info */}
+           <div className="text-white text-center mt-4 text-sm opacity-70">
+              ← → key can move the image. ESC for exit.
+           </div>
+         </div>
+       </div>
+     )}
+
+     {/* detail page */}
+     <div className=" pt-16 md:pt-0">
+       
+       <div className="max-w-4xl mx-auto p-6">
+         {/* back button*/}
+         <button 
+           onClick={() => router.push('/sublease/search/')}
+           className="flex items-center text-orange-600 hover:text-orange-800 mb-6 font-medium cursor-pointer"
+         >
+           <ChevronLeft className="w-5 h-5 mr-1" />
+           Previous Page
+         </button>
+
+         {/* main contents box */}
+         <div className="bg-white p-6 rounded-lg shadow-md mb-6">
+           {/* image section */}
+           <div className="flex flex-col md:flex-row md:gap-4 mb-6">
+             {/* main picture */}
+             <div className="md:w-2/3 h-72 md:h-96 rounded-lg overflow-hidden mb-4 md:mb-0">
+               <img 
+                 src={allImages[activeImage] || listing.image}
+                 alt={listing.title}
+                 className="w-full h-full object-cover"
+               />
+             </div>
+             
+             {/* additional pictures */}
+             <div className="md:w-1/3">
+               <div className="grid grid-cols-2 gap-2 h-full">
+                 <div 
+                   className={`h-24 md:h-auto rounded-lg overflow-hidden cursor-pointer border-2 ${activeImage === 0 ? 'border-orange-500' : 'border-transparent'}`}
+                   onClick={() => setActiveImage(0)}
+                 >
+                   <img 
+                     src={listing.image}
+                     alt="Main view"
+                     className="w-full h-full object-cover"
+                   />
+                 </div>
+                 
+                 {listing.additionalImages && listing.additionalImages.slice(0, 2).map((img, index) => (
+                   <div 
+                     key={index}
+                     className={`h-24 md:h-auto rounded-lg overflow-hidden cursor-pointer border-2 ${activeImage === index + 1 ? 'border-orange-500' : 'border-transparent'}`}
+                     onClick={() => setActiveImage(index + 1)}
+                   >
+                     <img 
+                       src={img}
+                       alt={`Additional view ${index + 1}`}
+                       className="w-full h-full object-cover"
+                     />
+                   </div>
+                 ))}
+                 
+                 {/* + button - to see all images */}
+                 <div 
+                   className="h-24 md:h-auto rounded-lg bg-gray-100 flex items-center justify-center cursor-pointer hover:bg-gray-200 transition"
+                   onClick={() => setShowAllImages(true)}
+                 >
+                   <Plus className="text-gray-500" />
+                 </div>
+               </div>
+             </div>
+           </div>
+
+            {/* title */}
+            <div className="mb-6">
+               <h1 className="text-2xl font-bold text-orange-900">{listing.title}</h1>
+               {detectedNeighborhood && (
+                 <p className="text-sm text-gray-600 mt-1 flex items-center">
+                   <Home className="w-4 h-4 mr-1" />
+                   Located in {detectedNeighborhood}
+                 </p>
+               )}
+           </div>
+
+             {/* Key Information */}
+           <div className="bg-white rounded-lg border border-gray-200 mb-6">
+             {/* Header */}
+             <div className="p-6 border-b border-gray-100">
+               <h2 className="text-lg font-semibold text-gray-900">Key Information</h2>
+             </div>
+
+             <div className="p-6">
+               {/* Main Information */}
+               <div className="space-y-4 mb-6">
+                 <div className="flex items-center gap-3">
+                   <MapPin size={18} className="text-orange-500" />
+                   <span className="text-gray-700">{listing.location}</span>
+                 </div>
+                 <div className="flex items-center gap-3">
+                   <DollarSign size={18} className="text-orange-500" />
+                   <span className="text-gray-700">${listing.price}/month</span>
+                 </div>
+                 <div className="flex items-center gap-3">
+                   <BedDouble size={18} className="text-orange-500" />
+                   <span className="text-gray-700">{listing.bedrooms} Bed {listing.bathrooms} Bath</span>
+                 </div>
+                 <div className="flex items-center gap-3">
+                   {listing.includedItems[0] ? 
+                     <X size={18} className="text-red-500" /> : 
+                     <Check size={18} className="text-green-500" />
+                   }
+                   <span className="text-gray-700">{listing.includedItems[0] ? "Unfurnished" : "Furnished"}</span>
+                 </div>
+                 <div className="flex items-center gap-3">
+                   <Calendar size={18} className="text-orange-500" />
+                   <span className="text-gray-700">{listing.dateRange}</span>
+                 </div>
+
+                 {listing.preferredGender && (
+                   <p className="flex items-center ml-0.5 gap-1">
+                     {getGenderInfo(listing.preferredGender).icon}
+                     <span className={`${listing.preferredGender === 'female' ? 'text-pink-600' : listing.preferredGender === 'male' ? 'text-orange-600' : 'text-green-600'} font-medium`}>
+                       {getGenderInfo(listing.preferredGender).text}
+                     </span>
+                   </p>
+                 )}
+
+               </div>
+
+               {/* Features */}
+               <div className="pt-6 border-t border-gray-100">
+                 <div className="space-y-3">
+                   <div className="flex items-center gap-3">
+                     <Users size={16} className={listing.hasRoommates ? "text-green-500" : "text-gray-400"} />
+                     <span className="text-sm text-gray-700">{listing.hasRoommates ? "Has roommates" : "No roommates"}</span>
+                   </div>
+                   
+                   <div className="flex items-center gap-3">
+                     {listing.negotiable ? 
+                       <Check size={16} className="text-green-500" /> : 
+                       <X size={16} className="text-red-500" />
+                     }
+                     <span className="text-sm text-gray-700">{listing.negotiable ? "Negotiable" : "Non-Negotiable"}</span>
+                   </div>
+
+                   <div className="flex items-center gap-3">
+                     <X size={16} className={listing.smokingAllowed ? "text-green-500" : "text-red-500"} />
+                     <span className="text-sm text-gray-700">{listing.smokingAllowed ? "Smoking allowed" : "Non-Smoking"}</span>
+                   </div>
+                   
+                   {listing.noiseLevel && (
+                     <div className="flex items-center gap-3">
+                       <Volume2 size={16} className="text-gray-400" />
+                       <span className="text-sm text-gray-700">Preferred noise level: {listing.noiseLevel}</span>
+                     </div>
+                   )}
+                   
+                   <div className="flex items-center gap-3">
+                     <CalendarCheck size={16} className={listing.partialDatesOk ? "text-green-500" : "text-gray-400"} />
+                     <span className="text-sm text-gray-700">{listing.partialDatesOk ? "Flexible dates" : "Fixed dates only"}</span>
+                   </div>
+                   
+                   <div className="flex items-center gap-3">
+                     <Zap size={16} className={listing.utilitiesIncluded ? "text-green-500" : "text-orange-500"} />
+                     <span className="text-sm text-gray-700">
+                       {listing.utilitiesIncluded ? 
+                         "Utilities included" : 
+                         `Utilities: ~${listing.approximateUtilities}`
+                       }
+                     </span>
+                   </div>
+                   
+                   <div className="flex items-center gap-3">
+                     <Heart size={16} className={listing.petsAllowed ? "text-green-500" : "text-gray-400"} />
+                     <span className="text-sm text-gray-700">{listing.petsAllowed ? "Pets allowed" : "No pets allowed"}</span>
+                   </div>
+                 </div>
+               </div>
+             </div>
+           </div>
+
+{/* Host Information */}
+<div className="bg-white p-4 rounded-lg border border-orange-200 mb-6">
+    <h2 className="text-xl font-bold text-orange-800 mb-2">Host Information</h2>
+    <div className="flex items-start">
+        <div className="w-16 h-16 rounded-full overflow-hidden mr-4 flex-shrink-0">
+        <img 
+            src={listing.hostImage || "https://images.unsplash.com/photo-1543852786-1cf6624b9987?q=80&w=800&h=500&auto=format&fit=crop"} 
+            alt="Host" 
+            className="w-full h-full object-cover "
+        />
         </div>
-        
-        {/* navigation for desktop */}
-        <div className="hidden md:flex md:flex-col md:h-full">
-          <div className="flex flex-col items-center">
-            <div className="font-bold text-xl mt-6 mb-4">CS</div>
-            <button title="Add New" className="group cursor-pointer outline-none hover:rotate-90 duration-300 p-3 rounded-lg hover:bg-orange-300">
-              <svg xmlns="http://www.w3.org/2000/svg" width="24px" height="24px" viewBox="0 0 24 24" className="stroke-slate-100 fill-none group-hover:fill-orange-500 group-active:stroke-slate-200 group-active:fill-orange-900 group-active:duration-0 duration-300">
-                <path d="M12 22C17.5 22 22 17.5 22 12C22 6.5 17.5 2 12 2C6.5 2 2 6.5 2 12C2 17.5 6.5 22 12 22Z" strokeWidth="1.5"></path>
-                <path d="M8 12H16" strokeWidth="1.5"></path>
-                <path d="M12 16V8" strokeWidth="1.5"></path>
-              </svg>
-            </button>
-          </div>
-          <div className="mt-auto flex flex-col items-center space-y-4 mb-8">
-            <button 
-              onClick={() => setIsSidebarOpen(!isSidebarOpen)} 
-              className="p-3 rounded-lg hover:bg-orange-300 transition cursor-pointer"
-            >
-              <Heart size={20} />
-            </button>
-            <button className="p-3 rounded-lg hover:bg-orange-300 transition cursor-pointer">
-              <User size={20} />
-            </button>
-          </div>
-        </div>
-      </nav>
-      
-      {/* Favorites Sidebar */}
-      <div className={`fixed md:left-16 left-0 top-0 md:top-0 top-16 h-full md:h-full h-[calc(100%-4rem)] w-72 bg-white shadow-xl z-40 transform transition-transform duration-300 ease-in-out ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} overflow-auto`}>
-        <div className="p-4 border-b">
-          <div className="flex justify-between items-center">
-            <h2 className="font-bold text-lg text-orange-500">Favorites</h2>
-            <button 
-              onClick={() => setIsSidebarOpen(false)}
-              className="p-2 rounded-full hover:bg-gray-100"
-            >
-              <X size={20} />
-            </button>
-          </div>
-        </div>
-        
-        <div className="p-4">
-          {/* favorites list */}
-          {isMounted && (
-            <>
-              {favoriteListings.length === 0 ? (
-                <div className="text-center py-8 text-gray-500">
-                  <Heart size={40} className="mx-auto mb-2 opacity-50" />
-                  <p>No favorite listings yet</p>
-                  <p className="text-sm mt-2">Click the heart icon on listings to save them here</p>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {favoriteListings.map(listing => (
-                    <div 
-                      key={listing.id} 
-                      className="border rounded-lg overflow-hidden hover:shadow-md transition cursor-pointer"
-                      onClick={() => {
-                        setIsSidebarOpen(false);
-                        router.push(`/sublease/search/${listing.id}`);
-                      }}
-                    >
-                      <div className="flex">
-                        <div 
-                          className="w-20 h-20 bg-gray-200 flex-shrink-0" 
-                          style={{backgroundImage: `url(${listing.image})`, backgroundSize: 'cover', backgroundPosition: 'center'}}
-                        ></div>
-                        <div className="p-3 flex-1">
-                          <div className="font-medium text-gray-700">{listing.title}</div>
-                          <div className="text-sm text-gray-500">{listing.location}</div>
-                          <div className="text-sm font-bold text-[#15361F] mt-1">
-                            ${listing.price}/mo
-                          </div>
-                        </div>
-                        <button 
-                          className="p-2 text-gray-400 hover:text-red-500 self-start"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setFavoriteListings(favoriteListings.filter(item => item.id !== listing.id));
-                          }}
-                        >
-                          <X size={16} />
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </>
-          )}
-        </div>
-      </div>
-      
-      {/* image gallery */}
-      {showAllImages && (
-        <div className="fixed inset-0 bg-black bg-opacity-90 z-50 flex flex-col items-center justify-center p-4">
-          <div className="w-full max-w-4xl">
-            {/* close button */}
-            <div className="flex justify-end mb-2">
-              <button 
-                onClick={() => setShowAllImages(false)}
-                className="p-1 bg-white rounded-full text-black hover:bg-gray-200"
-              >
-                <X size={24} />
-              </button>
-            </div>
-            
-            {/* showing image */}
-            <div className="relative mb-4">
-              <div className="h-96 flex items-center justify-center">
-                <img 
-                  src={allImages[activeImage]} 
-                  alt={`Image ${activeImage + 1}`}
-                  className="max-h-full max-w-full object-contain"
-                />
-              </div>
-              
-              {/* left arrow */}
-              <button 
-                onClick={goToPrevImage}
-                className="absolute left-0 top-1/2 transform -translate-y-1/2 p-2 bg-white bg-opacity-80 rounded-full text-gray-800 hover:bg-opacity-100 transition"
-                aria-label="Previous image"
-              >
-                <ArrowLeft size={24} />
-              </button>
-              
-              {/* right arrow */}
-              <button 
-                onClick={goToNextImage}
-                className="absolute right-0 top-1/2 transform -translate-y-1/2 p-2 bg-white bg-opacity-80 rounded-full text-gray-800 hover:bg-opacity-100 transition"
-                aria-label="Next image"
-              >
-                <ArrowRight size={24} />
-              </button>
-            </div>
-            
-            {/* image index */}
-            <div className="text-white text-center mb-4">
-              {activeImage + 1} / {allImages.length}
-            </div>
-            
-            {/* show main image */}
-            <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
-              {allImages.map((img, index) => (
-                <div 
-                  key={index}
-                  className={`h-20 rounded-lg overflow-hidden cursor-pointer border-2 ${activeImage === index ? 'border-orange-500' : 'border-transparent'}`}
-                  onClick={() => setActiveImage(index)}
-                >
-                  <img 
-                    src={img}
-                    alt={`Thumbnail ${index + 1}`}
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-              ))}
-            </div>
-            
-            {/* keyboard usage info */}
-            <div className="text-white text-center mt-4 text-sm opacity-70">
-               ← → key can move the image. ESC for exit.
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* detail page */}
-      <div className="md:pl-16 pt-16 md:pt-0">
-        
-        <div className="max-w-4xl mx-auto p-6">
-          {/* back button*/}
-          <button 
-            onClick={() => router.push('/sublease/search/')}
-            className="flex items-center text-orange-600 hover:text-orange-800 mb-6 font-medium cursor-pointer"
-          >
-            <ChevronLeft className="w-5 h-5 mr-1" />
-            Previous Page
-          </button>
-
-          {/* main contents box */}
-          <div className="bg-white p-6 rounded-lg shadow-md mb-6">
-            {/* image section */}
-            <div className="flex flex-col md:flex-row md:gap-4 mb-6">
-              {/* main picture */}
-              <div className="md:w-2/3 h-72 md:h-96 rounded-lg overflow-hidden mb-4 md:mb-0">
-                <img 
-                  src={allImages[activeImage] || listing.image}
-                  alt={listing.title}
-                  className="w-full h-full object-cover"
-                />
-              </div>
-              
-              {/* additional pictures */}
-              <div className="md:w-1/3">
-                <div className="grid grid-cols-2 gap-2 h-full">
-                  <div 
-                    className={`h-24 md:h-auto rounded-lg overflow-hidden cursor-pointer border-2 ${activeImage === 0 ? 'border-orange-500' : 'border-transparent'}`}
-                    onClick={() => setActiveImage(0)}
-                  >
-                    <img 
-                      src={listing.image}
-                      alt="Main view"
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
-                  
-                  {listing.additionalImages && listing.additionalImages.slice(0, 2).map((img, index) => (
-                    <div 
-                      key={index}
-                      className={`h-24 md:h-auto rounded-lg overflow-hidden cursor-pointer border-2 ${activeImage === index + 1 ? 'border-orange-500' : 'border-transparent'}`}
-                      onClick={() => setActiveImage(index + 1)}
-                    >
-                      <img 
-                        src={img}
-                        alt={`Additional view ${index + 1}`}
-                        className="w-full h-full object-cover"
-                      />
-                    </div>
-                  ))}
-                  
-                  {/* + button - to see all images */}
-                  <div 
-                    className="h-24 md:h-auto rounded-lg bg-gray-100 flex items-center justify-center cursor-pointer hover:bg-gray-200 transition"
-                    onClick={() => setShowAllImages(true)}
-                  >
-                    <Plus className="text-gray-500" />
-                  </div>
-                </div>
-              </div>
-            </div>
-
-             {/* title */}
-             <div className="mb-6">
-  <h1 className="text-2xl font-bold text-orange-900">{listing.title}</h1>
-  {detectedNeighborhood && (
-    <p className="text-sm text-gray-600 mt-1 flex items-center">
-      <Home className="w-4 h-4 mr-1" />
-      Located in {detectedNeighborhood}
-    </p>
-  )}
-</div>
-            
-            {/* key information */}
-            <div className="bg-white p-4 rounded-lg border border-orange-200 mb-6">
-              <h2 className="text-xl font-bold text-orange-800 mb-2">Key Information</h2>
-              <div className="space-y-2">
-                <p className="flex items-center text-gray-700"><MapPin className="w-4 h-4 mr-2 text-orange-500" /> {listing.location}</p>
-                <p className="flex items-center text-gray-700"><DollarSign className="w-4 h-4 mr-2 text-orange-500" /> ${listing.price}/month</p>
-                <p className="flex items-center text-gray-700"><BedDouble className="w-4 h-4 mr-2 text-orange-500" /> {listing.bedrooms}Bed {listing.bathrooms}Bath</p>
-                <p className="flex items-center text-gray-700"><Calendar className="w-4 h-4 mr-2 text-orange-500" /> {listing.dateRange}</p>
-                <p className="flex items-center text-gray-700"><Star className="w-4 h-4 mr-2 text-orange-500" /> {listing.rating} ({listing.reviews} Reviews)</p>
-                
-                {/* gender information */}
-                {listing.preferredGender && (
-                  <p className="flex items-center">
-                    {getGenderInfo(listing.preferredGender).icon}
-                    <span className={`${listing.preferredGender === 'female' ? 'text-pink-600' : listing.preferredGender === 'male' ? 'text-orange-600' : 'text-green-600'} font-medium`}>
-                      {getGenderInfo(listing.preferredGender).text}
-                    </span>
-                  </p>
-                )}
-              </div>
-            </div>
-            
-            {/* Host Information */}
-            <div className="bg-white p-4 rounded-lg border border-orange-200 mb-6">
-                <h2 className="text-xl font-bold text-orange-800 mb-2">Host Information</h2>
-                <div className="flex items-start">
-                    <div className="w-16 h-16 rounded-full overflow-hidden mr-4 flex-shrink-0">
-                    <img 
-                        src={listing.hostImage || "https://images.unsplash.com/photo-1543852786-1cf6624b9987?q=80&w=800&h=500&auto=format&fit=crop"} 
-                        alt="Host" 
-                        className="w-full h-full object-cover "
-                    />
-                    </div>
-                    <div>
-                    <div className="flex items-center">
-                        <h3 className="font-medium text-lg text-gray-700">{listing.hostName || "Anonymous"}</h3>
-                        {/* UMN verified */}
-                        {listing.isVerifiedUMN && (
-                        <div className="ml-2 bg-orange-100 text-orange-800 text-xs px-2 py-1 rounded-full flex items-center">
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 mr-1" viewBox="0 0 20 20" fill="currentColor">
-                            <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                            </svg>
-                            UMN Verified
-                        </div>
-                        )}
-                    </div>
-                    {/* one sentence description */}
-                    <p className="text-gray-700 mt-2">{listing.hostBio || " "}</p>
-                    </div>
-                </div>
-            </div>
-
-            {/* ✅ FIXED: Updated connect section with self-messaging prevention */}
-            <div className="space-y-4">
-                {/* Connect Options - showConnectOptions가 true일 때만 보임 */}
-                {showConnectOptions && (
-                    <div className="grid grid-cols-2 gap-4 mb-4">
-                    <button 
-                        onClick={navigateToTour}
-                        className="bg-orange-100 hover:bg-orange-200 text-orange-800 p-4 rounded-lg flex flex-col items-center justify-center transition"
-                    >
-                        <Video className="w-8 h-8 mb-2" />
-                        <span className="font-medium">Schedule Tour</span>
-                        <span className="text-xs text-gray-600 mt-1">Virtual or in-person</span>
-                    </button>
-                    
-                    {/* ✅ CONDITIONAL RENDERING: Only show message button for non-hosts */}
-                    {!isUserHost ? (
-                      <button 
-                        onClick={navigateToMessage}
-                        disabled={isCreatingConversation}
-                        className={`flex-1 ${isCreatingConversation ? 'bg-orange-400' : 'bg-orange-500'} text-white px-6 py-3 rounded-lg hover:bg-orange-600 transition border flex flex-col items-center justify-center cursor-pointer disabled:cursor-not-allowed`}
-                      >
-                        {isCreatingConversation ? (
-                          <>
-                            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mb-2"></div>
-                            Creating...
-                          </>
-                        ) : (
-                          <>
-                            <MessageCircle className="w-8 h-8 mb-2" />
-                            <span className="font-medium">Send Message</span>
-                            <span className="text-xs text-orange-100 mt-1">Contact the host</span>
-                          </>
-                        )}
-                      </button>
-                    ) : (
-                      <div className="flex-1 bg-gray-200 text-gray-600 px-6 py-3 rounded-lg border flex flex-col items-center justify-center">
-                        <MessageCircle className="w-8 h-8 mb-2 opacity-50" />
-                        <span className="font-medium">Your Listing</span>
-                        <span className="text-xs text-gray-500 mt-1">You cannot message yourself</span>
-                      </div>
-                    )}
-                    </div>
-                )}
-
-                <div className="flex space-x-4">
-                    <button 
-                    onClick={() => toggleFavorite(listing)}
-                    className={`flex-1 ${isCurrentListingFavorited ? 'bg-red-500 text-white' : 'bg-gray-100 text-gray-800'} px-6 py-3 rounded-lg ${isCurrentListingFavorited ? 'hover:bg-red-600' : 'hover:bg-red-200'} transition flex items-center justify-center cursor-pointer`}
-                    >
-                    <Heart className={`mr-2 ${isCurrentListingFavorited ? 'fill-current' : ''}`} />
-                    {isCurrentListingFavorited ? 'Remove from Favorites' : 'Add Favorites'}
-                    </button>
-                    
-                    <button 
-                    onClick={() => setShowConnectOptions(!showConnectOptions)} 
-                    className={`flex-1 ${showConnectOptions ? 'bg-orange-600' : 'bg-orange-500'} text-white px-6 py-3 rounded-lg hover:bg-orange-600 transition border flex items-center justify-center cursor-pointer`}
-                    >
-                    {showConnectOptions ? 'Hide Options' : 'Connect'}
-                    </button>
-                </div>
-                </div>
-                </div>
-
-          {/* additional information */}
-          <div className="space-y-4">
-            {/* location */}
-            <div className="bg-white p-4 rounded-lg shadow">
-              <h2 className="text-lg font-semibold mb-2 text-orange-800">Location</h2>
-              <p className="text-gray-700">Located in {listing.location}, this accommodation is {listing.distance} miles from campus.</p>
-            </div>
-            
-            {/* available date */}
-            <div className="bg-white p-4 rounded-lg shadow">
-              <h2 className="text-lg font-semibold mb-2 text-orange-800">Available</h2>
-              <p className="text-gray-700">{listing.dateRange}</p>
-            </div>
-            
-            {/* price */}
-            <div className="bg-white p-4 rounded-lg shadow">
-              <h2 className="text-lg font-semibold mb-2 text-orange-800">Price</h2>
-              <p className="text-gray-700">${listing.price} per month</p>
-            </div>
-            
-            {/* detail description */}
-            <div className="bg-white p-4 rounded-lg shadow">
-              <h2 className="text-lg font-semibold mb-2 text-orange-800">Details</h2>
-              <p className="text-gray-700">{listing.description || 'No description available.'}</p>
-            </div>
-            
-            {/* Amenities */}
-            <div className="bg-white p-4 rounded-lg shadow">
-              <h2 className="text-lg font-semibold mb-2 text-orange-800">Amenities</h2>
-              <div className="grid grid-cols-2 gap-2">
-                {listing.amenities && listing.amenities.map((amenity, index) => (
-                  <div key={index} className="flex items-center p-2 bg-gray-50 rounded">
-                    <div className="w-6 h-6 flex items-center justify-center text-orange-500 mr-2">
-                      {getAmenityIcon(amenity)}
-                    </div>
-                    <span className="text-gray-700 capitalize">{amenity}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Host Ratings */}
-            <div className="bg-white p-4 rounded-lg shadow">
-            <h2 className="text-lg font-semibold mb-2 text-orange-800">Host Ratings</h2>
-            
-            {/* average ratings*/}
-            <div className="flex items-center mb-4">
-                <div className="flex items-center">
-                {[1, 2, 3, 4, 5].map((star) => (
-                    <Star 
-                    key={star} 
-                    className={`w-5 h-5 ${star <= Math.round(hostRating) ? 'text-orange-400 fill-orange-400' : 'text-gray-300'}`} 
-                    />
-                ))}
-                <span className="ml-2 text-gray-700 font-medium">
-                    {hostRating}/5
-                </span>
-                <span className="ml-2 text-gray-600 text-sm">
-                    ({hostReviewCount} reviews)
-                </span>
-                </div>
-            </div>
-
-            <NeighborhoodDetectorWrapper 
-  listing={listing} 
-  onNeighborhoodDetected={handleNeighborhoodDetected} 
-/>
-            
-            {/* review listings*/}
-            <div className="mt-4 space-y-4">
-                {/* when no review*/}
-                {hostReviews.length === 0 && (
-                <p className="text-gray-500 italic">No reviews yet. Be the first to leave a review!</p>
-                )}
-                
-                {/* review listings */}
-                {hostReviews.map((review) => (
-                <div key={review.id} className="border-b pb-4 last:border-0 last:pb-0">
-                    <div className="flex justify-between items-start mb-2">
-                    <div>
-                        <div className="font-medium">{review.name}</div>
-                        <div className="text-sm text-gray-500">{review.date}</div>
-                    </div>
-                    <div className="flex">
-                        {[1, 2, 3, 4, 5].map((star) => (
-                        <Star 
-                            key={star} 
-                            className={`w-3 h-3 ${star <= review.rating ? 'text-orange-400 fill-orange-400' : 'text-gray-300'}`} 
-                        />
-                        ))}
-                    </div>
-                    </div>
-                    <p className="text-gray-700">{review.comment}</p>
-                </div>
-                ))}
-            </div>
-            
-            {/* write a review button */}
-            <button 
-                onClick={() => setShowReviewModal(true)}
-                className="mt-6 w-full py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition flex items-center justify-center cursor-pointer"
-            >
-                <Star className="w-4 h-4 mr-2" />
-                Write a Review
-            </button>
-            </div>
-
-            {/* write review modal*/}
-            {showReviewModal && (
-            <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-                <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
-                <div className="flex justify-between items-center mb-4">
-                    <h3 className="text-xl font-bold text-orange-800">Write a Review</h3>
-                    <button 
-                    onClick={() => setShowReviewModal(false)}
-                    className="p-2 rounded-full hover:bg-gray-100 text-gray-600 cursor-pointer"
-                    >
-                    <X size={20} />
-                    </button>
-                </div>
-                
-                <div className="mb-6">
-                    <label className="block text-gray-700 font-medium mb-2">
-                    Your Rating
-                    </label>
-                    <div className="flex items-center space-x-1">
-                    {[1, 2, 3, 4, 5].map((star) => (
-                        <button
-                        key={star}
-                        type="button"
-                        onClick={() => setNewReviewRating(star)}
-                        className="p-1 focus:outline-none"
-                        >
-                        <Star 
-                            className={`w-8 h-8 ${star <= newReviewRating ? 'text-orange-400 fill-orange-400' : 'text-gray-300'} cursor-pointer`} 
-                        />
-                        </button>
-                    ))}
-                    </div>
-                </div>
-                
-                <div className="mb-6">
-                    <label className="block text-gray-700 font-medium mb-2">
-                    Your Review
-                    </label>
-                    <textarea
-                    value={newReviewComment}
-                    onChange={(e) => setNewReviewComment(e.target.value)}
-                    className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 min-h-[150px] text-gray-700"
-                    placeholder="Share your experience with this host..."
-                    required
-                    ></textarea>
-                </div>
-                
-                <div className="flex space-x-3">
-                    <button 
-                    onClick={() => setShowReviewModal(false)}
-                    className="flex-1 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition text-gray-500 cursor-pointer"
-                    >
-                    Cancel
-                    </button>
-                    <button 
-                    onClick={addReview}
-                    className="flex-1 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition cursor-pointer"
-                    >
-                    Submit Review
-                    </button>
-                </div>
-                </div>
+        <div className="flex-1">
+        <div className="flex items-center">
+            <h3 className="font-medium text-lg text-gray-700">{listing.hostName || "Anonymous"}</h3>
+            {/* UMN verified */}
+            {listing.isVerifiedUMN && (
+            <div className="ml-2 bg-orange-100 text-orange-800 text-xs px-2 py-1 rounded-full flex items-center">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 mr-1" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                </svg>
+                UMN Verified
             </div>
             )}
-
-          </div>
         </div>
+        
+   {/* Host Rating Display from Firebase */}
+<div className="flex items-center mt-2 mb-2">
+    <div className="flex items-center">
+        {[1, 2, 3, 4, 5].map((star) => (
+            <Star 
+            key={star} 
+            className={`w-4 h-4 ${star <= Math.round(hostData?.averageRating || 0) ? 'text-orange-400 fill-orange-400' : 'text-gray-300'}`} 
+            />
+        ))}
+        <span className="ml-2 text-gray-700 font-medium text-sm">
+            {(hostData?.averageRating || 0).toFixed(1)}/5
+        </span>
+        <span className="ml-2 text-gray-600 text-sm">
+            ({hostData?.totalReviews || 0} {(hostData?.totalReviews || 0) === 1 ? 'review' : 'reviews'})
+        </span>
+    </div>
+</div>
+        {/* one sentence description */}
+        <p className="text-gray-700 mt-2">{listing.hostBio || " "}</p>
 
-        {/* Footer */}
-        <footer className="bg-orange-200 text-white py-12 w-full mt-16 md:pl-4">
+                   {listing.contactMethods && listing.contactMethods.length > 0 && (
+                     <div className="mt-3">
+                       <h4 className="text-sm font-medium text-gray-600 mb-2">Contact Information:</h4>
+                       <div className="space-y-1">
+                         {listing.contactMethods.map((method, index) => (
+                           <div key={index} className="flex items-center text-sm text-gray-700">
+                             <span className="font-medium mr-2">{method.name}:</span>
+                             <span className="text-orange-600">{method.value}</span>
+                           </div>
+                         ))}
+                       </div>
+                     </div>
+                   )}
+
+                   </div>
+               </div>
+           </div>
+
+           {/* ✅ FIXED: Updated connect section with self-messaging prevention */}
+           <div className="space-y-4">
+               {/* Connect Options - showConnectOptions가 true일 때만 보임 */}
+               {showConnectOptions && (
+                   <div className="grid grid-cols-2 gap-4 mb-4">
+                   <button 
+                       onClick={navigateToTour}
+                       className="bg-orange-100 hover:bg-orange-200 text-orange-800 p-4 rounded-lg flex flex-col items-center justify-center transition"
+                   >
+                       <Video className="w-8 h-8 mb-2" />
+                       <span className="font-medium">Schedule Tour</span>
+                       <span className="text-xs text-gray-600 mt-1">Virtual or in-person</span>
+                   </button>
+                   
+                   {/* ✅ CONDITIONAL RENDERING: Only show message button for non-hosts */}
+                   {!isUserHost ? (
+                     <button 
+                       onClick={navigateToMessage}
+                       disabled={isCreatingConversation}
+                       className={`flex-1 ${isCreatingConversation ? 'bg-orange-400' : 'bg-orange-500'} text-white px-6 py-3 rounded-lg hover:bg-orange-600 transition border flex flex-col items-center justify-center cursor-pointer disabled:cursor-not-allowed`}
+                     >
+                       {isCreatingConversation ? (
+                         <>
+                           <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mb-2"></div>
+                           Creating...
+                         </>
+                       ) : (
+                         <>
+                           <MessageCircle className="w-8 h-8 mb-2" />
+                           <span className="font-medium">Send Message</span>
+                           <span className="text-xs text-orange-100 mt-1">Contact the host</span>
+                         </>
+                       )}
+                     </button>
+                   ) : (
+                     <div className="flex-1 bg-gray-200 text-gray-600 px-6 py-3 rounded-lg border flex flex-col items-center justify-center">
+                       <MessageCircle className="w-8 h-8 mb-2 opacity-50" />
+                       <span className="font-medium">Your Listing</span>
+                       <span className="text-xs text-gray-500 mt-1">You cannot message yourself</span>
+                     </div>
+                   )}
+                   </div>
+               )}
+
+               <div className="flex space-x-4">
+                   <button 
+                   onClick={(e) => {
+                           e.stopPropagation();
+                            toggleFavorite(listing)}}
+                   className={`flex-1 ${isCurrentListingFavorited ? 'bg-red-500 text-white' : 'bg-gray-100 text-gray-800'} px-6 py-3 rounded-lg ${isCurrentListingFavorited ? 'hover:bg-red-600' : 'hover:bg-red-200'} transition flex items-center justify-center cursor-pointer`}
+                   >
+                   <Heart className={`mr-2 ${isCurrentListingFavorited ? 'fill-current' : ''}`} />
+                   {isCurrentListingFavorited ? 'Remove from Favorites' : 'Add Favorites'}
+                   </button>
+                   
+                   <button 
+                   onClick={() => setShowConnectOptions(!showConnectOptions)} 
+                   className={`flex-1 ${showConnectOptions ? 'bg-orange-600' : 'bg-orange-500'} text-white px-6 py-3 rounded-lg hover:bg-orange-600 transition border flex items-center justify-center cursor-pointer`}
+                   >
+                   {showConnectOptions ? 'Hide Options' : 'Connect'}
+                   </button>
+               </div>
+               </div>
+               </div>
+
+         {/* additional information */}
+         <div className="space-y-4">
+           {/* location */}
+           <div className="bg-white p-4 rounded-lg shadow">
+             <div className="flex items-center gap-2 mb-3">
+               <MapPin size={20} className="text-orange-600" />
+               <h3 className="text-lg font-semibold text-gray-900">Location</h3>
+             </div>
+             <p className="text-gray-700">Located in {listing.location}.</p>
+           </div>
+           
+           {/* available date */}
+           <div className="bg-white p-4 rounded-lg shadow">
+              <div className="flex items-center gap-2 mb-3">
+               <Calendar size={20} className="text-orange-600" />
+               <h3 className="text-lg font-semibold text-gray-900">Available</h3>
+             </div>
+             <p className="text-gray-700">{listing.dateRange}</p>
+           </div>
+           
+           {/* price */}
+           <div className="bg-white p-4 rounded-lg shadow">
+             <div className="flex items-center gap-2 mb-3">
+               <DollarSign size={20} className="text-orange-600" />
+               <h3 className="text-lg font-semibold text-gray-900">Price</h3>
+             </div>
+             <p className="text-gray-700">${listing.price} per month</p>
+           </div>
+           
+           {/* detail description */}
+           <div className="bg-white p-4 rounded-lg shadow">
+             <div className="flex items-center gap-2 mb-3">
+               <Info size={20} className="text-orange-600" />
+               <h3 className="text-lg font-semibold text-gray-900">Details</h3>
+             </div>
+             <p className="text-gray-700">{listing.description || 'No description available.'}</p>
+           </div>
+           
+            {/* if unfurnished*/}
+           {listing.includedItems[0] &&
+           <div className="bg-white p-4 rounded-lg shadow">
+             <div className="flex items-center gap-2 mb-4">
+               <Flame size={20} className="text-orange-600" />
+               <h3 className="text-lg font-semibold text-gray-900">Available Items</h3>
+             </div>
+             <div className="grid grid-cols-2 gap-2">
+               {listing.includedItems && listing.includedItems.map((items, index) => (
+                 <div key={index} className="flex items-center p-2 bg-gray-50 rounded">
+                   <div className="w-6 h-6 flex items-center justify-center text-green-400 mr-2">
+                     {getAmenityIcon(items)}
+                   </div>
+                   <span className="text-gray-700 capitalize">{items}</span>
+                 </div>
+               ))}
+             </div>
+           </div>
+           }
+           
+           {/* Amenities */}
+           {listing.amenities[0] &&
+           <div className="bg-white p-4 rounded-lg shadow">
+             <div className="flex items-center gap-2 mb-4">
+               <Star size={20} className="text-orange-600" />
+               <h3 className="text-lg font-semibold text-gray-900">Amenities</h3>
+             </div>
+             <div className="grid grid-cols-2 gap-2">
+               {listing.amenities && listing.amenities.map((amenity, index) => (
+                 <div key={index} className="flex items-center p-2 bg-gray-50 rounded">
+                   <div className="w-6 h-6 flex items-center justify-center text-green-400 mr-2">
+                     {getAmenityIcon(amenity)}
+                   </div>
+                   <span className="text-gray-700 capitalize">{amenity}</span>
+                 </div>
+               ))}
+             </div>
+           </div>
+             }
+
+     {/* Host Ratings Section */}
+     <div className="mb-8">
+       <h2 className="text-xl font-semibold text-gray-900 mt-8 mb-4">Host Ratings</h2>
+       
+       <div className="flex items-center gap-4  bg-gray-50 rounded-lg">
+
+           {[1, 2, 3, 4, 5].map((star) => (
+               <Star 
+               key={star} 
+               className={`w-5 h-5 ${star <= Math.round(hostRating) ? 'text-orange-400 fill-orange-400' : 'text-gray-300'}`} 
+               />
+           ))}
+           <span className="ml-2 text-gray-700 font-medium">
+               {hostRating}/5
+           </span>
+           <span className="ml-2 text-gray-600 text-sm">
+               ({hostReviewCount} reviews)
+           </span>
+        
+       </div>
+       
+       {/* No Reviews Message */}
+       <div className="mt-4 p-4 bg-orange-50 border border-orange-200 rounded-lg">
+          {/* review listings*/}
+           <div className="space-y-4">
+               {/* when no review*/}
+               {hostReviews.length === 0 && (
+               <p className="text-gray-500 italic">No reviews yet. Be the first to leave a review!</p>
+               )}
+               
+               {/* review listings */}
+               {hostReviews.map((review) => (
+               <div key={review.id} className="border-b pb-4 last:border-0 last:pb-0">
+                   <div className="flex justify-between items-start mb-2">
+                   <div>
+                       <div className="font-medium text-gray-600">{review.name}</div>
+                       <div className="text-sm text-gray-500">{review.date}</div>
+                   </div>
+                   <div className="flex">
+                       {[1, 2, 3, 4, 5].map((star) => (
+                       <Star 
+                           key={star} 
+                           className={`w-3 h-3 ${star <= review.rating ? 'text-orange-400 fill-orange-400' : 'text-gray-300'}`} 
+                       />
+                       ))}
+                   </div>
+                   </div>
+                   <p className="text-gray-700">{review.comment}</p>
+               </div>
+               ))}
+           </div>
+       </div>
+     </div>
+
+     {/* Write a Review Button */}
+    {/* Write a Review Button - Updated with permissions */}
+{!isUserHost && user ? (
+  <button 
+    onClick={() => setShowReviewModal(!showReviewModal)}
+    className="mt-6 mb-8 w-full py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition flex items-center justify-center cursor-pointer"
+  >
+    <Star className="w-4 h-4 mr-2" />
+    Write a Review
+  </button>
+) : isUserHost ? (
+  <div className="mt-6 mb-8 w-full py-2 bg-gray-200 text-gray-600 rounded-lg flex items-center justify-center">
+    <Star className="w-4 h-4 mr-2" />
+    You cannot review your own listing
+  </div>
+) : (
+  <button 
+    onClick={() => router.push('/auth')}
+    className="mt-6 mb-8 w-full py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition flex items-center justify-center cursor-pointer"
+  >
+    <Star className="w-4 h-4 mr-2" />
+    Sign in to Write a Review
+  </button>
+)}
+
+{/* Review Form Dropdown */}
+{showReviewModal && (
+  <div className="mb-8 bg-white border border-gray-200 rounded-lg p-6 shadow-lg animate-fadeIn">
+    <div className="flex items-center justify-between mb-4">
+      <h3 className="text-lg font-semibold text-gray-900">Write a Review</h3>
+      <button 
+        onClick={() => setShowReviewModal(false)}
+        className="text-gray-400 hover:text-gray-600"
+      >
+        <X size={20} />
+      </button>
+    </div>
+    
+    {/* Star Rating */}
+    <div className="mb-4">
+      <label className="block text-sm font-medium text-gray-700 mb-2">Rating</label>
+      <div className="flex gap-1">
+        {[1, 2, 3, 4, 5].map((star) => (
+          <button
+            key={star}
+            onClick={() => setNewReviewRating(star)}
+            className="transition-colors"
+          >
+            <Star 
+              size={24} 
+              className={`${newReviewRating >= star ? 'text-yellow-400 fill-yellow-400' : 'text-gray-300'} hover:text-yellow-400`}
+            />
+          </button>
+        ))}
+      </div>
+    </div>
+    
+    {/* Review Text */}
+    <div className="mb-6">
+      <label className="block text-sm font-medium text-gray-700 mb-2">Your Review</label>
+      <textarea
+        value={newReviewComment}
+        onChange={(e) => setNewReviewComment(e.target.value)}
+        placeholder="Share your experience with this property..."
+        className="w-full p-3 border border-gray-300 text-gray-500 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent resize-none"
+        rows={4}
+      />
+    </div>
+    
+    {/* Submit Buttons */}
+    <div className="flex gap-3">
+      <button
+        onClick={addReview}
+        disabled={!newReviewComment.trim()}
+        className="flex-1 py-2 px-4 bg-orange-500 text-white rounded-lg hover:bg-orange-600 disabled:bg-gray-300 disabled:cursor-not-allowed transition"
+      >
+        Submit Review
+      </button>
+      <button
+        onClick={() => {
+          setShowReviewModal(false);
+          setNewReviewComment('');
+          setNewReviewRating(5);
+        }}
+        className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition"
+      >
+        Cancel
+      </button>
+    </div>
+  </div>
+)}
+
+    {/* Availability Calendar - Only show if partial dates are allowed */}
+   {listing.partialDatesOk && (
+  <div className="mb-6">
+    <AvailabilityCalendar />
+  </div>
+)}
+
+  <Script
+        src={`https://maps.googleapis.com/maps/api/js?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}&libraries=places`}
+        strategy="beforeInteractive"
+        onLoad={() => {
+          console.log('Google Maps API loaded successfully');
+        }}
+        onError={(e) => {
+          console.error('Google Maps API failed to load:', e);
+        }}
+      />
+      
+    {/* Location Section */}
+    <div className="mt-4 mb-4">
+      {/* Address */}
+      <NeighborhoodDetectorWrapper 
+        listing={listing} 
+        onNeighborhoodDetected={handleNeighborhoodDetected} 
+      />
+    </div>
+
+        </div>
+      </div>
+
+      {/* Footer */}
+      <footer className="bg-orange-200 text-white py-12 w-full mt-16 md:pl-4">
         <div className="max-w-7xl mx-auto px-4">
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
             <div>
-                <h3 className="font-bold text-lg mb-4">CampusSublease</h3>
-                <p className="text-gray-400 text-sm">Find the perfect short-term housing solution near your campus.</p>
+              <h3 className="font-bold text-lg mb-4">CampusSublease</h3>
+              <p className="text-gray-400 text-sm">Find the perfect short-term housing solution near your campus.</p>
             </div>
             
             <div>
-                <h4 className="font-bold mb-4">Quick Links</h4>
-                <ul className="space-y-2">
+              <h4 className="font-bold mb-4">Quick Links</h4>
+              <ul className="space-y-2">
                 <li><a href="#" className="text-gray-400 hover:text-white transition">Home</a></li>
                 <li><a href="#" className="text-gray-400 hover:text-white transition">Search</a></li>
                 <li><a href="#" className="text-gray-400 hover:text-white transition">List Your Space</a></li>
                 <li><a href="#" className="text-gray-400 hover:text-white transition">FAQ</a></li>
-                </ul>
+              </ul>
             </div>
             
             <div>
-                <h4 className="font-bold mb-4">Resources</h4>
-                <ul className="space-y-2">
+              <h4 className="font-bold mb-4">Resources</h4>
+              <ul className="space-y-2">
                 <li><a href="#" className="text-gray-400 hover:text-white transition">Sublease Guide</a></li>
                 <li><a href="#" className="text-gray-400 hover:text-white transition">Neighborhoods</a></li>
                 <li><a href="#" className="text-gray-400 hover:text-white transition">Campus Map</a></li>
                 <li><a href="#" className="text-gray-400 hover:text-white transition">Blog</a></li>
-                </ul>
+              </ul>
             </div>
             
             <div>
-                <h4 className="font-bold mb-4">Contact</h4>
-                <ul className="space-y-2">
+              <h4 className="font-bold mb-4">Contact</h4>
+              <ul className="space-y-2">
                 <li><a href="#" className="text-gray-400 hover:text-white transition">Help Center</a></li>
                 <li><a href="#" className="text-gray-400 hover:text-white transition">Email Us</a></li>
                 <li><a href="#" className="text-gray-400 hover:text-white transition">Terms of Service</a></li>
                 <li><a href="#" className="text-gray-400 hover:text-white transition">Privacy Policy</a></li>
-                </ul>
+              </ul>
             </div>
-            </div>
-            
-            <div className="mt-8 pt-8 border-t border-gray-700 text-gray-400 text-sm text-center">
+          </div>
+          
+          <div className="mt-8 pt-8 border-t border-gray-700 text-gray-400 text-sm text-center">
             <p>&copy; 2025 CampusSubleases. All rights reserved.</p>
-            </div>
+          </div>
         </div>
-        </footer>
-      </div>
+      </footer>
     </div>
-  );
+  </div>
+);
 };
 
 export default ListingDetailPage;

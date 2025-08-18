@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { 
   MessageCircle, Search, User, ChevronLeft, Clock, 
   Star, MapPin, Calendar, Bell, Filter, X, Home,
-  Heart, Plus, Package
+  Heart, Plus, Package, Menu, MessagesSquare
 } from 'lucide-react';
 import { 
   collection, query, where, orderBy, onSnapshot, 
@@ -13,10 +13,11 @@ import {
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/app/contexts/AuthInfo';
+import { motion, AnimatePresence } from "framer-motion";
 
 const ConversationListPage = () => {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   
   const [conversations, setConversations] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -24,6 +25,63 @@ const ConversationListPage = () => {
   const [filterType, setFilterType] = useState('all'); // 'all', 'unread', 'hosting', 'guest'
   const [showFilters, setShowFilters] = useState(false);
   const [activeTab, setActiveTab] = useState('sublease'); // 'sublease' or 'moveout'
+  const [showProfile, setShowProfile] = useState(false);
+  const [showMenu, setShowMenu] = useState(false);
+  const [notifications, setNotifications] = useState([]);
+  const [isLoggedIn, setIsLoggedIn] = useState(true);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
+  // Handle profile dropdown navigation
+  const handleTabClick = (tab) => {
+    switch(tab) {
+      case "purchased":
+        router.push('/profile/purchased');
+        break;
+      case "returned":
+        router.push('/profile/returned');
+        break;
+      case "cancelled":
+        router.push('/profile/cancelled');
+        break;
+      case "sold":
+        router.push('/profile/sold');
+        break;
+      case "sublease":
+        router.push('/sublease/search');
+        break;
+      case "reviews":
+        router.push('/profile/reviews');
+        break;
+      case "history":
+        router.push('/profile/history');
+        break;
+      default:
+        break;
+    }
+    setShowProfile(false);
+  };
+
+  // Load notifications
+  useEffect(() => {
+    // Mock notifications - replace with actual data fetching
+    setNotifications([
+      {
+        id: 1,
+        message: "New message from John about your sublease listing",
+        time: "2 minutes ago"
+      },
+      {
+        id: 2,
+        message: "Your move out sale item was purchased",
+        time: "1 hour ago"
+      }
+    ]);
+  }, []);
+
+  // Set login status based on user
+  useEffect(() => {
+    setIsLoggedIn(!!user?.uid);
+  }, [user]);
 
   // Real-time conversation listener
   useEffect(() => {
@@ -182,14 +240,86 @@ const ConversationListPage = () => {
       });
     }
   };
+  
+  // Notifications dropdown component
+  const NotificationsButton = ({ notifications }) => {
+    const [showNotifications, setShowNotifications] = useState(false);
+  
+    return (
+      <div className="relative">
+        <motion.button
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          onClick={() => setShowNotifications(!showNotifications)}
+          className="p-2 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors relative"
+        >
+          <Bell className="w-5 h-5 text-gray-600" />
+          {notifications.length > 0 && (
+            <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center">
+              {notifications.length}
+            </span>
+          )}
+        </motion.button>
+
+        <AnimatePresence>
+          {showNotifications && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              className="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-lg border border-gray-200 z-50"
+            >
+              <div className="p-4">
+                <h3 className="font-semibold text-gray-900 mb-3">Notifications</h3>
+                <div className="space-y-3 max-h-64 overflow-y-auto">
+                  {notifications.map(notif => (
+                    <button
+                      key={notif.id}
+                      onClick={() => router.push(`browse/notificationDetail/${notif.id}`)}
+                      className="w-full flex items-start space-x-3 p-2 rounded-lg hover:bg-gray-50 text-left"
+                    >
+                      <div className="w-2 h-2 bg-orange-500 rounded-full mt-2"></div>
+                      <div className="flex-1">
+                        <p className="text-sm text-gray-900">{notif.message}</p>
+                        <p className="text-xs text-gray-500">{notif.time}</p>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+
+                <button
+                  onClick={() => router.push(`browse/notification/`)}
+                  className="mt-3 text-sm text-blue-600 hover:underline"
+                >
+                  See all notifications
+                </button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+    );
+  };
 
   // Get total unread count
   const totalUnreadCount = conversations.reduce((total, conv) => total + conv.unreadCount, 0);
 
-  if (!user) {
+  // Show loading spinner while auth is being determined
+  if (authLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center ">
           <MessageCircle className="w-16 h-16 text-gray-400 mx-auto mb-4" />
           <h2 className="text-xl font-semibold text-gray-600 mb-2">Sign In Required</h2>
           <p className="text-gray-500 mb-4">Please sign in to view your messages</p>
@@ -206,65 +336,195 @@ const ConversationListPage = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Navigation */}
-      <nav className="fixed md:left-0 md:top-0 md:bottom-0 md:h-full md:w-16 w-full top-0 left-0 h-16 bg-orange-200 text-white shadow-lg z-50 md:flex md:flex-col">
-        {/* Mobile Navigation */}
-        <div className="w-full h-full flex items-center justify-between px-4 md:hidden">
-          <span className="font-bold text-lg">CampusSubleases</span>
-          <div className="flex items-center space-x-4">
-            <button
-              onClick={() => router.push('/sublease/add')}
-              title="Add New"
-              className="group cursor-pointer outline-none hover:rotate-90 duration-300 p-2 rounded-lg hover:bg-orange-300"
-            >
-              <Plus size={20} />
-            </button>
-            <button 
-              onClick={() => router.push('/favorites')}
-              className="p-2 rounded-lg transition cursor-pointer hover:bg-orange-300"
-            >
-              <Heart size={20} />
-            </button>
-            <button 
-              onClick={() => router.push('/profile')}
-              className="p-2 rounded-lg transition cursor-pointer hover:bg-orange-300"
-            >
-              <User size={20} />
-            </button>
-          </div>
-        </div>
-        
-        {/* Desktop Navigation */}
-        <div className="hidden md:flex md:flex-col md:h-full">
-          <div className="flex flex-col items-center">
-            <div className="font-bold text-xl mt-6 mb-4 cursor-pointer" onClick={() => router.push('/')}>CS</div>
-            <button 
-              onClick={() => router.push('/sublease/add')}
-              title="Add New" 
-              className="group cursor-pointer outline-none hover:rotate-90 duration-300 p-3 rounded-lg hover:bg-orange-300"
-            >
-              <Plus size={20} />
-            </button>
-          </div>
-          <div className="mt-auto flex flex-col items-center space-y-4 mb-8">
-            <button 
-              onClick={() => router.push('/favorites')}
-              className="p-3 rounded-lg hover:bg-orange-300 transition cursor-pointer"
-            >
-              <Heart size={20} />
-            </button>
-            <button 
-              onClick={() => router.push('/profile')}
-              className="p-3 rounded-lg hover:bg-orange-300 transition cursor-pointer"
-            >
-              <User size={20} />
-            </button>
-          </div>
-        </div>
-      </nav>
+      {/* Header */}
+      <div className="bg-white border-b border-gray-200 sticky top-0 z-50 ">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-16">
+            {/* Logo */}
+            <ul className="space-y-2 ">
+            <div className="flex items-center space-x-3">
+              <div className="w-8 h-8 bg-gradient-to-br from-orange-500 to-red-600 rounded-lg flex items-center justify-center">
+                <Package className="w-5 h-5 text-white" />
+              </div>
+              <li><a href="/sale/browse" className="text-2xl font-bold text-gray-900">Subox</a></li>
+              <span className="text-sm text-gray-500 hidden sm:block">Move Out Sales</span> 
+            </div>
+            </ul>
 
+            {/* Header Actions */}
+            <div className="flex items-center space-x-4">
+              {/* Notifications */}
+              <NotificationsButton notifications={notifications} />
+
+              {/* Favorites */}
+              <motion.button 
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+                className="p-2 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+              >
+                <MessagesSquare size={20} className = "w-5 h-5 text-gray-600"/>
+              </motion.button>
+
+              {/* Profile */}
+              <div className="relative">
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => setShowProfile(!showProfile)}
+                  className="p-2 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                >
+                  <User className="w-5 h-5 text-gray-600" />
+                </motion.button>
+
+                <AnimatePresence>
+                  {showProfile && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -10 }}
+                      className="absolute right-0 mt-2 w-64 bg-white rounded-lg shadow-lg border border-gray-200 z-50"
+                    >
+                      <div className="p-4 space-y-2">
+                        <button onClick={() => handleTabClick("purchased")} className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors">What I Purchased</button>
+                        <button onClick={() => handleTabClick("returned")} className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors">What I Returned</button>
+                        <button onClick={() => handleTabClick("cancelled")} className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors">What I Cancelled</button>
+                        <button onClick={() => handleTabClick("sold")} className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors">What I Sold</button>
+                        <button onClick={() => handleTabClick("sublease")} className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors">Sublease</button>
+                        <button onClick={() => handleTabClick("reviews")} className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors">Reviews</button>
+                        <hr className="my-2" />
+                        <button onClick={() => handleTabClick("history")} className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors">History</button>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+
+              {/* menu */}
+              <div className="relative">
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => setShowMenu(!showMenu)}
+                  className="p-2 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                >
+                  <Menu className="w-5 h-5 text-gray-600" />
+                </motion.button>
+
+                <AnimatePresence>
+                  {showMenu && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -10 }}
+                      className="absolute right-0 mt-2 w-64 bg-white rounded-lg shadow-lg border border-gray-200 z-50"
+                    >
+                      <div className="p-4 space-y-2">
+                        <p className="text-medium font-semibold max-w-2xl mb-4 text-orange-700">
+                        Move Out Sale
+                        </p>
+                        <button 
+                          onClick={() => {
+                            router.push('../browse');
+                            setShowMenu(false);
+                          }} 
+                          className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors"
+                        >
+                          Browse Items
+                        </button>                        
+                        <button 
+                          onClick={() => {
+                            router.push('/sale/create');
+                            setShowMenu(false);
+                          }} 
+                          className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors"
+                        >
+                          Sell Items
+                        </button> 
+                        <button 
+                          onClick={() => {
+                            router.push('/sale/create');
+                            setShowMenu(false);
+                          }} 
+                          className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors"
+                        >
+                          My Items
+                        </button>   
+                        
+                        <p className="text-medium font-semibold max-w-2xl mb-4 text-orange-700">
+                          Sublease
+                        </p>
+                        <button 
+                          onClick={() => {
+                            router.push('../search');
+                            setShowMenu(false);
+                          }} 
+                          className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors"
+                        >
+                          Find Sublease
+                        </button>   
+                        <button 
+                          onClick={() => {
+                            router.push('../search');
+                            setShowMenu(false);
+                          }} 
+                          className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors"
+                        >
+                          Post Sublease
+                        </button>   
+                        <button 
+                          onClick={() => {
+                            router.push('../search');
+                            setShowMenu(false);
+                          }} 
+                          className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors"
+                        >
+                          My Sublease Listing
+                        </button>
+                        <hr className="my-2" />
+                        <button 
+                          onClick={() => {
+                            router.push('../sale/browse');
+                            setShowMenu(false);
+                          }} 
+                          className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors"
+                        >
+                          Messages
+                        </button>   
+                        <button 
+                          onClick={() => {
+                            router.push('../help');
+                            setShowMenu(false);
+                          }} 
+                          className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors"
+                        >
+                          Help & Support
+                        </button>
+
+                        {/* need change (when user didn't log in -> show log in button) */}
+                        <hr className="my-2" />
+                         {/* log in/ out */}
+                          {isLoggedIn ? (
+                            <button className="w-full text-left px-3 py-2 rounded-md text-sm text-red-600 hover:bg-red-50 hover:text-red-700 transition-colors">
+                              Logout
+                            </button>
+                          ) : (
+                            <button className="w-full text-left px-3 py-2 rounded-md text-sm text-blue-600 hover:bg-blue-50 hover:text-blue-700 transition-colors">
+                              Login
+                            </button>
+                          )}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            </div>
+        </div>
+        </div>
+    </div>
+      
       {/* Main Content */}
-      <div className="md:pl-16 pt-16 md:pt-0 max-w-4xl mx-auto p-6">
+      <div className=" mt-6 pt-16 md:pt-0 max-w-4xl mx-auto p-6">
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center">

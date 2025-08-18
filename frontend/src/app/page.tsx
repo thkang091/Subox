@@ -8,15 +8,20 @@ import {
   Calendar, Bus, Bike, Filter, DollarSign, Sparkles,
   Grid3X3, List, Bell, User, Plus, X, Zap, Upload,
   Scan, Image as ImageIcon, ShoppingBag, MessageCircle,
-  Navigation, Clock, Video, Phone,
+  Clock, Video, Phone,
   Brain, Wand2, MessageSquare, Cpu, RefreshCw, CheckCircle,
   AlertCircle, Smartphone, Send, ChevronLeft, FileText, Target,
   ThumbsUp, BedDouble, Lightbulb, ChevronDown, Award, TrendingUp,
   XCircle,
   GitCompare, SlidersHorizontal,
   Wifi, Car, Snowflake, Dumbbell, Eye, GraduationCap,
-  Building, TreePine, Coffee, Shield
+  Building, TreePine, Coffee, Shield, Edit
 } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { Swiper, SwiperSlide } from "swiper/react";
+import { Navigation, Autoplay } from "swiper/modules";
+import "swiper/css";
+import "swiper/css/navigation";
 
 
 const SuboxHomepage = () => {
@@ -31,16 +36,25 @@ const SuboxHomepage = () => {
   const [demoHover, setDemoHover] = useState(false);
   const [isAssembling, setIsAssembling] = useState(false);
   const [assemblyStep, setAssemblyStep] = useState(0);
+
+  const [showNav, setShowNav] = useState(true);
+  const [lastScrolly, setLastScrolly] = useState(0);
+  const [scrolledPastTop, setScrolledPastTop] = useState(false);
   
   const stepInterval = useRef(null);
   const assemblyInterval = useRef(null);
   const suboxIntroRef = useRef(null);
   const { scrollYProgress } = useScroll();
+
+  const router = useRouter();
+
+  const [showMenu, setShowMenu] = useState(false);
   
   // Parallax transforms
   const heroY = useTransform(scrollYProgress, [0, 0.3], [0, -100]);
   const featuresY = useTransform(scrollYProgress, [0.2, 0.8], [100, -50]);
   const backgroundScale = useTransform(scrollYProgress, [0, 1], [1, 1.2]);
+  const howY = useTransform(scrollYProgress, [0.2, 0.8] , [100, -50]);
 
   // Smooth scroll to Subox introduction
   const scrollToSuboxIntro = () => {
@@ -49,6 +63,28 @@ const SuboxHomepage = () => {
       block: 'start'
     });
   };
+
+  // Scroll Navigation bar
+  useEffect(() => {
+    const handleScroll = () => {
+      const currentY = window.scrollY;
+
+      setScrolledPastTop(currentY > 20);
+
+      if (currentY > lastScrolly && currentY > 20) {
+        setShowNav(false);
+      } else if (currentY < lastScrolly) {
+        setShowNav(true);
+      } else if (currentY <= 20) {
+        setShowNav(true);
+      }
+
+      setLastScrolly(currentY);
+    };
+
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, [lastScrolly]);
 
   // Mouse tracking for interactive effects
   useEffect(() => {
@@ -60,21 +96,6 @@ const SuboxHomepage = () => {
     return () => window.removeEventListener('mousemove', handleMouseMove);
   }, []);
 
-  // Auto-play demo steps
-  useEffect(() => {
-    if (isPlaying) {
-      stepInterval.current = setInterval(() => {
-        setCurrentStep(prev => {
-          const maxSteps = activeDemo === 'sublease' ? subleaseSteps.length - 1 : saleSteps.length - 1;
-          return prev >= maxSteps ? 0 : prev + 1;
-        });
-      }, 3000);
-    } else {
-      clearInterval(stepInterval.current);
-    }
-    
-    return () => clearInterval(stepInterval.current);
-  }, [isPlaying, activeDemo]);
 
   // Assembly animation effect
   useEffect(() => {
@@ -132,34 +153,6 @@ const SuboxHomepage = () => {
     }
   ];
 
-  const saleSteps = [
-    {
-      title: "Capture Your Items",
-      description: "Take photos or scan items instantly",
-      component: <CameraDemo step={currentStep} capturedItems={capturedItems} setCapturedItems={setCapturedItems} />,
-      icon: <Camera size={24} />
-    },
-    {
-      title: "AI-Powered Magic",
-      description: "Smart categorization and pricing in seconds",
-      component: <AIProcessingDemo step={currentStep} capturedItems={capturedItems} />,
-      icon: <Sparkles size={24} />
-    },
-    {
-      title: "Instant Marketplace",
-      description: "Your items go live automatically",
-      component: <ListingDemo step={currentStep} capturedItems={capturedItems} />,
-      icon: <Package size={24} />
-    },
-    {
-      title: "Connect & Sell",
-      description: "Chat with buyers and close deals fast",
-      component: <SalesDemo step={currentStep} capturedItems={capturedItems} />,
-      icon: <DollarSign size={24} />
-    }
-  ];
-
-  const currentSteps = activeDemo === 'sublease' ? subleaseSteps : saleSteps;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-gray-50 relative overflow-hidden">
@@ -193,43 +186,142 @@ const SuboxHomepage = () => {
 
       {/* Navigation */}
       <motion.nav 
-        className="relative z-50 bg-white/80 backdrop-blur-md border-b border-gray-200/50"
-        initial={{ y: -100 }}
-        animate={{ y: 0 }}
-        transition={{ duration: 0.8, ease: "easeOut" }}
+        className={`hidden md:block fixed top-0 z-50 transition-all duration-300 w-fit left-1/2 -translate-x-1/2 ${
+          scrolledPastTop && showNav
+            ? 'bg-white/80 backdrop-blur-md border border-gray-200/50 shadow-md rounded-xl py-2 px-4 w-fit mx-auto'
+            : 'bg-transparent border-none shadow-none rounded-none py-4 px-6'
+        }`}
+        initial={{ y: 0 }}
+        animate={{ y: showNav ? 0 : -100 }}
+        transition={{ duration: 0.5, ease: "easeOut" }}
       >
-        <div className="max-w-7xl mx-auto px-6 py-4">
-          <div className="flex items-center justify-between">
-            {/* Logo */}
+        <div className="w-fit flex items-center justify-between gap-8 whitespace-nowrap">
+            {/* Enhanced Subox Logo */}
             <motion.div 
-              className="flex items-center gap-3"
+              className="flex items-center space-x-4 relative"
               whileHover={{ scale: 1.05 }}
-              transition={{ type: "spring", stiffness: 400 }}
-            >
-              <div className="relative">
-                <motion.div 
-                  className="w-10 h-10 bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl flex items-center justify-center shadow-lg"
-                  whileHover={{ rotate: 180 }}
-                  transition={{ duration: 0.3 }}
+            >              
+            {/* Main Subox Logo */}
+              <motion.div className="relative">
+                {/* House Icon */}
+                <motion.svg 
+                  className="w-12 h-12" 
+                  viewBox="0 0 100 100" 
+                  fill="none"
+                  whileHover={{ rotate: [0, -5, 5, 0] }}
+                  transition={{ duration: 0.5 }}
                 >
-                  <Home size={20} className="text-white" />
-                  <Package size={12} className="text-white absolute -top-1 -right-1" />
-                </motion.div>
-              </div>
-              <div>
-                <h1 className="text-2xl font-bold text-gray-900">
-                  Su<span className="text-orange-500">box</span>
-                </h1>
-                <p className="text-xs text-gray-500 font-medium">SUBLETS & MOVING SALES</p>
-              </div>
+                  {/* House Base */}
+                  <motion.path
+                    d="M20 45L50 20L80 45V75C80 78 77 80 75 80H25C22 80 20 78 20 75V45Z"
+                    fill="#E97451"
+                    animate={{ 
+                      fill: ["#E97451", "#F59E0B", "#E97451"],
+                      scale: [1, 1.02, 1]
+                    }}
+                    transition={{ duration: 3, repeat: Infinity }}
+                  />
+                  {/* House Roof */}
+                  <motion.path
+                    d="M15 50L50 20L85 50L50 15L15 50Z"
+                    fill="#D97706"
+                    animate={{ rotate: [0, 1, 0] }}
+                    transition={{ duration: 4, repeat: Infinity }}
+                  />
+                  {/* Window */}
+                  <motion.rect
+                    x="40"
+                    y="50"
+                    width="20"
+                    height="15"
+                    fill="white"
+                    animate={{ 
+                      opacity: [1, 0.8, 1],
+                      scale: [1, 1.1, 1]
+                    }}
+                    transition={{ duration: 2, repeat: Infinity }}
+                  />
+                  {/* Door */}
+                  <motion.rect
+                    x="45"
+                    y="65"
+                    width="10"
+                    height="15"
+                    fill="white"
+                    animate={{ scaleY: [1, 1.05, 1] }}
+                    transition={{ duration: 2.5, repeat: Infinity }}
+                  />
+                </motion.svg>
+ 
+                {/* Tag Icon */}
+                <motion.svg 
+                  className="w-8 h-8 absolute -top-2 -right-2" 
+                  viewBox="0 0 60 60" 
+                  fill="none"
+                  whileHover={{ rotate: 360 }}
+                  transition={{ duration: 0.8 }}
+                >
+                  <motion.path
+                    d="M5 25L25 5H50V25L30 45L5 25Z"
+                    fill="#E97451"
+                    animate={{ 
+                      rotate: [0, 5, -5, 0],
+                      scale: [1, 1.1, 1]
+                    }}
+                    transition={{ duration: 3, repeat: Infinity }}
+                  />
+                  <motion.circle
+                    cx="38"
+                    cy="17"
+                    r="4"
+                    fill="white"
+                    animate={{ 
+                      scale: [1, 1.3, 1],
+                      opacity: [1, 0.7, 1]
+                    }}
+                    transition={{ duration: 1.5, repeat: Infinity }}
+                  />
+                </motion.svg>
+              </motion.div>
+ 
+              {/* Subox Text */}
+              <motion.div className="flex flex-col">
+                <motion.span 
+                  className="text-3xl font-bold text-gray-900"
+                  animate={{
+                    background: [
+                      "linear-gradient(45deg, #1F2937, #374151)",
+                      "linear-gradient(45deg, #E97451, #F59E0B)",
+                      "linear-gradient(45deg, #1F2937, #374151)"
+                    ],
+                    backgroundClip: "text",
+                    WebkitBackgroundClip: "text",
+                    color: "transparent"
+                  }}
+                  transition={{ duration: 4, repeat: Infinity }}
+                >
+                  Subox
+                </motion.span>
+                <motion.span 
+                  className="text-xs text-gray-500 font-medium tracking-wider"
+                  animate={{ opacity: [0.7, 1, 0.7] }}
+                  transition={{ duration: 2, repeat: Infinity }}
+                >
+                  SUBLETS & MOVING SALES
+                </motion.span>
+              </motion.div>
             </motion.div>
 
             {/* Navigation Links */}
-            <div className="hidden md:flex items-center gap-8">
-              {['Features', 'How it Works', 'Pricing'].map((item, i) => (
+            <div className="hidden md:flex items-center gap-8 whitespace-nowrap">
+              {['Use Cases', 'How it works', 'Pricing', 'Help'].map((item, i) => {
+                const help = item === 'Help';
+                const link = help ? "/help" : `#${item.toLowerCase().replace(/ /g, '-')}`;
+
+                return(                
                 <motion.a 
                   key={item}
-                  href={`#${item.toLowerCase().replace(' ', '-')}`}
+                  href={link}
                   className="text-gray-600 hover:text-orange-500 font-medium transition-colors relative"
                   whileHover={{ y: -2 }}
                   initial={{ opacity: 0, y: 20 }}
@@ -243,14 +335,15 @@ const SuboxHomepage = () => {
                     whileHover={{ scaleX: 1 }}
                     transition={{ duration: 0.3 }}
                   />
-                </motion.a>
-              ))}
+                </motion.a>);
+              })}
             </div>
 
             {/* Auth Buttons */}
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-4 whitespace-nowrap">
               <motion.button
                 className="px-4 py-2 text-gray-600 hover:text-orange-500 font-medium transition-colors"
+                onClick={() => router.push("auth/")}
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
                 initial={{ opacity: 0, x: 20 }}
@@ -261,6 +354,7 @@ const SuboxHomepage = () => {
               </motion.button>
               <motion.button
                 className="px-6 py-3 bg-gradient-to-r from-orange-500 to-orange-600 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all"
+                onClick={() => router.push("auth?mode=signup")}
                 whileHover={{ scale: 1.05, y: -2 }}
                 whileTap={{ scale: 0.95 }}
                 initial={{ opacity: 0, x: 20 }}
@@ -270,9 +364,102 @@ const SuboxHomepage = () => {
                 Get Started
               </motion.button>
             </div>
-          </div>
         </div>
       </motion.nav>
+
+    <div className="block md:hidden ">
+      <motion.div
+        initial={{ y: 0 }}
+        animate={{ y: 0 }}
+        transition={{ duration: 0.5, ease: "easeOut" }}
+        className="min-h-screen py-6 px-4 relative fixed"
+      >
+        {/* Header Row with Logo + Menu Button */}
+        <div className="flex justify-between items-center mb-6">
+          {/* Logo */}
+          <motion.div
+            className="flex items-center space-x-3"
+            whileHover={{ scale: 1.05 }}
+          >
+            {/* Your Logo SVGs here (kept same as your original) */}
+            <span className="text-2xl font-bold">Subox</span>
+          </motion.div>
+
+          {/* Menu Button */}
+          <button
+            onClick={() => setShowMenu(!showMenu)}
+            className="p-2 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 fixed top-4 right-4 z-50"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-7 w-7 text-gray-700"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              {showMenu ? (
+                // X icon
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M6 18L18 6M6 6l12 12"
+                />
+              ) : (
+                // Hamburger icon
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M4 6h16M4 12h16M4 18h16"
+                />
+              )}
+            </svg>
+          </button>
+        </div>
+
+        {/* Dropdown Menu */}
+        {showMenu && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3 }}
+            className="fixed top-0 right-0 w-64 flex flex-col gap-4 mt-4 bg-white z-50 p-4"
+          >
+            {["Use Cases", "How it works", "Pricing", "Help"].map((item) => {
+              const help = item === "Help";
+              const link = help
+                ? "/help"
+                : `#${item.toLowerCase().replace(/ /g, "-")}`;
+
+              return (
+                <a
+                  key={item}
+                  href={link}
+                  className="text-gray-600 hover:text-orange-500 font-medium"
+                >
+                  {item}
+                </a>
+              );
+            })}
+
+            {/* Auth Buttons */}
+            <button
+              className="px-4 py-2 text-gray-600 hover:text-orange-500 font-medium transition-colors"
+              onClick={() => router.push("auth/")}
+            >
+              Log in
+            </button>
+            <button
+              className="px-6 py-3 bg-gradient-to-r from-orange-500 to-orange-600 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all"
+              onClick={() => router.push("auth?mode=signup")}
+            >
+              Get Started
+            </button>
+          </motion.div>
+        )}
+      </motion.div>
+    </div>
 
       {/* Hero Section with Furniture Animation */}
       <motion.section 
@@ -282,7 +469,7 @@ const SuboxHomepage = () => {
         <div className="flex flex-col lg:flex-row items-center justify-between gap-16 mb-16">
           {/* Hero Text - Left Side */}
           <motion.div
-            className="flex-1 text-center lg:text-left"
+            className="flex-1 text-center lg:text-left hidden md:block"
             initial={{ opacity: 0, y: 50 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 1, ease: "easeOut" }}
@@ -291,7 +478,7 @@ const SuboxHomepage = () => {
               className="perspective-1000"
             >
               <motion.h1 
-                className="text-5xl md:text-7xl font-bold text-gray-900 mb-6 leading-tight cursor-default"
+                className="text-5xl md:text-7xl font-bold font-sans text-gray-900 mb-6 leading-tight cursor-default"
                 initial={{ opacity: 0, y: 30, rotateX: 20 }}
                 animate={{ opacity: 1, y: 0, rotateX: 0 }}
                 transition={{ duration: 0.8, delay: 0.2 }}
@@ -341,7 +528,7 @@ const SuboxHomepage = () => {
               </motion.h1>
               
               <motion.p 
-                className="text-xl text-gray-600 mb-8 max-w-3xl leading-relaxed cursor-default"
+                className="text-xl font-inter text-gray-600 mb-8 max-w-3xl leading-relaxed cursor-default"
                 initial={{ opacity: 0, y: 20, rotateX: 15 }}
                 animate={{ opacity: 1, y: 0, rotateX: 0 }}
                 transition={{ duration: 0.8, delay: 0.8 }}
@@ -646,6 +833,42 @@ const SuboxHomepage = () => {
                 ))}
               </motion.div>
             </motion.div>
+
+          <motion.section 
+            className="relative z-10 max-w-7xl mx-auto px-4 py-12 sm:px-6 sm:py-20 block md:hidden"
+            style={{ y: heroY }}
+          >
+            <div className="flex flex-col lg:flex-row items-center lg:items-start justify-between gap-8 sm:gap-16 mb-12">
+              <motion.div
+                className="flex-1 text-center lg:text-left"
+                initial={{ opacity: 0, y: 50 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 1, ease: "easeOut" }}
+              >
+                <motion.h1 
+                  className="text-3xl sm:text-4xl md:text-7xl font-bold text-gray-900 mb-4 sm:mb-6 leading-tight"
+                >
+                  Student life.<br />
+                  <span className="text-orange-500">Simplified.</span>
+                </motion.h1>
+
+                <motion.p 
+                  className="text-base sm:text-lg md:text-xl text-gray-600 mb-6 sm:mb-8 max-w-xl mx-auto lg:mx-0"
+                >
+                  The all-in-one platform for student housing and campus marketplace.{" "}
+                  <span className="font-semibold bg-gradient-to-r from-orange-500 to-purple-600 bg-clip-text text-transparent">
+                    Capture, list, and sell your items instantly with AI-powered magic.
+                  </span>
+                </motion.p>
+
+                <motion.div className="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-3 sm:gap-4">
+                  <button className="w-full sm:w-auto px-6 py-3 bg-gradient-to-r from-orange-500 to-orange-600 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all">
+                    Get Started Free
+                  </button>
+                </motion.div>
+              </motion.div>
+            </div>
+          </motion.section>
 
             {/* Purple decorative dots positioned like in image 2 */}
             <motion.div
@@ -955,1483 +1178,217 @@ const SuboxHomepage = () => {
             </motion.div>
           </div>
         </motion.section>
-
-        {/* Demo Toggle */}
-        <motion.div 
-          className="flex justify-center mb-12"
-          initial={{ opacity: 0, y: 30 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 1, duration: 0.8 }}
-        >
-          <div className="bg-white rounded-2xl p-2 shadow-xl border border-gray-200">
-            <div className="flex gap-2">
-              <motion.button
-                onClick={() => {
-                  setActiveDemo('sublease');
-                  setCurrentStep(0);
-                }}
-                className={`px-8 py-4 rounded-xl font-semibold transition-all ${
-                  activeDemo === 'sublease' 
-                    ? 'bg-orange-500 text-white shadow-lg' 
-                    : 'text-gray-600 hover:bg-gray-50'
-                }`}
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-              >
-                <Home size={20} className="inline mr-2" />
-                Sublease Housing
-              </motion.button>
-              <motion.button
-                onClick={() => {
-                  setActiveDemo('sale');
-                  setCurrentStep(0);
-                }}
-                className={`px-8 py-4 rounded-xl font-semibold transition-all ${
-                  activeDemo === 'sale' 
-                    ? 'bg-orange-500 text-white shadow-lg' 
-                    : 'text-gray-600 hover:bg-gray-50'
-                }`}
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-              >
-                <Camera size={20} className="inline mr-2" />
-                Instant Selling
-              </motion.button>
-            </div>
-          </div>
-        </motion.div>
       </motion.section>
 
-      {/* Interactive Workflow Demo */}
-      <div className="flex flex-col lg:flex-row gap-6 mb-8 relative z-10">
-        {/* Step Navigation */}
-        <motion.div 
-          className="space-y-1"
-          initial={{ opacity: 0, x: -100 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ delay: 1.2, duration: 1, ease: "easeOut" }}
-        >
-          {/* Play Controls */}
-          <div className="flex items-center gap-4 mb-8">
-            <motion.button
-              onClick={() => setIsPlaying(!isPlaying)}
-              className={`flex items-center gap-2 px-6 py-3 rounded-xl font-medium transition-all ${
-                isPlaying 
-                  ? 'bg-orange-500 text-white shadow-lg' 
-                  : 'bg-white text-gray-700 border border-gray-300 hover:border-orange-300'
-              }`}
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-            >
-              {isPlaying ? <X size={16} /> : <Play size={16} />}
-              {isPlaying ? 'Stop Demo' : 'Play Demo'}
-            </motion.button>
-            <span className="text-sm text-gray-500">
-              {currentStep + 1} of {currentSteps.length}
-            </span>
-          </div>
 
-          {/* Steps */}
-          <AnimatePresence>
-            {currentSteps.map((step, index) => (
-              <motion.div
-                key={`${activeDemo}-${index}`}
-                onClick={() => setCurrentStep(index)}
-                className={`p-6 rounded-xl cursor-pointer transition-all ${
-                  currentStep === index
-                    ? 'bg-white shadow-xl border-2 border-orange-200'
-                    : 'bg-white/60 hover:bg-white hover:shadow-lg border border-gray-200'
-                }`}
-                whileHover={{ scale: 1.02, y: -4 }}
-                whileTap={{ scale: 0.98 }}
-                initial={{ opacity: 0, x: -50 }}
-                animate={{ 
-                  opacity: 1, 
-                  x: 0,
-                  scale: currentStep === index ? 1.02 : 1,
-                  borderColor: currentStep === index ? '#fed7aa' : '#e5e7eb'
-                }}
-                transition={{ delay: index * 0.1 }}
-              >
-                <div className="flex items-start gap-4">
-                  <motion.div 
-                    className={`p-3 rounded-lg ${
-                      currentStep === index 
-                        ? 'bg-orange-500 text-white' 
-                        : 'bg-gray-100 text-gray-600'
-                    }`}
-                    animate={{
-                      backgroundColor: currentStep === index ? '#f97316' : '#f3f4f6',
-                      color: currentStep === index ? '#ffffff' : '#4b5563',
-                      rotate: currentStep === index ? 360 : 0
-                    }}
-                    transition={{ duration: 0.5 }}
-                  >
-                    {step.icon}
-                  </motion.div>
-                  <div className="flex-1">
-                    <h3 className={`text-xl font-bold mb-2 ${
-                      currentStep === index ? 'text-gray-900' : 'text-gray-600'
-                    }`}>
-                      {step.title}
-                    </h3>
-                    <p className="text-gray-600 leading-relaxed">
-                      {step.description}
-                    </p>
-                  </div>
-                  {currentStep === index && (
-                    <motion.div
-                      initial={{ scale: 0, rotate: -180 }}
-                      animate={{ scale: 1, rotate: 0 }}
-                      className="text-orange-500"
+      <section className="text-center py-24 px-6 mt-20 mb-10">
+        <div className="max-w-4xl mx-auto">
+          <h1 className="text-4xl md:text-5xl font-bold font-sans text-gray-900 leading-tight">
+            Your Space. Your Stuff. <br className="hidden md:block" /> Your Time to Move.
+          </h1>
+          <p className="mt-6 text-lg md:text-xl text-gray-700 font-medium font-inter">
+            Find subleases and student essentials near you — <span className="text-orange-500 font-semibold">faster</span>, <span className="text-orange-500 font-semibold">safer</span>, <span className="text-orange-500 font-semibold">smarter</span>.
+          </p>
+        </div>
+      </section>
+
+      <UseCasesSection />
+
+      <section className="text-center py-24 px-6 bg-white mt-20 mb-30">
+        <div className="max-w-4xl mx-auto">
+          <h2 className="text-4xl md:text-5xl font-bold text-gray-900 leading-tight font-sans">
+            Why waste it when you can <span className="text-orange-500">Subox</span> it?
+          </h2>
+          <p className="mt-6 text-lg md:text-xl text-gray-700 font-medium font-inter">
+            We connect students who need a place with those who are leaving one. <br className="hidden md:block" /> Simple.
+          </p>
+        </div>
+      </section>
+
+      <HowItWorksSection howY={howY} />
+
+      <footer className="bg-orange-600 text-white py-12 w-full">
+        <div className="max-w-7xl mx-auto px-4">
+          {/* Upper Grid: 4 columns from original + 4 new columns in two rows */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-10">
+            {/* Subox Brand */}
+            <div>
+              <ul className="space-y-2">
+                <div className="flex items-center space-x-3 mt-3 px-5">
+                  {/* Main Subox Logo */}
+                  <motion.div className="relative">
+                    {/* House Icon */}
+                    <motion.svg 
+                      className="w-12 h-12" 
+                      viewBox="0 0 100 100" 
+                      fill="none"
+                      whileHover={{ rotate: [0, -5, 5, 0] }}
+                      transition={{ duration: 0.5 }}
                     >
-                      <ArrowRight size={24} />
-                    </motion.div>
-                  )}
-                </div>
-              </motion.div>
-            ))}
-          </AnimatePresence>
-        </motion.div>
-
-        {/* Enhanced Demo Visualization */}
-        <motion.div 
-          className={`relative bg-white rounded-3xl shadow-2xl border border-gray-200 overflow-hidden cursor-pointer ${
-            isDemoFocused ? 'fixed top-[2%] left-[2%] right-[2%] bottom-[2%] z-50' : ''
-          }`}
-          initial={{ opacity: 0, x: 100, rotateY: 45 }}
-          animate={isDemoFocused ? {
-            opacity: 1,
-            x: 0,
-            y: 0,
-            rotateY: 0,
-            rotateX: 0,
-            scale: 1,
-            borderRadius: "40px",
-            transition: { 
-              type: "spring", 
-              stiffness: 120, 
-              damping: 20, 
-              duration: 1.5,
-              ease: [0.175, 0.885, 0.32, 1.275]
-            }
-          } : {
-            opacity: 1,
-            x: 0,
-            rotateY: 0,
-            rotateX: 0,
-            scale: demoHover ? 1.05 : 1,
-            y: demoHover ? -20 : 0,
-            borderRadius: "24px",
-            transition: { 
-              delay: isDemoFocused ? 0 : 1.4, 
-              duration: 0.5, 
-              ease: "easeOut" 
-            }
-          }}
-          style={!isDemoFocused ? { minHeight: '600px' } : {}}
-          onClick={handleDemoFocus}
-          onMouseEnter={() => setDemoHover(true)}
-          onMouseLeave={() => setDemoHover(false)}
-          whileHover={!isDemoFocused ? { 
-            rotateX: 8,
-            rotateY: -4,
-            boxShadow: "0 50px 100px -20px rgba(249, 115, 22, 0.4)",
-            transition: { duration: 0.4, ease: "easeOut" }
-          } : {}}
-          whileTap={!isDemoFocused ? {
-            scale: 0.95,
-            rotateX: 12,
-            rotateY: -6,
-            transition: { duration: 0.15, ease: "easeInOut" }
-          } : {}}
-        >
-          {/* Enhanced interactive glow effect */}
-          <motion.div
-            className="absolute inset-0 bg-gradient-to-br from-orange-400/20 via-transparent to-purple-400/20 pointer-events-none"
-            animate={{
-              opacity: demoHover && !isDemoFocused ? [0, 0.5, 0] : 0,
-              scale: demoHover && !isDemoFocused ? [1, 1.03, 1] : 1,
-            }}
-            transition={{ duration: 2.5, repeat: Infinity, ease: "easeInOut" }}
-          />
-
-          {/* Epic expansion effect on tap */}
-          <motion.div
-            className="absolute inset-0 pointer-events-none overflow-hidden rounded-3xl"
-            initial={{ scale: 0, opacity: 0 }}
-            animate={isDemoFocused ? {
-              scale: [0, 0.3, 1.2, 2],
-              opacity: [0, 0.4, 0.2, 0],
-            } : { scale: 0, opacity: 0 }}
-            transition={{ duration: 1.2, ease: [0.25, 0.46, 0.45, 0.94] }}
-          >
-            <div className="w-full h-full bg-gradient-to-br from-orange-300/40 via-orange-400/30 to-purple-400/40 rounded-3xl" />
-          </motion.div>
-
-          {/* Explosive ring effect on tap */}
-          <AnimatePresence>
-            {isDemoFocused && (
-              <>
-                <motion.div
-                  className="absolute inset-0 border-4 border-orange-400/60 rounded-3xl pointer-events-none"
-                  initial={{ scale: 1, opacity: 0.8 }}
-                  animate={{ 
-                    scale: [1, 1.5, 2.5],
-                    opacity: [0.8, 0.4, 0],
-                    borderWidth: ["4px", "8px", "2px"]
-                  }}
-                  transition={{ duration: 1, ease: "easeOut" }}
-                />
-                <motion.div
-                  className="absolute inset-0 border-2 border-purple-400/40 rounded-3xl pointer-events-none"
-                  initial={{ scale: 1, opacity: 0.6 }}
-                  animate={{ 
-                    scale: [1, 2, 3.5],
-                    opacity: [0.6, 0.3, 0],
-                  }}
-                  transition={{ duration: 1.3, ease: "easeOut", delay: 0.1 }}
-                />
-              </>
-            )}
-          </AnimatePresence>
-
-          {/* Demo content with epic scaling */}
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={`${activeDemo}-${currentStep}`}
-              initial={{ opacity: 0, y: 40, scale: 0.9 }}
-              animate={{ 
-                opacity: 1, 
-                y: 0, 
-                scale: 1,
-                transition: {
-                  delay: isDemoFocused ? 0.6 : 0,
-                  duration: isDemoFocused ? 1 : 0.5,
-                  ease: "easeOut"
-                }
-              }}
-              exit={{ opacity: 0, y: -40, scale: 1.1 }}
-              transition={{ duration: 0.5, ease: "easeOut" }}
-              className={isDemoFocused ? "p-16 h-full overflow-auto" : "p-8 h-full"}
-            >
-              <motion.div
-                animate={{
-                  scale: isDemoFocused ? 1.15 : 1,
-                }}
-                transition={{ 
-                  delay: isDemoFocused ? 0.8 : 0,
-                  duration: 0.8, 
-                  ease: [0.25, 0.46, 0.45, 0.94]
-                }}
-              >
-                <motion.div
-                  animate={isDemoFocused ? {
-                    rotateY: [0, 5, 0],
-                    rotateX: [0, 2, 0],
-                  } : {}}
-                  transition={{ 
-                    delay: 1,
-                    duration: 2,
-                    ease: "easeInOut"
-                  }}
-                >
-                  {currentSteps[currentStep]?.component}
-                </motion.div>
-              </motion.div>
-            </motion.div>
-          </AnimatePresence>
-
-          {/* Enhanced close button */}
-          <AnimatePresence>
-            {isDemoFocused && (
-              <motion.div
-                className="absolute top-6 right-6"
-                initial={{ opacity: 0, y: -20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -20 }}
-                transition={{ duration: 0.3, delay: 0.2 }}
-              >
-                <motion.button
-                  className="w-12 h-12 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-full flex items-center justify-center hover:from-orange-600 hover:to-orange-700 transition-all shadow-lg"
-                  initial={{ opacity: 0, scale: 0, rotate: -90 }}
-                  animate={{ opacity: 1, scale: 1, rotate: 0 }}
-                  exit={{ opacity: 0, scale: 0, rotate: 90 }}
-                  transition={{ duration: 0.3, delay: 0.3 }}
-                  onClick={handleDemoClose}
-                  whileHover={{ scale: 1.1, rotate: 90 }}
-                  whileTap={{ scale: 0.9 }}
-                >
-                  <X size={20} />
-                </motion.button>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </motion.div>
-      </div>
-
-      {/* Enhanced Interactive Features Section */}
-      <InteractiveFeaturesSection featuresY={featuresY} />
-
-      {/* CTA Section */}
-      <CTASection />
-    </div>
-  );
-};
-
-
-
-
-// Interactive Features Section Component
-const InteractiveFeaturesSection = ({ featuresY }) => {
-  const ref = useRef(null);
-  const isInView = useInView(ref, { once: true, amount: 0.3 });
-  
-  const features = [
-    {
-    icon: <Target size={32} />,
-    title: "Our Mission",
-    description: "Simple, functional, and always improving - built for students, by students",
-    color: "from-green-500 to-emerald-500",
-    demo: <MissionDemo />
-  }
-,
-    {
-      icon: <Zap size={32} />,
-      title: "Instant Processing",
-      description: "Get price suggestions and descriptions in seconds",
-      color: "from-orange-500 to-red-500",
-      demo: <BadgeFeatureDemo/>
-    },
-    {
-      icon: <Users size={32} />,
-      title: "Campus Network",
-      description: "Connect with verified students in your area instantly",
-      color: "from-purple-500 to-pink-500",
-      demo: <NetworkFeatureDemo />
-    },
-  ];
-
-  return (
-    <motion.section 
-      ref={ref}
-      className="relative z-10 max-w-7xl mx-auto px-6 py-20"
-      style={{ y: featuresY }}
-      id="features"
-    >
-      <motion.div
-        initial={{ opacity: 0, y: 50 }}
-        animate={isInView ? { opacity: 1, y: 0 } : { opacity: 0, y: 50 }}
-        transition={{ duration: 0.8 }}
-        className="text-center mb-16"
-      >
-        <h2 className="text-4xl md:text-6xl font-bold text-gray-900 mb-6">
-          Built for <span className="text-orange-500">instant</span> student life
-        </h2>
-        <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-          Revolutionary AI-powered platform that makes selling your stuff as easy as taking a photo
-        </p>
-      </motion.div>
-
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-        {features.map((feature, index) => (
-          <FeatureCard key={index} feature={feature} index={index} isInView={isInView} />
-        ))}
-      </div>
-    </motion.section>
-  );
-};
-
-// Enhanced Feature Card Component
-const FeatureCard = ({ feature, index, isInView }) => {
-  const [isHovered, setIsHovered] = useState(false);
-  
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 100, rotateX: 45 }}
-      animate={isInView ? { 
-        opacity: 1, 
-        y: 0, 
-        rotateX: 0 
-      } : { 
-        opacity: 0, 
-        y: 100, 
-        rotateX: 45 
-      }}
-      transition={{ 
-        delay: index * 0.2, 
-        duration: 0.8, 
-        ease: "easeOut" 
-      }}
-      whileHover={{ 
-        y: -20, 
-        scale: 1.05,
-        rotateY: 5,
-        transition: { duration: 0.3 }
-      }}
-      onHoverStart={() => setIsHovered(true)}
-      onHoverEnd={() => setIsHovered(false)}
-      className="relative group perspective-1000"
-    >
-      <div className="bg-white rounded-2xl p-8 shadow-lg border border-gray-200 h-full relative overflow-hidden transform-gpu">
-        {/* Animated Background */}
-        <motion.div
-          className={`absolute inset-0 bg-gradient-to-br ${feature.color} opacity-0 group-hover:opacity-10 transition-opacity duration-500`}
-          animate={{
-            scale: isHovered ? 1.2 : 1,
-            rotate: isHovered ? 10 : 0,
-          }}
-          transition={{ duration: 0.5 }}
-        />
-        
-        {/* Icon */}
-        <motion.div 
-          className={`w-16 h-16 bg-gradient-to-br ${feature.color} rounded-xl flex items-center justify-center text-white mb-6 shadow-lg relative z-10`}
-          animate={{
-            scale: isHovered ? 1.2 : 1,
-            rotate: isHovered ? 360 : 0,
-            y: isHovered ? -10 : 0,
-          }}
-          transition={{ duration: 0.5, ease: "easeOut" }}
-        >
-          {feature.icon}
-        </motion.div>
-        
-        <h3 className="text-xl font-bold text-gray-900 mb-4 relative z-10">{feature.title}</h3>
-        <p className="text-gray-600 leading-relaxed mb-6 relative z-10">{feature.description}</p>
-        
-        {/* Interactive Demo Area */}
-        <motion.div
-          className="relative z-10"
-          initial={{ opacity: 0, height: 0 }}
-          animate={{ 
-            opacity: isHovered ? 1 : 0, 
-            height: isHovered ? 'auto' : 0 
-          }}
-          transition={{ duration: 0.3 }}
-        >
-          {isHovered && feature.demo}
-        </motion.div>
-      </div>
-    </motion.div>
-  );
-};
-
-// Demo Components for Features
-
-
-const CameraFeatureDemo = () => {
-  return (
-    <div className="flex items-center justify-center min-h-screen bg-gray-100">
-      <div className="relative">
-        {/* iPhone Frame */}
-        <svg
-          viewBox="0 0 375 812"
-          width="300"
-          height="650"
-          className="drop-shadow-2xl"
-        >
-          {/* Outer frame */}
-          <rect
-            x="0"
-            y="0"
-            width="375"
-            height="812"
-            rx="55"
-            fill="#2a2a2a"
-            stroke="#1a1a1a"
-            strokeWidth="2"
-          />
-          
-          {/* Screen bezel */}
-          <rect
-            x="8"
-            y="8"
-            width="359"
-            height="796"
-            rx="47"
-            fill="#000"
-          />
-          
-          {/* Screen */}
-          <rect
-            x="12"
-            y="12"
-            width="351"
-            height="788"
-            rx="43"
-            fill="#000"
-          />
-          
-          {/* Camera viewfinder - blurred home interior */}
-          <rect
-            x="12"
-            y="50"
-            width="351"
-            height="600"
-            rx="0"
-            fill="url(#homeGradient)"
-          />
-          
-          {/* Gradient for home interior */}
-          <defs>
-            <linearGradient id="homeGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stopColor="#f5f5dc"/>
-              <stop offset="25%" stopColor="#e6e6e6"/>
-              <stop offset="50%" stopColor="#d3d3d3"/>
-              <stop offset="75%" stopColor="#c8b99c"/>
-              <stop offset="100%" stopColor="#8b7355"/>
-            </linearGradient>
-            
-            {/* Blur filter for background */}
-            <filter id="blur" x="0" y="0" width="100%" height="100%">
-              <feGaussianBlur in="SourceGraphic" stdDeviation="3"/>
-            </filter>
-          </defs>
-          
-          {/* Blurred furniture shapes */}
-          <g filter="url(#blur)">
-            {/* Sofa */}
-            <rect x="50" y="400" width="120" height="60" rx="10" fill="#8B4513" opacity="0.7"/>
-            <rect x="55" y="385" width="110" height="20" rx="10" fill="#A0522D" opacity="0.6"/>
-            
-            {/* Coffee table */}
-            <rect x="200" y="420" width="80" height="30" rx="5" fill="#654321" opacity="0.8"/>
-            
-            {/* TV/Cabinet */}
-            <rect x="280" y="200" width="70" height="80" rx="5" fill="#2F4F4F" opacity="0.6"/>
-            
-            {/* Lamp */}
-            <circle cx="320" cy="180" r="15" fill="#FFE4B5" opacity="0.5"/>
-            <rect x="318" y="195" width="4" height="40" fill="#8B4513" opacity="0.7"/>
-            
-            {/* Plant */}
-            <circle cx="80" cy="300" r="25" fill="#228B22" opacity="0.6"/>
-            <rect x="78" y="325" width="4" height="30" fill="#8B4513" opacity="0.7"/>
-            
-            {/* Wall frames */}
-            <rect x="30" y="150" width="40" height="30" rx="2" fill="#4A4A4A" opacity="0.5"/>
-            <rect x="100" y="140" width="35" height="25" rx="2" fill="#4A4A4A" opacity="0.5"/>
-          </g>
-          
-          {/* Notch area */}
-          <rect
-            x="12"
-            y="12"
-            width="351"
-            height="38"
-            rx="43"
-            fill="rgba(0,0,0,0.3)"
-          />
-          
-          {/* Notch */}
-          <rect
-            x="137"
-            y="22"
-            width="100"
-            height="18"
-            rx="9"
-            fill="#000"
-          />
-          
-          {/* Top camera controls */}
-          <circle cx="45" cy="32" r="12" fill="rgba(255,255,255,0.2)"/>
-          <text x="41" y="36" fill="white" fontSize="10">⚡</text>
-          
-          <circle cx="330" cy="32" r="12" fill="rgba(255,255,255,0.2)"/>
-          <text x="327" y="36" fill="white" fontSize="10">⚙</text>
-          
-          {/* Zoom level indicators */}
-          <text x="80" y="580" fill="white" fontSize="14" textAnchor="middle" opacity="0.7">.5</text>
-          <circle cx="140" cy="580" r="15" fill="rgba(255,255,255,0.3)"/>
-          <text x="140" y="585" fill="yellow" fontSize="12" textAnchor="middle" fontWeight="bold">1x</text>
-          <text x="200" y="580" fill="white" fontSize="14" textAnchor="middle" opacity="0.7">2</text>
-          <text x="260" y="580" fill="white" fontSize="14" textAnchor="middle" opacity="0.7">5</text>
-          
-          {/* Camera controls overlay */}
-          <rect
-            x="12"
-            y="650"
-            width="351"
-            height="150"
-            fill="rgba(0,0,0,0.8)"
-          />
-          
-          {/* Camera mode selector */}
-          <text x="50" y="675" fill="white" fontSize="11" textAnchor="middle">SLO-MO</text>
-          <text x="120" y="675" fill="white" fontSize="11" textAnchor="middle">VIDEO</text>
-          <text x="188" y="675" fill="yellow" fontSize="11" textAnchor="middle" fontWeight="bold">PHOTO</text>
-          <text x="256" y="675" fill="white" fontSize="11" textAnchor="middle">PORTRAIT</text>
-          <text x="320" y="675" fill="white" fontSize="11" textAnchor="middle">PANO</text>
-          
-          {/* Camera button */}
-          <circle cx="188" cy="720" r="35" fill="white"/>
-          <circle cx="188" cy="720" r="30" fill="white" stroke="#ddd" strokeWidth="3"/>
-          
-          {/* Gallery thumbnail */}
-          <rect x="50" y="700" width="30" height="30" rx="5" fill="#4682B4"/>
-          <rect x="52" y="702" width="26" height="26" rx="3" fill="#87CEEB"/>
-          
-          {/* Flip camera button */}
-          <circle cx="320" cy="720" r="20" fill="rgba(255,255,255,0.2)"/>
-          <text x="315" y="725" fill="white" fontSize="14">↻</text>
-          
-          {/* Home indicator */}
-          <rect x="150" y="780" width="75" height="4" rx="2" fill="white" fillOpacity="0.8"/>
-        </svg>
-        
-        {/* Camera Feature Demo overlay - merged into the main component */}
-        <div 
-          className="absolute bg-gray-900 rounded-lg p-3 text-white shadow-lg animate-pulse"
-          style={{
-            top: '20%',
-            left: '20%',
-            width: '60%',
-            transform: 'scale(0.8)'
-          }}
-        >
-          <div className="flex items-center gap-2">
-            <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-const iPhoneCameraInterface = () => {
-  return (
-    <div className="flex items-center justify-center min-h-screen bg-gray-100">
-      <div className="relative">
-        {/* iPhone Frame */}
-        <svg
-          viewBox="0 0 375 812"
-          width="300"
-          height="650"
-          className="drop-shadow-2xl"
-        >
-          {/* Outer frame */}
-          <rect
-            x="0"
-            y="0"
-            width="375"
-            height="812"
-            rx="55"
-            fill="#2a2a2a"
-            stroke="#1a1a1a"
-            strokeWidth="2"
-          />
-          
-          {/* Screen bezel */}
-          <rect
-            x="8"
-            y="8"
-            width="359"
-            height="796"
-            rx="47"
-            fill="#000"
-          />
-          
-          {/* Screen */}
-          <rect
-            x="12"
-            y="12"
-            width="351"
-            height="788"
-            rx="43"
-            fill="#000"
-          />
-          
-          {/* Camera viewfinder - blurred home interior */}
-          <rect
-            x="12"
-            y="50"
-            width="351"
-            height="600"
-            rx="0"
-            fill="url(#homeGradient)"
-          />
-          
-          {/* Gradient for home interior */}
-          <defs>
-            <linearGradient id="homeGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stopColor="#f5f5dc"/>
-              <stop offset="25%" stopColor="#e6e6e6"/>
-              <stop offset="50%" stopColor="#d3d3d3"/>
-              <stop offset="75%" stopColor="#c8b99c"/>
-              <stop offset="100%" stopColor="#8b7355"/>
-            </linearGradient>
-            
-            {/* Blur filter for background */}
-            <filter id="blur" x="0" y="0" width="100%" height="100%">
-              <feGaussianBlur in="SourceGraphic" stdDeviation="3"/>
-            </filter>
-          </defs>
-          
-          {/* Blurred furniture shapes */}
-          <g filter="url(#blur)">
-            {/* Sofa */}
-            <rect x="50" y="400" width="120" height="60" rx="10" fill="#8B4513" opacity="0.7"/>
-            <rect x="55" y="385" width="110" height="20" rx="10" fill="#A0522D" opacity="0.6"/>
-            
-            {/* Coffee table */}
-            <rect x="200" y="420" width="80" height="30" rx="5" fill="#654321" opacity="0.8"/>
-            
-            {/* TV/Cabinet */}
-            <rect x="280" y="200" width="70" height="80" rx="5" fill="#2F4F4F" opacity="0.6"/>
-            
-            {/* Lamp */}
-            <circle cx="320" cy="180" r="15" fill="#FFE4B5" opacity="0.5"/>
-            <rect x="318" y="195" width="4" height="40" fill="#8B4513" opacity="0.7"/>
-            
-            {/* Plant */}
-            <circle cx="80" cy="300" r="25" fill="#228B22" opacity="0.6"/>
-            <rect x="78" y="325" width="4" height="30" fill="#8B4513" opacity="0.7"/>
-            
-            {/* Wall frames */}
-            <rect x="30" y="150" width="40" height="30" rx="2" fill="#4A4A4A" opacity="0.5"/>
-            <rect x="100" y="140" width="35" height="25" rx="2" fill="#4A4A4A" opacity="0.5"/>
-          </g>
-          
-          {/* Notch area */}
-          <rect
-            x="12"
-            y="12"
-            width="351"
-            height="38"
-            rx="43"
-            fill="rgba(0,0,0,0.3)"
-          />
-          
-          {/* Notch */}
-          <rect
-            x="137"
-            y="22"
-            width="100"
-            height="18"
-            rx="9"
-            fill="#000"
-          />
-          
-          {/* Top camera controls */}
-          <circle cx="45" cy="32" r="12" fill="rgba(255,255,255,0.2)"/>
-          <text x="41" y="36" fill="white" fontSize="10">⚡</text>
-          
-          <circle cx="330" cy="32" r="12" fill="rgba(255,255,255,0.2)"/>
-          <text x="327" y="36" fill="white" fontSize="10">⚙</text>
-          
-          {/* Zoom level indicators */}
-          <text x="80" y="580" fill="white" fontSize="14" textAnchor="middle" opacity="0.7">.5</text>
-          <circle cx="140" cy="580" r="15" fill="rgba(255,255,255,0.3)"/>
-          <text x="140" y="585" fill="yellow" fontSize="12" textAnchor="middle" fontWeight="bold">1x</text>
-          <text x="200" y="580" fill="white" fontSize="14" textAnchor="middle" opacity="0.7">2</text>
-          <text x="260" y="580" fill="white" fontSize="14" textAnchor="middle" opacity="0.7">5</text>
-          
-          {/* Camera controls overlay */}
-          <rect
-            x="12"
-            y="650"
-            width="351"
-            height="150"
-            fill="rgba(0,0,0,0.8)"
-          />
-          
-          {/* Camera mode selector */}
-          <text x="50" y="675" fill="white" fontSize="11" textAnchor="middle">SLO-MO</text>
-          <text x="120" y="675" fill="white" fontSize="11" textAnchor="middle">VIDEO</text>
-          <text x="188" y="675" fill="yellow" fontSize="11" textAnchor="middle" fontWeight="bold">PHOTO</text>
-          <text x="256" y="675" fill="white" fontSize="11" textAnchor="middle">PORTRAIT</text>
-          <text x="320" y="675" fill="white" fontSize="11" textAnchor="middle">PANO</text>
-          
-          {/* Camera button */}
-          <circle cx="188" cy="720" r="35" fill="white"/>
-          <circle cx="188" cy="720" r="30" fill="white" stroke="#ddd" strokeWidth="3"/>
-          
-          {/* Gallery thumbnail */}
-          <rect x="50" y="700" width="30" height="30" rx="5" fill="#4682B4"/>
-          <rect x="52" y="702" width="26" height="26" rx="3" fill="#87CEEB"/>
-          
-          {/* Flip camera button */}
-          <circle cx="320" cy="720" r="20" fill="rgba(255,255,255,0.2)"/>
-          <text x="315" y="725" fill="white" fontSize="14">↻</text>
-          
-          {/* Home indicator */}
-          <rect x="150" y="780" width="75" height="4" rx="2" fill="white" fillOpacity="0.8"/>
-        </svg>
-        
-        {/* Camera Feature Demo positioned on the landscape view */}
-        <div 
-          className="absolute"
-          style={{
-            top: '20%',
-            left: '20%',
-            width: '60%',
-            transform: 'scale(0.8)'
-          }}
-        >
-          <CameraFeatureDemo />
-        </div>
-      </div>
-    </div>
-  );
-};
-
-
-// Interactive MissionDemo Component
-const MissionDemo = () => {
-  const [currentStep, setCurrentStep] = useState(0);
-  const [feedback, setFeedback] = useState('');
-  const [showFeedback, setShowFeedback] = useState(false);
-  const [isAnimating, setIsAnimating] = useState(false);
-
-  const missionSteps = [
-    {
-      title: "Keep it Simple",
-      description: "Three taps to list, one tap to buy",
-      icon: <Smartphone size={20} />,
-      detail: "Streamlined workflows that get you from idea to sale in seconds",
-      color: "from-blue-500 to-cyan-500"
-    },
-    {
-      title: "Stay Functional",
-      description: "Every feature serves a real student need",
-      icon: <CheckCircle size={20} />,
-      detail: "Built through student feedback, tested by real campus users",
-      color: "from-purple-500 to-pink-500"
-    },
-    {
-      title: "Always Improving",
-      description: "Your feedback shapes our updates",
-      icon: <TrendingUp size={20} />,
-      detail: "Weekly updates based on your suggestions and usage patterns",
-      color: "from-orange-500 to-red-500"
-    }
-  ];
-
-  const handleStepClick = (index) => {
-    if (index !== currentStep) {
-      setIsAnimating(true);
-      setTimeout(() => {
-        setCurrentStep(index);
-        setIsAnimating(false);
-      }, 150);
-    }
-  };
-
-  const handleFeedbackSubmit = () => {
-    if (feedback.trim()) {
-      setShowFeedback(true);
-      setTimeout(() => {
-        setShowFeedback(false);
-        setFeedback('');
-      }, 3000);
-    }
-  };
-
-  const progressPercentage = ((currentStep + 1) / missionSteps.length) * 100;
-
-  return (
-    <div className="p-6 bg-gradient-to-br from-green-50 to-emerald-50 rounded-lg relative overflow-hidden">
-      {/* Background Pattern */}
-      <div className="absolute inset-0 opacity-5">
-        <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-green-600 to-emerald-600"></div>
-      </div>
-
-      <div className="relative z-10">
-        <div className="text-center mb-6">
-          <h3 className="text-lg font-bold text-gray-800 mb-2">Our Mission in Action</h3>
-          <div className="w-full bg-gray-200 rounded-full h-2 mb-4">
-            <div 
-              className="bg-gradient-to-r from-green-500 to-emerald-500 h-2 rounded-full transition-all duration-500"
-              style={{ width: `${progressPercentage}%` }}
-            ></div>
-          </div>
-        </div>
-
-        {/* Interactive Steps */}
-        <div className="grid grid-cols-3 gap-3 mb-6">
-          {missionSteps.map((step, index) => (
-            <button
-              key={index}
-              onClick={() => handleStepClick(index)}
-              className={`relative p-4 rounded-xl border-2 transition-all duration-300 group ${
-                currentStep === index
-                  ? 'border-green-500 bg-white shadow-lg transform scale-105'
-                  : 'border-gray-200 bg-white hover:border-green-300 hover:shadow-md'
-              }`}
-            >
-              <div className={`flex flex-col items-center transition-all duration-300 ${
-                currentStep === index ? 'text-green-600' : 'text-gray-600 group-hover:text-green-500'
-              }`}>
-                <div className="mb-2 p-2 rounded-full bg-gray-100 group-hover:bg-green-50 transition-colors">
-                  {step.icon}
-                </div>
-                <div className="text-xs font-semibold text-center">{step.title}</div>
-              </div>
-              {currentStep === index && (
-                <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
-              )}
-            </button>
-          ))}
-        </div>
-
-        {/* Current Step Display */}
-        <div className={`bg-white rounded-xl p-5 mb-6 border-l-4 border-green-500 shadow-sm transition-all duration-300 ${
-          isAnimating ? 'opacity-50 transform scale-95' : 'opacity-100 transform scale-100'
-        }`}>
-          <div className="flex items-center gap-3 mb-3">
-            <div className={`p-2 rounded-lg bg-gradient-to-r ${missionSteps[currentStep].color}`}>
-              <div className="text-white">
-                {missionSteps[currentStep].icon}
-              </div>
-            </div>
-            <h4 className="font-bold text-gray-800">
-              {missionSteps[currentStep].title}
-            </h4>
-          </div>
-          <p className="text-gray-600 text-sm mb-2">
-            {missionSteps[currentStep].description}
-          </p>
-          <p className="text-gray-500 text-xs">
-            {missionSteps[currentStep].detail}
-          </p>
-        </div>
-
-        {/* Interactive Feedback Section */}
-        
-      </div>
-    </div>
-  );
-};
-
-const BadgeFeatureDemo = () => {
-  const badges = [
-    {
-      id: 'trusted-seller',
-      name: 'Trusted Seller',
-      icon: Shield,
-      color: 'emerald',
-      description: '10+ successful sales',
-      earned: true
-    },
-    {
-      id: 'trusted-renter',
-      name: 'Trusted Renter',
-      icon: TrendingUp,
-      color: 'blue',
-      description: '4+ rental experiences',
-      earned: false
-    },
-    {
-      id: 'best-rater',
-      name: 'Best Rater',
-      icon: Star,
-      color: 'yellow',
-      description: 'Accurate ratings',
-      earned: true
-    },
-    {
-      id: 'school',
-      name: 'Student',
-      icon: GraduationCap,
-      color: 'purple',
-      description: 'Current student',
-      earned: false
-    },
-    {
-      id: 'alumni',
-      name: 'Alumni',
-      icon: Award,
-      color: 'indigo',
-      description: 'Graduate member',
-      earned: true
-    }
-  ];
-
-  const getBadgeGradient = (color) => {
-    const gradients = {
-      emerald: 'from-emerald-400 to-emerald-600',
-      blue: 'from-blue-400 to-blue-600',
-      yellow: 'from-yellow-400 to-yellow-600',
-      purple: 'from-purple-400 to-purple-600',
-      indigo: 'from-indigo-400 to-indigo-600'
-    };
-    return gradients[color];
-  };
-
-  const getBadgeTextColor = (color) => {
-    const colors = {
-      emerald: '#10b981',
-      blue: '#3b82f6',
-      yellow: '#f59e0b',
-      purple: '#8b5cf6',
-      indigo: '#6366f1'
-    };
-    return colors[color];
-  };
-
-  return (
-    <motion.div 
-      className="bg-gradient-to-br from-orange-50 to-pink-50 rounded-xl p-6 border border-orange-200 shadow-sm"
-      initial={{ scale: 0, opacity: 0 }}
-      animate={{ scale: 1, opacity: 1 }}
-      transition={{ delay: 0.2, type: "spring", stiffness: 200, damping: 20 }}
-    >
-      <div className="flex items-center gap-3 mb-3">
-        <motion.div
-          animate={{ 
-            scale: [1, 1.2, 0.9, 1.1, 1],
-            rotate: [0, 15, -10, 20, 0],
-            y: [0, -5, 2, -3, 0]
-          }}
-          transition={{ 
-            duration: 3, 
-            repeat: Infinity, 
-            ease: "easeInOut",
-            repeatDelay: 0.5
-          }}
-        >
-          <motion.div 
-            className="bg-gradient-to-r from-orange-400 to-red-500 p-2 rounded-full shadow-md relative overflow-hidden"
-            whileHover={{ 
-              scale: 1.3,
-              rotate: 360,
-              boxShadow: "0 0 20px rgba(255, 165, 0, 0.6)"
-            }}
-            transition={{ duration: 0.8 }}
-          >
-            <motion.div
-              className="absolute inset-0 bg-gradient-to-r from-yellow-400 to-orange-500 opacity-0"
-              animate={{ 
-                opacity: [0, 0.3, 0],
-                scale: [1, 1.2, 1]
-              }}
-              transition={{ 
-                duration: 2,
-                repeat: Infinity,
-                repeatDelay: 1
-              }}
-            />
-            <Zap size={18} className="text-white relative z-10" />
-          </motion.div>
-        </motion.div>
-        <div>
-          <motion.h3 
-            className="text-base font-semibold text-gray-800"
-            animate={{ 
-              color: ["#1f2937", "#f59e0b", "#dc2626", "#1f2937"]
-            }}
-            transition={{ 
-              duration: 4,
-              repeat: Infinity,
-              ease: "easeInOut"
-            }}
-          >
-            Trust Badge System
-          </motion.h3>
-          <motion.p 
-            className="text-xs text-gray-600"
-            animate={{ y: [0, -1, 0] }}
-            transition={{ 
-              duration: 2,
-              repeat: Infinity,
-              ease: "easeInOut"
-            }}
-          >
-            Earn credibility & boost success rates
-          </motion.p>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-4">
-        {badges.map((badge, index) => {
-          const IconComponent = badge.icon;
-          return (
-              <motion.div
-                className="relative flex flex-col items-center"
-                initial={{ opacity: 0, y: 20, rotate: -180 }}
-                animate={{ opacity: 1, y: 0, rotate: 0 }}
-                transition={{ 
-                  delay: 0.4 + index * 0.2,
-                  type: "spring",
-                  stiffness: 200,
-                  damping: 10
-                }}
-                whileHover={{ 
-                  scale: 1.15, 
-                  y: -8,
-                  rotate: [0, -10, 10, 0],
-                  transition: { duration: 0.3 }
-                }}
-              >
-                {/* Floating particles around earned badges */}
-                {badge.earned && (
-                  <>
-                    {[...Array(6)].map((_, i) => (
-                      <motion.div
-                        key={`particle-${badge.id}-${i}`}
-                        className="absolute w-1 h-1 bg-yellow-400 rounded-full"
-                        style={{
-                          left: `${50 + 30 * Math.cos(i * Math.PI / 3)}%`,
-                          top: `${50 + 30 * Math.sin(i * Math.PI / 3)}%`,
+                      {/* House Base */}
+                      <motion.path
+                        d="M20 45L50 20L80 45V75C80 78 77 80 75 80H25C22 80 20 78 20 75V45Z"
+                        fill="#E97451"
+                        animate={{ 
+                          fill: ["#E97451", "#F59E0B", "#E97451"],
+                          scale: [1, 1.02, 1]
                         }}
-                        animate={{
-                          scale: [0, 1, 0],
-                          opacity: [0, 1, 0],
-                          rotate: [0, 360],
-                          x: [0, Math.cos(i * Math.PI / 3) * 20, 0],
-                          y: [0, Math.sin(i * Math.PI / 3) * 20, 0]
-                        }}
-                        transition={{
-                          duration: 2,
-                          repeat: Infinity,
-                          delay: i * 0.3 + index * 0.5,
-                          ease: "easeInOut"
-                        }}
+                        transition={{ duration: 3, repeat: Infinity }}
                       />
-                    ))}
-                  </>
-                )}
-
-                {/* Badge Circle with Scalloped Edge */}
-                <motion.div
-                  className={`relative w-16 h-16 rounded-full shadow-lg transition-all duration-300 ${
-                    badge.earned 
-                      ? `bg-gradient-to-br ${getBadgeGradient(badge.color)} shadow-lg` 
-                      : 'bg-gray-200 shadow-sm'
-                  }`}
-                  style={{
-                    clipPath: 'polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%)'
-                  }}
-                  animate={badge.earned ? {
-                    rotate: [0, 5, -5, 0],
-                    scale: [1, 1.05, 1],
-                    boxShadow: [
-                      "0 4px 15px rgba(0,0,0,0.1)",
-                      "0 8px 25px rgba(255,215,0,0.3)",
-                      "0 4px 15px rgba(0,0,0,0.1)"
-                    ]
-                  } : {}}
-                  transition={{
-                    duration: 3,
-                    repeat: Infinity,
-                    ease: "easeInOut",
-                    delay: index * 0.5
-                  }}
-                  whileHover={{ 
-                    rotate: [0, -15, 15, -10, 10, 0],
-                    scale: 1.1,
-                    boxShadow: "0 0 30px rgba(255,215,0,0.8)"
-                  }}
-                >
-                  {/* Pulsing inner glow for earned badges */}
-                  {badge.earned && (
-                    <motion.div
-                      className="absolute inset-1 rounded-full bg-white opacity-20"
-                      style={{
-                        clipPath: 'polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%)'
-                      }}
-                      animate={{
-                        opacity: [0.1, 0.3, 0.1],
-                        scale: [0.8, 1, 0.8]
-                      }}
-                      transition={{
-                        duration: 2,
-                        repeat: Infinity,
-                        ease: "easeInOut",
-                        delay: index * 0.3
-                      }}
-                    />
-                  )}
-
-                  <motion.div 
-                    className="absolute inset-0 flex items-center justify-center"
-                    animate={badge.earned ? {
-                      rotate: [0, 360],
-                      scale: [1, 1.1, 1]
-                    } : {}}
-                    transition={{
-                      duration: 4,
-                      repeat: Infinity,
-                      ease: "linear",
-                      delay: index * 0.8
-                    }}
-                  >
-                    <IconComponent 
-                      size={24} 
-                      className={`${badge.earned ? 'text-white drop-shadow-sm' : 'text-gray-400'}`}
-                    />
+                      {/* House Roof */}
+                      <motion.path
+                        d="M15 50L50 20L85 50L50 15L15 50Z"
+                        fill="#D97706"
+                        animate={{ rotate: [0, 1, 0] }}
+                        transition={{ duration: 4, repeat: Infinity }}
+                      />
+                      {/* Window */}
+                      <motion.rect
+                        x="40"
+                        y="50"
+                        width="20"
+                        height="15"
+                        fill="white"
+                        animate={{ 
+                          opacity: [1, 0.8, 1],
+                          scale: [1, 1.1, 1]
+                        }}
+                        transition={{ duration: 2, repeat: Infinity }}
+                      />
+                      {/* Door */}
+                      <motion.rect
+                        x="45"
+                        y="65"
+                        width="10"
+                        height="15"
+                        fill="white"
+                        animate={{ scaleY: [1, 1.05, 1] }}
+                        transition={{ duration: 2.5, repeat: Infinity }}
+                      />
+                    </motion.svg>
+    
+                    {/* Tag Icon */}
+                    <motion.svg 
+                      className="w-8 h-8 absolute -top-2 -right-2" 
+                      viewBox="0 0 60 60" 
+                      fill="none"
+                      whileHover={{ rotate: 360 }}
+                      transition={{ duration: 0.8 }}
+                    >
+                      <motion.path
+                        d="M5 25L25 5H50V25L30 45L5 25Z"
+                        fill="#E97451"
+                        animate={{ 
+                          rotate: [0, 5, -5, 0],
+                          scale: [1, 1.1, 1]
+                        }}
+                        transition={{ duration: 3, repeat: Infinity }}
+                      />
+                      <motion.circle
+                        cx="38"
+                        cy="17"
+                        r="4"
+                        fill="white"
+                        animate={{ 
+                          scale: [1, 1.3, 1],
+                          opacity: [1, 0.7, 1]
+                        }}
+                        transition={{ duration: 1.5, repeat: Infinity }}
+                      />
+                    </motion.svg>
                   </motion.div>
-                  
-                  {/* Enhanced sparkle effects */}
-                  {badge.earned && (
-                    <>
-                      <motion.div
-                        className="absolute -top-1 -right-1 w-3 h-3 bg-gradient-to-r from-yellow-400 to-orange-500 rounded-full shadow-md"
-                        animate={{ 
-                          scale: [1, 1.5, 1, 1.3, 1],
-                          rotate: [0, 180, 360],
-                          boxShadow: [
-                            "0 0 5px rgba(255,215,0,0.5)",
-                            "0 0 15px rgba(255,165,0,0.8)",
-                            "0 0 5px rgba(255,215,0,0.5)"
-                          ]
-                        }}
-                        transition={{ 
-                          duration: 2,
-                          repeat: Infinity,
-                          ease: "easeInOut",
-                          delay: index * 0.2
-                        }}
-                      />
-                      <motion.div
-                        className="absolute -bottom-1 -left-1 w-2 h-2 bg-gradient-to-r from-pink-400 to-purple-500 rounded-full shadow-md"
-                        animate={{ 
-                          scale: [1, 1.8, 1, 1.4, 1],
-                          rotate: [0, -180, -360],
-                          x: [0, 2, -2, 0],
-                          y: [0, -2, 2, 0]
-                        }}
-                        transition={{ 
-                          duration: 2.5,
-                          repeat: Infinity,
-                          ease: "easeInOut",
-                          delay: index * 0.3
-                        }}
-                      />
-                      <motion.div
-                        className="absolute top-1/2 -left-2 w-1.5 h-1.5 bg-gradient-to-r from-blue-400 to-cyan-500 rounded-full shadow-md"
-                        animate={{ 
-                          scale: [0, 1.2, 0],
-                          rotate: [0, 720],
-                          opacity: [0, 1, 0]
-                        }}
-                        transition={{ 
-                          duration: 3,
-                          repeat: Infinity,
-                          ease: "easeInOut",
-                          delay: index * 0.4
-                        }}
-                      />
-                    </>
-                  )}
-                </motion.div>
-
-                {/* Badge Label with bounce effect */}
-                <motion.div 
-                  className="mt-3 text-center"
-                  animate={badge.earned ? {
-                    y: [0, -2, 0]
-                  } : {}}
-                  transition={{
-                    duration: 2,
-                    repeat: Infinity,
-                    ease: "easeInOut",
-                    delay: index * 0.5
-                  }}
-                >
-                  <motion.span 
-                    className={`text-xs font-semibold ${badge.earned ? 'text-gray-700' : 'text-gray-400'}`}
-                    animate={badge.earned ? {
-                      color: [
-                        "#374151",
-                        getBadgeTextColor(badge.color),
-                        "#374151"
-                      ]
-                    } : {}}
-                    transition={{
-                      duration: 3,
-                      repeat: Infinity,
-                      ease: "easeInOut",
-                      delay: index * 0.6
-                    }}
-                  >
-                    {badge.name}
-                  </motion.span>
-                  <motion.p 
-                    className={`text-xs mt-1 ${badge.earned ? 'text-gray-600' : 'text-gray-400'}`}
-                    animate={badge.earned ? {
-                      opacity: [0.6, 1, 0.6]
-                    } : {}}
-                    transition={{
-                      duration: 2,
-                      repeat: Infinity,
-                      ease: "easeInOut",
-                      delay: index * 0.4
-                    }}
-                  >
-                    {badge.description}
-                  </motion.p>
-                </motion.div>
-              </motion.div>
-          );
-        })}
-      </div>
-
-      <motion.div
-        className="bg-white rounded-lg p-4 border border-orange-100 relative overflow-hidden"
-        initial={{ opacity: 0, y: 10, scale: 0.95 }}
-        animate={{ opacity: 1, y: 0, scale: 1 }}
-        transition={{ delay: 0.8, type: "spring", stiffness: 100 }}
-        whileHover={{ 
-          scale: 1.02,
-          boxShadow: "0 10px 30px rgba(255,165,0,0.2)"
-        }}
-      >
-        {/* Animated background gradient */}
-        <motion.div
-          className="absolute inset-0 bg-gradient-to-r from-orange-100 via-pink-100 to-orange-100 opacity-50"
-          animate={{
-            x: [-100, 100, -100],
-            opacity: [0.3, 0.6, 0.3]
-          }}
-          transition={{
-            duration: 4,
-            repeat: Infinity,
-            ease: "easeInOut"
-          }}
-        />
-        
-        <div className="flex items-center justify-between relative z-10">
-          <div className="flex items-center gap-3">
-            <div className="flex -space-x-1">
-              {[...Array(3)].map((_, i) => (
-                <motion.div
-                  key={`progress-badge-${i}`}
-                  className="w-6 h-6 bg-gradient-to-r from-orange-400 to-pink-500 rounded-full border-2 border-white flex items-center justify-center shadow-lg"
-                  initial={{ scale: 0, rotate: -180 }}
-                  animate={{ scale: 1, rotate: 0 }}
-                  transition={{ 
-                    delay: 1 + i * 0.2, 
-                    type: "spring",
-                    stiffness: 200,
-                    damping: 10
-                  }}
-                  whileHover={{ 
-                    scale: 1.3,
-                    rotate: 360,
-                    boxShadow: "0 0 15px rgba(255,165,0,0.6)"
-                  }}
-                >
-                  <motion.span 
-                    className="text-xs text-white font-bold"
-                    animate={{
-                      scale: [1, 1.2, 1],
-                      rotate: [0, 5, -5, 0]
-                    }}
-                    transition={{
-                      duration: 2,
-                      repeat: Infinity,
-                      ease: "easeInOut",
-                      delay: i * 0.3
-                    }}
-                  >
-                    {i + 1}
-                  </motion.span>
-                </motion.div>
-              ))}
+    
+                  {/* Subox Text */}
+                  <motion.div className="flex flex-col text-3xl font-bold text-white">
+                      Subox
+                  </motion.div>
+                </div>
+                <p className="text-white text-sm mt-4 px-3">
+                  Find the perfect short-term housing solution near your campus and needed items.
+                </p>
+              </ul>
             </div>
-            <motion.span 
-              className="text-sm text-gray-700 font-medium"
-              animate={{
-                color: ["#374151", "#f59e0b", "#374151"]
-              }}
-              transition={{
-                duration: 3,
-                repeat: Infinity,
-                ease: "easeInOut"
-              }}
-            >
-              3/5 badges earned
-            </motion.span>
-          </div>
-          <motion.button
-            className="px-4 py-2 bg-gradient-to-r from-orange-500 to-pink-500 text-white text-sm font-medium rounded-lg shadow-md hover:shadow-lg transition-all duration-200 relative overflow-hidden"
-            whileHover={{ 
-              scale: 1.08,
-              boxShadow: "0 0 20px rgba(255,165,0,0.4)"
-            }}
-            whileTap={{ scale: 0.95 }}
-            animate={{
-              boxShadow: [
-                "0 4px 15px rgba(255,165,0,0.2)",
-                "0 8px 25px rgba(255,165,0,0.4)",
-                "0 4px 15px rgba(255,165,0,0.2)"
-              ]
-            }}
-            transition={{
-              duration: 2,
-              repeat: Infinity,
-              ease: "easeInOut"
-            }}
-          >
-            {/* Button shine effect */}
-            <motion.div
-              className="absolute inset-0 bg-gradient-to-r from-transparent via-white to-transparent opacity-20"
-              animate={{
-                x: [-100, 100],
-                opacity: [0, 0.5, 0]
-              }}
-              transition={{
-                duration: 2,
-                repeat: Infinity,
-                ease: "easeInOut",
-                repeatDelay: 1
-              }}
-            />
-            <span className="relative z-10">Complete Profile</span>
-          </motion.button>
-        </div>
-      </motion.div>
 
-      <motion.p
-        className="text-xs text-center text-gray-600 mt-3 relative"
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 1.2 }}
-      >
-        <motion.span
-          animate={{
-            scale: [1, 1.1, 1],
-            color: ["#6b7280", "#f59e0b", "#ec4899", "#6b7280"]
-          }}
-          transition={{
-            duration: 3,
-            repeat: Infinity,
-            ease: "easeInOut"
-          }}
-        >
-          ✨ Badge holders get 3x more visibility and higher success rates
-        </motion.span>
-        {/* Floating sparkles around text */}
-        {[...Array(5)].map((_, i) => (
-          <motion.span
-            key={`sparkle-${i}`}
-            className="absolute text-yellow-400 text-xs"
-            style={{
-              left: `${20 + i * 15}%`,
-              top: `${-10 + (i % 2) * 20}px`
-            }}
-            animate={{
-              y: [0, -5, 0],
-              opacity: [0.3, 1, 0.3],
-              scale: [0.5, 1, 0.5],
-              rotate: [0, 180, 360]
-            }}
-            transition={{
-              duration: 2,
-              repeat: Infinity,
-              ease: "easeInOut",
-              delay: i * 0.4
-            }}
-          >
-            ✨
-          </motion.span>
-        ))}
-      </motion.p>
-    </motion.div>
+            {/* Sublease */}
+            <div className="px-4">
+              <h4 className="font-bold mb-4">Sublease</h4>
+              <ul className="space-y-2">
+                <li><a href="/sale/browse" className="hover:underline">Home</a></li>
+                <li><a href="/search" className="hover:underline">Search</a></li>
+                <li><a href="#" className="hover:underline">List Your Space</a></li>
+                <li><a href="/help" className="hover:underline">Campus Map</a></li>
+              </ul>
+            </div>
+
+            {/* Move out sale */}
+            <div>
+              <h4 className="font-bold mb-4">Move Out Sale</h4>
+              <ul className="space-y-2">
+                <li><a href="/sale/browse" className="hover:underline">Browse Items</a></li>
+                <li><a href="#" className="hover:underline">Post Your Items</a></li>
+                <li><a href="#" className="hover:underline">See Favorites</a></li>
+                <li><a href="#" className="hover:underline">Blog</a></li>
+              </ul>
+            </div>
+
+            {/* Support */}
+            <div>
+              <h3 className="text-2xl font-bold mb-4">Support</h3>
+              <p className="text-lg">Need help?</p>
+              <a
+                href="/help"
+                id='help'
+                className="inline-block mt-3 px-6 py-3 bg-white text-orange-600 font-semibold rounded-full shadow hover:bg-orange-600 hover:text-white transition"
+              >
+                Visit Help Center
+              </a>
+            </div>
+          </div>
+
+          {/* Divider */}
+          <div className="border-t border-white/30 my-10"></div>
+
+          {/* Bottom Grid: 4 more sections */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-8 text-center md:text-left">
+            {/* About Subox */}
+            <div>
+              <h3 className="text-2xl font-bold mb-4">About Subox</h3>
+              <p className="text-lg text-white text-sm">
+                A Minnesota-focused marketplace for sublets and moving sales. Built for speed, trust, and simplicity.
+              </p>
+            </div>
+
+            {/* Get Started */}
+            <div>
+              <h3 className="text-2xl font-bold mb-4">Get Started</h3>
+              <ul className="space-y-2 text-lg">
+                <li><a href="auth" className="hover:underline">Log in</a></li>
+                <li><a href="auth?mode=signup" className="hover:underline">Sign up</a></li>
+              </ul>
+            </div>
+
+            {/* Resources */}
+            <div>
+              <h3 className="text-2xl font-bold mb-4">Resources</h3>
+              <ul className="space-y-2 text-lg">
+                <li><a href="#features" className="hover:underline">Features</a></li>
+                <li><a href="#use-cases" className="hover:underline">Use Cases</a></li>
+                <li><a href="#how-it-works" className="hover:underline">How it Works</a></li>
+              </ul>
+            </div>
+          </div>
+
+          {/* Copyright */}
+          <div className="mt-10 pt-10 border-t border-white/30 text-center text-sm text-orange-100">
+            © {new Date().getFullYear()} Subox. All rights reserved.
+          </div>
+        </div>
+      </footer>
+
+    </div>
   );
 };
+
 const NetworkFeatureDemo = () => (
   <motion.div 
     className="bg-purple-50 rounded-lg p-4 border border-purple-200"
@@ -2451,1667 +1408,229 @@ const NetworkFeatureDemo = () => (
   </motion.div>
 );
 
-// CTA Section Component
-const CTASection = () => {
-  const ref = useRef(null);
-  const isInView = useInView(ref, { once: true });
-  
+// Use Cases
+// Inside your homepage file, near the top (after imports):
+
+const useCases = [
+  {
+    title: "Post",
+    description: "Subox helps you post your sublease easy and fast with AI.",
+    image: "post.png",
+  },
+  {
+    title: "Rent",
+    description: "Subox helps you browse verified subleases and contact the host instantly.",
+    image: "rent.png",
+  },  
+  {
+    title: "Sell",
+    description: "Subox helps you sell your product easy and fast through AI auto listing.",
+    image: ["movesale.png", "sell.png", "sell2.png"]
+  },
+  {
+    title: "Buy",
+    description: "Subox helps you discover great deals on moving sale products from fellow students, alumnis, and users in Minnesota",
+    image: "movebrowse.png",
+  },
+];
+
+function UseCasesSection() {
+  const [activeIndex, setActiveIndex] = useState(0);
+  const containerRef = useRef(null);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      if (!containerRef.current) return;
+
+      const sections = Array.from(
+        containerRef.current.querySelectorAll(".use-case-explanation")
+      );
+
+      const scrollTop = window.scrollY + window.innerHeight / 2;
+
+      for (let i = 0; i < sections.length; i++) {
+        const section = sections[i];
+        const offsetTop = section.offsetTop;
+        const offsetBottom = offsetTop + section.offsetHeight;
+
+        if (scrollTop >= offsetTop && scrollTop < offsetBottom) {
+          setActiveIndex(i);
+          break;
+        }
+      }
+    };
+
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    handleScroll();
+
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+
   return (
-    <motion.section 
-      ref={ref}
-      className="relative z-10 max-w-7xl mx-auto px-6 py-20"
+    <motion.section
+      ref={containerRef}
+      id="use-cases"
+      className='relative z-10 max-w-7x1 mx-auto px-6 py-20'
     >
-      <motion.div
-        initial={{ opacity: 0, y: 100, scale: 0.8 }}
-        animate={isInView ? { 
-          opacity: 1, 
-          y: 0, 
-          scale: 1 
-        } : { 
-          opacity: 0, 
-          y: 100, 
-          scale: 0.8 
-        }}
-        transition={{ duration: 1, ease: "easeOut" }}
-        className="text-center bg-gradient-to-r from-orange-500 to-orange-600 rounded-3xl p-16 text-white relative overflow-hidden"
+      <section
+        ref={containerRef}
+        className="max-w-7xl mx-auto px-6 py-20 flex flex-col md:flex-row gap-10"
+        style={{ minHeight: "600px" }}
       >
-        {/* Animated Background Elements */}
-        <motion.div
-          className="absolute inset-0 bg-gradient-to-r from-orange-600/50 to-transparent"
-          animate={{
-            backgroundPosition: ["0% 50%", "100% 50%", "0% 50%"],
-          }}
-          transition={{ duration: 5, repeat: Infinity }}
-        />
-        
-        <div className="relative z-10">
-          <motion.h2 
-            className="text-4xl md:text-5xl font-bold mb-6"
-            initial={{ opacity: 0, y: 30 }}
-            animate={isInView ? { opacity: 1, y: 0 } : { opacity: 0, y: 30 }}
-            transition={{ delay: 0.3, duration: 0.8 }}
-          >
-            Ready to revolutionize your student life?
-          </motion.h2>
-          <motion.p 
-            className="text-xl text-orange-100 mb-8 max-w-2xl mx-auto"
-            initial={{ opacity: 0, y: 20 }}
-            animate={isInView ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }}
-            transition={{ delay: 0.5, duration: 0.8 }}
-          >
-            Join thousands of students already using Subox to sell items instantly and find perfect housing
-          </motion.p>
-          <motion.button
-            className="px-8 py-4 bg-white text-orange-600 font-bold text-lg rounded-xl shadow-xl hover:shadow-2xl transition-all"
-            whileHover={{ 
-              scale: 1.05, 
-              y: -5,
-              boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.25)" 
-            }}
-            whileTap={{ scale: 0.95 }}
-            initial={{ opacity: 0, y: 20 }}
-            animate={isInView ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }}
-            transition={{ delay: 0.7, duration: 0.8 }}
-          >
-            Start Selling in Seconds
-            <motion.span
-              className="inline-block ml-2"
-              animate={{ x: [0, 5, 0] }}
-              transition={{ duration: 1, repeat: Infinity }}
+        <div className="hidden md:block md:w-1/2 sticky top-20 h-[400px]">
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={useCases[activeIndex].image}
+              initial={{ opacity: 0, x: -50 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 50 }}
+              transition={{ duration: 0.5 }}
+              className="w-full h-full"
             >
-              <ArrowRight size={20} />
-            </motion.span>
-          </motion.button>
+            {Array.isArray(useCases[activeIndex].image) ? (
+                <Swiper
+                  modules={[Navigation, Autoplay]}
+                  spaceBetween={20}
+                  slidesPerView={1}
+                  navigation
+                  autoplay={{ delay: 3000, disableOnInteraction: false }}
+                  loop
+                >
+                  {useCases[activeIndex].image.map((imgSrc, idx) => (
+                    <SwiperSlide key={imgSrc}>
+                      <img
+                        src={imgSrc}
+                        alt={`Slide ${idx}`}
+                        className="w-full h-full object-contain rounded-xl shadow-lg"
+                      />
+                    </SwiperSlide>
+                  ))}
+                </Swiper>
+              ) : (
+                <img
+                  src={useCases[activeIndex].image}
+                  alt={useCases[activeIndex].title}
+                  className="w-full h-full object-contain rounded-xl shadow-lg"
+                />
+              )}
+            </motion.div>
+          </AnimatePresence>
         </div>
-      </motion.div>
+
+        <div className="md:w-1/2 flex flex-col gap-20">
+          {useCases.map((useCase, i) => (
+            <div
+              key={useCase.title}
+              className="use-case-explanation cursor-pointer"
+              onClick={() => setActiveIndex(i)}
+            >
+              <h3
+                className={`text-3xl font-bold mb-4 ${
+                  i === activeIndex ? "text-orange-500" : "text-gray-700"
+                }`}
+              >
+                {useCase.title}
+              </h3>
+              <p className="text-lg text-gray-600 max-w-xl">{useCase.description}</p>
+            </div>
+          ))}
+        </div>
+      </section>
     </motion.section>
   );
-};
+}
 
-const CameraDemo = ({ capturedItems, setCapturedItems }) => {
-  const [isCapturing, setIsCapturing] = useState(false);
-  const [showScanner, setShowScanner] = useState(false);
-  const [showDetection, setShowDetection] = useState(false);
-  const [imageLoaded, setImageLoaded] = useState(false);
-  const fileInputRef = useRef(null);
-
-  // Real detected items with accurate positioning for the actual photo
-  const detectedItems = [
-    { 
-      id: 1, 
-      name: "Wooden Desk", 
-      confidence: 92, 
-      price: 85, 
-      selected: true,
-      category: "Furniture",
-      condition: "Good",
-      position: { 
-        left: "15%",
-        top: "55%",
-        width: "65%",
-        height: "35%"
-      }
-    },
-    { 
-      id: 2, 
-      name: "Office Chair", 
-      confidence: 88, 
-      price: 45, 
-      selected: true,
-      category: "Furniture", 
-      condition: "Excellent",
-      position: { 
-        left: "60%",
-        top: "25%",
-        width: "35%",
-        height: "65%"
-      }
-    },
-    { 
-      id: 3, 
-      name: "Table Lamp", 
-      confidence: 79, 
-      price: 25, 
-      selected: false,
-      category: "Electronics",
-      condition: "Good",
-      position: { 
-        left: "8%",
-        top: "15%",
-        width: "25%",
-        height: "30%"
-      }
-    }
-  ];
-
-  const handleCapture = () => {
-    setIsCapturing(true);
-    setTimeout(() => {
-      // Add the selected items from detection to captured items
-      const selectedItems = detectedItems.filter(item => item.selected);
-      const newItems = selectedItems.map(item => ({
-        id: Date.now() + item.id,
-        name: item.name,
-        image: `item-${item.id}`,
-        category: item.category,
-        price: item.price,
-        condition: item.condition,
-      }));
-      
-      setCapturedItems(prev => [...prev, ...newItems]);
-      setIsCapturing(false);
-      setShowScanner(false);
-      setShowDetection(true);
-    }, 3000);
-  };
-
-  const startCapture = () => {
-    setShowScanner(true);
-    setShowDetection(false);
-    setTimeout(handleCapture, 500);
-  };
-
-
-
-  const resetView = () => {
-    setShowDetection(false);
-    setShowScanner(false);
-    setIsCapturing(false);
-  };
-
-  const handleFileUpload = (event) => {
-    const file = event.target.files[0];
-    if (file && file.type.startsWith('image/')) {
-      // Process the uploaded image
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        // Here you would typically process the image
-        // For now, we'll simulate the same detection process
-        startCapture();
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
+// How it works
+const HowItWorksSection = ({ howY }) => {
+  const ref = useRef(null);
+  const isInView = useInView(ref, { once: true, amount: 0.3 });
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h3 className="text-2xl font-bold text-gray-900">Capture Your Items</h3>
-        <div className="flex gap-2">
-          <div className="w-3 h-3 bg-red-400 rounded-full" />
-          <div className="w-3 h-3 bg-yellow-400 rounded-full" />
-          <div className="w-3 h-3 bg-green-400 rounded-full" />
-        </div>
-      </div>
-      
-      {/* iPhone Camera Interface */}
-      <div className="flex items-center justify-center bg-gray-100 rounded-xl p-6">
-        <div className="relative">
-          {/* Flash Effect */}
-          {isCapturing && (
-            <motion.div
-              className="absolute inset-0 bg-white z-30 rounded-[55px]"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: [0, 1, 0] }}
-              transition={{ duration: 0.3 }}
-            />
-          )}
-          
-          {/* iPhone Frame */}
-          <svg
-            viewBox="0 0 375 812"
-            width="300"
-            height="650"
-            className="drop-shadow-2xl"
-          >
-          {/* Outer frame */}
-          <rect
-            x="0"
-            y="0"
-            width="375"
-            height="812"
-            rx="55"
-            fill="#2a2a2a"
-            stroke="#1a1a1a"
-            strokeWidth="2"
-          />
-          
-          {/* Screen bezel */}
-          <rect
-            x="8"
-            y="8"
-            width="359"
-            height="796"
-            rx="47"
-            fill="#000"
-          />
-          
-          {/* Screen */}
-          <rect
-            x="12"
-            y="12"
-            width="351"
-            height="788"
-            rx="43"
-            fill="#000"
-          />
-          
-          {/* Camera viewfinder - blurred home interior */}
-          <rect
-            x="12"
-            y="50"
-            width="351"
-            height="600"
-            rx="0"
-            fill="url(#homeGradient)"
-          />
-          
-          {/* Gradient for home interior */}
-          <defs>
-            <linearGradient id="homeGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stopColor="#f5f5dc"/>
-              <stop offset="25%" stopColor="#e6e6e6"/>
-              <stop offset="50%" stopColor="#d3d3d3"/>
-              <stop offset="75%" stopColor="#c8b99c"/>
-              <stop offset="100%" stopColor="#8b7355"/>
-            </linearGradient>
-            
-            {/* Blur filter for background */}
-            <filter id="blur" x="0" y="0" width="100%" height="100%">
-              <feGaussianBlur in="SourceGraphic" stdDeviation="3"/>
-            </filter>
-          </defs>
-          
-          {/* Top camera controls */}
-          <circle cx="45" cy="32" r="12" fill="rgba(255,255,255,0.2)"/>
-          <text x="41" y="36" fill="white" fontSize="10">⚡</text>
-          
-          <circle cx="330" cy="32" r="12" fill="rgba(255,255,255,0.2)"/>
-          <text x="327" y="36" fill="white" fontSize="10">⚙</text>
-          
-          {/* Zoom level indicators */}
-          <text x="80" y="580" fill="white" fontSize="14" textAnchor="middle" opacity="0.7">.5</text>
-          <circle cx="140" cy="580" r="15" fill="rgba(255,255,255,0.3)"/>
-          <text x="140" y="585" fill="yellow" fontSize="12" textAnchor="middle" fontWeight="bold">1x</text>
-          <text x="200" y="580" fill="white" fontSize="14" textAnchor="middle" opacity="0.7">2</text>
-          <text x="260" y="580" fill="white" fontSize="14" textAnchor="middle" opacity="0.7">5</text>
-          
-          {/* Camera controls overlay */}
-          <rect
-            x="12"
-            y="650"
-            width="351"
-            height="150"
-            fill="rgba(0,0,0,0.8)"
-          />
-          
-          {/* Camera mode selector */}
-          <text x="50" y="675" fill="white" fontSize="11" textAnchor="middle">SLO-MO</text>
-          <text x="120" y="675" fill="white" fontSize="11" textAnchor="middle">VIDEO</text>
-          <text x="188" y="675" fill="yellow" fontSize="11" textAnchor="middle" fontWeight="bold">PHOTO</text>
-          <text x="256" y="675" fill="white" fontSize="11" textAnchor="middle">PORTRAIT</text>
-          <text x="320" y="675" fill="white" fontSize="11" textAnchor="middle">PANO</text>
-          
-          {/* Interactive Camera button */}
-          <motion.circle 
-            cx="188" 
-            cy="720" 
-            r="35" 
-            fill="white"
-            className="cursor-pointer"
-            onClick={startCapture}
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-          />
-          <motion.circle 
-            cx="188" 
-            cy="720" 
-            r="30" 
-            fill="white" 
-            stroke="#ddd" 
-            strokeWidth="3"
-            className="cursor-pointer"
-            onClick={startCapture}
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-          />
-          
-          {/* Gallery thumbnail */}
-          <rect x="50" y="700" width="30" height="30" rx="5" fill="#4682B4"/>
-          <rect x="52" y="702" width="26" height="26" rx="3" fill="#87CEEB"/>
-          
-          {/* Flip camera button */}
-          <circle cx="320" cy="720" r="20" fill="rgba(255,255,255,0.2)"/>
-          <text x="315" y="725" fill="white" fontSize="14">↻</text>
-          
-          {/* Home indicator */}
-          <rect x="150" y="780" width="75" height="4" rx="2" fill="white" fillOpacity="0.8"/>
-        </svg>
-
-          
-          {/* Scanner overlay when scanning */}
-          {showScanner && (
-            <div 
-              className="absolute z-20"
-              style={{
-                top: '6.2%',
-                left: '3.2%',
-                width: '93.6%',
-                height: '87.6%'
-              }}
-            >
-              <motion.div
-                className="absolute inset-4 border-2 border-orange-400 rounded-lg"
-                animate={{ 
-                  scale: [1, 1.02, 1],
-                  borderColor: ['#fb923c', '#f97316', '#fb923c']
-                }}
-                transition={{ duration: 2, repeat: Infinity }}
-              />
-              
-              {/* Scanner Line */}
-              <motion.div
-                className="absolute left-4 right-4 h-1 bg-gradient-to-r from-transparent via-orange-400 to-transparent"
-                animate={{ y: [16, 400, 16] }}
-                transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
-              />
-              
-              {/* Corner Markers */}
-              {[
-                { top: '16px', left: '16px' },
-                { top: '16px', right: '16px' },
-                { bottom: '16px', left: '16px' },
-                { bottom: '16px', right: '16px' }
-              ].map((position, i) => (
-                <motion.div
-                  key={i}
-                  className="absolute w-6 h-6 border-2 border-orange-400"
-                  style={{
-                    ...position,
-                    borderRadius: i === 0 ? '8px 0 0 0' : 
-                               i === 1 ? '0 8px 0 0' :
-                               i === 2 ? '0 0 0 8px' : '0 0 8px 0'
-                  }}
-                  animate={{
-                    scale: [1, 1.2, 1],
-                    borderColor: ['#fb923c', '#f97316', '#fb923c']
-                  }}
-                  transition={{ duration: 1, repeat: Infinity, delay: i * 0.2 }}
-                />
-              ))}
-              
-              {/* AI Detection Processing */}
-              {isCapturing && (
-                <motion.div
-                  className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-black/70 text-white px-4 py-2 rounded-lg"
-                  initial={{ opacity: 0, scale: 0 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ delay: 0.5 }}
-                >
-                  <div className="flex items-center gap-2">
-                    <motion.div
-                      animate={{ rotate: 360 }}
-                      transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                    >
-                      <Sparkles size={16} />
-                    </motion.div>
-                    <span className="text-sm">Processing...</span>
-                  </div>
-                </motion.div>
-              )}
-            </div>
-          )}
-          
-          {/* Detection overlay when showing results */}
-          {showDetection && (
-            <div 
-              className="absolute z-20"
-              style={{
-                top: '6.2%',
-                left: '3.2%',
-                width: '93.6%',
-                height: '73.9%'
-              }}
-            >
-              <img 
-                src="/Picture.png" 
-                alt="Furniture detection"
-                className="w-full h-full object-cover rounded-lg"
-                onLoad={() => setImageLoaded(true)}
-              />
-              
-              {/* Detection boxes positioned for real photo */}
-              {detectedItems.map((item, idx) => {
-                const isSelected = item.selected;
-                
-                return (
-                  <motion.div
-                    key={item.id}
-                    initial={{ opacity: 0, scale: 0 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    transition={{ delay: idx * 0.4 }}
-                    className={`absolute rounded-lg transition-all duration-300 ${
-                      isSelected 
-                        ? "border-3 border-green-400" 
-                        : "border-3 border-red-500"
-                    }`}
-                    style={{
-                      left: item.position.left,
-                      top: item.position.top,
-                      width: item.position.width,
-                      height: item.position.height
-                    }}
-                  >
-                    {/* Detection label */}
-                    <div 
-                      className={`absolute ${
-                        item.id === 3 ? '-top-10' : '-bottom-10'
-                      } left-0 flex items-center space-x-2 px-3 py-2 rounded-full text-white text-sm font-medium whitespace-nowrap ${
-                        isSelected ? "bg-green-500" : "bg-gray-700"
-                      }`}
-                      style={{
-                        maxWidth: '200px',
-                        fontSize: '12px'
-                      }}
-                    >
-                      {isSelected ? (
-                        <CheckCircle size={16} className="text-white" />
-                      ) : (
-                        <XCircle size={16} className="text-white" />
-                      )}
-                      <span>
-                        {item.name} 
-                      </span>
-                    </div>
-                    
-                    {/* Pulse animation for selected items */}
-                    {isSelected && (
-                      <motion.div
-                        className="absolute inset-0 border-2 border-green-300 rounded-lg"
-                        animate={{ 
-                          opacity: [0.3, 0.7, 0.3]
-                        }}
-                        transition={{ 
-                          duration: 2, 
-                          repeat: Infinity,
-                          ease: "easeInOut"
-                        }}
-                      />
-                    )}
-                  </motion.div>
-                );
-              })}
-              
-              {/* AI Status */}
-              <motion.div 
-                className="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white px-4 py-2 rounded-lg text-sm font-medium shadow-xl flex items-center space-x-2 border border-gray-600"
-                animate={{ 
-                  opacity: [0.8, 1, 0.8]
-                }}
-                transition={{ 
-                  duration: 2, 
-                  repeat: Infinity,
-                  ease: "easeInOut"
-                }}
-              >
-                <Brain size={16} className="text-blue-400" />
-                <span> Detected {detectedItems.filter(i => i.selected).length} items</span>
-              </motion.div>
-            </div>
-          )}
-        </div>
-      </div>
-      
-      {/* Action Buttons */}
-      <div className="grid grid-cols-1 gap-3">
-        <motion.button 
-          onClick={() => fileInputRef.current?.click()}
-          className="flex items-center justify-center gap-2 p-4 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl font-medium shadow-lg"
-          whileHover={{ scale: 1.02, y: -2 }}
-          whileTap={{ scale: 0.98 }}
-        >
-          <Upload size={18} />
-          Upload Photo from Desktop
-        </motion.button>
-        
-        {/* Hidden file input */}
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/*"
-          onChange={handleFileUpload}
-          className="hidden"
-        />
-      </div>
-
-      {/* Reset Button when showing detection */}
-      {showDetection && (
-        <motion.button
-          onClick={resetView}
-          className="w-full p-3 bg-gray-500 text-white rounded-xl font-medium shadow-lg flex items-center justify-center gap-2"
-          whileHover={{ scale: 1.02 }}
-          whileTap={{ scale: 0.98 }}
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-        >
-          <Camera size={18} />
-          Reset View
-        </motion.button>
-      )}
-      
-      {/* Recently Captured Items */}
-      {capturedItems.length > 0 && (
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="space-y-3"
-        >
-          <h4 className="text-lg font-semibold text-gray-800">Recently Captured</h4>
-          <div className="grid grid-cols-2 gap-3">
-            {capturedItems.slice(-4).map((item, i) => (
-              <motion.div
-                key={item.id}
-                initial={{ opacity: 0, scale: 0 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: i * 0.1 }}
-                className="bg-white rounded-lg border border-gray-200 p-3 shadow-sm"
-              >
-                <div className="w-full h-16 bg-gradient-to-br from-blue-200 to-blue-300 rounded-lg mb-2" />
-                <div className="text-sm font-medium truncate">{item.name}</div>
-                <div className="text-xs text-gray-500">{item.category}</div>
-                <div className="text-orange-600 font-bold text-sm">${item.price}</div>
-                {item.confidence && (
-                  <div className="text-xs text-green-600">AI: {item.confidence}%</div>
-                )}
-              </motion.div>
-            ))}
-          </div>
-        </motion.div>
-      )}
-
-    </div>
-  );
-};
-
-
-const AIProcessingDemo = ({ capturedItems, isGenerating, onDescriptionGenerate, onAIComplete }) => {
-  const [processingStep, setProcessingStep] = useState(0);
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [analysisResults, setAnalysisResults] = useState(null);
-  const [descriptionVariants, setDescriptionVariants] = useState([]);
-  const [selectedVariant, setSelectedVariant] = useState(0);
-  const [showDetailedAnalysis, setShowDetailedAnalysis] = useState(false);
-  
-  const descriptionSteps = [
-    { 
-      label: "Analyzing item details...", 
-      icon: <Eye size={20} />, 
-      color: "blue",
-      description: "Processing item name, condition, and pricing"
-    },
-    { 
-      label: "Understanding context...", 
-      icon: <Brain size={20} />, 
-      color: "purple",
-      description: "Evaluating delivery options and location"
-    },
-    { 
-      label: "Crafting compelling language...", 
-      icon: <MessageSquare size={20} />, 
-      color: "green",
-      description: "Generating persuasive marketing copy"
-    },
-    { 
-      label: "Optimizing for engagement...", 
-      icon: <Target size={20} />, 
-      color: "orange",
-      description: "Adding keywords and emotional triggers"
-    },
-    { 
-      label: "Finalizing description...", 
-      icon: <Sparkles size={20} />, 
-      color: "pink",
-      description: "Polishing tone and call-to-action"
-    }
-  ];
-
-  const analyzeItemForDescription = (item) => {
-    // Handle Camera Demo item structure
-    const itemName = item.name || item.itemName || 'Item';
-    const condition = item.condition || 'Good';
-    const price = item.price || 0;
-    const category = item.category || 'General';
-
-    return {
-      itemAnalysis: {
-        name: itemName,
-        condition: condition,
-        price: price,
-        priceType: 'fixed',
-        location: 'Campus Area',
-        delivery: 'pickup',
-        category: category
-      },
-      writingElements: {
-        hook: condition === 'Excellent' ? 'Amazing' : condition === 'Good' ? 'Great' : 'Solid',
-        urgency: 'priced to sell',
-        appeal: category === 'Books' ? 'Perfect for students!' : 
-               category === 'Furniture' ? 'Great for any space!' : 
-               category === 'Electronics' ? 'Tech lovers will love this!' :
-               'Excellent value!',
-        logistics: 'Quick pickup available'
-      },
-      optimizations: [
-        'Added emotional appeal',
-        'Included target audience',
-        'Emphasized value proposition',
-        'Clear call-to-action',
-        'Location-specific language'
-      ]
-    };
-  };
-
-  const generateDescriptionVariants = (item) => {
-    const analysis = analyzeItemForDescription(item);
-    if (!analysis) return [];
-
-    const { itemAnalysis, writingElements } = analysis;
-    
-    return [
-      {
-        style: "Friendly & Casual",
-        description: `${writingElements.hook} ${itemAnalysis.name} in ${itemAnalysis.condition.toLowerCase()} condition! ${writingElements.appeal} Only ${itemAnalysis.price}. ${writingElements.logistics} near campus. Message me for quick response!`,
-        tags: ["conversational", "approachable", "student-friendly"]
-      },
-      {
-        style: "Professional & Direct",
-        description: `${itemAnalysis.name} available in ${itemAnalysis.condition.toLowerCase()} condition. Priced at ${itemAnalysis.price}. ${writingElements.logistics}. Located near campus. Serious inquiries only.`,
-        tags: ["professional", "concise", "business-like"]
-      },
-      {
-        style: "Enthusiastic & Sales-y",
-        description: `🌟 ${writingElements.hook} ${itemAnalysis.name} - ${itemAnalysis.condition} condition! 🌟 ${writingElements.appeal} Don't miss this fantastic deal at ${itemAnalysis.price}! ${writingElements.logistics}. Perfect addition to your ${itemAnalysis.category === 'Furniture' ? 'home' : itemAnalysis.category === 'Books' ? 'studies' : 'collection'}. Grab it before it's gone! 💯`,
-        tags: ["energetic", "emoji-rich", "urgency-driven"]
-      }
-    ];
-  };
-
-  useEffect(() => {
-    // Auto-trigger AI analysis when new items are captured from Camera Demo
-    if (capturedItems.length > 0 && !isGenerating) {
-      const currentItem = capturedItems[capturedItems.length - 1];
-      setIsAnalyzing(true);
-      setProcessingStep(0);
-      setAnalysisResults(null);
-      setDescriptionVariants([]);
-      
-      const interval = setInterval(() => {
-        setProcessingStep(prev => {
-          const newStep = prev + 1;
-          
-          if (newStep >= descriptionSteps.length) {
-            setIsAnalyzing(false);
-            const analysis = analyzeItemForDescription(currentItem);
-            const variants = generateDescriptionVariants(currentItem);
-            
-            setAnalysisResults(analysis);
-            setDescriptionVariants(variants);
-            setSelectedVariant(0);
-            
-            // Notify parent that AI processing is complete
-            if (onAIComplete) {
-              onAIComplete({
-                item: currentItem,
-                analysis: analysis,
-                descriptions: variants,
-                selectedDescription: variants[0]?.description
-              });
-            }
-            
-            clearInterval(interval);
-            return descriptionSteps.length;
-          }
-          return newStep;
-        });
-      }, 800);
-      
-      return () => clearInterval(interval);
-    }
-  }, [capturedItems.length]);
-
-  const selectDescription = (index) => {
-    setSelectedVariant(index);
-    if (onDescriptionGenerate) {
-      onDescriptionGenerate(descriptionVariants[index].description);
-    }
-  };
-
-  const latestItem = capturedItems[capturedItems.length - 1];
-
-  if (!latestItem) {
-    return (
-      <div className="space-y-6">
-        <div className="flex items-center gap-3">
-          <motion.div
-            animate={{ rotate: [0, 360] }}
-            transition={{ duration: 4, repeat: Infinity, ease: "linear" }}
-          >
-            <Wand2 size={32} className="text-purple-600" />
-          </motion.div>
-          <h3 className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent">
-            AI Description Generator
-          </h3>
-        </div>
-        
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="bg-gradient-to-br from-purple-50 via-blue-50 to-cyan-50 rounded-xl p-12 text-center border border-purple-200"
-        >
-          <motion.div
-            animate={{ scale: [1, 1.1, 1], opacity: [0.5, 1, 0.5] }}
-            transition={{ duration: 3, repeat: Infinity }}
-          >
-            <FileText size={64} className="text-purple-400 mx-auto mb-6" />
-          </motion.div>
-          <div className="text-xl font-semibold text-gray-700 mb-3">AI Writer Ready</div>
-          <div className="text-gray-500 mb-6">Add item details to generate compelling descriptions</div>
-          <div className="grid grid-cols-3 gap-4 text-sm text-gray-400">
-            <div className="flex flex-col items-center gap-2">
-              <Brain size={20} />
-              <span>Smart Analysis</span>
-            </div>
-            <div className="flex flex-col items-center gap-2">
-              <MessageSquare size={20} />
-              <span>Persuasive Copy</span>
-            </div>
-            <div className="flex flex-col items-center gap-2">
-              <Target size={20} />
-              <span>Optimization</span>
-            </div>
-          </div>
-        </motion.div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-6">
-      <div className="flex items-center gap-3">
-        <motion.div
-          animate={{ 
-            rotate: isAnalyzing ? [0, 360] : 0,
-            scale: isAnalyzing ? [1, 1.1, 1] : 1
-          }}
-          transition={{ 
-            rotate: { duration: 2, repeat: isAnalyzing ? Infinity : 0, ease: "linear" },
-            scale: { duration: 1, repeat: isAnalyzing ? Infinity : 0 }
-          }}
-        >
-          <Wand2 size={32} className="text-purple-600" />
-        </motion.div>
-        <h3 className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent">
-          AI Description Generator
-        </h3>
-        {!isAnalyzing && analysisResults && (
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={() => setShowDetailedAnalysis(!showDetailedAnalysis)}
-            className="ml-auto flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg text-sm font-medium shadow-lg"
-          >
-            <Eye size={16} />
-            {showDetailedAnalysis ? 'Hide' : 'Show'} Analysis
-          </motion.button>
-        )}
-      </div>
-      
-      {/* Item Details Summary */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="bg-white rounded-xl p-6 border border-gray-200 shadow-sm"
+    <div className="w-full bg-orange-50">
+      <motion.section
+        ref={ref}
+        id="how-it-works"
+        style={{ y: howY }}
+        className="relative z-10 max-w-7xl mx-auto px-6 py-20"
       >
-        <h4 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
-          <Package size={16} />
-          Item Details Being Analyzed
-        </h4>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="space-y-1">
-            <div className="text-sm text-gray-500">Item Name</div>
-            <div className="font-medium text-gray-900">
-              {latestItem.name || latestItem.itemName || 'Detected Item'}
-            </div>
-          </div>
-          <div className="space-y-1">
-            <div className="text-sm text-gray-500">Category</div>
-            <div className="font-medium text-gray-900">
-              {latestItem.category || 'General'}
-            </div>
-          </div>
-          <div className="space-y-1">
-            <div className="text-sm text-gray-500">Condition</div>
-            <div className="font-medium text-gray-900">
-              {latestItem.condition || 'Good'}
-            </div>
-          </div>
-          <div className="space-y-1">
-            <div className="text-sm text-gray-500">Price</div>
-            <div className="font-medium text-gray-900">
-              ${latestItem.price || 0}
-            </div>
-          </div>
-        </div>
-        
-        {/* Camera Demo items always have data, so no missing data warning needed */}
-        <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-          <div className="flex items-center gap-2 text-blue-800">
-            <CheckCircle size={16} />
-            <span className="text-sm font-medium">AI detected all required details from your photo!</span>
-          </div>
-        </div>
-      </motion.div>
-      
-      {/* AI Processing Animation */}
-      {isAnalyzing && (
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="bg-gradient-to-br from-purple-50 via-blue-50 to-cyan-50 rounded-xl p-6 border border-purple-200 shadow-lg"
+          initial={{ opacity: 0, y: 50 }}
+          animate={isInView ? { opacity: 1, y: 0 } : { opacity: 0, y: 50 }}
+          transition={{ duration: 0.8 }}
+          className="text-center mb-16"
         >
-          <div className="flex items-center gap-4 mb-6">
-            <div className="w-16 h-16 bg-gradient-to-br from-purple-500 to-blue-500 rounded-xl flex items-center justify-center shadow-lg">
-              <Brain size={24} className="text-white" />
-            </div>
-            <div className="flex-1">
-              <div className="font-bold text-xl text-gray-800">Analyzing Item Details</div>
-              <div className="text-sm text-gray-600">AI is crafting your perfect description...</div>
-            </div>
-            <motion.div 
-              className="text-purple-500"
-              animate={{ 
-                rotate: 360,
-                scale: [1, 1.3, 1]
-              }}
-              transition={{ 
-                rotate: { duration: 2, repeat: Infinity, ease: "linear" },
-                scale: { duration: 1, repeat: Infinity }
-              }}
-            >
-              <Sparkles size={28} />
-            </motion.div>
-          </div>
-          
-          <div className="space-y-3">
-            {descriptionSteps.map((step, i) => (
+          <h2 className="text-4xl md:text-6xl font-bold text-gray-900 mb-6">
+            How it<span className="text-orange-500"> works</span>
+          </h2>
+          <p className="text-xl text-gray-700 max-w-3xl mx-auto">
+            A quick look at how to post and rent subleases or sell and buy moving items on Subox.
+          </p>
+        </motion.div>
+        <div className="flex flex-col gap-16">
+          {[
+            {
+              title: <>Post a <span className="text-orange-500">Sublease</span></>,
+              image: "post.png",
+              hoverImage: "/how/post-sublease-anim.gif",
+              description: <>Easily post your sublease with a <span className="text-orange-500">few clicks</span> and <span className="text-orange-500">photos</span>.</>,
+            },            
+            {
+              title: <><span className='text-orange-500'>Rent </span>a Place</>,
+              image: "rent.png",
+              hoverImage: "/how/rent-sublease-anim.gif",
+              description: <>Browse local subleases from trusted <span className="text-orange-500">students</span>, <span className="text-orange-500">alumnis</span>, and <span className="text-orange-500">users in Minnesota</span> and contact directly.</>,
+            },
+            {
+              title: <>Sell a <span className='text-orange-500'>Product</span></>,
+              image: "sell.png",
+              hoverImage: "/how/post-product-anim.gif",
+              description: <>Snap a photo and let <span className="text-orange-500">AI</span> handle the rest of your <span className="text-orange-500">item listing</span>.</>,
+            },
+            {
+              title: <><span className='text-orange-500'>Buy </span>a Product</>,
+              image: "movebrowse.png",
+              hoverImage: "/how/buy-product-anim.gif",
+              description: <>Buy what you need <span className="text-orange-500">easily</span> and <span className="text-orange-500">quickly</span> by contacting directly.</>,
+            },
+          ].map((step, index) => {
+            const isImageLeft = index % 2 === 0;
+            return (
               <motion.div
-                key={i}
-                className={`flex items-center gap-4 p-4 rounded-lg transition-all ${
-                  i < processingStep 
-                    ? 'bg-green-50 border-2 border-green-300 shadow-sm' 
-                    : i === processingStep
-                      ? 'bg-white border-2 border-purple-400 shadow-md' 
-                      : 'bg-gray-50 border border-gray-200'
-                }`}
-                animate={{
-                  scale: i === processingStep ? 1.02 : 1,
-                  opacity: i <= processingStep ? 1 : 0.4
-                }}
-              >
-                <motion.div
-                  animate={i === processingStep ? { 
-                    rotate: 360,
-                    scale: [1, 1.2, 1]
-                  } : {}}
-                  transition={{ 
-                    rotate: { duration: 1.5, repeat: i === processingStep ? Infinity : 0, ease: "linear" },
-                    scale: { duration: 0.8, repeat: i === processingStep ? Infinity : 0 }
-                  }}
-                  className={`${
-                    i < processingStep ? 'text-green-500' : 
-                    i === processingStep ? 'text-purple-500' : 'text-gray-400'
-                  }`}
-                >
-                  {i < processingStep ? <Check size={20} /> : step.icon}
-                </motion.div>
-                <div className="flex-1">
-                  <div className={`font-medium ${
-                    i < processingStep ? 'text-green-700' : 
-                    i === processingStep ? 'text-purple-700' : 'text-gray-500'
-                  }`}>
-                    {step.label}
-                  </div>
-                  <div className="text-xs text-gray-500 mt-1">
-                    {step.description}
-                  </div>
-                </div>
-              </motion.div>
-            ))}
-          </div>
-        </motion.div>
-      )}
-      
-      {/* Detailed Analysis Results */}
-      {showDetailedAnalysis && analysisResults && (
-        <motion.div
-          initial={{ opacity: 0, height: 0 }}
-          animate={{ opacity: 1, height: "auto" }}
-          exit={{ opacity: 0, height: 0 }}
-          className="bg-white rounded-xl p-6 border border-gray-200 shadow-sm"
-        >
-          <h4 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
-            <Brain size={16} className="text-purple-500" />
-            AI Analysis Breakdown
-          </h4>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <h5 className="font-medium text-gray-800 mb-3">Writing Elements Identified</h5>
-              <div className="space-y-2">
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-gray-600">Hook Word:</span>
-                  <span className="text-sm font-medium text-purple-600">
-                    "{analysisResults.writingElements.hook}"
-                  </span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-gray-600">Urgency Level:</span>
-                  <span className="text-sm font-medium text-orange-600">
-                    {analysisResults.writingElements.urgency}
-                  </span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-gray-600">Target Appeal:</span>
-                  <span className="text-sm font-medium text-blue-600">
-                    {analysisResults.writingElements.appeal}
-                  </span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-gray-600">Logistics:</span>
-                  <span className="text-sm font-medium text-green-600">
-                    {analysisResults.writingElements.logistics}
-                  </span>
-                </div>
-              </div>
-            </div>
-            
-            <div>
-              <h5 className="font-medium text-gray-800 mb-3">AI Optimizations Applied</h5>
-              <div className="space-y-2">
-                {analysisResults.optimizations.map((opt, i) => (
-                  <div key={i} className="flex items-center gap-2">
-                    <Check size={14} className="text-green-500" />
-                    <span className="text-sm text-gray-600">{opt}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </motion.div>
-      )}
-      
-      {/* Generated Description Variants */}
-      {!isAnalyzing && descriptionVariants.length > 0 && (
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="space-y-4"
-        >
-          <h4 className="font-semibold text-gray-900 flex items-center gap-2">
-            <MessageSquare size={16} className="text-green-500" />
-            AI-Generated Description Options
-          </h4>
-          
-          {descriptionVariants.map((variant, i) => (
-            <motion.div
-              key={i}
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: i * 0.1 }}
-              whileHover={{ scale: 1.01 }}
-              className={`p-5 rounded-xl border cursor-pointer transition-all ${
-                selectedVariant === i 
-                  ? 'border-purple-300 bg-purple-50 shadow-lg' 
-                  : 'border-gray-200 hover:border-gray-300 bg-white hover:shadow-md'
-              }`}
-              onClick={() => selectDescription(i)}
-            >
-              <div className="flex items-center justify-between mb-3">
-                <h5 className="font-medium text-gray-900">{variant.style}</h5>
-                <div className="flex items-center gap-2">
-                  {selectedVariant === i && (
-                    <span className="text-xs bg-purple-200 text-purple-700 px-2 py-1 rounded-full">
-                      Selected ✓
-                    </span>
-                  )}
-                  <motion.button
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    className="text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1 rounded-full"
-                  >
-                    Use This
-                  </motion.button>
-                </div>
-              </div>
-              
-              <div className="text-gray-700 leading-relaxed mb-3">
-                {variant.description}
-              </div>
-              
-              <div className="flex flex-wrap gap-2">
-                {variant.tags.map((tag, j) => (
-                  <span key={j} className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full">
-                    {tag}
-                  </span>
-                ))}
-              </div>
-            </motion.div>
-          ))}
-          
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="flex items-center justify-center gap-4 pt-4"
-          >
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={() => {
-                // Trigger regeneration
-                if (onDescriptionGenerate) {
-                  onDescriptionGenerate('regenerate');
-                }
-              }}
-              className="flex items-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-lg font-medium"
-            >
-              <RefreshCw size={16} />
-              Generate New Options
-            </motion.button>
-            
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg font-medium"
-            >
-              <CheckCircle size={16} />
-              Confirm Selection
-            </motion.button>
-          </motion.div>
-        </motion.div>
-      )}
-      
-      {/* Camera Demo Auto-Analysis Success */}
-      {!isAnalyzing && descriptionVariants.length === 0 && latestItem && (
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="bg-green-50 rounded-xl p-6 border border-green-200"
-        >
-          <div className="text-center">
-            <CheckCircle size={48} className="text-green-400 mx-auto mb-4" />
-            <h4 className="font-semibold text-green-800 mb-2">AI Analysis Complete!</h4>
-            <p className="text-green-700 mb-4">
-              Successfully analyzed your {latestItem.category || 'item'} and generated smart descriptions.
-            </p>
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={() => {
-                const analysis = analyzeItemForDescription(latestItem);
-                const variants = generateDescriptionVariants(latestItem);
-                setAnalysisResults(analysis);
-                setDescriptionVariants(variants);
-                setSelectedVariant(0);
-              }}
-              className="px-4 py-2 bg-green-600 text-white rounded-lg font-medium"
-            >
-              View AI Descriptions
-            </motion.button>
-          </div>
-        </motion.div>
-      )}
-    </div>
-  );
-};
-
-const ListingDemo = () => {
-  const [compareItems, setCompareItems] = useState(new Set());
-  const [comparisonPriorities, setComparisonPriorities] = useState([]);
-  const [showComparison, setShowComparison] = useState(false);
-  const [animationStep, setAnimationStep] = useState(0);
-
-  // Sample items for demonstration
-  const items = [
-    {
-      id: 1,
-      name: "MacBook Pro 13-inch",
-      category: "Electronics",
-      price: 899,
-      originalPrice: 1299,
-      condition: "Like New",
-      location: "dinkytown",
-      image: "/api/placeholder/300/300",
-      sellerRating: 4.8,
-      views: 127,
-      deliveryAvailable: true,
-      pickupAvailable: true,
-      availableUntil: "2025-12-31",
-      shortDescription: "Perfect for students, barely used laptop with all accessories included."
-    },
-    {
-      id: 2,
-      name: "IKEA Study Desk",
-      category: "Furniture",
-      price: 65,
-      originalPrice: 120,
-      condition: "Good",
-      location: "eastbank",
-      image: "/api/placeholder/300/300",
-      sellerRating: 4.5,
-      views: 89,
-      deliveryAvailable: false,
-      pickupAvailable: true,
-      availableUntil: "2025-11-30",
-      shortDescription: "Sturdy desk perfect for dorm rooms, some minor scratches."
-    },
-    {
-      id: 3,
-      name: "iPhone 14",
-      category: "Electronics",
-      price: 650,
-      originalPrice: 799,
-      condition: "New",
-      location: "westbank",
-      image: "/api/placeholder/300/300",
-      sellerRating: 4.9,
-      views: 203,
-      deliveryAvailable: true,
-      pickupAvailable: false,
-      availableUntil: "2025-12-25",
-      shortDescription: "Brand new, unopened iPhone 14 in original packaging."
-    }
-  ];
-
-  useEffect(() => {
-    // Auto-demo: Add items to comparison with animation
-    const timer = setTimeout(() => {
-      if (animationStep === 0) {
-        setCompareItems(new Set([1]));
-        setAnimationStep(1);
-      } else if (animationStep === 1) {
-        setCompareItems(new Set([1, 2]));
-        setAnimationStep(2);
-      } else if (animationStep === 2) {
-        setCompareItems(new Set([1, 2, 3]));
-        setAnimationStep(3);
-      } else if (animationStep === 3) {
-        setComparisonPriorities(['price', 'condition']);
-        setAnimationStep(4);
-      } else if (animationStep === 4) {
-        setShowComparison(true);
-        setAnimationStep(5);
-      }
-    }, animationStep < 3 ? 1500 : animationStep === 3 ? 2000 : 3000);
-
-    return () => clearTimeout(timer);
-  }, [animationStep]);
-
-  const toggleCompare = (productId) => {
-    const newCompare = new Set(compareItems);
-    if (newCompare.has(productId)) {
-      newCompare.delete(productId);
-    } else if (newCompare.size < 3) {
-      newCompare.add(productId);
-    }
-    setCompareItems(newCompare);
-  };
-
-  const togglePriority = (priority) => {
-    if (comparisonPriorities.includes(priority)) {
-      setComparisonPriorities(comparisonPriorities.filter(p => p !== priority));
-    } else {
-      setComparisonPriorities([...comparisonPriorities, priority]);
-    }
-  };
-
-  // Calculate scores for smart ranking
-  const calculateScore = (product) => {
-    let score = 0;
-    const prices = Array.from(compareItems).map(id => items.find(p => p.id === id)?.price || 0);
-    
-    if (comparisonPriorities.includes('price')) {
-      const minPrice = Math.min(...prices);
-      score += product.price === minPrice ? 25 : (minPrice / product.price) * 25;
-    }
-    if (comparisonPriorities.includes('condition')) {
-      const conditionScore = { 'New': 25, 'Like New': 20, 'Good': 15, 'Fair': 10, 'Used': 5 };
-      score += conditionScore[product.condition] || 0;
-    }
-    if (comparisonPriorities.includes('rating')) {
-      score += (product.sellerRating / 5) * 25;
-    }
-    if (comparisonPriorities.includes('delivery') && product.deliveryAvailable) {
-      score += 15;
-    }
-    if (comparisonPriorities.includes('pickup') && product.pickupAvailable) {
-      score += 15;
-    }
-
-    return score;
-  };
-
-  return (
-    <div className="space-y-6 bg-gradient-to-br from-orange-50 via-white to-gray-50 min-h-screen p-6">
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="text-center mb-8"
-      >
-        <h3 className="text-3xl font-bold text-gray-900 mb-2">Smart Compare Items Demo</h3>
-        <p className="text-gray-600">Watch how our intelligent comparison system works</p>
-      </motion.div>
-
-      {/* Products Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        {items.slice(0, 3).map((product, index) => (
-          <motion.div
-            key={product.id}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: index * 0.2 }}
-            className={`bg-white rounded-xl shadow-lg border-2 overflow-hidden hover:shadow-xl transition-all duration-300 ${
-              compareItems.has(product.id) 
-                ? 'border-orange-400 ring-4 ring-orange-100' 
-                : 'border-gray-200 hover:border-orange-200'
-            }`}
-          >
-            {/* Product Image */}
-            <div className="relative aspect-square bg-gray-200">
-              <div className="w-full h-full bg-gradient-to-br from-orange-100 to-red-100 flex items-center justify-center">
-                <Package size={48} className="text-orange-600" />
-              </div>
-              
-              {/* Compare Toggle Button */}
-              <motion.button
-                whileHover={{ scale: 1.1 }}
-                whileTap={{ scale: 0.9 }}
-                onClick={() => toggleCompare(product.id)}
-                className={`absolute top-3 right-3 w-10 h-10 rounded-full shadow-lg transition-all duration-200 ${
-                  compareItems.has(product.id)
-                    ? 'bg-orange-500 text-white'
-                    : 'bg-white text-gray-600 hover:bg-orange-50 hover:text-orange-500'
+                key={index}
+                initial={{ opacity: 0, y: 40 }}
+                animate={isInView ? { opacity: 1, y: 0 } : { opacity: 0, y: 40 }}
+                transition={{ duration: 0.6, delay: 0.1 * index }}
+                className={`flex flex-col md:flex-row items-center gap-10 ${
+                  isImageLeft ? '' : 'md:flex-row-reverse'
                 }`}
               >
-                <GitCompare size={20} className="mx-auto" />
-              </motion.button>
-
-              {/* Condition Badge */}
-              <div className="absolute bottom-3 left-3">
-                <span className={`px-3 py-1 rounded-full text-xs font-medium shadow-sm ${
-                  product.condition === "New" ? "bg-green-100 text-green-700" :
-                  product.condition === "Like New" ? "bg-blue-100 text-blue-700" :
-                  product.condition === "Good" ? "bg-yellow-100 text-yellow-700" :
-                  "bg-gray-100 text-gray-700"
-                }`}>
-                  {product.condition}
-                </span>
-              </div>
-            </div>
-
-            {/* Product Info */}
-            <div className="p-4">
-              <div className="flex items-start justify-between mb-2">
-                <h3 className="font-bold text-lg text-gray-900 line-clamp-2">{product.name}</h3>
-                <div className="text-right">
-                  <div className="text-2xl font-bold text-orange-600">${product.price}</div>
-                  {product.originalPrice && (
-                    <div className="text-sm text-gray-500 line-through">${product.originalPrice}</div>
-                  )}
+                {/* Image */}
+                <div className="relative w-full md:w-1/2 h-64 overflow-hidden rounded-xl shadow-lg">
+                  <img
+                    src={step.image}
+                    className="w-full h-full object-cover transition-opacity duration-300 group-hover:opacity-0"
+                  />
+                  <img
+                    src={step.hoverImage}
+                    className="absolute inset-0 w-full h-full object-cover opacity-0 hover:opacity-100 transition-opacity duration-300"
+                  />
                 </div>
-              </div>
 
-              <p className="text-gray-600 text-sm mb-3 line-clamp-2">{product.shortDescription}</p>
-
-              <div className="flex items-center space-x-4 text-sm text-gray-600 mb-3">
-                <div className="flex items-center space-x-1">
-                  <MapPin size={14} />
-                  <span className="capitalize">{product.location?.replace("-", " ")}</span>
+                {/* Text */}
+                <div className="md:w-1/2 text-center md:text-left">
+                  <h3 className="text-2xl font-bold text-gray-800 mb-2">{step.title}</h3>
+                  <p className="text-lg text-gray-600">{step.description}</p>
                 </div>
-                <div className="flex items-center space-x-1">
-                  <Star size={14} className="text-yellow-400 fill-current" />
-                  <span>{product.sellerRating}</span>
-                </div>
-              </div>
-
-              <div className="flex items-center space-x-3 text-sm text-gray-600">
-                {product.deliveryAvailable && (
-                  <div className="flex items-center space-x-1">
-                    <Truck size={14} className="text-green-600" />
-                    <span>Delivery</span>
-                  </div>
-                )}
-                {product.pickupAvailable && (
-                  <div className="flex items-center space-x-1">
-                    <Package size={14} className="text-blue-600" />
-                    <span>Pickup</span>
-                  </div>
-                )}
-              </div>
-            </div>
-          </motion.div>
-        ))}
-      </div>
-
-      {/* Compare Panel */}
-      <AnimatePresence>
-        {compareItems.size > 0 && (
-          <motion.div
-            initial={{ y: 100, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            exit={{ y: 100, opacity: 0 }}
-            className="bg-white border-2 border-orange-200 rounded-xl shadow-xl p-6"
-          >
-            <div className="flex items-center justify-between mb-6">
-              <div className="flex items-center space-x-4">
-                <div className="flex items-center space-x-2">
-                  <GitCompare className="w-6 h-6 text-orange-500" />
-                  <span className="text-xl font-bold text-gray-900">
-                    Compare Items ({compareItems.size}/3)
-                  </span>
-                </div>
-                
-                <div className="flex space-x-2">
-                  {Array.from(compareItems).map(productId => {
-                    const product = items.find(p => p.id === productId);
-                    return product ? (
-                      <motion.div 
-                        key={productId} 
-                        initial={{ scale: 0 }}
-                        animate={{ scale: 1 }}
-                        className="flex items-center space-x-2 bg-orange-100 rounded-lg px-3 py-1"
-                      >
-                        <span className="text-sm font-medium">{product.name.split(' ').slice(0, 2).join(' ')}</span>
-                        <button
-                          onClick={() => toggleCompare(productId)}
-                          className="text-orange-600 hover:text-red-500"
-                        >
-                          <X className="w-3 h-3" />
-                        </button>
-                      </motion.div>
-                    ) : null;
-                  })}
-                </div>
-              </div>
-
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={() => setShowComparison(!showComparison)}
-                className="px-6 py-2 bg-gradient-to-r from-orange-500 to-red-600 text-white rounded-lg hover:from-orange-600 hover:to-red-700 transition-all duration-200 font-medium shadow-lg"
-              >
-                {showComparison ? 'Hide Comparison' : 'Compare Now'}
-              </motion.button>
-            </div>
-
-            {/* Priority Selection */}
-            <motion.div 
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              className="mb-6 p-4 bg-orange-50 rounded-lg border border-orange-200"
-            >
-              <div className="flex items-center space-x-2 mb-3">
-                <SlidersHorizontal className="w-5 h-5 text-orange-600" />
-                <h4 className="font-semibold text-gray-900">Set Your Priorities</h4>
-                <span className="text-xs text-gray-500">(Select what matters most)</span>
-              </div>
-              
-              <div className="grid grid-cols-2 md:grid-cols-6 gap-2">
-                {[
-                  { key: 'price', label: 'Best Price', icon: DollarSign, color: 'green' },
-                  { key: 'condition', label: 'Condition', icon: Star, color: 'blue' },
-                  { key: 'rating', label: 'Rating', icon: Star, color: 'yellow' },
-                  { key: 'location', label: 'Location', icon: MapPin, color: 'purple' },
-                  { key: 'delivery', label: 'Delivery', icon: Truck, color: 'indigo' },
-                  { key: 'pickup', label: 'Pickup', icon: Package, color: 'pink' }
-                ].map(priority => {
-                  const isSelected = comparisonPriorities.includes(priority.key);
-                  
-                  return (
-                    <motion.button
-                      key={priority.key}
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
-                      onClick={() => togglePriority(priority.key)}
-                      className={`flex items-center space-x-2 px-3 py-2 rounded-lg border-2 transition-all duration-200 text-sm font-medium ${
-                        isSelected 
-                          ? 'bg-orange-500 text-white border-orange-500 shadow-lg' 
-                          : 'bg-white text-gray-700 border-gray-200 hover:border-orange-200 hover:bg-orange-50'
-                      }`}
-                    >
-                      <priority.icon className="w-4 h-4" />
-                      <span className="hidden sm:inline">{priority.label}</span>
-                      <span className="sm:hidden">{priority.label.split(' ')[0]}</span>
-                      {isSelected && <Check className="w-3 h-3" />}
-                    </motion.button>
-                  );
-                })}
-              </div>
-            </motion.div>
-
-            {/* Detailed Comparison Table */}
-            <AnimatePresence>
-              {showComparison && (
-                <motion.div
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: 'auto' }}
-                  exit={{ opacity: 0, height: 0 }}
-                  className="bg-white border border-gray-200 rounded-xl overflow-hidden"
-                >
-                  <div className="grid gap-0" style={{gridTemplateColumns: `200px repeat(${compareItems.size}, 1fr)`}}>
-                    
-                    {/* Headers */}
-                    <div className="bg-orange-100 border-b border-gray-200 p-4 font-bold text-orange-800">
-                      Product Details
-                    </div>
-                    {(() => {
-                      const products = Array.from(compareItems).map(id => items.find(p => p.id === id)).filter(Boolean);
-                      const sortedProducts = comparisonPriorities.length > 0 
-                        ? products.sort((a, b) => calculateScore(b) - calculateScore(a))
-                        : products;
-
-                      return sortedProducts.map((product, index) => {
-                        const isRecommended = index === 0 && comparisonPriorities.length > 0;
-                        
-                        return (
-                          <div 
-                            key={product.id}
-                            className={`border-b border-gray-200 p-4 text-center relative ${
-                              isRecommended ? 'bg-gradient-to-r from-orange-100 to-red-100' : 'bg-gray-50'
-                            }`}
-                          >
-                            {isRecommended && (
-                              <div className="absolute -top-2 left-1/2 transform -translate-x-1/2">
-                                <span className="bg-orange-500 text-white px-2 py-1 rounded-full text-xs font-bold shadow-lg">
-                                  🏆 BEST MATCH
-                                </span>
-                              </div>
-                            )}
-                            <div className="font-bold text-gray-900 mt-2">{product.name}</div>
-                            <div className="text-sm text-gray-600">{product.category}</div>
-                          </div>
-                        );
-                      });
-                    })()}
-
-                    {/* Price Row */}
-                    <div className="border-b border-gray-200 p-4 font-semibold text-gray-800 bg-gray-50 flex items-center">
-                      <DollarSign className="w-4 h-4 mr-2 text-green-600" />
-                      Price
-                    </div>
-                    {(() => {
-                      const products = Array.from(compareItems).map(id => items.find(p => p.id === id)).filter(Boolean);
-                      const sortedProducts = comparisonPriorities.length > 0 
-                        ? products.sort((a, b) => calculateScore(b) - calculateScore(a))
-                        : products;
-                      const minPrice = Math.min(...products.map(p => p.price));
-
-                      return sortedProducts.map(product => {
-                        const isLowest = product.price === minPrice;
-                        const isPriority = comparisonPriorities.includes('price');
-                        
-                        return (
-                          <div 
-                            key={`price-${product.id}`}
-                            className={`border-b border-gray-200 p-4 text-center ${
-                              isLowest && isPriority ? 'bg-green-100 text-green-800' :
-                              isLowest ? 'bg-green-50 text-green-700' : 'bg-white'
-                            }`}
-                          >
-                            <div className="text-xl font-bold">${product.price}</div>
-                            {product.originalPrice && (
-                              <div className="text-sm text-gray-500 line-through">${product.originalPrice}</div>
-                            )}
-                            {isLowest && (
-                              <div className="text-xs font-bold text-green-600 mt-1">LOWEST</div>
-                            )}
-                          </div>
-                        );
-                      });
-                    })()}
-
-                    {/* Condition Row */}
-                    <div className="border-b border-gray-200 p-4 font-semibold text-gray-800 bg-gray-50 flex items-center">
-                      <Star className="w-4 h-4 mr-2 text-blue-600" />
-                      Condition
-                    </div>
-                    {(() => {
-                      const products = Array.from(compareItems).map(id => items.find(p => p.id === id)).filter(Boolean);
-                      const sortedProducts = comparisonPriorities.length > 0 
-                        ? products.sort((a, b) => calculateScore(b) - calculateScore(a))
-                        : products;
-
-                      return sortedProducts.map(product => (
-                        <div key={`condition-${product.id}`} className="border-b border-gray-200 p-4 text-center bg-white">
-                          <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-                            product.condition === "New" ? "bg-green-100 text-green-700" :
-                            product.condition === "Like New" ? "bg-blue-100 text-blue-700" :
-                            product.condition === "Good" ? "bg-yellow-100 text-yellow-700" :
-                            "bg-gray-100 text-gray-700"
-                          }`}>
-                            {product.condition}
-                          </span>
-                        </div>
-                      ));
-                    })()}
-
-                    {/* Rating Row */}
-                    <div className="border-b border-gray-200 p-4 font-semibold text-gray-800 bg-gray-50 flex items-center">
-                      <Star className="w-4 h-4 mr-2 text-yellow-500" />
-                      Rating
-                    </div>
-                    {(() => {
-                      const products = Array.from(compareItems).map(id => items.find(p => p.id === id)).filter(Boolean);
-                      const sortedProducts = comparisonPriorities.length > 0 
-                        ? products.sort((a, b) => calculateScore(b) - calculateScore(a))
-                        : products;
-
-                      return sortedProducts.map(product => (
-                        <div key={`rating-${product.id}`} className="border-b border-gray-200 p-4 text-center bg-white">
-                          <div className="flex items-center justify-center space-x-1">
-                            <Star className="w-4 h-4 text-yellow-400 fill-current" />
-                            <span className="font-bold">{product.sellerRating}</span>
-                          </div>
-                        </div>
-                      ));
-                    })()}
-
-                    {/* Match Score Row (if priorities are set) */}
-                    {comparisonPriorities.length > 0 && (
-                      <>
-                        <div className="border-b border-gray-200 p-4 font-semibold text-gray-800 bg-orange-50 flex items-center">
-                          <SlidersHorizontal className="w-4 h-4 mr-2 text-orange-600" />
-                          Match Score
-                        </div>
-                        {(() => {
-                          const products = Array.from(compareItems).map(id => items.find(p => p.id === id)).filter(Boolean);
-                          const sortedProducts = products.sort((a, b) => calculateScore(b) - calculateScore(a));
-
-                          return sortedProducts.map((product, index) => {
-                            const score = calculateScore(product);
-                            const isHighest = index === 0;
-                            
-                            return (
-                              <div 
-                                key={`score-${product.id}`}
-                                className={`border-b border-gray-200 p-4 text-center ${
-                                  isHighest ? 'bg-orange-100' : 'bg-white'
-                                }`}
-                              >
-                                <div className="text-xl font-bold text-orange-600">{Math.round(score)}%</div>
-                                {isHighest && (
-                                  <div className="text-xs font-bold text-orange-600 mt-1">BEST MATCH</div>
-                                )}
-                              </div>
-                            );
-                          });
-                        })()}
-                      </>
-                    )}
-
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Empty State */}
-      {compareItems.size === 0 && animationStep >= 5 && (
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="text-center py-12 bg-white rounded-xl border-2 border-dashed border-gray-300"
-        >
-          <GitCompare className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-          <h3 className="text-xl font-semibold text-gray-900 mb-2">No items to compare</h3>
-          <p className="text-gray-600 mb-4">Click the compare button on products to add them here.</p>
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={() => {
-              setCompareItems(new Set([1, 2]));
-              setComparisonPriorities(['price']);
-            }}
-            className="px-6 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors font-medium"
-          >
-            Try Demo Again
-          </motion.button>
-        </motion.div>
-      )}
-
-      {/* Success Message */}
-      {compareItems.size > 0 && showComparison && comparisonPriorities.length > 0 && (
-        <motion.div
-          initial={{ scale: 0 }}
-          animate={{ scale: 1 }}
-          className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-lg p-4"
-        >
-          <div className="flex items-center gap-3 text-green-800">
-            <Check size={20} className="flex-shrink-0" />
-            <div>
-              <span className="font-semibold">Smart Comparison Active!</span>
-              <div className="text-sm text-green-700 mt-1">
-                Items are ranked by your priorities: {comparisonPriorities.map(p => p.charAt(0).toUpperCase() + p.slice(1)).join(', ')}
-              </div>
-            </div>
-          </div>
-        </motion.div>
-      )}
+              </motion.div>
+            );
+          })}
+        </div>
+      </motion.section>
     </div>
   );
 };
+
+
 
 
 

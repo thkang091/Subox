@@ -4,6 +4,11 @@ const nextConfig = {
     experimental: {
       appDir: true, // because you selected App Router
     },
+    images: {
+      domains: [
+        'firebasestorage.googleapis.com',
+      ],
+    }
   }
   
   module.exports = nextConfig

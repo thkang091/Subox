@@ -5,11 +5,14 @@ import { useRouter } from 'next/navigation';
 import { useParams } from 'next/navigation';
 import { motion, AnimatePresence } from "framer-motion";
 import { db } from '@/lib/firebase';
-import { doc, getDoc, updateDoc, increment, collection, query, where, getDocs, limit, orderBy, addDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, increment, collection, query, where, 
+  getDocs, limit, orderBy, addDoc, serverTimestamp } from 'firebase/firestore';
 import { useAuth } from '@/app/contexts/AuthInfo';
-import { MapPin, Heart, User, Package, Bell, X, ArrowLeft, ArrowRight,
-        ChevronLeft, Plus, Flag, MessageCircle
-} from 'lucide-react';
+import { MapPin, Heart, User, Package, Bell, X,
+        ChevronLeft, Plus, Flag, MessagesSquare, Menu,  ArrowLeft, ArrowRight,Video, 
+        MessageCircle, AlertCircle, Info, DollarSign, BedDouble, Calendar, Users, 
+        Expand, Eye, EyeOff, Navigation, Check, Volume2,CalendarCheck,Zap,Cigarette, BookOpen
+      } from 'lucide-react';
 
 // Interfaces
 interface PageParams {
@@ -94,6 +97,8 @@ const ProductDetailPage = () => {
   const [similarProducts, setSimilarProducts] = useState<ProductData[]>([]);
   const [loadingRecommendations, setLoadingRecommendations] = useState(false);
   const [creatingConversation, setCreatingConversation] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [showMenu, setShowMenu] = useState(false);
   const [seller, setSeller] = useState<SellerInfo>({
     ID: "none",
     name: "seller",
@@ -158,7 +163,7 @@ const ProductDetailPage = () => {
       setFavoriteListings([favoriteItem, ...favoriteListings]);
     }
     
-    setIsSidebarOpen(true);
+    // setIsSidebarOpen(true);
   };
 
   // Enhanced messaging function
@@ -458,11 +463,17 @@ const ProductDetailPage = () => {
   const isCurrentListingFavorited = favoriteListings.some(item => item.id === product?.id);
   
   // All images array
-  const allImages = product ? [
+  // const allImages = product ? [
+  //   product.image,
+  //   ...(product.additionalImages || []),
+  //   ...(product.images || [])
+  // ].filter(Boolean) : [];
+
+  const allImages = product ? [...new Set([
     product.image,
     ...(product.additionalImages || []),
     ...(product.images || [])
-  ].filter(Boolean) : [];
+  ])].filter(Boolean) : [];
 
   // Image navigation
   const goToPrevImage = () => {
@@ -633,82 +644,15 @@ const ProductDetailPage = () => {
               {/* Notifications */}
               <NotificationsButton notifications={notifications} />
  
-              {/* Favorites */}
-              <div className="relative">
-                <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={() => setIsSidebarOpen(!isSidebarOpen)} 
-                  className="p-2 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors relative"
-                >
-                  <Heart size={20} className="w-5 h-5 text-gray-600"/>
-                </motion.button>
- 
-                {/* Favorites Sidebar */}
-                <div className={`fixed left-0 top-16 h-[calc(100vh-4rem)] w-72 bg-white shadow-xl z-40 transform transition-transform duration-300 ease-in-out ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} overflow-auto`}>                
-                  <div className="p-4 border-b">
-                    <div className="flex justify-between items-center">
-                      <h2 className="font-bold text-lg text-orange-500">Favorites</h2>
-                      <button 
-                        onClick={() => setIsSidebarOpen(false)}
-                        className="p-2 rounded-full hover:bg-gray-100"
-                      >
-                        <X size={20} />
-                      </button>
-                    </div>
-                  </div>
-                  
-                  <div className="p-4">
-                    {isMounted && (
-                      <>
-                        {favoriteListings.length === 0 ? (
-                          <div className="text-center py-8 text-gray-500">
-                            <Heart size={40} className="mx-auto mb-2 opacity-50" />
-                            <p>No favorite listings yet</p>
-                            <p className="text-sm mt-2">Click the heart icon on listings to save them here</p>
-                          </div>
-                        ) : (
-                          <div className="space-y-4">
-                            {favoriteListings.map(favProduct => (
-                              <div 
-                                key={favProduct.id} 
-                                className="border rounded-lg overflow-hidden hover:shadow-md transition cursor-pointer"
-                                onClick={() => {
-                                  setIsSidebarOpen(false);
-                                  router.push(`/sale/browse/product/${favProduct.id}`);
-                                }}
-                              >
-                                <div className="flex">
-                                  <div 
-                                    className="w-20 h-20 bg-gray-200 flex-shrink-0" 
-                                    style={{backgroundImage: `url(${favProduct.image})`, backgroundSize: 'cover', backgroundPosition: 'center'}}
-                                  ></div>
-                                  <div className="p-3 flex-1">
-                                    <div className="font-medium text-gray-700">{favProduct.name}</div>
-                                    <div className="text-sm text-gray-500">{favProduct.location}</div>
-                                    <div className="text-sm font-bold text-[#15361F] mt-1">
-                                      ${favProduct.price}
-                                    </div>
-                                  </div>
-                                  <button 
-                                    className="p-2 text-gray-400 hover:text-red-500 self-start"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setFavoriteListings(favoriteListings.filter(item => item.id !== favProduct.id));
-                                    }}
-                                  >
-                                    <X size={16} />
-                                  </button>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </>
-                    )}
-                  </div>
-                </div>
-              </div>
+              {/* messages */}
+              <motion.button 
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => window.location.href = '/sublease/search/list'}
+                className="p-2 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+              >
+                <MessagesSquare size={20} className = "w-5 h-5 text-gray-600"/>
+              </motion.button>              
  
               {/* Profile */}
               <div className="relative">
@@ -740,6 +684,137 @@ const ProductDetailPage = () => {
                   )}
                 </AnimatePresence>
               </div>
+
+              {/* menu */}
+                              <div className="relative">
+                                <motion.button
+                                  whileHover={{ scale: 1.05 }}
+                                  whileTap={{ scale: 0.95 }}
+                                  onClick={() => setShowMenu(!showMenu)}
+                                  className="p-2 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                                >
+                                  <Menu className="w-5 h-5 text-gray-600" />
+                                </motion.button>
+                
+                                <AnimatePresence>
+                                  {showMenu && (
+                                    <motion.div
+                                      initial={{ opacity: 0, y: -10 }}
+                                      animate={{ opacity: 1, y: 0 }}
+                                      exit={{ opacity: 0, y: -10 }}
+                                      className="absolute right-0 mt-2 w-64 bg-white rounded-lg shadow-lg border border-gray-200 z-50"
+                                    >
+                                      <div className="p-4 space-y-2">
+                                        <p className="text-medium font-semibold max-w-2xl mb-4 text-orange-700">
+                                        Move Out Sale
+                                        </p>
+                                        <button 
+                                          onClick={() => {
+                                            router.push('/sale/browse');
+                                            setShowMenu(false);
+                                          }} 
+                                          className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors"
+                                        >
+                                          Browse Items
+                                        </button>                        
+                                        <button 
+                                          onClick={() => {
+                                            router.push('/sale/create/options/nonai');
+                                            setShowMenu(false);
+                                          }} 
+                                          className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors"
+                                        >
+                                          Sell Items
+                                        </button> 
+                                        <button 
+                                          onClick={() => {
+                                            router.push('/sale/browse');
+                                            setShowMenu(false);
+                                          }} 
+                                          className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors"
+                                        >
+                                          My Items
+                                        </button>   
+                                        
+                                        <p className="text-medium font-semibold max-w-2xl mb-4 text-orange-700">
+                                          Sublease
+                                        </p>
+                                        <button 
+                                          onClick={() => {
+                                            router.push('/sublease/search');
+                                            setShowMenu(false);
+                                          }} 
+                                          className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors"
+                                        >
+                                          Find Sublease
+                                        </button>   
+                                        <button 
+                                          onClick={() => {
+                                            router.push('/sublease/write/options/chat');
+                                            setShowMenu(false);
+                                          }} 
+                                          className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors"
+                                        >
+                                          Post Sublease
+                                        </button>   
+                                        <button 
+                                          onClick={() => {
+                                            router.push('../search');
+                                            setShowMenu(false);
+                                          }} 
+                                          className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors"
+                                        >
+                                          My Sublease Listing
+                                        </button>
+                                        <hr className="my-2" />
+                                        <button                              
+                                          onClick={() => {                               
+                                            router.push('/favorite');                               
+                                            setShowMenu(false);                             
+                                          }}                              
+                                          className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors flex items-center gap-2"
+                                          >                             
+                                          <Heart className="w-4 h-4 text-gray-600" />                             
+                                          Favorites                           
+                                        </button>
+                                        <button 
+                                          onClick={() => {
+                                            router.push('/sublease/search/list');
+                                            setShowMenu(false);
+                                          }} 
+                                          className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors flex items-center gap-2"
+                                        >
+                                          <MessagesSquare className="w-4 h-4 text-gray-600" />                             
+                                          Messages
+                                        </button>   
+                                        <button 
+                                          onClick={() => {
+                                            router.push('../help');
+                                            setShowMenu(false);
+                                          }} 
+                                          className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors"
+                                        >
+                                          Help & Support
+                                        </button>
+                
+                                        {/* need change (when user didn't log in -> show log in button) */}
+                                        <hr className="my-2" />
+                                          {/* log in/ out */}
+                                          {isLoggedIn ? (
+                                            <button className="w-full text-left px-3 py-2 rounded-md text-sm text-red-600 hover:bg-red-50 hover:text-red-700 transition-colors">
+                                              Logout
+                                            </button>
+                                          ) : (
+                                            <button className="w-full text-left px-3 py-2 rounded-md text-sm text-blue-600 hover:bg-blue-50 hover:text-blue-700 transition-colors">
+                                              Login
+                                            </button>
+                                          )}
+                                      </div>
+                                    </motion.div>
+                                  )}
+                                </AnimatePresence>
+                              </div>
+
             </div>
           </div>
         </div>
@@ -874,7 +949,7 @@ const ProductDetailPage = () => {
                       onClick={() => setShowAllImages(true)}
                     >
                       <Plus className="text-gray-500" />
-                      <span className="text-xs text-gray-500 ml-1">+{allImages.length - 3}</span>
+                      <span className="text-xs text-gray-500 ml-1">{allImages.length - 3}</span>
                     </div>
                   )}
                 </div>
@@ -920,12 +995,12 @@ const ProductDetailPage = () => {
  
             <div className="flex items-center space-x-4 mb-4">
               <div className="text-xl font-bold text-green-600">${product.price}</div>
-              {product.originalPrice && product.originalPrice !== product.price && (
+              {/* {product.originalPrice && product.originalPrice !== product.price && (
                 <div className="text-sm text-gray-500 line-through">${product.originalPrice}</div>
-              )}
+              )} */}
               <div className="flex items-center space-x-1 text-gray-500">
                 <MapPin className="w-4 h-4" />
-                <span className="capitalize">{product.location?.replace("-", " ")}</span>
+                <span className="capitalize">{product.location?.replace(/-/g, " ").toUpperCase()}</span>
               </div>
             </div>
  
@@ -989,81 +1064,88 @@ const ProductDetailPage = () => {
             </div>
           </div>
         
+         {/* Key Information */}
+            <div className="bg-white rounded-lg border border-gray-200 mb-6">
+              {/* Header */}
+              <div className="p-6 border-b border-gray-100">
+                <h2 className="text-lg font-semibold text-gray-900">Key Information</h2>
+              </div>
+
+              <div className="p-6">
+                {/* Main Information */}
+                <div className="space-y-4 mb-6">
+                  <div className="flex items-center gap-3">
+                    <MapPin size={18} className="text-orange-500" />
+                    <span className="text-gray-700">Pickup Location: {product.location?.replace(/-/g, " ").toUpperCase()}</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <DollarSign size={18} className="text-orange-500" />
+                    <span className="text-gray-700">${product.price}</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <Calendar size={18} className="text-orange-500" />
+                    <span className="text-gray-700">Available Until: {product.availableUntil}</span>
+                  </div>
+                  
+                  <div className="flex items-center gap-3">
+                    <Heart size={18} className="text-orange-500" />
+                    <span className="text-gray-700">{product.category}</span>
+                  </div>
+                  
+
+                  {product.preferredGender && (
+                    <p className="flex items-center ml-0.5 gap-1">
+                      {getGenderInfo(product.preferredGender).icon}
+                      <span className={`${product.preferredGender === 'female' ? 'text-pink-600' : product.preferredGender === 'male' ? 'text-orange-600' : 'text-green-600'} font-medium`}>
+                        {getGenderInfo(product.preferredGender).text}
+                      </span>
+                    </p>
+                  )}
+
+                </div>
+
+                {/* Features */}
+                <div className="pt-6 border-t border-gray-100">
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-3">
+                      {product.delieveryAvailable ? 
+                        <Check size={16} className="text-green-500" /> : 
+                        <X size={16} className="text-red-500" />
+                      }
+                      <span className="text-sm text-gray-700">{product.delieveryAvailable ? "Delievery Available" : "No Delievery"}</span>
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                      {product.pickupAvailable ? 
+                        <Check size={16} className="text-green-500" /> : 
+                        <X size={16} className="text-red-500" />
+                      }
+                      <span className="text-sm text-gray-700">{product.pickupAvailable ? "PickUp Available" : "No PickUp"}</span>
+                    </div>
+                    
+                    <div className="flex items-center gap-3">
+                      {product.priceType === 'fixed' ? 
+                        <X size={16} className="text-red-500" /> : 
+                        <Check size={16} className="text-green-500" />
+                      }
+                      <span className="text-sm text-gray-700">{product.priceType === 'fixed' ? "Non-Negotiable" : "Negotiable"}</span>
+                    </div>
+                  
+                    
+                  </div>
+                </div>
+              </div>
+            </div>
+                
           {/* Details Section */}
           <div className="bg-white rounded-lg shadow p-6">
-            <h3 className="font-semibold text-gray-600 mb-4">Details</h3>
-            <div className="space-y-3">
+              <div className="flex items-center gap-2 mb-3">
+                <Info size={20} className="text-orange-600" />
+                <h3 className="text-lg font-semibold text-gray-900">Details</h3>
+              </div>
+                          <div className="space-y-3">
               <p className="text-gray-600">{product.description}</p>
               
-              {/* Additional Product Details */}
-              <div className="grid grid-cols-2 gap-4 mt-4 pt-4 border-t border-gray-200">
-                <div>
-                  <span className="font-medium text-gray-700">Condition:</span>
-                  <span className="ml-2 text-gray-600">{product.condition || 'Not specified'}</span>
-                </div>
-                
-                {product.category && (
-                  <div>
-                    <span className="font-medium text-gray-700">Category:</span>
-                    <span className="ml-2 text-gray-600">{product.category}</span>
-                  </div>
-                )}
-                
-                {product.views !== undefined && (
-                  <div>
-                    <span className="font-medium text-gray-700">Views:</span>
-                    <span className="ml-2 text-gray-600">{product.views}</span>
-                  </div>
-                )}
-                
-                {product.availableUntil && (
-                  <div>
-                    <span className="font-medium text-gray-700">Available Until:</span>
-                    <span className="ml-2 text-gray-600">{product.availableUntil}</span>
-                  </div>
-                )}
-                
-                <div>
-                  <span className="font-medium text-gray-700">Delivery:</span>
-                  <span className="ml-2 text-gray-600">
-                    {product.deliveryAvailable ? 'Available' : 'Not Available'}
-                  </span>
-                </div>
-                
-                <div>
-                  <span className="font-medium text-gray-700">Pickup:</span>
-                  <span className="ml-2 text-gray-600">
-                    {product.pickupAvailable ? 'Available' : 'Not Available'}
-                  </span>
-                </div>
-                
-                {product.priceType && (
-                  <div>
-                    <span className="font-medium text-gray-700">Price Type:</span>
-                    <span className="ml-2 text-gray-600 capitalize">{product.priceType}</span>
-                  </div>
-                )}
-                
-                {product.priceType === 'negotiable' && product.minPrice && product.maxPrice && (
-                  <div>
-                    <span className="font-medium text-gray-700">Price Range:</span>
-                    <span className="ml-2 text-gray-600">${product.minPrice} - ${product.maxPrice}</span>
-                  </div>
-                )}
-              </div>
-              
-              {/* Listing Timestamp */}
-              {product.createdAt && (
-                <div className="pt-4 border-t border-gray-200">
-                  <span className="font-medium text-gray-700">Listed:</span>
-                  <span className="ml-2 text-gray-600">
-                    {product.createdAt instanceof Date 
-                      ? product.createdAt.toLocaleDateString() + ' at ' + product.createdAt.toLocaleTimeString()
-                      : new Date(product.createdAt).toLocaleDateString() + ' at ' + new Date(product.createdAt).toLocaleTimeString()
-                    }
-                  </span>
-                </div>
-              )}
             </div>
           </div>
         </div>
@@ -1137,7 +1219,7 @@ const ProductDetailPage = () => {
                     <div className="p-3">
                       <h4 className="font-medium text-sm truncate text-gray-700">{item.name}</h4>
                       <p className="text-orange-600 font-bold text-sm">${item.price}</p>
-                      <p className="text-gray-500 text-xs capitalize">{item.location?.replace("-", " ")}</p>
+                      <p className="text-gray-500 text-xs capitalize">{item.location?.replace(/-/g, " ").toUpperCase()}</p>
                       
                       {/* Show Why It's Similar */}
                       <div className="mt-2 flex flex-wrap gap-1">

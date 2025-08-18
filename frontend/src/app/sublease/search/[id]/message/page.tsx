@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { 
   Send, ArrowLeft, Phone, Video, MoreVertical, 
@@ -28,35 +28,46 @@ const ConversationDetailPage = () => {
   const conversationId = params?.id;
   const { user } = useAuth();
   
+  // Core state
   const [conversation, setConversation] = useState(null);
   const [conversations, setConversations] = useState([]);
   const [messages, setMessages] = useState([]);
-  const [newMessage, setNewMessage] = useState('');
+  const [listing, setListing] = useState(null);
+  
+  // Loading and error states
   const [loading, setLoading] = useState(true);
   const [conversationsLoading, setConversationsLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [retryCount, setRetryCount] = useState(0);
+  
+  // UI state
+  const [newMessage, setNewMessage] = useState('');
   const [sending, setSending] = useState(false);
+  const [uploadingFile, setUploadingFile] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
   const [showListingDetails, setShowListingDetails] = useState(true);
-  const [listing, setListing] = useState(null);
   const [activeImage, setActiveImage] = useState(0);
   const [showAllImages, setShowAllImages] = useState(false);
   const [isFavorited, setIsFavorited] = useState(false);
-  const [uploadingFile, setUploadingFile] = useState(false);
-  const [dragOver, setDragOver] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [showConversationList, setShowConversationList] = useState(true);
-  const [activeTab, setActiveTab] = useState('all'); // 'all', 'sublease', 'moveout'
+  const [activeTab, setActiveTab] = useState('all');
   
+  // Refs
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
   const fileInputRef = useRef(null);
   const imageInputRef = useRef(null);
+  const unsubscribeRefs = useRef({});
 
-  // Determine if this is a move out sale conversation
-  const isMoveOutSale = conversation?.conversationType === 'moveout';
-  const isSubleaseConversation = !isMoveOutSale;
+  // Memoized conversation type detection
+  const isMoveOutSale = useMemo(() => 
+    conversation?.conversationType === 'moveout' || conversation?.listingType === 'moveout',
+    [conversation]
+  );
 
-  // Get appropriate labels based on conversation type
-  const getLabels = () => {
+  // Memoized labels
+  const labels = useMemo(() => {
     if (isMoveOutSale) {
       return {
         hostLabel: 'Seller',
@@ -80,115 +91,198 @@ const ConversationDetailPage = () => {
         guestActions: ['Request Tour', 'Ask About Utilities', 'Inquire About Move-in Date']
       };
     }
-  };
+  }, [isMoveOutSale]);
 
-  const labels = getLabels();
-
-  // Scroll to bottom of messages
-  const scrollToBottom = () => {
+  // Optimized scroll to bottom
+  const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
+  }, []);
 
+  // Auto-scroll when messages update
   useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
+    const timer = setTimeout(scrollToBottom, 100);
+    return () => clearTimeout(timer);
+  }, [messages, scrollToBottom]);
 
-  // Load conversations list
+  // Retry mechanism for failed operations
+  const withRetry = useCallback(async (operation, maxRetries = 3) => {
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        return await operation();
+      } catch (error) {
+        console.error(`Attempt ${attempt} failed:`, error);
+        if (attempt === maxRetries) throw error;
+        await new Promise(resolve => setTimeout(resolve, attempt * 1000));
+      }
+    }
+  }, []);
+
+  // Enhanced error handling
+  const handleError = useCallback((error, context = '') => {
+    console.error(`Error in ${context}:`, error);
+    setError(`${context}: ${error.message}`);
+    
+    // Auto-retry for network errors
+    if (error.code === 'unavailable' || error.message.includes('network')) {
+      setTimeout(() => {
+        setRetryCount(prev => prev + 1);
+        setError(null);
+      }, 2000);
+    }
+  }, []);
+
+  // Optimized conversations loading with error handling
   useEffect(() => {
     if (!user?.uid) {
       setConversationsLoading(false);
       return;
     }
 
-    const conversationsQuery = query(
-      collection(db, 'conversations'),
-      where('participants', 'array-contains', user.uid),
-      orderBy('lastMessageTime', 'desc')
-    );
+    let mounted = true;
 
-    const unsubscribe = onSnapshot(
-      conversationsQuery,
-      async (snapshot) => {
-        const conversationPromises = snapshot.docs.map(async (docSnap) => {
-          const data = docSnap.data();
-          
-          const isUserHost = data.hostId === user.uid;
-          const otherParticipant = isUserHost ? {
-            id: data.guestId,
-            name: data.guestName,
-            email: data.guestEmail,
-            image: data.guestImage || '/api/placeholder/40/40'
-          } : {
-            id: data.hostId,
-            name: data.hostName,
-            email: data.hostEmail,
-            image: data.hostImage || '/api/placeholder/40/40'
-          };
+    const loadConversations = async () => {
+      try {
+        const conversationsQuery = query(
+          collection(db, 'conversations'),
+          where('participants', 'array-contains', user.uid),
+          orderBy('lastMessageTime', 'desc')
+        );
 
-          // Get latest message
-          let latestMessage = null;
-          try {
-            const messagesQuery = query(
-              collection(db, 'conversations', docSnap.id, 'messages'),
-              orderBy('createdAt', 'desc'),
-              limit(1)
-            );
-            const messagesSnapshot = await getDocs(messagesQuery);
-            if (!messagesSnapshot.empty) {
-              const messageData = messagesSnapshot.docs[0].data();
-              latestMessage = {
-                id: messagesSnapshot.docs[0].id,
-                text: messageData.text || '',
-                type: messageData.type || 'text',
-                senderId: messageData.senderId,
-                createdAt: messageData.createdAt?.toDate() || new Date()
-              };
+        const unsubscribe = onSnapshot(
+          conversationsQuery,
+          async (snapshot) => {
+            if (!mounted) return;
+
+            try {
+              // Process conversations in batches for better performance
+              const conversationPromises = snapshot.docs.map(async (docSnap) => {
+                const data = docSnap.data();
+                
+                const isUserHost = data.hostId === user.uid;
+                const otherParticipant = isUserHost ? {
+                  id: data.guestId,
+                  name: data.guestName || 'Unknown User',
+                  email: data.guestEmail || '',
+                  image: data.guestImage || '/api/placeholder/40/40'
+                } : {
+                  id: data.hostId,
+                  name: data.hostName || 'Unknown User',
+                  email: data.hostEmail || '',
+                  image: data.hostImage || '/api/placeholder/40/40'
+                };
+
+                // Get latest message with timeout
+                let latestMessage = null;
+                try {
+                  const messagesQuery = query(
+                    collection(db, 'conversations', docSnap.id, 'messages'),
+                    orderBy('createdAt', 'desc'),
+                    limit(1)
+                  );
+                  
+                  const messagesSnapshot = await Promise.race([
+                    getDocs(messagesQuery),
+                    new Promise((_, reject) => 
+                      setTimeout(() => reject(new Error('Timeout')), 5000)
+                    )
+                  ]);
+                  
+                  if (!messagesSnapshot.empty) {
+                    const messageData = messagesSnapshot.docs[0].data();
+                    latestMessage = {
+                      id: messagesSnapshot.docs[0].id,
+                      text: messageData.text || '',
+                      type: messageData.type || 'text',
+                      senderId: messageData.senderId,
+                      createdAt: messageData.createdAt?.toDate() || new Date()
+                    };
+                  }
+                } catch (messageError) {
+                  console.warn('Failed to load latest message:', messageError);
+                }
+
+                return {
+                  id: docSnap.id,
+                  ...data,
+                  isUserHost,
+                  otherParticipant,
+                  latestMessage,
+                  createdAt: data.createdAt?.toDate() || new Date(),
+                  updatedAt: data.updatedAt?.toDate() || new Date(),
+                  lastMessageTime: data.lastMessageTime?.toDate() || new Date(),
+                  unreadCount: isUserHost ? (data.hostUnreadCount || 0) : (data.guestUnreadCount || 0),
+                  conversationType: data.conversationType || (data.listingType === 'moveout' ? 'moveout' : 'sublease')
+                };
+              });
+
+              // Wait for all conversations to load with timeout
+              const conversationData = await Promise.race([
+                Promise.all(conversationPromises),
+                new Promise((_, reject) => 
+                  setTimeout(() => reject(new Error('Conversations loading timeout')), 10000)
+                )
+              ]);
+
+              if (mounted) {
+                setConversations(conversationData);
+                setConversationsLoading(false);
+              }
+            } catch (error) {
+              if (mounted) {
+                handleError(error, 'Loading conversations');
+                setConversationsLoading(false);
+              }
             }
-          } catch (error) {
-            console.error('Error fetching latest message:', error);
+          },
+          (error) => {
+            if (mounted) {
+              handleError(error, 'Conversations listener');
+              setConversationsLoading(false);
+            }
           }
+        );
 
-          return {
-            id: docSnap.id,
-            ...data,
-            isUserHost,
-            otherParticipant,
-            latestMessage,
-            createdAt: data.createdAt?.toDate() || new Date(),
-            updatedAt: data.updatedAt?.toDate() || new Date(),
-            lastMessageTime: data.lastMessageTime?.toDate() || new Date(),
-            unreadCount: isUserHost ? (data.hostUnreadCount || 0) : (data.guestUnreadCount || 0),
-            // Determine conversation type
-            conversationType: data.conversationType || (data.listingType === 'moveout' ? 'moveout' : 'sublease')
-          };
-        });
+        unsubscribeRefs.current.conversations = unsubscribe;
 
-        const conversationData = await Promise.all(conversationPromises);
-        setConversations(conversationData);
-        setConversationsLoading(false);
-      },
-      (error) => {
-        console.error('Error fetching conversations:', error);
-        setConversationsLoading(false);
+      } catch (error) {
+        if (mounted) {
+          handleError(error, 'Setting up conversations listener');
+          setConversationsLoading(false);
+        }
       }
-    );
+    };
 
-    return () => unsubscribe();
-  }, [user?.uid]);
+    loadConversations();
 
-  // Load conversation details
+    return () => {
+      mounted = false;
+      if (unsubscribeRefs.current.conversations) {
+        unsubscribeRefs.current.conversations();
+      }
+    };
+  }, [user?.uid, handleError, retryCount]);
+
+  // Enhanced conversation loading with better error handling
   useEffect(() => {
     if (!conversationId || !user?.uid) {
       setLoading(false);
       return;
     }
 
+    let mounted = true;
+
     const loadConversation = async () => {
       try {
-        const conversationDoc = await getDoc(doc(db, 'conversations', conversationId));
+        setLoading(true);
+        setError(null);
+
+        const conversationDoc = await withRetry(async () => {
+          return await getDoc(doc(db, 'conversations', conversationId));
+        });
         
+        if (!mounted) return;
+
         if (!conversationDoc.exists()) {
-          console.error('Conversation not found');
           setLoading(false);
           return;
         }
@@ -196,9 +290,9 @@ const ConversationDetailPage = () => {
         const conversationData = conversationDoc.data();
         
         // Check if user is participant
-        if (!conversationData.participants.includes(user.uid)) {
-          console.error('User not authorized for this conversation');
-          router.push('/sublease/search');
+        if (!conversationData.participants?.includes(user.uid)) {
+          setError('You do not have access to this conversation.');
+          setLoading(false);
           return;
         }
 
@@ -206,13 +300,13 @@ const ConversationDetailPage = () => {
         const isUserHost = conversationData.hostId === user.uid;
         const otherParticipant = isUserHost ? {
           id: conversationData.guestId,
-          name: conversationData.guestName,
-          email: conversationData.guestEmail,
+          name: conversationData.guestName || 'Unknown User',
+          email: conversationData.guestEmail || '',
           image: conversationData.guestImage || '/api/placeholder/40/40'
         } : {
           id: conversationData.hostId,
-          name: conversationData.hostName,
-          email: conversationData.hostEmail,
+          name: conversationData.hostName || 'Unknown User',
+          email: conversationData.hostEmail || '',
           image: conversationData.hostImage || '/api/placeholder/40/40'
         };
 
@@ -223,30 +317,45 @@ const ConversationDetailPage = () => {
           otherParticipant,
           createdAt: conversationData.createdAt?.toDate() || new Date(),
           updatedAt: conversationData.updatedAt?.toDate() || new Date(),
-          // Determine conversation type
           conversationType: conversationData.conversationType || (conversationData.listingType === 'moveout' ? 'moveout' : 'sublease')
         };
 
-        setConversation(conversationWithType);
+        if (mounted) {
+          setConversation(conversationWithType);
+          
+          // Load listing details in parallel
+          if (conversationData.listingId) {
+            loadListingDetails(conversationData.listingId, conversationWithType.conversationType);
+          }
 
-        // Load listing details
-        await loadListingDetails(conversationData.listingId, conversationWithType.conversationType);
-
-        // Mark messages as read
-        await markMessagesAsRead(conversationDoc.id, isUserHost);
+          // Mark messages as read
+          try {
+            await markMessagesAsRead(conversationDoc.id, isUserHost);
+          } catch (readError) {
+            console.warn('Failed to mark messages as read:', readError);
+          }
+        }
         
       } catch (error) {
-        console.error('Error loading conversation:', error);
+        if (mounted) {
+          handleError(error, 'Loading conversation');
+        }
       } finally {
-        setLoading(false);
+        if (mounted) {
+          setLoading(false);
+        }
       }
     };
 
     loadConversation();
-  }, [conversationId, user?.uid, router]);
 
-  // Load listing details (works for both sublease and moveout)
-  const loadListingDetails = async (listingId, conversationType = 'sublease') => {
+    return () => {
+      mounted = false;
+    };
+  }, [conversationId, user?.uid, withRetry, handleError]);
+
+  // Optimized listing details loading
+  const loadListingDetails = useCallback(async (listingId, conversationType = 'sublease') => {
     if (!listingId) return;
 
     try {
@@ -259,10 +368,16 @@ const ConversationDetailPage = () => {
         }
       }
       
-      // Try appropriate Firestore collection based on type
+      // Try Firestore with timeout
       const collectionName = conversationType === 'moveout' ? 'moveout-items' : 'listings';
       const docRef = doc(db, collectionName, listingId);
-      const docSnap = await getDoc(docRef);
+      
+      const docSnap = await Promise.race([
+        getDoc(docRef),
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Listing load timeout')), 8000)
+        )
+      ]);
       
       if (docSnap.exists()) {
         const firestoreData = docSnap.data();
@@ -288,8 +403,8 @@ const ConversationDetailPage = () => {
             price: Number(firestoreData.price || 0),
             condition: firestoreData.condition || 'Good',
             category: firestoreData.category || 'Other',
-            rating: Number(firestoreData.sellerRating || 4.2),
-            reviews: Number(firestoreData.sellerReviews || 8),
+            rating: Number(firestoreData.sellerRating),
+            reviews: Number(firestoreData.sellerReviews),
             features: Array.isArray(firestoreData.features) ? firestoreData.features : [],
             hostName: firestoreData.sellerName || firestoreData.hostName || 'Anonymous',
             hostImage: firestoreData.sellerImage || firestoreData.hostImage || "https://images.unsplash.com/photo-1587300003388-59208cc962cb?q=80&w=800&h=500&auto=format&fit=crop",
@@ -297,7 +412,6 @@ const ConversationDetailPage = () => {
             availableFrom: convertFirestoreDate(firestoreData.availableFrom || firestoreData.pickupDate),
             availableTo: convertFirestoreDate(firestoreData.availableTo || firestoreData.lastPickupDate),
             isVerifiedUMN: Boolean(firestoreData.isVerifiedUMN || false),
-            // Move out sale specific fields
             dimensions: firestoreData.dimensions,
             weight: firestoreData.weight,
             pickupInfo: firestoreData.pickupInfo,
@@ -313,8 +427,8 @@ const ConversationDetailPage = () => {
             price: Number(firestoreData.price || firestoreData.rent || 0),
             bedrooms: Number(firestoreData.bedrooms || 1),
             bathrooms: Number(firestoreData.bathrooms || 1),
-            rating: Number(firestoreData.rating || 4.2),
-            reviews: Number(firestoreData.reviews || 8),
+            rating: Number(firestoreData.rating ),
+            reviews: Number(firestoreData.reviews),
             amenities: Array.isArray(firestoreData.amenities) ? firestoreData.amenities : [],
             hostName: firestoreData.hostName || 'Anonymous',
             hostImage: firestoreData.hostImage || "https://images.unsplash.com/photo-1587300003388-59208cc962cb?q=80&w=800&h=500&auto=format&fit=crop",
@@ -326,15 +440,20 @@ const ConversationDetailPage = () => {
         }
         
         setListing(formattedListing);
+      } else {
+        console.warn('Listing not found in Firestore');
       }
     } catch (error) {
       console.error('Error loading listing:', error);
+      // Don't set error state for listing load failures, just log them
     }
-  };
+  }, []);
 
-  // Real-time messages listener
+  // Optimized real-time messages listener
   useEffect(() => {
     if (!conversationId || !user?.uid) return;
+
+    let mounted = true;
 
     const messagesQuery = query(
       collection(db, 'conversations', conversationId, 'messages'),
@@ -344,24 +463,39 @@ const ConversationDetailPage = () => {
     const unsubscribe = onSnapshot(
       messagesQuery,
       (snapshot) => {
-        const messageData = snapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data(),
-          createdAt: doc.data().createdAt?.toDate() || new Date()
-        }));
-        
-        setMessages(messageData);
+        if (!mounted) return;
+
+        try {
+          const messageData = snapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data(),
+            createdAt: doc.data().createdAt?.toDate() || new Date()
+          }));
+          
+          setMessages(messageData);
+        } catch (error) {
+          console.error('Error processing messages:', error);
+        }
       },
       (error) => {
-        console.error('Error fetching messages:', error);
+        if (mounted) {
+          console.error('Messages listener error:', error);
+        }
       }
     );
 
-    return () => unsubscribe();
+    unsubscribeRefs.current.messages = unsubscribe;
+
+    return () => {
+      mounted = false;
+      if (unsubscribeRefs.current.messages) {
+        unsubscribeRefs.current.messages();
+      }
+    };
   }, [conversationId, user?.uid]);
 
-  // Mark messages as read
-  const markMessagesAsRead = async (convId, isHost) => {
+  // Optimized mark messages as read
+  const markMessagesAsRead = useCallback(async (convId, isHost) => {
     try {
       const updateField = isHost ? 'hostUnreadCount' : 'guestUnreadCount';
       await updateDoc(doc(db, 'conversations', convId), {
@@ -370,10 +504,10 @@ const ConversationDetailPage = () => {
     } catch (error) {
       console.error('Error marking messages as read:', error);
     }
-  };
+  }, []);
 
-  // Send message
-  const sendMessage = async (e, messageData = null) => {
+  // Enhanced send message with better error handling
+  const sendMessage = useCallback(async (e, messageData = null) => {
     if (e) e.preventDefault();
     
     const finalMessageData = messageData || {
@@ -395,18 +529,24 @@ const ConversationDetailPage = () => {
         listingId: conversation.listingId
       };
 
-      await addDoc(
-        collection(db, 'conversations', conversationId, 'messages'), 
-        messageDoc
-      );
+      // Send message with retry
+      await withRetry(async () => {
+        await addDoc(
+          collection(db, 'conversations', conversationId, 'messages'), 
+          messageDoc
+        );
+      });
 
       const otherUserUnreadField = conversation.isUserHost ? 'guestUnreadCount' : 'hostUnreadCount';
       
-      await updateDoc(doc(db, 'conversations', conversationId), {
-        lastMessage: finalMessageData.text || (finalMessageData.type === 'image' ? '📷 Image' : '📎 File'),
-        lastMessageTime: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-        [otherUserUnreadField]: increment(1)
+      // Update conversation with retry
+      await withRetry(async () => {
+        await updateDoc(doc(db, 'conversations', conversationId), {
+          lastMessage: finalMessageData.text || (finalMessageData.type === 'image' ? '📷 Image' : '📎 File'),
+          lastMessageTime: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+          [otherUserUnreadField]: increment(1)
+        });
       });
 
       if (!messageData) {
@@ -415,15 +555,15 @@ const ConversationDetailPage = () => {
       }
       
     } catch (error) {
-      console.error('Error sending message:', error);
+      handleError(error, 'Sending message');
       alert('Failed to send message. Please try again.');
     } finally {
       setSending(false);
     }
-  };
+  }, [newMessage, sending, conversation, user, conversationId, withRetry, handleError]);
 
-  // Handle file upload
-  const handleFileUpload = async (file, type = 'file') => {
+  // Enhanced file upload with progress tracking
+  const handleFileUpload = useCallback(async (file, type = 'file') => {
     if (!file || !conversation) return;
 
     // Validate file size (max 10MB)
@@ -441,8 +581,11 @@ const ConversationDetailPage = () => {
       const folderPath = type === 'image' ? 'conversation-images' : 'conversation-files';
       const storageRef = ref(storage, `${folderPath}/${conversationId}/${filename}`);
 
-      // Upload file
-      const snapshot = await uploadBytes(storageRef, file);
+      // Upload file with retry
+      const snapshot = await withRetry(async () => {
+        return await uploadBytes(storageRef, file);
+      });
+
       const downloadURL = await getDownloadURL(snapshot.ref);
 
       // Create message data
@@ -458,45 +601,42 @@ const ConversationDetailPage = () => {
       await sendMessage(null, messageData);
 
     } catch (error) {
-      console.error('Error uploading file:', error);
+      handleError(error, 'Uploading file');
       alert('Failed to upload file. Please try again.');
     } finally {
       setUploadingFile(false);
     }
-  };
+  }, [conversation, conversationId, sendMessage, withRetry, handleError]);
 
-  // Handle image upload
-  const handleImageUpload = (e) => {
+  // File input handlers
+  const handleImageUpload = useCallback((e) => {
     const file = e.target.files?.[0];
     if (file && file.type.startsWith('image/')) {
       handleFileUpload(file, 'image');
     }
-    // Reset input
     e.target.value = '';
-  };
+  }, [handleFileUpload]);
 
-  // Handle general file upload
-  const handleGeneralFileUpload = (e) => {
+  const handleGeneralFileUpload = useCallback((e) => {
     const file = e.target.files?.[0];
     if (file) {
       handleFileUpload(file, 'file');
     }
-    // Reset input
     e.target.value = '';
-  };
+  }, [handleFileUpload]);
 
-  // Handle drag and drop
-  const handleDragOver = (e) => {
+  // Drag and drop handlers
+  const handleDragOver = useCallback((e) => {
     e.preventDefault();
     setDragOver(true);
-  };
+  }, []);
 
-  const handleDragLeave = (e) => {
+  const handleDragLeave = useCallback((e) => {
     e.preventDefault();
     setDragOver(false);
-  };
+  }, []);
 
-  const handleDrop = (e) => {
+  const handleDrop = useCallback((e) => {
     e.preventDefault();
     setDragOver(false);
     
@@ -509,10 +649,31 @@ const ConversationDetailPage = () => {
         handleFileUpload(file, 'file');
       }
     }
-  };
+  }, [handleFileUpload]);
 
-  // Format time display for conversation list
-  const formatConversationTime = (date) => {
+  // Memoized filtered conversations
+  const filteredConversations = useMemo(() => {
+    return conversations.filter(conv => {
+      // Tab filter
+      let matchesTab = true;
+      if (activeTab === 'sublease') {
+        matchesTab = conv.conversationType !== 'moveout';
+      } else if (activeTab === 'moveout') {
+        matchesTab = conv.conversationType === 'moveout';
+      }
+
+      // Search filter
+      const matchesSearch = !searchTerm || 
+        conv.listingTitle?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        conv.otherParticipant.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        conv.listingLocation?.toLowerCase().includes(searchTerm.toLowerCase());
+
+      return matchesTab && matchesSearch;
+    });
+  }, [conversations, activeTab, searchTerm]);
+
+  // Memoized time formatting functions
+  const formatConversationTime = useCallback((date) => {
     if (!date) return '';
     
     const now = new Date();
@@ -535,43 +696,9 @@ const ConversationDetailPage = () => {
         day: 'numeric' 
       });
     }
-  };
+  }, []);
 
-  // Get preview text for message
-  const getMessagePreview = (message) => {
-    if (!message) return 'No messages yet';
-    
-    switch (message.type) {
-      case 'image':
-        return '📷 Image';
-      case 'file':
-        return '📎 File';
-      default:
-        return message.text || 'Message';
-    }
-  };
-
-  // Filter conversations based on active tab
-  const filteredConversations = conversations.filter(conv => {
-    // Tab filter
-    let matchesTab = true;
-    if (activeTab === 'sublease') {
-      matchesTab = conv.conversationType !== 'moveout';
-    } else if (activeTab === 'moveout') {
-      matchesTab = conv.conversationType === 'moveout';
-    }
-
-    // Search filter
-    const matchesSearch = !searchTerm || 
-      conv.listingTitle?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      conv.otherParticipant.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      conv.listingLocation?.toLowerCase().includes(searchTerm.toLowerCase());
-
-    return matchesTab && matchesSearch;
-  });
-
-  // Format message time
-  const formatMessageTime = (date) => {
+  const formatMessageTime = useCallback((date) => {
     if (!date) return '';
     
     const now = new Date();
@@ -599,10 +726,24 @@ const ConversationDetailPage = () => {
         hour12: true 
       });
     }
-  };
+  }, []);
+
+  // Message preview helper
+  const getMessagePreview = useCallback((message) => {
+    if (!message) return 'No messages yet';
+    
+    switch (message.type) {
+      case 'image':
+        return '📷 Image';
+      case 'file':
+        return '📎 File';
+      default:
+        return message.text || 'Message';
+    }
+  }, []);
 
   // Group messages by date
-  const groupMessagesByDate = (messages) => {
+  const messageGroups = useMemo(() => {
     const groups = [];
     let currentDate = null;
     let currentGroup = [];
@@ -626,24 +767,27 @@ const ConversationDetailPage = () => {
     }
 
     return groups;
-  };
+  }, [messages]);
 
   // Image navigation
-  const allImages = listing ? [
-    listing.image,
-    ...(Array.isArray(listing.additionalImages) ? listing.additionalImages : [])
-  ].filter(Boolean) : [];
+  const allImages = useMemo(() => {
+    if (!listing) return [];
+    return [
+      listing.image,
+      ...(Array.isArray(listing.additionalImages) ? listing.additionalImages : [])
+    ].filter(Boolean);
+  }, [listing]);
 
-  const goToPrevImage = () => {
+  const goToPrevImage = useCallback(() => {
     setActiveImage((prev) => (prev === 0 ? allImages.length - 1 : prev - 1));
-  };
+  }, [allImages.length]);
   
-  const goToNextImage = () => {
+  const goToNextImage = useCallback(() => {
     setActiveImage((prev) => (prev === allImages.length - 1 ? 0 : prev + 1));
-  };
+  }, [allImages.length]);
 
-  // Feature/Amenity icons (works for both types)
-  const getFeatureIcon = (feature) => {
+  // Feature/Amenity icons
+  const getFeatureIcon = useCallback((feature) => {
     switch (feature.toLowerCase()) {
       case 'wifi': return <Wifi size={16} />;
       case 'parking': return <MapPin size={16} />;
@@ -656,35 +800,85 @@ const ConversationDetailPage = () => {
       case 'pickup': return <Package size={16} />;
       default: return <Star size={16} />;
     }
-  };
+  }, []);
 
-  // Format file size
-  const formatFileSize = (bytes) => {
+  // File size formatter
+  const formatFileSize = useCallback((bytes) => {
     if (bytes === 0) return '0 Bytes';
     const k = 1024;
     const sizes = ['Bytes', 'KB', 'MB', 'GB'];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-  };
+  }, []);
 
-  const messageGroups = groupMessagesByDate(messages);
+  // Error retry handler
+  const handleRetry = useCallback(() => {
+    setError(null);
+    setRetryCount(prev => prev + 1);
+  }, []);
 
+  // Loading state
   if (loading || conversationsLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500 mx-auto mb-4"></div>
           <p className="text-gray-600">Loading conversations...</p>
+          {error && (
+            <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+              <p className="text-red-600 text-sm">{error}</p>
+              <button 
+                onClick={handleRetry}
+                className="mt-2 px-3 py-1 bg-red-500 text-white rounded text-sm hover:bg-red-600 transition"
+              >
+                Retry
+              </button>
+            </div>
+          )}
         </div>
       </div>
     );
   }
 
+  // Error state
+  if (error && !conversation) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center max-w-md">
+          <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <X className="w-8 h-8 text-red-500" />
+          </div>
+          <h2 className="text-xl font-semibold text-gray-900 mb-2">Something went wrong</h2>
+          <p className="text-gray-600 mb-4">{error}</p>
+          <div className="space-x-3">
+            <button 
+              onClick={handleRetry}
+              className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition"
+            >
+              Try Again
+            </button>
+            <button 
+              onClick={() => router.push('/sublease/search/')}
+              className="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition"
+            >
+              Back to Messages
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // No conversation found
   if (!conversation) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
+          <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <MessageCircle className="w-8 h-8 text-gray-400" />
+          </div>
           <p className="text-xl text-gray-600 mb-4">Conversation not found</p>
+          <p className="text-gray-500 mb-6">This conversation may have been deleted or you may not have access to it.</p>
           <button 
             onClick={() => router.push('/sublease/search/')}
             className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition"
@@ -720,19 +914,23 @@ const ConversationDetailPage = () => {
                 />
               </div>
               
-              <button 
-                onClick={goToPrevImage}
-                className="absolute left-0 top-1/2 transform -translate-y-1/2 p-2 bg-white bg-opacity-80 rounded-full text-gray-800 hover:bg-opacity-100 transition"
-              >
-                <ChevronLeft size={24} />
-              </button>
-              
-              <button 
-                onClick={goToNextImage}
-                className="absolute right-0 top-1/2 transform -translate-y-1/2 p-2 bg-white bg-opacity-80 rounded-full text-gray-800 hover:bg-opacity-100 transition"
-              >
-                <ChevronRight size={24} />
-              </button>
+              {allImages.length > 1 && (
+                <>
+                  <button 
+                    onClick={goToPrevImage}
+                    className="absolute left-0 top-1/2 transform -translate-y-1/2 p-2 bg-white bg-opacity-80 rounded-full text-gray-800 hover:bg-opacity-100 transition"
+                  >
+                    <ChevronLeft size={24} />
+                  </button>
+                  
+                  <button 
+                    onClick={goToNextImage}
+                    className="absolute right-0 top-1/2 transform -translate-y-1/2 p-2 bg-white bg-opacity-80 rounded-full text-gray-800 hover:bg-opacity-100 transition"
+                  >
+                    <ChevronRight size={24} />
+                  </button>
+                </>
+              )}
             </div>
             
             <div className="text-white text-center mb-4">
@@ -963,13 +1161,7 @@ const ConversationDetailPage = () => {
  
           {/* Messages Container */}
           <div className="flex-1 overflow-y-auto p-4 space-y-4">
-            {!conversation ? (
-              <div className="text-center py-8">
-                <MessageCircle className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-gray-600 mb-2">Select a conversation</h3>
-                <p className="text-gray-500">Choose a conversation from the list to start messaging</p>
-              </div>
-            ) : messageGroups.length === 0 ? (
+            {messageGroups.length === 0 ? (
               <div className="text-center py-8">
                 <div className="w-16 h-16 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-4">
                   {isMoveOutSale ? <Package className="w-8 h-8 text-orange-500" /> : <Send className="w-8 h-8 text-orange-500" />}
@@ -1089,7 +1281,7 @@ const ConversationDetailPage = () => {
           {/* Message Input */}
           {conversation && (
             <div 
-              className={`bg-white border-t border-gray-200 p-4 ${dragOver ? 'bg-orange-50 border-orange-300' : ''}`}
+              className={`bg-white border-t border-gray-200 p-4 sticky bottom-0 left-0 right-0 ${dragOver ? 'bg-orange-50 border-orange-300' : ''}`}
               onDragOver={handleDragOver}
               onDragLeave={handleDragLeave}
               onDrop={handleDrop}
@@ -1298,14 +1490,7 @@ const ConversationDetailPage = () => {
                   </div>
                 )}
                 
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-gray-600">Rating</span>
-                  <div className="flex items-center">
-                    <Star className="w-3 h-3 text-orange-400 fill-current mr-1" />
-                    <span className="font-medium text-sm">{listing.rating}</span>
-                    <span className="text-gray-500 ml-1 text-xs">({listing.reviews})</span>
-                  </div>
-                </div>
+                
               </div>
             </div>
  

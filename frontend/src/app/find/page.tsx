@@ -702,7 +702,7 @@ function MoveOutPageContent() {
       if (action === "write") {
         router.push("/sublease/write/options/chat");
       } else {
-        router.push("/sublease/search");
+        router.push("/sublease/firstSearch");
       }
     }, 500);
   };
