@@ -1181,29 +1181,65 @@ const SuboxHomepage = () => {
       </motion.section>
 
 
-      <section className="text-center py-24 px-6 mt-20 mb-10">
-        <div className="max-w-4xl mx-auto">
-          <h1 className="text-4xl md:text-5xl font-bold font-sans text-gray-900 leading-tight">
-            Your Space. Your Stuff. <br className="hidden md:block" /> Your Time to Move.
-          </h1>
-          <p className="mt-6 text-lg md:text-xl text-gray-700 font-medium font-inter">
-            Find subleases and student essentials near you — <span className="text-orange-500 font-semibold">faster</span>, <span className="text-orange-500 font-semibold">safer</span>, <span className="text-orange-500 font-semibold">smarter</span>.
-          </p>
-        </div>
-      </section>
+    <section className="text-center py-24 px-6 mt-20 mb-10">
+      <div className="max-w-4xl mx-auto">
+        {/* Animated Heading */}
+        <motion.h1
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.8, delay: 0.4 }}
+          viewport={{ once: true }}
+          className="text-4xl md:text-5xl font-bold font-sans text-gray-900 leading-tight"
+        >
+          Your <span className="text-orange-500">Space</span>. Your <span className='text-orange-500'>Stuff</span>. <br className="hidden md:block" /> Your <span className='text-orange-500'>Time</span> to
+          <span className='text-orange-500'> Move</span>.
+        </motion.h1>
+
+        {/* Animated Paragraph */}
+        <motion.p
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.8, delay: 0.4 }}
+          viewport={{ once: true }}
+          className="mt-6 text-lg md:text-xl text-gray-700 font-medium font-inter"
+        >
+          Find subleases and student essentials near you —{" "}
+          <span className="text-orange-500 font-semibold">faster</span>,{" "}
+          <span className="text-orange-500 font-semibold">safer</span>,{" "}
+          <span className="text-orange-500 font-semibold">smarter</span>.
+        </motion.p>
+      </div>
+    </section>
 
       <UseCasesSection />
 
-      <section className="text-center py-24 px-6 bg-white mt-20 mb-30">
-        <div className="max-w-4xl mx-auto">
-          <h2 className="text-4xl md:text-5xl font-bold text-gray-900 leading-tight font-sans">
-            Why waste it when you can <span className="text-orange-500">Subox</span> it?
-          </h2>
-          <p className="mt-6 text-lg md:text-xl text-gray-700 font-medium font-inter">
-            We connect students who need a place with those who are leaving one. <br className="hidden md:block" /> Simple.
-          </p>
-        </div>
-      </section>
+    <section className="text-center py-24 px-6 bg-white mt-20 mb-30">
+      <div className="max-w-4xl mx-auto">
+        {/* Animated Heading */}
+        <motion.h2
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.8, delay: 0.4 }}
+          viewport={{ once: true }}
+          className="text-4xl md:text-5xl font-bold text-gray-900 leading-tight font-sans"
+        >
+          Why waste it when you can{" "}
+          <span className="text-orange-500">Subox</span> it?
+        </motion.h2>
+
+        {/* Animated Paragraph */}
+        <motion.p
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.8, delay: 0.4 }}
+          viewport={{ once: true }}
+          className="mt-6 text-lg md:text-xl text-gray-700 font-medium font-inter"
+        >
+          We connect students who need a place with those who are leaving one.{" "}
+          <br className="hidden md:block" /> Simple.
+        </motion.p>
+      </div>
+    </section>
 
       <HowItWorksSection howY={howY} />
 
@@ -1350,13 +1386,6 @@ const SuboxHomepage = () => {
 
           {/* Bottom Grid: 4 more sections */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8 text-center md:text-left">
-            {/* About Subox */}
-            <div>
-              <h3 className="text-2xl font-bold mb-4">About Subox</h3>
-              <p className="text-lg text-white text-sm">
-                A Minnesota-focused marketplace for sublets and moving sales. Built for speed, trust, and simplicity.
-              </p>
-            </div>
 
             {/* Get Started */}
             <div>
@@ -1415,22 +1444,22 @@ const useCases = [
   {
     title: "Post",
     description: "Subox helps you post your sublease easy and fast with AI.",
-    image: "post.png",
+    image: "post-gif.gif",
   },
   {
     title: "Rent",
     description: "Subox helps you browse verified subleases and contact the host instantly.",
-    image: "rent.png",
+    image: "rent-gif.gif",
   },  
   {
     title: "Sell",
     description: "Subox helps you sell your product easy and fast through AI auto listing.",
-    image: ["movesale.png", "sell.png", "sell2.png"]
+    image: "sell-gif.gif"
   },
   {
     title: "Buy",
     description: "Subox helps you discover great deals on moving sale products from fellow students, alumnis, and users in Minnesota",
-    image: "movebrowse.png",
+    image: "buy-gif.gif",
   },
 ];
 
@@ -1571,25 +1600,25 @@ const HowItWorksSection = ({ howY }) => {
             {
               title: <>Post a <span className="text-orange-500">Sublease</span></>,
               image: "post.png",
-              hoverImage: "/how/post-sublease-anim.gif",
+              hoverImage: "post-gif.gif",
               description: <>Easily post your sublease with a <span className="text-orange-500">few clicks</span> and <span className="text-orange-500">photos</span>.</>,
             },            
             {
               title: <><span className='text-orange-500'>Rent </span>a Place</>,
               image: "rent.png",
-              hoverImage: "/how/rent-sublease-anim.gif",
+              hoverImage: "rent-gif.gif",
               description: <>Browse local subleases from trusted <span className="text-orange-500">students</span>, <span className="text-orange-500">alumnis</span>, and <span className="text-orange-500">users in Minnesota</span> and contact directly.</>,
             },
             {
               title: <>Sell a <span className='text-orange-500'>Product</span></>,
               image: "sell.png",
-              hoverImage: "/how/post-product-anim.gif",
+              hoverImage: "sell-gif.gif",
               description: <>Snap a photo and let <span className="text-orange-500">AI</span> handle the rest of your <span className="text-orange-500">item listing</span>.</>,
             },
             {
               title: <><span className='text-orange-500'>Buy </span>a Product</>,
               image: "movebrowse.png",
-              hoverImage: "/how/buy-product-anim.gif",
+              hoverImage: "buy-gif.gif",
               description: <>Buy what you need <span className="text-orange-500">easily</span> and <span className="text-orange-500">quickly</span> by contacting directly.</>,
             },
           ].map((step, index) => {
@@ -1608,12 +1637,10 @@ const HowItWorksSection = ({ howY }) => {
                 <div className="relative w-full md:w-1/2 h-64 overflow-hidden rounded-xl shadow-lg">
                   <img
                     src={step.image}
-                    alt={step.title}
                     className="w-full h-full object-cover transition-opacity duration-300 group-hover:opacity-0"
                   />
                   <img
                     src={step.hoverImage}
-                    alt={step.title + ' demo'}
                     className="absolute inset-0 w-full h-full object-cover opacity-0 hover:opacity-100 transition-opacity duration-300"
                   />
                 </div>
@@ -1633,1098 +1660,6 @@ const HowItWorksSection = ({ howY }) => {
 };
 
 
-const CameraDemo = ({ capturedItems, setCapturedItems }) => {
-  const [isCapturing, setIsCapturing] = useState(false);
-  const [showScanner, setShowScanner] = useState(false);
-  const [showDetection, setShowDetection] = useState(false);
-  const [imageLoaded, setImageLoaded] = useState(false);
-  const fileInputRef = useRef(null);
-
-  // Real detected items with accurate positioning for the actual photo
-  const detectedItems = [
-    { 
-      id: 1, 
-      name: "Wooden Desk", 
-      confidence: 92, 
-      price: 85, 
-      selected: true,
-      category: "Furniture",
-      condition: "Good",
-      position: { 
-        left: "15%",
-        top: "55%",
-        width: "65%",
-        height: "35%"
-      }
-    },
-    { 
-      id: 2, 
-      name: "Office Chair", 
-      confidence: 88, 
-      price: 45, 
-      selected: true,
-      category: "Furniture", 
-      condition: "Excellent",
-      position: { 
-        left: "60%",
-        top: "25%",
-        width: "35%",
-        height: "65%"
-      }
-    },
-    { 
-      id: 3, 
-      name: "Table Lamp", 
-      confidence: 79, 
-      price: 25, 
-      selected: false,
-      category: "Electronics",
-      condition: "Good",
-      position: { 
-        left: "8%",
-        top: "15%",
-        width: "25%",
-        height: "30%"
-      }
-    }
-  ];
-
-  const analyzeItemForDescription = (item) => {
-    // Handle Camera Demo item structure
-    const itemName = item.name || item.itemName || 'Item';
-    const condition = item.condition || 'Good';
-    const price = item.price || 0;
-    const category = item.category || 'General';
-
-    return {
-      itemAnalysis: {
-        name: itemName,
-        condition: condition,
-        price: price,
-        priceType: 'fixed',
-        location: 'Campus Area',
-        delivery: 'pickup',
-        category: category
-      },
-      writingElements: {
-        hook: condition === 'Excellent' ? 'Amazing' : condition === 'Good' ? 'Great' : 'Solid',
-        urgency: 'priced to sell',
-        appeal: category === 'Books' ? 'Perfect for students!' : 
-               category === 'Furniture' ? 'Great for any space!' : 
-               category === 'Electronics' ? 'Tech lovers will love this!' :
-               'Excellent value!',
-        logistics: 'Quick pickup available'
-      },
-      optimizations: [
-        'Added emotional appeal',
-        'Included target audience',
-        'Emphasized value proposition',
-        'Clear call-to-action',
-        'Location-specific language'
-      ]
-    };
-  };
-
-  const generateDescriptionVariants = (item) => {
-    const analysis = analyzeItemForDescription(item);
-    if (!analysis) return [];
-
-    const { itemAnalysis, writingElements } = analysis;
-    
-    return [
-      {
-        style: "Friendly & Casual",
-        description: `${writingElements.hook} ${itemAnalysis.name} in ${itemAnalysis.condition.toLowerCase()} condition! ${writingElements.appeal} Only ${itemAnalysis.price}. ${writingElements.logistics} near campus. Message me for quick response!`,
-        tags: ["conversational", "approachable", "student-friendly"]
-      },
-      {
-        style: "Professional & Direct",
-        description: `${itemAnalysis.name} available in ${itemAnalysis.condition.toLowerCase()} condition. Priced at ${itemAnalysis.price}. ${writingElements.logistics}. Located near campus. Serious inquiries only.`,
-        tags: ["professional", "concise", "business-like"]
-      },
-      {
-        style: "Enthusiastic & Sales-y",
-        description: `🌟 ${writingElements.hook} ${itemAnalysis.name} - ${itemAnalysis.condition} condition! 🌟 ${writingElements.appeal} Don't miss this fantastic deal at ${itemAnalysis.price}! ${writingElements.logistics}. Perfect addition to your ${itemAnalysis.category === 'Furniture' ? 'home' : itemAnalysis.category === 'Books' ? 'studies' : 'collection'}. Grab it before it's gone! 💯`,
-        tags: ["energetic", "emoji-rich", "urgency-driven"]
-      }
-    ];
-  };
-
-  useEffect(() => {
-    // Auto-trigger AI analysis when new items are captured from Camera Demo
-    if (capturedItems.length > 0 && !isGenerating) {
-      const currentItem = capturedItems[capturedItems.length - 1];
-      setIsAnalyzing(true);
-      setProcessingStep(0);
-      setAnalysisResults(null);
-      setDescriptionVariants([]);
-      
-      const interval = setInterval(() => {
-        setProcessingStep(prev => {
-          const newStep = prev + 1;
-          
-          if (newStep >= descriptionSteps.length) {
-            setIsAnalyzing(false);
-            const analysis = analyzeItemForDescription(currentItem);
-            const variants = generateDescriptionVariants(currentItem);
-            
-            setAnalysisResults(analysis);
-            setDescriptionVariants(variants);
-            setSelectedVariant(0);
-            
-            // Notify parent that AI processing is complete
-            if (onAIComplete) {
-              onAIComplete({
-                item: currentItem,
-                analysis: analysis,
-                descriptions: variants,
-                selectedDescription: variants[0]?.description
-              });
-            }
-            
-            clearInterval(interval);
-            return descriptionSteps.length;
-          }
-          return newStep;
-        });
-      }, 800);
-      
-      return () => clearInterval(interval);
-    }
-  }, [capturedItems.length]);
-
-  const selectDescription = (index) => {
-    setSelectedVariant(index);
-    if (onDescriptionGenerate) {
-      onDescriptionGenerate(descriptionVariants[index].description);
-    }
-  };
-
-  const latestItem = capturedItems[capturedItems.length - 1];
-
-  if (!latestItem) {
-    return (
-      <div className="space-y-6">
-        <div className="flex items-center gap-3">
-          <motion.div
-            animate={{ rotate: [0, 360] }}
-            transition={{ duration: 4, repeat: Infinity, ease: "linear" }}
-          >
-            <Wand2 size={32} className="text-purple-600" />
-          </motion.div>
-          <h3 className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent">
-            AI Description Generator
-          </h3>
-        </div>
-        
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="bg-gradient-to-br from-purple-50 via-blue-50 to-cyan-50 rounded-xl p-12 text-center border border-purple-200"
-        >
-          <motion.div
-            animate={{ scale: [1, 1.1, 1], opacity: [0.5, 1, 0.5] }}
-            transition={{ duration: 3, repeat: Infinity }}
-          >
-            <FileText size={64} className="text-purple-400 mx-auto mb-6" />
-          </motion.div>
-          <div className="text-xl font-semibold text-gray-700 mb-3">AI Writer Ready</div>
-          <div className="text-gray-500 mb-6">Add item details to generate compelling descriptions</div>
-          <div className="grid grid-cols-3 gap-4 text-sm text-gray-400">
-            <div className="flex flex-col items-center gap-2">
-              <Brain size={20} />
-              <span>Smart Analysis</span>
-            </div>
-            <div className="flex flex-col items-center gap-2">
-              <MessageSquare size={20} />
-              <span>Persuasive Copy</span>
-            </div>
-            <div className="flex flex-col items-center gap-2">
-              <Target size={20} />
-              <span>Optimization</span>
-            </div>
-          </div>
-        </motion.div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-6">
-      <div className="flex items-center gap-3">
-        <motion.div
-          animate={{ 
-            rotate: isAnalyzing ? [0, 360] : 0,
-            scale: isAnalyzing ? [1, 1.1, 1] : 1
-          }}
-          transition={{ 
-            rotate: { duration: 2, repeat: isAnalyzing ? Infinity : 0, ease: "linear" },
-            scale: { duration: 1, repeat: isAnalyzing ? Infinity : 0 }
-          }}
-        >
-          <Wand2 size={32} className="text-purple-600" />
-        </motion.div>
-        <h3 className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent">
-          AI Description Generator
-        </h3>
-        {!isAnalyzing && analysisResults && (
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={() => setShowDetailedAnalysis(!showDetailedAnalysis)}
-            className="ml-auto flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg text-sm font-medium shadow-lg"
-          >
-            <Eye size={16} />
-            {showDetailedAnalysis ? 'Hide' : 'Show'} Analysis
-          </motion.button>
-        )}
-      </div>
-      
-      {/* Item Details Summary */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="bg-white rounded-xl p-6 border border-gray-200 shadow-sm"
-      >
-        <h4 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
-          <Package size={16} />
-          Item Details Being Analyzed
-        </h4>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="space-y-1">
-            <div className="text-sm text-gray-500">Item Name</div>
-            <div className="font-medium text-gray-900">
-              {latestItem.name || latestItem.itemName || 'Detected Item'}
-            </div>
-          </div>
-          <div className="space-y-1">
-            <div className="text-sm text-gray-500">Category</div>
-            <div className="font-medium text-gray-900">
-              {latestItem.category || 'General'}
-            </div>
-          </div>
-          <div className="space-y-1">
-            <div className="text-sm text-gray-500">Condition</div>
-            <div className="font-medium text-gray-900">
-              {latestItem.condition || 'Good'}
-            </div>
-          </div>
-          <div className="space-y-1">
-            <div className="text-sm text-gray-500">Price</div>
-            <div className="font-medium text-gray-900">
-              ${latestItem.price || 0}
-            </div>
-          </div>
-        </div>
-        
-        {/* Camera Demo items always have data, so no missing data warning needed */}
-        <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-          <div className="flex items-center gap-2 text-blue-800">
-            <CheckCircle size={16} />
-            <span className="text-sm font-medium">AI detected all required details from your photo!</span>
-          </div>
-        </div>
-      </motion.div>
-      
-      {/* AI Processing Animation */}
-      {isAnalyzing && (
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="bg-gradient-to-br from-purple-50 via-blue-50 to-cyan-50 rounded-xl p-6 border border-purple-200 shadow-lg"
-        >
-          <div className="flex items-center gap-4 mb-6">
-            <div className="w-16 h-16 bg-gradient-to-br from-purple-500 to-blue-500 rounded-xl flex items-center justify-center shadow-lg">
-              <Brain size={24} className="text-white" />
-            </div>
-            <div className="flex-1">
-              <div className="font-bold text-xl text-gray-800">Analyzing Item Details</div>
-              <div className="text-sm text-gray-600">AI is crafting your perfect description...</div>
-            </div>
-            <motion.div 
-              className="text-purple-500"
-              animate={{ 
-                rotate: 360,
-                scale: [1, 1.3, 1]
-              }}
-              transition={{ 
-                rotate: { duration: 2, repeat: Infinity, ease: "linear" },
-                scale: { duration: 1, repeat: Infinity }
-              }}
-            >
-              <Sparkles size={28} />
-            </motion.div>
-          </div>
-          
-          <div className="space-y-3">
-            {descriptionSteps.map((step, i) => (
-              <motion.div
-                key={i}
-                className={`flex items-center gap-4 p-4 rounded-lg transition-all ${
-                  i < processingStep 
-                    ? 'bg-green-50 border-2 border-green-300 shadow-sm' 
-                    : i === processingStep
-                      ? 'bg-white border-2 border-purple-400 shadow-md' 
-                      : 'bg-gray-50 border border-gray-200'
-                }`}
-                animate={{
-                  scale: i === processingStep ? 1.02 : 1,
-                  opacity: i <= processingStep ? 1 : 0.4
-                }}
-              >
-                <motion.div
-                  animate={i === processingStep ? { 
-                    rotate: 360,
-                    scale: [1, 1.2, 1]
-                  } : {}}
-                  transition={{ 
-                    rotate: { duration: 1.5, repeat: i === processingStep ? Infinity : 0, ease: "linear" },
-                    scale: { duration: 0.8, repeat: i === processingStep ? Infinity : 0 }
-                  }}
-                  className={`${
-                    i < processingStep ? 'text-green-500' : 
-                    i === processingStep ? 'text-purple-500' : 'text-gray-400'
-                  }`}
-                >
-                  {i < processingStep ? <Check size={20} /> : step.icon}
-                </motion.div>
-                <div className="flex-1">
-                  <div className={`font-medium ${
-                    i < processingStep ? 'text-green-700' : 
-                    i === processingStep ? 'text-purple-700' : 'text-gray-500'
-                  }`}>
-                    {step.label}
-                  </div>
-                  <div className="text-xs text-gray-500 mt-1">
-                    {step.description}
-                  </div>
-                </div>
-              </motion.div>
-            ))}
-          </div>
-        </motion.div>
-      )}
-      
-      {/* Detailed Analysis Results */}
-      {showDetailedAnalysis && analysisResults && (
-        <motion.div
-          initial={{ opacity: 0, height: 0 }}
-          animate={{ opacity: 1, height: "auto" }}
-          exit={{ opacity: 0, height: 0 }}
-          className="bg-white rounded-xl p-6 border border-gray-200 shadow-sm"
-        >
-          <h4 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
-            <Brain size={16} className="text-purple-500" />
-            AI Analysis Breakdown
-          </h4>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <h5 className="font-medium text-gray-800 mb-3">Writing Elements Identified</h5>
-              <div className="space-y-2">
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-gray-600">Hook Word:</span>
-                  <span className="text-sm font-medium text-purple-600">
-                    "{analysisResults.writingElements.hook}"
-                  </span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-gray-600">Urgency Level:</span>
-                  <span className="text-sm font-medium text-orange-600">
-                    {analysisResults.writingElements.urgency}
-                  </span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-gray-600">Target Appeal:</span>
-                  <span className="text-sm font-medium text-blue-600">
-                    {analysisResults.writingElements.appeal}
-                  </span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-gray-600">Logistics:</span>
-                  <span className="text-sm font-medium text-green-600">
-                    {analysisResults.writingElements.logistics}
-                  </span>
-                </div>
-              </div>
-            </div>
-            
-            <div>
-              <h5 className="font-medium text-gray-800 mb-3">AI Optimizations Applied</h5>
-              <div className="space-y-2">
-                {analysisResults.optimizations.map((opt, i) => (
-                  <div key={i} className="flex items-center gap-2">
-                    <Check size={14} className="text-green-500" />
-                    <span className="text-sm text-gray-600">{opt}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </motion.div>
-      )}
-      
-      {/* Generated Description Variants */}
-      {!isAnalyzing && descriptionVariants.length > 0 && (
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="space-y-4"
-        >
-          <h4 className="font-semibold text-gray-900 flex items-center gap-2">
-            <MessageSquare size={16} className="text-green-500" />
-            AI-Generated Description Options
-          </h4>
-          
-          {descriptionVariants.map((variant, i) => (
-            <motion.div
-              key={i}
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: i * 0.1 }}
-              whileHover={{ scale: 1.01 }}
-              className={`p-5 rounded-xl border cursor-pointer transition-all ${
-                selectedVariant === i 
-                  ? 'border-purple-300 bg-purple-50 shadow-lg' 
-                  : 'border-gray-200 hover:border-gray-300 bg-white hover:shadow-md'
-              }`}
-              onClick={() => selectDescription(i)}
-            >
-              <div className="flex items-center justify-between mb-3">
-                <h5 className="font-medium text-gray-900">{variant.style}</h5>
-                <div className="flex items-center gap-2">
-                  {selectedVariant === i && (
-                    <span className="text-xs bg-purple-200 text-purple-700 px-2 py-1 rounded-full">
-                      Selected ✓
-                    </span>
-                  )}
-                  <motion.button
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    className="text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1 rounded-full"
-                  >
-                    Use This
-                  </motion.button>
-                </div>
-              </div>
-              
-              <div className="text-gray-700 leading-relaxed mb-3">
-                {variant.description}
-              </div>
-              
-              <div className="flex flex-wrap gap-2">
-                {variant.tags.map((tag, j) => (
-                  <span key={j} className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full">
-                    {tag}
-                  </span>
-                ))}
-              </div>
-            </motion.div>
-          ))}
-          
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="flex items-center justify-center gap-4 pt-4"
-          >
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={() => {
-                // Trigger regeneration
-                if (onDescriptionGenerate) {
-                  onDescriptionGenerate('regenerate');
-                }
-              }}
-              className="flex items-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-lg font-medium"
-            >
-              <RefreshCw size={16} />
-              Generate New Options
-            </motion.button>
-            
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg font-medium"
-            >
-              <CheckCircle size={16} />
-              Confirm Selection
-            </motion.button>
-          </motion.div>
-        </motion.div>
-      )}
-      
-      {/* Camera Demo Auto-Analysis Success */}
-      {!isAnalyzing && descriptionVariants.length === 0 && latestItem && (
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="bg-green-50 rounded-xl p-6 border border-green-200"
-        >
-          <div className="text-center">
-            <CheckCircle size={48} className="text-green-400 mx-auto mb-4" />
-            <h4 className="font-semibold text-green-800 mb-2">AI Analysis Complete!</h4>
-            <p className="text-green-700 mb-4">
-              Successfully analyzed your {latestItem.category || 'item'} and generated smart descriptions.
-            </p>
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={() => {
-                const analysis = analyzeItemForDescription(latestItem);
-                const variants = generateDescriptionVariants(latestItem);
-                setAnalysisResults(analysis);
-                setDescriptionVariants(variants);
-                setSelectedVariant(0);
-              }}
-              className="px-4 py-2 bg-green-600 text-white rounded-lg font-medium"
-            >
-              View AI Descriptions
-            </motion.button>
-          </div>
-        </motion.div>
-      )}
-    </div>
-  );
-};
-
-const ListingDemo = () => {
-  const [compareItems, setCompareItems] = useState(new Set());
-  const [comparisonPriorities, setComparisonPriorities] = useState([]);
-  const [showComparison, setShowComparison] = useState(false);
-  const [animationStep, setAnimationStep] = useState(0);
-
-  // Sample items for demonstration
-  const items = [
-    {
-      id: 1,
-      name: "MacBook Pro 13-inch",
-      category: "Electronics",
-      price: 899,
-      originalPrice: 1299,
-      condition: "Like New",
-      location: "dinkytown",
-      image: "/api/placeholder/300/300",
-      sellerRating: 4.8,
-      views: 127,
-      deliveryAvailable: true,
-      pickupAvailable: true,
-      availableUntil: "2025-12-31",
-      shortDescription: "Perfect for students, barely used laptop with all accessories included."
-    },
-    {
-      id: 2,
-      name: "IKEA Study Desk",
-      category: "Furniture",
-      price: 65,
-      originalPrice: 120,
-      condition: "Good",
-      location: "eastbank",
-      image: "/api/placeholder/300/300",
-      sellerRating: 4.5,
-      views: 89,
-      deliveryAvailable: false,
-      pickupAvailable: true,
-      availableUntil: "2025-11-30",
-      shortDescription: "Sturdy desk perfect for dorm rooms, some minor scratches."
-    },
-    {
-      id: 3,
-      name: "iPhone 14",
-      category: "Electronics",
-      price: 650,
-      originalPrice: 799,
-      condition: "New",
-      location: "westbank",
-      image: "/api/placeholder/300/300",
-      sellerRating: 4.9,
-      views: 203,
-      deliveryAvailable: true,
-      pickupAvailable: false,
-      availableUntil: "2025-12-25",
-      shortDescription: "Brand new, unopened iPhone 14 in original packaging."
-    }
-  ];
-
-  useEffect(() => {
-    // Auto-demo: Add items to comparison with animation
-    const timer = setTimeout(() => {
-      if (animationStep === 0) {
-        setCompareItems(new Set([1]));
-        setAnimationStep(1);
-      } else if (animationStep === 1) {
-        setCompareItems(new Set([1, 2]));
-        setAnimationStep(2);
-      } else if (animationStep === 2) {
-        setCompareItems(new Set([1, 2, 3]));
-        setAnimationStep(3);
-      } else if (animationStep === 3) {
-        setComparisonPriorities(['price', 'condition']);
-        setAnimationStep(4);
-      } else if (animationStep === 4) {
-        setShowComparison(true);
-        setAnimationStep(5);
-      }
-    }, animationStep < 3 ? 1500 : animationStep === 3 ? 2000 : 3000);
-
-    return () => clearTimeout(timer);
-  }, [animationStep]);
-
-  const toggleCompare = (productId) => {
-    const newCompare = new Set(compareItems);
-    if (newCompare.has(productId)) {
-      newCompare.delete(productId);
-    } else if (newCompare.size < 3) {
-      newCompare.add(productId);
-    }
-    setCompareItems(newCompare);
-  };
-
-  const togglePriority = (priority) => {
-    if (comparisonPriorities.includes(priority)) {
-      setComparisonPriorities(comparisonPriorities.filter(p => p !== priority));
-    } else {
-      setComparisonPriorities([...comparisonPriorities, priority]);
-    }
-  };
-
-  // Calculate scores for smart ranking
-  const calculateScore = (product) => {
-    let score = 0;
-    const prices = Array.from(compareItems).map(id => items.find(p => p.id === id)?.price || 0);
-    
-    if (comparisonPriorities.includes('price')) {
-      const minPrice = Math.min(...prices);
-      score += product.price === minPrice ? 25 : (minPrice / product.price) * 25;
-    }
-    if (comparisonPriorities.includes('condition')) {
-      const conditionScore = { 'New': 25, 'Like New': 20, 'Good': 15, 'Fair': 10, 'Used': 5 };
-      score += conditionScore[product.condition] || 0;
-    }
-    if (comparisonPriorities.includes('rating')) {
-      score += (product.sellerRating / 5) * 25;
-    }
-    if (comparisonPriorities.includes('delivery') && product.deliveryAvailable) {
-      score += 15;
-    }
-    if (comparisonPriorities.includes('pickup') && product.pickupAvailable) {
-      score += 15;
-    }
-
-    return score;
-  };
-
-  return (
-    <div className="space-y-6 bg-gradient-to-br from-orange-50 via-white to-gray-50 min-h-screen p-6">
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="text-center mb-8"
-      >
-        <h3 className="text-3xl font-bold text-gray-900 mb-2">Smart Compare Items Demo</h3>
-        <p className="text-gray-600">Watch how our intelligent comparison system works</p>
-      </motion.div>
-
-      {/* Products Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        {items.slice(0, 3).map((product, index) => (
-          <motion.div
-            key={product.id}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: index * 0.2 }}
-            className={`bg-white rounded-xl shadow-lg border-2 overflow-hidden hover:shadow-xl transition-all duration-300 ${
-              compareItems.has(product.id) 
-                ? 'border-orange-400 ring-4 ring-orange-100' 
-                : 'border-gray-200 hover:border-orange-200'
-            }`}
-          >
-            {/* Product Image */}
-            <div className="relative aspect-square bg-gray-200">
-              <div className="w-full h-full bg-gradient-to-br from-orange-100 to-red-100 flex items-center justify-center">
-                <Package size={48} className="text-orange-600" />
-              </div>
-              
-              {/* Compare Toggle Button */}
-              <motion.button
-                whileHover={{ scale: 1.1 }}
-                whileTap={{ scale: 0.9 }}
-                onClick={() => toggleCompare(product.id)}
-                className={`absolute top-3 right-3 w-10 h-10 rounded-full shadow-lg transition-all duration-200 ${
-                  compareItems.has(product.id)
-                    ? 'bg-orange-500 text-white'
-                    : 'bg-white text-gray-600 hover:bg-orange-50 hover:text-orange-500'
-                }`}
-              >
-                <GitCompare size={20} className="mx-auto" />
-              </motion.button>
-
-              {/* Condition Badge */}
-              <div className="absolute bottom-3 left-3">
-                <span className={`px-3 py-1 rounded-full text-xs font-medium shadow-sm ${
-                  product.condition === "New" ? "bg-green-100 text-green-700" :
-                  product.condition === "Like New" ? "bg-blue-100 text-blue-700" :
-                  product.condition === "Good" ? "bg-yellow-100 text-yellow-700" :
-                  "bg-gray-100 text-gray-700"
-                }`}>
-                  {product.condition}
-                </span>
-              </div>
-            </div>
-
-            {/* Product Info */}
-            <div className="p-4">
-              <div className="flex items-start justify-between mb-2">
-                <h3 className="font-bold text-lg text-gray-900 line-clamp-2">{product.name}</h3>
-                <div className="text-right">
-                  <div className="text-2xl font-bold text-orange-600">${product.price}</div>
-                  {product.originalPrice && (
-                    <div className="text-sm text-gray-500 line-through">${product.originalPrice}</div>
-                  )}
-                </div>
-              </div>
-
-              <p className="text-gray-600 text-sm mb-3 line-clamp-2">{product.shortDescription}</p>
-
-              <div className="flex items-center space-x-4 text-sm text-gray-600 mb-3">
-                <div className="flex items-center space-x-1">
-                  <MapPin size={14} />
-                  <span className="capitalize">{product.location?.replace("-", " ")}</span>
-                </div>
-                <div className="flex items-center space-x-1">
-                  <Star size={14} className="text-yellow-400 fill-current" />
-                  <span>{product.sellerRating}</span>
-                </div>
-              </div>
-
-              <div className="flex items-center space-x-3 text-sm text-gray-600">
-                {product.deliveryAvailable && (
-                  <div className="flex items-center space-x-1">
-                    <Truck size={14} className="text-green-600" />
-                    <span>Delivery</span>
-                  </div>
-                )}
-                {product.pickupAvailable && (
-                  <div className="flex items-center space-x-1">
-                    <Package size={14} className="text-blue-600" />
-                    <span>Pickup</span>
-                  </div>
-                )}
-              </div>
-            </div>
-          </motion.div>
-        ))}
-      </div>
-
-      {/* Compare Panel */}
-      <AnimatePresence>
-        {compareItems.size > 0 && (
-          <motion.div
-            initial={{ y: 100, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            exit={{ y: 100, opacity: 0 }}
-            className="bg-white border-2 border-orange-200 rounded-xl shadow-xl p-6"
-          >
-            <div className="flex items-center justify-between mb-6">
-              <div className="flex items-center space-x-4">
-                <div className="flex items-center space-x-2">
-                  <GitCompare className="w-6 h-6 text-orange-500" />
-                  <span className="text-xl font-bold text-gray-900">
-                    Compare Items ({compareItems.size}/3)
-                  </span>
-                </div>
-                
-                <div className="flex space-x-2">
-                  {Array.from(compareItems).map(productId => {
-                    const product = items.find(p => p.id === productId);
-                    return product ? (
-                      <motion.div 
-                        key={productId} 
-                        initial={{ scale: 0 }}
-                        animate={{ scale: 1 }}
-                        className="flex items-center space-x-2 bg-orange-100 rounded-lg px-3 py-1"
-                      >
-                        <span className="text-sm font-medium">{product.name.split(' ').slice(0, 2).join(' ')}</span>
-                        <button
-                          onClick={() => toggleCompare(productId)}
-                          className="text-orange-600 hover:text-red-500"
-                        >
-                          <X className="w-3 h-3" />
-                        </button>
-                      </motion.div>
-                    ) : null;
-                  })}
-                </div>
-              </div>
-
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={() => setShowComparison(!showComparison)}
-                className="px-6 py-2 bg-gradient-to-r from-orange-500 to-red-600 text-white rounded-lg hover:from-orange-600 hover:to-red-700 transition-all duration-200 font-medium shadow-lg"
-              >
-                {showComparison ? 'Hide Comparison' : 'Compare Now'}
-              </motion.button>
-            </div>
-
-            {/* Priority Selection */}
-            <motion.div 
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              className="mb-6 p-4 bg-orange-50 rounded-lg border border-orange-200"
-            >
-              <div className="flex items-center space-x-2 mb-3">
-                <SlidersHorizontal className="w-5 h-5 text-orange-600" />
-                <h4 className="font-semibold text-gray-900">Set Your Priorities</h4>
-                <span className="text-xs text-gray-500">(Select what matters most)</span>
-              </div>
-              
-              <div className="grid grid-cols-2 md:grid-cols-6 gap-2">
-                {[
-                  { key: 'price', label: 'Best Price', icon: DollarSign, color: 'green' },
-                  { key: 'condition', label: 'Condition', icon: Star, color: 'blue' },
-                  { key: 'rating', label: 'Rating', icon: Star, color: 'yellow' },
-                  { key: 'location', label: 'Location', icon: MapPin, color: 'purple' },
-                  { key: 'delivery', label: 'Delivery', icon: Truck, color: 'indigo' },
-                  { key: 'pickup', label: 'Pickup', icon: Package, color: 'pink' }
-                ].map(priority => {
-                  const isSelected = comparisonPriorities.includes(priority.key);
-                  
-                  return (
-                    <motion.button
-                      key={priority.key}
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
-                      onClick={() => togglePriority(priority.key)}
-                      className={`flex items-center space-x-2 px-3 py-2 rounded-lg border-2 transition-all duration-200 text-sm font-medium ${
-                        isSelected 
-                          ? 'bg-orange-500 text-white border-orange-500 shadow-lg' 
-                          : 'bg-white text-gray-700 border-gray-200 hover:border-orange-200 hover:bg-orange-50'
-                      }`}
-                    >
-                      <priority.icon className="w-4 h-4" />
-                      <span className="hidden sm:inline">{priority.label}</span>
-                      <span className="sm:hidden">{priority.label.split(' ')[0]}</span>
-                      {isSelected && <Check className="w-3 h-3" />}
-                    </motion.button>
-                  );
-                })}
-              </div>
-            </motion.div>
-
-            {/* Detailed Comparison Table */}
-            <AnimatePresence>
-              {showComparison && (
-                <motion.div
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: 'auto' }}
-                  exit={{ opacity: 0, height: 0 }}
-                  className="bg-white border border-gray-200 rounded-xl overflow-hidden"
-                >
-                  <div className="grid gap-0" style={{gridTemplateColumns: `200px repeat(${compareItems.size}, 1fr)`}}>
-                    
-                    {/* Headers */}
-                    <div className="bg-orange-100 border-b border-gray-200 p-4 font-bold text-orange-800">
-                      Product Details
-                    </div>
-                    {(() => {
-                      const products = Array.from(compareItems).map(id => items.find(p => p.id === id)).filter(Boolean);
-                      const sortedProducts = comparisonPriorities.length > 0 
-                        ? products.sort((a, b) => calculateScore(b) - calculateScore(a))
-                        : products;
-
-                      return sortedProducts.map((product, index) => {
-                        const isRecommended = index === 0 && comparisonPriorities.length > 0;
-                        
-                        return (
-                          <div 
-                            key={product.id}
-                            className={`border-b border-gray-200 p-4 text-center relative ${
-                              isRecommended ? 'bg-gradient-to-r from-orange-100 to-red-100' : 'bg-gray-50'
-                            }`}
-                          >
-                            {isRecommended && (
-                              <div className="absolute -top-2 left-1/2 transform -translate-x-1/2">
-                                <span className="bg-orange-500 text-white px-2 py-1 rounded-full text-xs font-bold shadow-lg">
-                                  🏆 BEST MATCH
-                                </span>
-                              </div>
-                            )}
-                            <div className="font-bold text-gray-900 mt-2">{product.name}</div>
-                            <div className="text-sm text-gray-600">{product.category}</div>
-                          </div>
-                        );
-                      });
-                    })()}
-
-                    {/* Price Row */}
-                    <div className="border-b border-gray-200 p-4 font-semibold text-gray-800 bg-gray-50 flex items-center">
-                      <DollarSign className="w-4 h-4 mr-2 text-green-600" />
-                      Price
-                    </div>
-                    {(() => {
-                      const products = Array.from(compareItems).map(id => items.find(p => p.id === id)).filter(Boolean);
-                      const sortedProducts = comparisonPriorities.length > 0 
-                        ? products.sort((a, b) => calculateScore(b) - calculateScore(a))
-                        : products;
-                      const minPrice = Math.min(...products.map(p => p.price));
-
-                      return sortedProducts.map(product => {
-                        const isLowest = product.price === minPrice;
-                        const isPriority = comparisonPriorities.includes('price');
-                        
-                        return (
-                          <div 
-                            key={`price-${product.id}`}
-                            className={`border-b border-gray-200 p-4 text-center ${
-                              isLowest && isPriority ? 'bg-green-100 text-green-800' :
-                              isLowest ? 'bg-green-50 text-green-700' : 'bg-white'
-                            }`}
-                          >
-                            <div className="text-xl font-bold">${product.price}</div>
-                            {product.originalPrice && (
-                              <div className="text-sm text-gray-500 line-through">${product.originalPrice}</div>
-                            )}
-                            {isLowest && (
-                              <div className="text-xs font-bold text-green-600 mt-1">LOWEST</div>
-                            )}
-                          </div>
-                        );
-                      });
-                    })()}
-
-                    {/* Condition Row */}
-                    <div className="border-b border-gray-200 p-4 font-semibold text-gray-800 bg-gray-50 flex items-center">
-                      <Star className="w-4 h-4 mr-2 text-blue-600" />
-                      Condition
-                    </div>
-                    {(() => {
-                      const products = Array.from(compareItems).map(id => items.find(p => p.id === id)).filter(Boolean);
-                      const sortedProducts = comparisonPriorities.length > 0 
-                        ? products.sort((a, b) => calculateScore(b) - calculateScore(a))
-                        : products;
-
-                      return sortedProducts.map(product => (
-                        <div key={`condition-${product.id}`} className="border-b border-gray-200 p-4 text-center bg-white">
-                          <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-                            product.condition === "New" ? "bg-green-100 text-green-700" :
-                            product.condition === "Like New" ? "bg-blue-100 text-blue-700" :
-                            product.condition === "Good" ? "bg-yellow-100 text-yellow-700" :
-                            "bg-gray-100 text-gray-700"
-                          }`}>
-                            {product.condition}
-                          </span>
-                        </div>
-                      ));
-                    })()}
-
-                    {/* Rating Row */}
-                    <div className="border-b border-gray-200 p-4 font-semibold text-gray-800 bg-gray-50 flex items-center">
-                      <Star className="w-4 h-4 mr-2 text-yellow-500" />
-                      Rating
-                    </div>
-                    {(() => {
-                      const products = Array.from(compareItems).map(id => items.find(p => p.id === id)).filter(Boolean);
-                      const sortedProducts = comparisonPriorities.length > 0 
-                        ? products.sort((a, b) => calculateScore(b) - calculateScore(a))
-                        : products;
-
-                      return sortedProducts.map(product => (
-                        <div key={`rating-${product.id}`} className="border-b border-gray-200 p-4 text-center bg-white">
-                          <div className="flex items-center justify-center space-x-1">
-                            <Star className="w-4 h-4 text-yellow-400 fill-current" />
-                            <span className="font-bold">{product.sellerRating}</span>
-                          </div>
-                        </div>
-                      ));
-                    })()}
-
-                    {/* Match Score Row (if priorities are set) */}
-                    {comparisonPriorities.length > 0 && (
-                      <>
-                        <div className="border-b border-gray-200 p-4 font-semibold text-gray-800 bg-orange-50 flex items-center">
-                          <SlidersHorizontal className="w-4 h-4 mr-2 text-orange-600" />
-                          Match Score
-                        </div>
-                        {(() => {
-                          const products = Array.from(compareItems).map(id => items.find(p => p.id === id)).filter(Boolean);
-                          const sortedProducts = products.sort((a, b) => calculateScore(b) - calculateScore(a));
-
-                          return sortedProducts.map((product, index) => {
-                            const score = calculateScore(product);
-                            const isHighest = index === 0;
-                            
-                            return (
-                              <div 
-                                key={`score-${product.id}`}
-                                className={`border-b border-gray-200 p-4 text-center ${
-                                  isHighest ? 'bg-orange-100' : 'bg-white'
-                                }`}
-                              >
-                                <div className="text-xl font-bold text-orange-600">{Math.round(score)}%</div>
-                                {isHighest && (
-                                  <div className="text-xs font-bold text-orange-600 mt-1">BEST MATCH</div>
-                                )}
-                              </div>
-                            );
-                          });
-                        })()}
-                      </>
-                    )}
-
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Empty State */}
-      {compareItems.size === 0 && animationStep >= 5 && (
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="text-center py-12 bg-white rounded-xl border-2 border-dashed border-gray-300"
-        >
-          <GitCompare className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-          <h3 className="text-xl font-semibold text-gray-900 mb-2">No items to compare</h3>
-          <p className="text-gray-600 mb-4">Click the compare button on products to add them here.</p>
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={() => {
-              setCompareItems(new Set([1, 2]));
-              setComparisonPriorities(['price']);
-            }}
-            className="px-6 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors font-medium"
-          >
-            Try Demo Again
-          </motion.button>
-        </motion.div>
-      )}
-
-      {/* Success Message */}
-      {compareItems.size > 0 && showComparison && comparisonPriorities.length > 0 && (
-        <motion.div
-          initial={{ scale: 0 }}
-          animate={{ scale: 1 }}
-          className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-lg p-4"
-        >
-          <div className="flex items-center gap-3 text-green-800">
-            <Check size={20} className="flex-shrink-0" />
-            <div>
-              <span className="font-semibold">Smart Comparison Active!</span>
-              <div className="text-sm text-green-700 mt-1">
-                Items are ranked by your priorities: {comparisonPriorities.map(p => p.charAt(0).toUpperCase() + p.slice(1)).join(', ')}
-              </div>
-            </div>
-          </div>
-        </motion.div>
-      )}
-    </div>
-  );
-};
 
 
 

@@ -1,4 +1,3 @@
-
 "use client"
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from "framer-motion";
@@ -7,7 +6,6 @@ import {
   Package, Menu, X, Send, Check, AlertCircle, ArrowLeft
 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { title } from 'process';
 
 // Define TypeScript interfaces
 interface FAQItem {
@@ -35,6 +33,12 @@ interface Notification {
   type: string;
   message: string;
   time: string;
+}
+
+interface SearchResult {
+  sectionId: string;
+  question: string;
+  index: number;
 }
 
 // Individual FAQ item component
@@ -159,7 +163,7 @@ const HelpPage = () => {
   const [secondPageId, setSecondPageId] = useState("");
   const [thirdPageId, setThirdPageId] = useState(0);
   const [query, setQuery] = useState("");
-  const [filteredQuestions, setFilteredQuestions] = useState([]);
+  const [filteredQuestions, setFilteredQuestions] = useState<SearchResult[]>([]);
 
   
   const router = useRouter();
@@ -193,7 +197,7 @@ const HelpPage = () => {
       img: [
         "find.png", 
         "findmove.png", 
-        "findsub.png ", 
+        "findsub.png", 
         "post.png"
       ],
       answer: [
@@ -258,7 +262,7 @@ const HelpPage = () => {
       img: [
         "auth.png", 
         "listsub.png", 
-        "filter.png ", 
+        "filter.png", 
         "subbrowse.png"
       ],
       answer: [
@@ -326,6 +330,13 @@ const HelpPage = () => {
         "Quick guide to get a best rater badge",
         "Quick guide to get a best reviewer badge"
       ],
+      img: [
+        "", 
+        "", 
+        "", 
+        "",
+        ""
+      ],
       answer: [
         "To get a school badge, you need to add and verify your school email. For alumni badge, you need to check the checkbox for alumni and add your graduation date.",
         "To get a trusted seller badge, you need to have sold at least 10 products.",
@@ -379,7 +390,7 @@ const HelpPage = () => {
       img: [
         "auth.png", 
         "", 
-        "auth.png ", 
+        "auth.png", 
         "",
         ""
       ],
@@ -537,11 +548,11 @@ const HelpPage = () => {
   const [status, setStatus] = useState({
     submitted: false,
     submitting: false,
-    info: { error: false, msg: null }
+    info: { error: false, msg: null as string | null }
   });
 
   // Handle form input changes
-  const handleChange = (e) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { id, value } = e.target;
     setFormData((prevState) => ({
       ...prevState,
@@ -555,7 +566,7 @@ const HelpPage = () => {
       setFilteredQuestions([]);
       return;
     }
-    const results = [];
+    const results: SearchResult[] = [];
 
     helpSections.forEach((section) => {
       section.question.forEach((q, index) => {
@@ -573,7 +584,7 @@ const HelpPage = () => {
   };
 
   // Handle form submission
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
      // Check if all fields are filled
     if (!isFormValid()) {
@@ -1094,9 +1105,9 @@ const HelpPage = () => {
               <div className="max-w-4xl mx-auto py-16 px-8">
                 {helpSections.filter((section) => section.id === secondPageId)
                 .map((section) => (
-                  <div className='-mt-20'>
+                  <div key={section.id} className='-mt-20'>
                     <span 
-                      className='text-gray-600 text-inter hover:underline hover:text-orange-600 pl-4'
+                      className='text-gray-600 text-inter hover:underline hover:text-orange-600 pl-4 cursor-pointer'
                       onClick={() => {
                         setFirstPage(true); 
                         setSecondPage(false);
@@ -1156,14 +1167,14 @@ const HelpPage = () => {
                             ))}
                           </div>
                       </div>
-                      <span
-                        className="inline-block mt-8 px-6 py-2 bg-orange-500 text-white rounded-3xl hover:bg-orange-600"
+                      <button
+                        className="inline-block mt-8 px-6 py-2 bg-orange-500 text-white rounded-3xl hover:bg-orange-600 cursor-pointer"
                         onClick={() => {
                           setFirstPage(true);
                           setSecondPage(false);
                           setSecondPageId("");
                         }}
-                      >← Back to Help</span>
+                      >← Back to Help</button>
                   </div>
                 ))}
               </div>
@@ -1172,9 +1183,9 @@ const HelpPage = () => {
               <div className="max-w-3xl mx-auto py-16 px-6">
                 {helpSections.filter((section) => section.id === secondPageId)
                 .map((section) => (
-                  <div className='-mt-20'>
+                  <div key={section.id} className='-mt-20'>
                     <span 
-                      className='text-gray-600 text-inter hover:underline hover:text-orange-600 pl-4'
+                      className='text-gray-600 text-inter hover:underline hover:text-orange-600 pl-4 cursor-pointer'
                       onClick={() => {
                         setFirstPage(true); 
                         setThirdPage(false);
@@ -1185,7 +1196,7 @@ const HelpPage = () => {
                     >All Collections</span>
                     <span className='ml-4 text-orange-600'>&gt;</span>
                     <span 
-                      className='text-gray-600 text-inter hover:underline hover:text-orange-600 pl-4'
+                      className='text-gray-600 text-inter hover:underline hover:text-orange-600 pl-4 cursor-pointer'
                       onClick={() => {
                         setSecondPage(true); 
                         setThirdPage(false);
@@ -1197,12 +1208,14 @@ const HelpPage = () => {
                     <span className='ml-4 text-gray-700'>{section.question[thirdPageId]}</span>
                       <p className="text-3xl font-bold text-orange-600 mb-4 mt-10">{section.question[thirdPageId]}</p>
                       <p className="text-sm font-inter text-gray-600 mb-4">Updated 1 day ago</p>
-                      <img 
-                        src= {section.img[thirdPageId]}
-                        alt="Help section example"
-                        className="w-full max-w-xl mx-auto rounded-lg mb-20 mt-20"
-                      />
-                      <p className="text-lg text-gray-700 mt-10">{section.answer[thirdPageId]}</p>
+                      {section.img && section.img[thirdPageId] && section.img[thirdPageId].trim() !== "" && (
+                        <img 
+                          src={section.img[thirdPageId]}
+                          alt="Help section example"
+                          className="w-full max-w-xl mx-auto rounded-lg mb-20 mt-20"
+                        />
+                      )}
+                      <div className="text-lg text-gray-700 mt-10">{section.answer[thirdPageId]}</div>
                       <div className="flex flex-col items-center justify-center mt-16 space-y-4">
                         {/* Question */}
                         <p className="text-lg font-semibold text-gray-800">
@@ -1229,15 +1242,15 @@ const HelpPage = () => {
                           ))}
                         </div>
                       </div>
-                      <span
-                        className="inline-block mt-8 px-6 py-2 bg-orange-500 text-white rounded-3xl hover:bg-orange-600"
+                      <button
+                        className="inline-block mt-8 px-6 py-2 bg-orange-500 text-white rounded-3xl hover:bg-orange-600 cursor-pointer"
                         onClick={() => {
                           setSecondPage(true);
                           setThirdPage(false);
                           setSelected(null);
                           setThirdPageId(0);
                         }}
-                      >← Back to {section.title}</span>
+                      >← Back to {section.title}</button>
                   </div>
                 ))}
                 </div>
@@ -1266,13 +1279,13 @@ const HelpPage = () => {
                       </div>
                     );
                   })}
-                  <span
-                    className="inline-block mt-8 px-6 py-2 bg-orange-500 text-white rounded-3xl hover:bg-orange-600"
+                  <button
+                    className="inline-block mt-8 px-6 py-2 bg-orange-500 text-white rounded-3xl hover:bg-orange-600 cursor-pointer"
                     onClick={() => {
                       setFirstPage(true);
                       setFourthPage(false);
                     }}
-                  >← Back to Help</span>
+                  >← Back to Help</button>
                 </div>
               )}
 
@@ -1280,7 +1293,7 @@ const HelpPage = () => {
                 <div className="flex flex-col items-center justify-center text-orange-500 font-bold text-4xl mt-28 mb-80 space-y-6">
                   <p>No results found</p>
                   <button
-                    className="px-4 py-1 bg-orange-500 text-white rounded-full text-sm hover:bg-orange-600"
+                    className="px-4 py-1 bg-orange-500 text-white rounded-full text-sm hover:bg-orange-600 cursor-pointer"
                     onClick={() => {
                       setFirstPage(true);
                       setFourthPage(false);
@@ -1335,6 +1348,5 @@ const HelpPage = () => {
     </div>
   );
 };
-
 
 export default HelpPage;
