@@ -329,7 +329,7 @@ const NeighborhoodDetectorWrapper = ({ listing, onNeighborhoodDetected }: {
   );
 };
 
-const ListingDetailPage = () => {
+const ListingDetailPage = ({ previewData = null }) => {
   const router = useRouter();
   const params = useParams();
   const id = params?.id;
@@ -352,6 +352,7 @@ const ListingDetailPage = () => {
   const [hostReviews, setHostReviews] = useState([]);
   const [showProfile, setShowProfile] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
+  
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   
   // Calendar-related state variables
@@ -360,61 +361,19 @@ const ListingDetailPage = () => {
   const [selectedDateRanges, setSelectedDateRanges] = useState([]);
   const [isSelectingRange, setIsSelectingRange] = useState(false);
   const [rangeStart, setRangeStart] = useState(null);
-  const [currentMonth, setCurrentMonth] = useState(null); // Add this line
+  const [currentMonth, setCurrentMonth] = useState(null);
 
-  
   const { user } = useAuth();
 
-  // Debug useEffect
+  // Updated fetch listing effect to handle preview data
   useEffect(() => {
-    if (listing) {
-      console.log('🔍 DEBUG: Listing data:', listing);
-      console.log('🔍 DEBUG: Location string:', listing.location);
-      console.log('🔍 DEBUG: Available listing fields:', Object.keys(listing));
-      
-      // Check for different coordinate formats
-      console.log('🔍 DEBUG: Coordinates check:', {
-        coordinates: listing.coordinates,
-        lat: listing.lat,
-        lng: listing.lng,
-        latitude: listing.latitude,
-        longitude: listing.longitude
-      });
+    // If preview data is provided, use it instead of fetching
+    if (previewData) {
+      setListing(previewData);
+      setListingLoading(false);
+      return;
     }
-  }, [listing]);
 
-  // Mount effect
-  useEffect(() => {
-    setIsMounted(true);
-  }, []);
-    
-  // Favorites loading effect
-  useEffect(() => {
-    if (isMounted) {
-      try {
-        const savedFavorites = localStorage.getItem('favoriteListings');
-        if (savedFavorites) {
-          setFavoriteListings(JSON.parse(savedFavorites));
-        }
-      } catch (error) {
-        console.error('Error loading favorites from localStorage:', error);
-      }
-    }
-  }, [isMounted]);
-
-  // Favorites saving effect
-  useEffect(() => {
-    if (isMounted) {
-      try {
-        localStorage.setItem('favoriteListings', JSON.stringify(favoriteListings));
-      } catch (error) {
-        console.error('Error saving favorites to localStorage:', error);
-      }
-    }
-  }, [favoriteListings, isMounted]);
-
-  // Fetch listing effect
-  useEffect(() => {
     const fetchListing = async () => {
       if (!id) return;
       
@@ -458,10 +417,10 @@ const ListingDetailPage = () => {
             listingType: firestoreData.listingType || 'Sublease',
             location: firestoreData.location || 'Campus Area',
             
-            // ✅ CRITICAL: Preserve customLocation data from Firestore
+            // Preserve customLocation data from Firestore
             customLocation: firestoreData.customLocation || null,
             
-            // ✅ ALSO: Preserve address field
+            // Preserve address field
             address: firestoreData.address || firestoreData.customLocation?.address || '',
             
             // Images - handle both single and multiple images
@@ -494,7 +453,7 @@ const ListingDetailPage = () => {
             rating: Number(firestoreData.rating || 0),
             reviews: Number(firestoreData.reviews || 0),
             averageRating: Number(firestoreData.averageRating || firestoreData.reviewStats?.averageRating || 0),
-totalReviews: Number(firestoreData.totalReviews || firestoreData.reviewStats?.totalReviews || 0),
+            totalReviews: Number(firestoreData.totalReviews || firestoreData.reviewStats?.totalReviews || 0),
             // Amenities
             amenities: Array.isArray(firestoreData.amenities) ? firestoreData.amenities : [],
             
@@ -540,9 +499,9 @@ totalReviews: Number(firestoreData.totalReviews || firestoreData.reviewStats?.to
     };
     
     fetchListing();
-  }, [id]);
+  }, [previewData, id]); // Added previewData as dependency
 
-  // Host reviews effect
+
 useEffect(() => {
   if (listing?.hostId) {
     fetchHostReviews();

@@ -22,15 +22,14 @@ function SubleaseOptionsContent() {
   }, [user, loading, router]);
 
   const handleOptionSelect = (option: string) => {
-    setSelectedOption(option);
-    // Navigate to different routes based on option
-    setTimeout(() => {
-      if (option === "chat") {
-        router.push("/sublease/write/options/chat"); // Updated route
-      } else if (option === "description") {
-        router.push("/sublease/write/options/write-description"); // Updated route
-      }
-    }, 500);
+    // Only allow navigation for chat option
+    if (option === "chat") {
+      setSelectedOption(option);
+      setTimeout(() => {
+        router.push("/sublease/write/options/chat");
+      }, 500);
+    }
+    // For description option, do nothing since it's coming soon
   };
 
   const resetSelection = () => {
@@ -365,104 +364,68 @@ function SubleaseOptionsContent() {
             </div>
           </motion.div>
 
-          {/* Option 2: Free-form Description */}
+          {/* Option 2: Free-form Description - Coming Soon */}
           <motion.div
             variants={itemVariants}
-            whileHover="hover"
-            onClick={() => handleOptionSelect("description")}
-            className={`group relative overflow-hidden rounded-3xl cursor-pointer transition-all duration-500 ${
-              selectedOption === "description" 
-                ? "bg-gradient-to-br from-orange-500 to-red-600 text-white shadow-2xl transform scale-105" 
-                : "bg-white shadow-lg hover:shadow-2xl border border-gray-100"
-            }`}
+            className="group relative overflow-hidden rounded-3xl transition-all duration-500 bg-white shadow-lg border border-gray-100 opacity-75"
           >
-            {selectedOption === "description" && (
-              <motion.div 
-                initial={{ scale: 0, rotate: -180 }}
-                animate={{ scale: 1, rotate: 0 }}
-                className="absolute inset-0 bg-gradient-to-br from-orange-400/20 to-red-500/20"
-              />
-            )}
+            {/* Coming Soon Badge */}
+            <div className="absolute top-4 right-4 z-20">
+              <span className="px-3 py-1 rounded-full text-xs font-bold bg-yellow-500 text-white">
+                COMING SOON
+              </span>
+            </div>
             
             <div className="relative z-10 p-8">
               <div className="mb-6">
-                <div className={`w-20 h-20 rounded-2xl flex items-center justify-center mb-4 ${
-                  selectedOption === "description" ? "bg-white/20" : "bg-gradient-to-br from-orange-100 to-red-100"
-                }`}>
-                  <Edit3 size={36} className={selectedOption === "description" ? "text-white" : "text-orange-600"} />
+                <div className="w-20 h-20 rounded-2xl flex items-center justify-center mb-4 bg-gradient-to-br from-orange-100 to-red-100">
+                  <Edit3 size={36} className="text-orange-600" />
                 </div>
-                <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                  selectedOption === "description" ? "bg-white/20 text-white" : "bg-orange-100 text-orange-700"
-                }`}>
+                <span className="px-3 py-1 rounded-full text-xs font-semibold bg-orange-100 text-orange-700">
                   SMART CLEANUP
                 </span>
               </div>
               
-              <h3 className={`text-2xl font-bold mb-4 ${
-                selectedOption === "description" ? "text-white" : "text-gray-900"
-              }`}>
+              <h3 className="text-2xl font-bold mb-4 text-gray-900">
                 Write & We'll Fix It
               </h3>
               
-              <p className={`text-base leading-relaxed mb-6 ${
-                selectedOption === "description" ? "text-orange-100" : "text-gray-600"
-              }`}>
+              <p className="text-base leading-relaxed mb-6 text-gray-600">
                 Just dump everything in a text box - typos, different languages, whatever! We'll clean it up and ask for missing details through iMessage-style chat.
               </p>
               
               <div className="space-y-3 mb-8">
-                <div className={`p-4 rounded-xl border-2 border-dashed ${
-                  selectedOption === "description" ? "border-white/30 bg-white/10" : "border-gray-200 bg-gray-50"
-                }`}>
-                  <span className={`text-sm italic ${selectedOption === "description" ? "text-orange-100" : "text-gray-600"}`}>
+                <div className="p-4 rounded-xl border-2 border-dashed border-gray-200 bg-gray-50">
+                  <span className="text-sm italic text-gray-600">
                     "apartamento 2 cuartos cerca universidad. tiene muebles. disponible enero-mayo. $1200/mes incluye utilidades..."
                   </span>
                 </div>
                 
                 {/* Smart features preview */}
                 <div className="space-y-2">
-                  <div className={`flex items-center space-x-2 text-sm ${
-                    selectedOption === "description" ? "text-orange-200" : "text-gray-500"
-                  }`}>
-                    <div className={`w-2 h-2 rounded-full ${selectedOption === "description" ? "bg-orange-300" : "bg-blue-400"}`}></div>
+                  <div className="flex items-center space-x-2 text-sm text-gray-500">
+                    <div className="w-2 h-2 rounded-full bg-blue-400"></div>
                     <span>Auto-translate any language to English</span>
                   </div>
-                  <div className={`flex items-center space-x-2 text-sm ${
-                    selectedOption === "description" ? "text-orange-200" : "text-gray-500"
-                  }`}>
-                    <div className={`w-2 h-2 rounded-full ${selectedOption === "description" ? "bg-orange-300" : "bg-green-400"}`}></div>
+                  <div className="flex items-center space-x-2 text-sm text-gray-500">
+                    <div className="w-2 h-2 rounded-full bg-green-400"></div>
                     <span>Fix typos and grammar automatically</span>
                   </div>
-                  <div className={`flex items-center space-x-2 text-sm ${
-                    selectedOption === "description" ? "text-orange-200" : "text-gray-500"
-                  }`}>
-                    <div className={`w-2 h-2 rounded-full ${selectedOption === "description" ? "bg-orange-300" : "bg-purple-400"}`}></div>
+                  <div className="flex items-center space-x-2 text-sm text-gray-500">
+                    <div className="w-2 h-2 rounded-full bg-purple-400"></div>
                     <span>Text you for any missing details</span>
                   </div>
                 </div>
               </div>
               
-              {!selectedOption && (
-                <div className="flex items-center text-orange-600 font-semibold">
-                  <span>Start Writing</span>
-                  <motion.div 
-                    className="ml-2"
-                    animate={{ x: [0, 4, 0] }}
-                    transition={{ repeat: Infinity, duration: 1.5, delay: 0.3 }}
-                  >
-                    →
-                  </motion.div>
+              <div className="flex items-center text-gray-400 font-semibold">
+                <span>Feature in Development</span>
+                <div className="ml-2 flex space-x-1">
+                  <div className="w-2 h-2 rounded-full bg-gray-400 animate-pulse"></div>
+                  <div className="w-2 h-2 rounded-full bg-gray-400 animate-pulse" style={{ animationDelay: '0.2s' }}></div>
+                  <div className="w-2 h-2 rounded-full bg-gray-400 animate-pulse" style={{ animationDelay: '0.4s' }}></div>
                 </div>
-              )}
-              
-              {selectedOption === "description" && (
-                <motion.div 
-                  initial={{ width: "0%" }}
-                  animate={{ width: "100%" }}
-                  transition={{ duration: 0.8, ease: "easeOut" }}
-                  className="h-1 bg-white/40 rounded-full"
-                />
-              )}
+              </div>
             </div>
           </motion.div>
         </motion.div>
@@ -477,7 +440,7 @@ function SubleaseOptionsContent() {
           <div className="bg-gradient-to-r from-green-500 to-green-600 rounded-2xl p-8 text-white text-center">
             <h3 className="text-2xl font-bold mb-4">You're Ready to Create!</h3>
             <p className="text-green-100 mb-6">
-              Your account is verified and ready. Choose your preferred method above to get started with your sublease listing.
+              Your account is verified and ready. Choose the chat-style option above to get started with your sublease listing.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <div className="flex items-center text-green-100">

@@ -2,7 +2,46 @@
 
 import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Send, Plus, MapPin, Phone, Mail, MessageCircle, Edit3, Check, X, Camera, User, LogOut } from "lucide-react";
+import {query, where, getDocs, orderBy, deleteDoc} from 'firebase/firestore';
+import { 
+  ArrowLeft, 
+  Send, 
+  Plus, 
+  MapPin, 
+  Phone, 
+  Eye,
+  Mail, 
+  MessageCircle, 
+  Edit3, 
+  Check, 
+  X, 
+  Camera, 
+  User, 
+  LogOut,
+  Home,
+  Calendar,
+  DollarSign,
+  Bed,
+  Bath,
+  Wifi,
+  Car,
+  Shield,
+  Zap,
+  Users,
+  Star,
+  Image as ImageIcon,
+  FileText,
+  Clock,
+  Info,
+  ChevronDown,
+  Upload,
+  Tag,
+  Building,
+  Heart,
+  Settings,
+  Grid,
+  List
+} from "lucide-react";
 
 // Import the LocationPicker component
 import LocationPicker from '../../../../../components/LocationPicker';
@@ -13,11 +52,28 @@ import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { storage } from '@/lib/firebase'; // Add this to your firebase config
 import { doc, updateDoc } from 'firebase/firestore';
 
+// Mock router and auth for demo
+const mockRouter = {
+  back: () => console.log('Navigate back'),
+  push: (path) => console.log('Navigate to:', path)
+};
 
-// ========================================================================================
-// TYPES AND INTERFACES
-// ========================================================================================
+const mockUser = {
+  uid: 'demo-user',
+  displayName: 'John Doe',
+  email: 'john.doe@example.com',
+  photoURL: null
+};
 
+const mockAuth = {
+  user: mockUser,
+  loading: false,
+  requireAuth: () => true,
+  showAuthPrompt: () => {},
+  signOut: () => console.log('Sign out')
+};
+
+// Types
 type ListingType = "Sublet" | "Lease Takeover" | "Room in Shared Unit" | null;
 type LocationOption = "Dinkytown" | "East Bank" | "West Bank" | "Stadium Village" | 
   "Saint Paul Campus" | "Downtown Minneapolis" | "Southeast Como" | "Prospect Park" | "Other" | null;
@@ -44,7 +100,7 @@ interface RentNegotiation {
 
 interface ListingData {
   listingType: ListingType;
-  preferredGender: Gender; // Added this for early gender preference
+  preferredGender: Gender;
   startDate: string;
   endDate: string;
   dateOption: DateOption;
@@ -61,11 +117,11 @@ interface ListingData {
   rent: number;
   rentNegotiation: RentNegotiation;
   utilitiesIncluded: boolean | null;
-  approximateUtilities: number; // Added for optional utilities cost
+  approximateUtilities: number;
   bedrooms: number;
   bathrooms: number;
   isPrivateRoom: boolean | null;
-  amenities: {id: string; name: string; selected: boolean}[];
+  amenities: {id: string; name: string; selected: boolean; icon: string}[];
   hasRoommates: boolean | null;
   roommatePreferences: {
     gender: Gender;
@@ -79,13 +135,14 @@ interface ListingData {
     smokes: boolean | null;
     hasPets: boolean | null;
   };
-  includedItems: {id: string; name: string; selected: boolean}[];
+  includedItems: {id: string; name: string; selected: boolean; icon: string}[];
   customIncludedItems: string;
   photos: File[];
   partialDatesOk: boolean | null;
   subleaseReason: string;
   additionalDetails: string;
   contactInfo: ContactInfo;
+  listingTitle?: string;
 }
 
 interface ChatMessage {
@@ -97,6 +154,7 @@ interface ChatMessage {
   options?: {
     value: string;
     label: string;
+    icon?: string;
     action: () => void;
   }[];
   input?: {
@@ -107,23 +165,22 @@ interface ChatMessage {
   };
 }
 
-// ========================================================================================
-// MAIN COMPONENT
-// ========================================================================================
-
+// Main component wrapper
 function ListingFormContent() {
   const chatEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const timeoutRefs = useRef<NodeJS.Timeout[]>([]);
-  
-  // ========================================================================================
-  // STATE MANAGEMENT
-  // ========================================================================================
-  
+  const [showIntroScreen, setShowIntroScreen] = useState(true);
+  const [savedDrafts, setSavedDrafts] = useState([]);
+  const [loadingDrafts, setLoadingDrafts] = useState(true);
+  // State Management
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [currentStep, setCurrentStep] = useState(1);
+  const [draftSaved, setDraftSaved] = useState(false);
+const [showPreview, setShowPreview] = useState(false);
+const [completionPercentage, setCompletionPercentage] = useState(0);
   const [inputValue, setInputValue] = useState("");
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
@@ -136,10 +193,9 @@ function ListingFormContent() {
   const router = useRouter();
   const { user, loading, requireAuth, showAuthPrompt, signOut } = useAuth();
 
-  
   const [formData, setFormData] = useState<ListingData>({
     listingType: null,
-    preferredGender: null, // Added this
+    preferredGender: null,
     startDate: "",
     endDate: "",
     dateOption: null,
@@ -155,41 +211,24 @@ function ListingFormContent() {
       maxPrice: 0
     },
     utilitiesIncluded: null,
-    approximateUtilities: 0, // Added this
+    approximateUtilities: 0,
     bedrooms: 1,
     bathrooms: 1,
     isPrivateRoom: null,
-   amenities: [
-      { id: "washer-dryer", name: "In-unit washer / dryer", selected: false },
-      { id: "parking", name: "Free parking", selected: false },
-      { id: "garage", name: "Garage parking", selected: false },
-      { id: "ac-heat", name: "Air conditioning / heating", selected: false },
-      { id: "ceiling-fan", name: "Ceiling fan", selected: false },
-      { id: "wifi", name: "Wi-Fi", selected: false },
-      { id: "utilities", name: "Utilities included", selected: false },
-      { id: "dishwasher", name: "Dishwasher", selected: false },
-      { id: "gym", name: "Gym access", selected: false },
-      { id: "pool", name: "Swimming pool", selected: false },
-      { id: "hot-tub", name: "Hot tub", selected: false },
-      { id: "sauna", name: "Sauna", selected: false },
-      { id: "pet-friendly", name: "Pet-friendly", selected: false },
-      { id: "balcony", name: "Balcony or outdoor space", selected: false },
-      { id: "rooftop", name: "Rooftop access", selected: false },
-      { id: "grill", name: "Grill / BBQ area", selected: false },
-      { id: "elevator", name: "Elevator access", selected: false },
-      { id: "security", name: "Secure building / security", selected: false },
-      { id: "package-locker", name: "Package locker", selected: false },
-      { id: "bike-storage", name: "Bike storage", selected: false },
-      { id: "accessible", name: "Wheelchair accessible", selected: false },
-      { id: "study-room", name: "Study or coworking space", selected: false },
-      { id: "recreation-room", name: "Recreation or lounge room", selected: false },
-      { id: "game-room", name: "Game room", selected: false },
-      { id: "movie-room", name: "Movie / media room", selected: false },
-      { id: "coffee-machine", name: "Coffee machine / café area", selected: false },
-      { id: "trash-service", name: "Trash / recycling service", selected: false },
-    ]
-    
-,    
+    amenities: [
+      { id: "washer-dryer", name: "In-unit washer / dryer", selected: false, icon: "washer" },
+      { id: "parking", name: "Free parking", selected: false, icon: "car" },
+      { id: "garage", name: "Garage parking", selected: false, icon: "building" },
+      { id: "ac-heat", name: "Air conditioning / heating", selected: false, icon: "zap" },
+      { id: "wifi", name: "Wi-Fi", selected: false, icon: "wifi" },
+      { id: "gym", name: "Gym access", selected: false, icon: "heart" },
+      { id: "pool", name: "Swimming pool", selected: false, icon: "waves" },
+      { id: "pet-friendly", name: "Pet-friendly", selected: false, icon: "heart" },
+      { id: "balcony", name: "Balcony or outdoor space", selected: false, icon: "home" },
+      { id: "security", name: "Secure building / security", selected: false, icon: "shield" },
+      { id: "elevator", name: "Elevator access", selected: false, icon: "building" },
+      { id: "study-room", name: "Study or coworking space", selected: false, icon: "book" },
+    ],
     hasRoommates: null,
     roommatePreferences: {
       gender: null,
@@ -204,28 +243,15 @@ function ListingFormContent() {
       hasPets: null,
     },
     includedItems: [
-      { id: "desk", name: "Desk", selected: false },
-      { id: "chair", name: "Chair", selected: false },
-      { id: "kitchenware", name: "Kitchenware", selected: false },
-      { id: "mattress", name: "Mattress", selected: false },
-      { id: "bedframe", name: "Bed frame", selected: false },
-      { id: "bookshelf", name: "Bookshelf", selected: false },
-      { id: "dresser", name: "Dresser", selected: false },
-      { id: "lamp", name: "Lamp", selected: false },
-      { id: "closet", name: "Closet or wardrobe", selected: false },
-      { id: "nightstand", name: "Nightstand", selected: false },
-      { id: "mirror", name: "Mirror", selected: false },
-      { id: "rug", name: "Rug", selected: false },
-      { id: "fan", name: "Fan", selected: false },
-      { id: "trash-can", name: "Trash can", selected: false },
-      { id: "laundry-basket", name: "Laundry basket", selected: false },
-      { id: "microwave", name: "Microwave", selected: false },
-      { id: "toaster", name: "Toaster", selected: false },
-      { id: "coffeemaker", name: "Coffee maker", selected: false },
-      { id: "cleaning-supplies", name: "Cleaning supplies", selected: false },
-      { id: "bedding", name: "Bedding (sheets, pillow, blanket)", selected: false },
+      { id: "desk", name: "Desk", selected: false, icon: "table" },
+      { id: "chair", name: "Chair", selected: false, icon: "chair" },
+      { id: "mattress", name: "Mattress", selected: false, icon: "bed" },
+      { id: "bedframe", name: "Bed frame", selected: false, icon: "bed" },
+      { id: "dresser", name: "Dresser", selected: false, icon: "box" },
+      { id: "lamp", name: "Lamp", selected: false, icon: "lightbulb" },
+      { id: "microwave", name: "Microwave", selected: false, icon: "zap" },
+      { id: "refrigerator", name: "Refrigerator", selected: false, icon: "box" },
     ],
-    
     customIncludedItems: "",
     photos: [],
     partialDatesOk: null,
@@ -243,74 +269,74 @@ function ListingFormContent() {
     }
   });
 
-  // ========================================================================================
-  // EFFECTS AND LIFECYCLE
-  // ========================================================================================
-  useEffect(() => {
-    if (loading) return; // Wait for auth to load
-    
-    if (!user && requireAuth('create_sublease')) {
-      showAuthPrompt('create_sublease');
-      router.push('/auth?mode=signup');
-      return;
-    }
-    
-    if (!hasInitialized && user) { // Only initialize if user is authenticated
-      setHasInitialized(true);
-      const timeout = setTimeout(() => {
-        setMessages([{
-          id: Date.now(),
-          text: "Hi! Let's create a listing for your space \n\nWhat type of listing are you posting?",
-          isUser: false,
-          timestamp: new Date(),
-          step: "listingType",
-          options: [
-            { value: "Sublet", label: "Sublet", action: () => handleListingTypeSelect("Sublet") },
-            { value: "Lease Takeover", label: "Lease Takeover", action: () => handleListingTypeSelect("Lease Takeover") },
-            { value: "Room in Shared Unit", label: "Room in Shared Unit", action: () => handleListingTypeSelect("Room in Shared Unit") },
-          ]
-        }]);
-      }, 100);
-      timeoutRefs.current.push(timeout);
-    }
-  }, [loading, user, hasInitialized, requireAuth, showAuthPrompt, router]);
+  // Effects
+ useEffect(() => {
+  if (loading) return; // Wait for auth to load
+  
+  if (!user && requireAuth('create_sublease')) {
+    showAuthPrompt('create_sublease');
+    router.push('/auth?mode=signup');
+    return;
+  }
+  
+  // Don't auto-initialize chat anymore - wait for intro screen completion
+}, [loading, user, requireAuth, showAuthPrompt, router]);
+
+useEffect(() => {
+  if (user && showIntroScreen) {
+    fetchSavedDrafts();
+  }
+}, [user, showIntroScreen]);
+
+useEffect(() => {
+  const completion = calculateCompletion(formData);
+  setCompletionPercentage(completion);
+}, [formData]);
 
   useEffect(() => {
     return () => {
       timeoutRefs.current.forEach(timeout => clearTimeout(timeout));
     };
   }, []);
-  
+
   useEffect(() => {
     if (chatEndRef.current) {
       chatEndRef.current.scrollIntoView({ behavior: "smooth" });
     }
   }, [messages]);
 
-  useEffect(() => {
-  setMessages(prev => {
-    const uniqueMessages = [];
-    const seen = new Set();
-    
-    for (const msg of prev) {
-      const key = `${msg.isUser}-${msg.text}`;
-      if (!seen.has(key)) {
-        seen.add(key);
-        uniqueMessages.push(msg);
-      }
-    }
-    
-    return uniqueMessages.length === prev.length ? prev : uniqueMessages;
-  });
-}, [messages.length]);
-
-  // ========================================================================================
-  // UTILITY FUNCTIONS
-  // ========================================================================================
-
+  // Utility Functions
   const formatTime = (date: Date) => {
     return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
+
+  const fetchSavedDrafts = async () => {
+  if (!user) {
+    setLoadingDrafts(false);
+    return;
+  }
+
+  try {
+    const draftsQuery = query(
+      collection(db, 'listing_drafts'),
+      where('hostId', '==', user.uid),
+      orderBy('lastSaved', 'desc')
+    );
+    
+    const draftsSnapshot = await getDocs(draftsQuery);
+    const drafts = draftsSnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data(),
+      lastSaved: doc.data().lastSaved?.toDate() || new Date()
+    }));
+    
+    setSavedDrafts(drafts);
+  } catch (error) {
+    console.error('Error fetching drafts:', error);
+  } finally {
+    setLoadingDrafts(false);
+  }
+};
 
   const goToNextStep = () => {
     setCurrentStep(prev => prev + 1);
@@ -326,103 +352,84 @@ function ListingFormContent() {
     const name = getUserDisplayName();
     return name.charAt(0).toUpperCase();
   };
-  
-  const handleSignOut = async () => {
-    await signOut();
-    setShowUserMenu(false);
-  };
-  
-  // ========================================================================================
-  // MESSAGE MANAGEMENT
-  // ========================================================================================
 
-  // const addMessage = (message: Omit<ChatMessage, 'id' | 'timestamp'>, delay = 0) => {
-  //   const timeout = setTimeout(() => {
-  //     setMessages(prev => [...prev, {
-  //       ...message,
-  //       id: Date.now() + Math.random(),
-  //       timestamp: new Date()
-  //     }]);
-  //     if (delay > 0) {
-  //       setIsTyping(false);
-  //     }
-  //   }, delay);
-  //   timeoutRefs.current.push(timeout);
-  // };
-  
-  // const addUserMessage = (text: string, step?: string) => {
-  //   addMessage({ text, isUser: true, step });
-  // };
-  
-  // const addSystemMessage = (text: string, options?: ChatMessage['options'], input?: ChatMessage['input'], step?: string) => {
-  //   setIsTyping(true);
-  //   setShowInput(false);
-  //   addMessage({ text, isUser: false, options, input, step }, 1200);
+  // Message Management
+  const lastAddedMessage = useRef<{text: string, timestamp: number, isUser: boolean} | null>(null);
+
+  const addMessage = (message: Omit<ChatMessage, 'id' | 'timestamp'>, delay = 0) => {
+    const now = Date.now();
     
-  //   if (input && (input.type === "text" || input.type === "number" || input.type === "textarea")) {
-  //     setTimeout(() => {
-  //       setShowInput(true);
-  //       setTimeout(() => inputRef.current?.focus(), 100);
-  //     }, 1300);
-  //   }
-  // };
-
-const lastAddedMessage = useRef<{text: string, timestamp: number, isUser: boolean} | null>(null);
-
-const addMessage = (message: Omit<ChatMessage, 'id' | 'timestamp'>, delay = 0) => {
-  const now = Date.now();
-  
-  if (lastAddedMessage.current && 
-      lastAddedMessage.current.text === message.text &&
-      lastAddedMessage.current.isUser === message.isUser &&
-      now - lastAddedMessage.current.timestamp < 3000) {
-    console.log('🚫 Recent duplicate prevented');
-    return;
-  }
-  
-  const timeout = setTimeout(() => {
-    setMessages(prev => [...prev, {
-      ...message,
-      id: Date.now() + Math.random(),
-      timestamp: new Date()
-    }]);
+    // More thorough duplicate check
+    const isDuplicate = messages.some(existingMsg => 
+      existingMsg.text === message.text &&
+      existingMsg.isUser === message.isUser &&
+      existingMsg.step === message.step
+    );
     
-    if (delay > 0) {
-      setIsTyping(false);
+    if (isDuplicate) {
+      console.log('🚫 Duplicate message prevented:', message.text.substring(0, 50));
+      return;
     }
     
+    // Additional check for recent duplicates
+    if (lastAddedMessage.current && 
+        lastAddedMessage.current.text === message.text &&
+        lastAddedMessage.current.isUser === message.isUser &&
+        now - lastAddedMessage.current.timestamp < 1000) {
+      console.log('🚫 Recent duplicate prevented');
+      return;
+    }
+    
+    const timeout = setTimeout(() => {
+      setMessages(prev => [...prev, {
+        ...message,
+        id: Date.now() + Math.random(),
+        timestamp: new Date()
+      }]);
+      
+      if (delay > 0) {
+        setIsTyping(false);
+      }
+      
       lastAddedMessage.current = {
-      text: message.text,
-      timestamp: now,
-      isUser: message.isUser
-    };
-  }, delay);
-  
-  timeoutRefs.current.push(timeout);
-};
+        text: message.text,
+        timestamp: now,
+        isUser: message.isUser
+      };
+    }, delay);
+    
+    timeoutRefs.current.push(timeout);
+  };
 
-const addUserMessage = (text: string, step?: string) => {
-  addMessage({ text, isUser: true, step });
-};
+  const addUserMessage = (text: string, step?: string) => {
+    addMessage({ text, isUser: true, step });
+  };
 
-const addSystemMessage = (text: string, options?: ChatMessage['options'], input?: ChatMessage['input'], step?: string) => {
-  setIsTyping(true);
-  setShowInput(false);
-  addMessage({ text, isUser: false, options, input, step }, 1200);
-  
-  if (input && (input.type === "text" || input.type === "number" || input.type === "textarea")) {
-    setTimeout(() => {
-      setShowInput(true);
-      setTimeout(() => inputRef.current?.focus(), 100);
-    }, 1300);
+const deleteDraft = async (draftId) => {
+  try {
+    await deleteDoc(doc(db, 'listing_drafts', draftId));
+    setSavedDrafts(prev => prev.filter(draft => draft.id !== draftId));
+    console.log('Draft deleted successfully');
+  } catch (error) {
+    console.error('Error deleting draft:', error);
+    alert('Failed to delete draft. Please try again.');
   }
 };
 
+  const addSystemMessage = (text: string, options?: ChatMessage['options'], input?: ChatMessage['input'], step?: string) => {
+    setIsTyping(true);
+    setShowInput(false);
+    addMessage({ text, isUser: false, options, input, step }, 1200);
+    
+    if (input && (input.type === "text" || input.type === "number" || input.type === "textarea")) {
+      setTimeout(() => {
+        setShowInput(true);
+        setTimeout(() => inputRef.current?.focus(), 100);
+      }, 1300);
+    }
+  };
 
-  // ========================================================================================
-  // FORM INPUT HANDLERS
-  // ========================================================================================
-
+  // Form Handlers
   const handleTextInputSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!inputValue.trim()) return;
@@ -440,112 +447,167 @@ const addSystemMessage = (text: string, options?: ChatMessage['options'], input?
     setInputValue("");
     setShowInput(false);
   };
+  
+  const calculateCompletion = (data) => {
+  const fields = [
+    data.listingType,
+    data.preferredGender,
+    data.startDate && data.endDate,
+    data.location,
+    data.rent > 0,
+    data.utilitiesIncluded !== null,
+    data.bedrooms > 0,
+    data.bathrooms > 0,
+    data.isPrivateRoom !== null,
+    data.amenities.some(a => a.selected),
+    data.hasRoommates !== null,
+    data.photos.length >= 3,
+    data.partialDatesOk !== null,
+    data.additionalDetails || data.subleaseReason,
+    data.contactInfo.methods.some(m => m.selected && m.value.trim()),
+    data.listingTitle,
+    data.customIncludedItems || data.includedItems.some(i => i.selected),
+    data.rentNegotiation.isNegotiable !== null
+  ];
+  
+  const completedFields = fields.filter(Boolean).length;
+  return Math.round((completedFields / fields.length) * 100);
+};
 
- 
 
-  // ========================================================================================
-  // EDIT FUNCTIONALITY
-  // ========================================================================================
-
-  const handleEditStep = (step: string) => {
-    setEditingStep(step);
+const showListingPreview = () => {
+  // Create a preview object that mimics the listing detail structure
+  const previewData = {
+    id: 'preview-' + Date.now(),
+    title: formData.listingTitle || `${formData.listingType || 'Sublease'} in ${formData.location || 'Campus Area'}`,
+    listingType: formData.listingType || 'Sublease',
+    location: formData.location || 'Campus Area',
+    customLocation: formData.customLocation,
+    address: formData.address || '',
     
-    // Remove messages after the step being edited
-    setMessages(prev => {
-      const stepMessageIndex = prev.findIndex(m => m.step === step && !m.isUser);
-      if (stepMessageIndex !== -1) {
-        return prev.slice(0, stepMessageIndex);
-      }
-      return prev;
-    });
-    
-    setTimeout(() => {
-      switch (step) {
-        case "listingType":
-          addSystemMessage("What type of listing are you posting?", [
-            { value: "Sublet", label: "Sublet", action: () => handleListingTypeSelect("Sublet") },
-            { value: "Lease Takeover", label: "Lease Takeover", action: () => handleListingTypeSelect("Lease Takeover") },
-            { value: "Room in Shared Unit", label: "Room in Shared Unit", action: () => handleListingTypeSelect("Room in Shared Unit") },
-          ], undefined, "listingType");
-          break;
-        case "preferredGender":
-          askGenderPreference();
-          break;
-        case "availability":
-          addSystemMessage("When is your place available?", [
-            { value: "Summer (May–Aug)", label: "Summer (May–Aug)", action: () => handleDateOptionSelect("Summer (May–Aug)") },
-            { value: "Fall (Sept–Dec)", label: "Fall (Sept–Dec)", action: () => handleDateOptionSelect("Fall (Sept–Dec)") },
-            { value: "Spring (Jan–Apr)", label: "Spring (Jan–Apr)", action: () => handleDateOptionSelect("Spring (Jan–Apr)") },
-            { value: "Full Year", label: "Full Year", action: () => handleDateOptionSelect("Full Year") },
-            { value: "Custom", label: "Custom dates", action: () => handleDateOptionSelect("Custom") },
-          ], undefined, "availability");
-          break;
-        case "location": askLocation(); break;
-        case "rent": askRentPrice(); break;
-        case "utilities": askUtilities(); break;
-        case "rooms": askRoomsDetails(); break;
-        case "amenities": askAmenities(); break;
-        case "roommates": askRoommates(); break;
-        case "photos": askPhotos(); break;
-        case "furnished": askFurnishedStatus(); break;
-        case "includedItems": askIncludedItems(); break;
-        case "subleaseReason": askSubleaseReason(); break;
-        case "additionalDetails": askAdditionalDetails(); break;
-        case "partialAvailability": askPartialAvailability(); break;
-        case "contactInfo": askContactInfo(); break;
-      }
-      setEditingStep(null);
-    }, 100);
+    // Only include images if photos exist
+    image: formData.photos && formData.photos.length > 0 
+      ? URL.createObjectURL(formData.photos[0]) 
+      : "https://images.unsplash.com/photo-1543852786-1cf6624b9987?q=80&w=800&h=500&auto=format&fit=crop",
+    additionalImages: formData.photos && formData.photos.length > 1 
+      ? formData.photos.slice(1).map(photo => URL.createObjectURL(photo))
+      : [],
+      
+    availableFrom: formData.startDate ? new Date(formData.startDate) : new Date(),
+    availableTo: formData.endDate ? new Date(formData.endDate) : new Date(),
+    dateRange: formData.startDate && formData.endDate 
+      ? `${new Date(formData.startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${new Date(formData.endDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
+      : 'Dates not set',
+    partialDatesOk: formData.partialDatesOk || false,
+    price: formData.rent || 0,
+    rent: formData.rent || 0,
+    negotiable: formData.rentNegotiation?.isNegotiable || false,
+    utilitiesIncluded: formData.utilitiesIncluded || false,
+    approximateUtilities: formData.approximateUtilities || 0,
+    bedrooms: formData.bedrooms || 1,
+    bathrooms: formData.bathrooms || 1,
+    distance: 0.5,
+    includedItems: formData.includedItems ? formData.includedItems.filter(i => i.selected).map(i => i.name) : [],
+    rating: 0,
+    reviews: 0,
+    amenities: formData.amenities ? formData.amenities.filter(a => a.selected).map(a => a.name) : [],
+    hostId: user?.uid || 'preview-user',
+    hostName: user?.displayName || user?.email || 'Your Name',
+    hostEmail: user?.email || '',
+    hostBio: `Hello, I'm ${user?.displayName || 'a student'} looking to sublease my place.`,
+    hostImage: user?.photoURL || "https://images.unsplash.com/photo-1587300003388-59208cc962cb?q=80&w=800&h=500&auto=format&fit=crop",
+    description: formData.additionalDetails || formData.subleaseReason || 'No description available',
+    accommodationType: formData.isPrivateRoom ? 'private' : 'shared',
+    preferredGender: formData.preferredGender || 'any',
+    isVerifiedUMN: false,
+    hostReviews: [],
+    noiseLevel: formData.roommatePreferences?.noiseLevel,
+    cleanliness: formData.roommatePreferences?.cleanlinessLevel,
+    isPrivateRoom: formData.isPrivateRoom || false,
+    hasRoommates: formData.hasRoommates || false,
+    smokingAllowed: formData.roommatePreferences?.smokingAllowed || false,
+    petsAllowed: formData.roommatePreferences?.petsAllowed || false,
+    contactMethods: formData.contactInfo?.methods ? formData.contactInfo.methods.filter(method => method.selected && method.value.trim()) : []
   };
 
-  const showEditOptions = () => {
-    addSystemMessage("What would you like to edit? 📝", [
-      { value: "edit-type", label: "📝 Listing Type", action: () => handleEditStep("listingType") },
-      { value: "edit-gender", label: "👤 Gender Preference", action: () => handleEditStep("preferredGender") },
-      { value: "edit-dates", label: "📅 Availability", action: () => handleEditStep("availability") },
-      { value: "edit-location", label: "📍 Location", action: () => handleEditStep("location") },
-      { value: "edit-rent", label: "💰 Rent & Price", action: () => handleEditStep("rent") },
-      { value: "edit-utilities", label: "🔌 Utilities", action: () => handleEditStep("utilities") },
-      { value: "edit-rooms", label: "🛏️ Room Details", action: () => handleEditStep("rooms") },
-      { value: "edit-amenities", label: "🏠 Amenities", action: () => handleEditStep("amenities") },
-      { value: "edit-roommates", label: "👥 Roommate Info", action: () => handleEditStep("roommates") },
-      { value: "edit-photos", label: "📸 Photos", action: () => handleEditStep("photos") },
-      { value: "edit-furnished", label: "🛋️ Furnished Status", action: () => handleEditStep("furnished") },
-      { value: "edit-items", label: "📦 Included Items", action: () => handleEditStep("includedItems") },
-      { value: "edit-reason", label: "💭 Sublease Reason", action: () => handleEditStep("subleaseReason") },
-      { value: "edit-details", label: "✨ Additional Details", action: () => handleEditStep("additionalDetails") },
-      { value: "edit-partial", label: "⏰ Partial Availability", action: () => handleEditStep("partialAvailability") },
-      { value: "edit-contact", label: "📱 Contact Info", action: () => handleEditStep("contactInfo") },
-      { value: "edit-title", label: "📝 Title", action: () => handleEditStep("listingTitle") },
-      { value: "back-summary", label: "⬅️ Back to Summary", action: () => showListingSummaryWithData(formData) },
-    ], undefined, "editMenu");
-  };
+  // Store preview data in localStorage
+  localStorage.setItem('previewData', JSON.stringify(previewData));
+  
+  // Navigate to a preview route within the same domain
+  const previewUrl = `/sublease/search/preview?preview=true&timestamp=${Date.now()}`;
+  window.open(previewUrl, '_blank');
+};
 
-  // ========================================================================================
-  // STEP 1: LISTING TYPE
-  // ========================================================================================
+const saveDraft = async () => {
+  if (!user) {
+    alert('Please sign in to save drafts');
+    return;
+  }
 
+  try {
+    const draftData = {
+      ...formData,
+      hostId: user.uid,
+      hostName: user.displayName || user.email || 'Anonymous',
+      hostEmail: user.email,
+      isDraft: true,
+      completionPercentage: calculateCompletion(formData),
+      lastSaved: new Date(),
+      createdAt: new Date(),
+      status: 'draft'
+    };
+
+    const docRef = await addDoc(collection(db, 'listing_drafts'), draftData);
+    console.log('Draft saved with ID:', docRef.id);
+    setDraftSaved(true);
+    
+    // Show success message
+    addSystemMessage("Your listing has been saved as a draft! You can continue editing anytime.", undefined, undefined, "draftSaved");
+    
+    setTimeout(() => setDraftSaved(false), 3000);
+  } catch (error) {
+    console.error('Error saving draft:', error);
+    alert('Failed to save draft. Please try again.');
+  }
+};
+
+  // Step Handlers
   const handleListingTypeSelect = (type: ListingType) => {
     setFormData(prev => ({ ...prev, listingType: type }));
     addUserMessage(type as string, "listingType");
     goToNextStep();
     
-    // NOW ASK GENDER PREFERENCE FIRST
     setTimeout(() => {
       askGenderPreference();
     }, 500);
   };
 
-  // ========================================================================================
-  // STEP 2: GENDER PREFERENCE (NEW - MOVED UP)
-  // ========================================================================================
-
   const askGenderPreference = () => {
     addSystemMessage("Who would you prefer as a roommate/tenant?", [
-      { value: "gender-any", label: "Open to any gender", action: () => handleGenderPreferenceSelect("Any") },
-      { value: "gender-male", label: "Male only", action: () => handleGenderPreferenceSelect("Male") },
-      { value: "gender-female", label: "Female only", action: () => handleGenderPreferenceSelect("Female") },
-      { value: "gender-nonbinary", label: "Non-binary", action: () => handleGenderPreferenceSelect("Non-binary") },
+      { 
+        value: "gender-any", 
+        label: "Open to any gender", 
+        icon: "users",
+        action: () => handleGenderPreferenceSelect("Any") 
+      },
+      { 
+        value: "gender-male", 
+        label: "Male only", 
+        icon: "user",
+        action: () => handleGenderPreferenceSelect("Male") 
+      },
+      { 
+        value: "gender-female", 
+        label: "Female only", 
+        icon: "user",
+        action: () => handleGenderPreferenceSelect("Female") 
+      },
+      { 
+        value: "gender-nonbinary", 
+        label: "Non-binary", 
+        icon: "user",
+        action: () => handleGenderPreferenceSelect("Non-binary") 
+      },
     ], undefined, "preferredGender");
   };
 
@@ -555,19 +617,40 @@ const addSystemMessage = (text: string, options?: ChatMessage['options'], input?
     goToNextStep();
     
     setTimeout(() => {
-      addSystemMessage("Perfect! \n\nWhen is your place available?", [
-        { value: "Summer (May–Aug)", label: "Summer (May–Aug)", action: () => handleDateOptionSelect("Summer (May–Aug)") },
-        { value: "Fall (Sept–Dec)", label: "Fall (Sept–Dec)", action: () => handleDateOptionSelect("Fall (Sept–Dec)") },
-        { value: "Spring (Jan–Apr)", label: "Spring (Jan–Apr)", action: () => handleDateOptionSelect("Spring (Jan–Apr)") },
-        { value: "Full Year", label: "Full Year", action: () => handleDateOptionSelect("Full Year") },
-        { value: "Custom", label: "Custom dates", action: () => handleDateOptionSelect("Custom") },
+      addSystemMessage("Perfect! When is your place available?", [
+        { 
+          value: "Summer (May–Aug)", 
+          label: "Summer (May–Aug)", 
+          icon: "calendar",
+          action: () => handleDateOptionSelect("Summer (May–Aug)") 
+        },
+        { 
+          value: "Fall (Sept–Dec)", 
+          label: "Fall (Sept–Dec)", 
+          icon: "calendar",
+          action: () => handleDateOptionSelect("Fall (Sept–Dec)") 
+        },
+        { 
+          value: "Spring (Jan–Apr)", 
+          label: "Spring (Jan–Apr)", 
+          icon: "calendar",
+          action: () => handleDateOptionSelect("Spring (Jan–Apr)") 
+        },
+        { 
+          value: "Full Year", 
+          label: "Full Year", 
+          icon: "calendar",
+          action: () => handleDateOptionSelect("Full Year") 
+        },
+        { 
+          value: "Custom", 
+          label: "Custom dates", 
+          icon: "settings",
+          action: () => handleDateOptionSelect("Custom") 
+        },
       ], undefined, "availability");
     }, 500);
   };
-
-  // ========================================================================================
-  // STEP 3: AVAILABILITY (MOVED FROM STEP 2)
-  // ========================================================================================
 
   const handleDateOptionSelect = (option: DateOption) => {
     setFormData(prev => ({ ...prev, dateOption: option }));
@@ -581,12 +664,12 @@ const addSystemMessage = (text: string, options?: ChatMessage['options'], input?
           const endDate = new Date(dates.end);
           
           if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
-            addSystemMessage("❌ Invalid date format. Please select valid dates.", undefined, undefined, "error");
+            addSystemMessage("Invalid date format. Please select valid dates.", undefined, undefined, "error");
             return;
           }
           
           if (endDate <= startDate) {
-            addSystemMessage("❌ End date must be after start date.", undefined, undefined, "error");
+            addSystemMessage("End date must be after start date.", undefined, undefined, "error");
             return;
           }
           
@@ -602,7 +685,6 @@ const addSystemMessage = (text: string, options?: ChatMessage['options'], input?
       }, "availability");
     } else {
       const currentYear = new Date().getFullYear();
-      const nextYear = currentYear + (new Date().getMonth() >= 8 ? 1 : 0);
       let startDate = "";
       let endDate = "";
       
@@ -624,15 +706,6 @@ const addSystemMessage = (text: string, options?: ChatMessage['options'], input?
             startDate = `${currentYear}-01-02`; 
             endDate = `${currentYear}-12-31`; 
             break;
-          default:
-            throw new Error("Invalid date option");
-        }
-        
-        const testStart = new Date(startDate);
-        const testEnd = new Date(endDate);
-        
-        if (isNaN(testStart.getTime()) || isNaN(testEnd.getTime())) {
-          throw new Error("Generated invalid dates");
         }
         
         setFormData(prev => ({ ...prev, startDate, endDate }));
@@ -640,30 +713,27 @@ const addSystemMessage = (text: string, options?: ChatMessage['options'], input?
         setTimeout(() => askLocation(), 500);
         
       } catch (error) {
-        console.error("❌ Error setting predefined dates:", error);
-        addSystemMessage("❌ Error setting dates. Please try custom dates.", undefined, undefined, "error");
+        addSystemMessage("Error setting dates. Please try custom dates.", undefined, undefined, "error");
       }
     }
   };
 
-  // ========================================================================================
-  // STEP 4: LOCATION (MOVED FROM STEP 3)
-  // ========================================================================================
-
-  const askLocation = () => {
-    addSystemMessage("Great! 📍\n\nWhere is your place located?", [
-      { value: "Dinkytown", label: "Dinkytown", action: () => handleLocationSelect("Dinkytown") },
-      { value: "East Bank", label: "East Bank", action: () => handleLocationSelect("East Bank") },
-      { value: "West Bank", label: "West Bank", action: () => handleLocationSelect("West Bank") },
-      { value: "Stadium Village", label: "Stadium Village", action: () => handleLocationSelect("Stadium Village") },
-      { value: "Saint Paul Campus", label: "Saint Paul Campus", action: () => handleLocationSelect("Saint Paul Campus") },
-      { value: "Downtown Minneapolis", label: "Downtown Minneapolis", action: () => handleLocationSelect("Downtown Minneapolis") },
-      { value: "Southeast Como", label: "Southeast Como", action: () => handleLocationSelect("Southeast Como") },
-      { value: "Prospect Park", label: "Prospect Park", action: () => handleLocationSelect("Prospect Park") },
-      { value: "Other", label: "Other location", action: () => handleLocationSelect("Other") },
-    ], undefined, "location");
-  };
-
+ const askLocation = () => {
+  addSystemMessage("Please search for and select your specific location:", undefined, {
+    type: "location-picker",
+    action: (locationData: any) => {
+      setFormData(prev => ({ 
+        ...prev, 
+        location: "Other",
+        customLocation: locationData,
+        address: locationData.address
+      }));
+      addUserMessage(`Selected: ${locationData.address}`, "location");
+      goToNextStep();
+      setTimeout(() => askRentPrice(), 500);
+    }
+  }, "location");
+};
   const handleLocationSelect = (location: LocationOption) => {
     setFormData(prev => ({ ...prev, location }));
     addUserMessage(location as string, "location");
@@ -687,8 +757,8 @@ const addSystemMessage = (text: string, options?: ChatMessage['options'], input?
     } else {
       setTimeout(() => {
         addSystemMessage("Do you want to display the exact address or just the neighborhood?", [
-          { value: "show-address", label: "Show exact address", action: () => handleAddressVisibilitySelect(true) },
-          { value: "hide-address", label: "Only show neighborhood", action: () => handleAddressVisibilitySelect(false) },
+          { value: "show-address", label: "Show exact address", icon: "mapPin", action: () => handleAddressVisibilitySelect(true) },
+          { value: "hide-address", label: "Only show neighborhood", icon: "eye", action: () => handleAddressVisibilitySelect(false) },
         ], undefined, "location");
       }, 500);
     }
@@ -720,12 +790,8 @@ const addSystemMessage = (text: string, options?: ChatMessage['options'], input?
     }
   };
 
-  // ========================================================================================
-  // STEP 5: RENT PRICE (MOVED FROM STEP 4)
-  // ========================================================================================
-
   const askRentPrice = () => {
-    addSystemMessage("How much is the monthly rent? 💰", undefined, {
+    addSystemMessage("How much is the monthly rent?", undefined, {
       type: "number",
       placeholder: "Enter monthly rent",
       action: (rent: number) => {
@@ -734,8 +800,8 @@ const addSystemMessage = (text: string, options?: ChatMessage['options'], input?
         
         setTimeout(() => {
           addSystemMessage("Is the rent negotiable?", [
-            { value: "rent-negotiable", label: "Yes, it's negotiable", action: () => handleRentNegotiable(true) },
-            { value: "rent-fixed", label: "No, price is fixed", action: () => handleRentNegotiable(false) },
+            { value: "rent-negotiable", label: "Yes, it's negotiable", icon: "dollarSign", action: () => handleRentNegotiable(true) },
+            { value: "rent-fixed", label: "No, price is fixed", icon: "lock", action: () => handleRentNegotiable(false) },
           ], undefined, "rent");
         }, 500);
       }
@@ -762,7 +828,7 @@ const addSystemMessage = (text: string, options?: ChatMessage['options'], input?
                 maxPrice: range.max 
               } 
             }));
-            addUserMessage(`Price range: ${range.min} - ${range.max}`, "rent");
+            addUserMessage(`Price range: $${range.min} - $${range.max}`, "rent");
             setTimeout(() => askUtilities(), 500);
           }
         }, "rent");
@@ -772,14 +838,10 @@ const addSystemMessage = (text: string, options?: ChatMessage['options'], input?
     }
   };
 
-  // ========================================================================================
-  // STEP 6: UTILITIES (UPDATED WITH APPROXIMATE COST)
-  // ========================================================================================
-
   const askUtilities = () => {
     addSystemMessage("Are utilities included in the rent?", [
-      { value: "utilities-yes", label: "Yes, utilities included", action: () => handleUtilitiesIncluded(true) },
-      { value: "utilities-no", label: "No, utilities not included", action: () => handleUtilitiesIncluded(false) },
+      { value: "utilities-yes", label: "Yes, utilities included", icon: "zap", action: () => handleUtilitiesIncluded(true) },
+      { value: "utilities-no", label: "No, utilities not included", icon: "x", action: () => handleUtilitiesIncluded(false) },
     ], undefined, "utilities");
   };
 
@@ -788,19 +850,19 @@ const addSystemMessage = (text: string, options?: ChatMessage['options'], input?
     addUserMessage(included ? "Yes, utilities are included" : "No, utilities are not included", "utilities");
     
     if (!included) {
-      // Ask for approximate utilities cost
       setTimeout(() => {
-        addSystemMessage("What's the approximate monthly cost for utilities? (Optional) 💡\n\nThis helps tenants budget better.", [
+        addSystemMessage("What's the approximate monthly cost for utilities? (Optional) This helps tenants budget better.", [
           { 
             value: "utilities-estimate", 
             label: "Provide estimate", 
+            icon: "dollarSign",
             action: () => {
               addSystemMessage("What's the approximate monthly utilities cost?", undefined, {
                 type: "number",
                 placeholder: "Enter estimated utilities cost (e.g., 50, 100)",
                 action: (utilitiesCost: number) => {
                   setFormData(prev => ({ ...prev, approximateUtilities: utilitiesCost }));
-                  addUserMessage(`Approximate utilities: ${utilitiesCost}/month`, "utilities");
+                  addUserMessage(`Approximate utilities: $${utilitiesCost}/month`, "utilities");
                   goToNextStep();
                   setTimeout(() => askRoomsDetails(), 500);
                 }
@@ -810,6 +872,7 @@ const addSystemMessage = (text: string, options?: ChatMessage['options'], input?
           { 
             value: "utilities-skip", 
             label: "Skip - I don't know", 
+            icon: "x",
             action: () => {
               addUserMessage("Skipping utilities estimate", "utilities");
               goToNextStep();
@@ -824,12 +887,8 @@ const addSystemMessage = (text: string, options?: ChatMessage['options'], input?
     }
   };
 
-  // ========================================================================================
-  // STEP 7: ROOM DETAILS (MOVED FROM STEP 6)
-  // ========================================================================================
-
   const askRoomsDetails = () => {
-    addSystemMessage("Tell me about the space 🛏️", undefined, {
+    addSystemMessage("Tell me about the space", undefined, {
       type: "rooms",
       action: (details: {bedrooms: number, bathrooms: number, isPrivate: boolean}) => {
         setFormData(prev => ({ 
@@ -845,12 +904,8 @@ const addSystemMessage = (text: string, options?: ChatMessage['options'], input?
     }, "rooms");
   };
 
-  // ========================================================================================
-  // STEP 8: AMENITIES (MOVED FROM STEP 7)
-  // ========================================================================================
-
   const askAmenities = () => {
-    addSystemMessage("Which amenities does your place include? 🏠\n\n(Select all that apply)", undefined, {
+    addSystemMessage("Which amenities does your place include? (Select all that apply)", undefined, {
       type: "multiselect",
       options: formData.amenities.map(amenity => ({ value: amenity.id, label: amenity.name })),
       action: (selectedIds: string[]) => {
@@ -873,14 +928,10 @@ const addSystemMessage = (text: string, options?: ChatMessage['options'], input?
     }, "amenities");
   };
 
-  // ========================================================================================
-  // STEP 9: ROOMMATES (MOVED FROM STEP 8)
-  // ========================================================================================
-
   const askRoommates = () => {
-    addSystemMessage("Will you have roommates? 👥", [
-      { value: "roommates-yes", label: "Yes", action: () => handleRoommatesAnswer(true) },
-      { value: "roommates-no", label: "No", action: () => handleRoommatesAnswer(false) },
+    addSystemMessage("Will you have roommates?", [
+      { value: "roommates-yes", label: "Yes", icon: "users", action: () => handleRoommatesAnswer(true) },
+      { value: "roommates-no", label: "No", icon: "user", action: () => handleRoommatesAnswer(false) },
     ], undefined, "roommates");
   };
 
@@ -897,9 +948,9 @@ const addSystemMessage = (text: string, options?: ChatMessage['options'], input?
   };
 
   const askCurrentRoommateInfo = () => {
-    addSystemMessage("Tell me about your roommate 🤔\n\nIs your roommate generally quiet?", [
-      { value: "quiet-yes", label: "Yes, they're quiet", action: () => handleQuietAnswer(true) },
-      { value: "quiet-no", label: "No, they can be loud", action: () => handleQuietAnswer(false) },
+    addSystemMessage("Tell me about your roommate. Is your roommate generally quiet?", [
+      { value: "quiet-yes", label: "Yes, they're quiet", icon: "check", action: () => handleQuietAnswer(true) },
+      { value: "quiet-no", label: "No, they can be loud", icon: "x", action: () => handleQuietAnswer(false) },
     ], undefined, "roommates");
   };
   
@@ -912,8 +963,8 @@ const addSystemMessage = (text: string, options?: ChatMessage['options'], input?
 
     setTimeout(() => {
       addSystemMessage("Does your roommate smoke?", [
-        { value: "smoke-yes", label: "Yes", action: () => handleSmokeAnswer(true) },
-        { value: "smoke-no", label: "No", action: () => handleSmokeAnswer(false) },
+        { value: "smoke-yes", label: "Yes", icon: "x", action: () => handleSmokeAnswer(true) },
+        { value: "smoke-no", label: "No", icon: "check", action: () => handleSmokeAnswer(false) },
       ], undefined, "roommates");
     }, 500);
   };
@@ -927,8 +978,8 @@ const addSystemMessage = (text: string, options?: ChatMessage['options'], input?
 
     setTimeout(() => {
       addSystemMessage("Does your roommate have any pets?", [
-        { value: "pets-yes", label: "Yes", action: () => handleCurrentPetsAnswer(true) },
-        { value: "pets-no", label: "No", action: () => handleCurrentPetsAnswer(false) },
+        { value: "pets-yes", label: "Yes", icon: "heart", action: () => handleCurrentPetsAnswer(true) },
+        { value: "pets-no", label: "No", icon: "x", action: () => handleCurrentPetsAnswer(false) },
       ], undefined, "roommates");
     }, 500);
   };
@@ -943,9 +994,9 @@ const addSystemMessage = (text: string, options?: ChatMessage['options'], input?
   };
   
   const askRoommatePreferences = () => {
-    addSystemMessage("Are pets allowed for new roommates? 🐕", [
-      { value: "pets-yes", label: "Yes", action: () => handlePetsPreference(true) },
-      { value: "pets-no", label: "No", action: () => handlePetsPreference(false) },
+    addSystemMessage("Are pets allowed for new roommates?", [
+      { value: "pets-yes", label: "Yes", icon: "heart", action: () => handlePetsPreference(true) },
+      { value: "pets-no", label: "No", icon: "x", action: () => handlePetsPreference(false) },
     ], undefined, "roommates");
   };
 
@@ -960,9 +1011,9 @@ const addSystemMessage = (text: string, options?: ChatMessage['options'], input?
     addUserMessage(`Pets allowed: ${petsAllowed ? "Yes" : "No"}`, "roommates");
     
     setTimeout(() => {
-      addSystemMessage("Is smoking allowed? 🚭", [
-        { value: "smoking-yes", label: "Yes", action: () => handleSmokingPreference(true) },
-        { value: "smoking-no", label: "No", action: () => handleSmokingPreference(false) },
+      addSystemMessage("Is smoking allowed?", [
+        { value: "smoking-yes", label: "Yes", icon: "check", action: () => handleSmokingPreference(true) },
+        { value: "smoking-no", label: "No", icon: "x", action: () => handleSmokingPreference(false) },
       ], undefined, "roommates");
     }, 500);
   };
@@ -978,10 +1029,10 @@ const addSystemMessage = (text: string, options?: ChatMessage['options'], input?
     addUserMessage(`Smoking allowed: ${smokingAllowed ? "Yes" : "No"}`, "roommates");
     
     setTimeout(() => {
-      addSystemMessage("Preferred noise level? 🔊", [
-        { value: "noise-low", label: "Low", action: () => handleNoisePreference("Low") },
-        { value: "noise-medium", label: "Medium", action: () => handleNoisePreference("Medium") },
-        { value: "noise-high", label: "High", action: () => handleNoisePreference("High") },
+      addSystemMessage("Preferred noise level?", [
+        { value: "noise-low", label: "Low", icon: "volume", action: () => handleNoisePreference("Low") },
+        { value: "noise-medium", label: "Medium", icon: "volume", action: () => handleNoisePreference("Medium") },
+        { value: "noise-high", label: "High", icon: "volume", action: () => handleNoisePreference("High") },
       ], undefined, "roommates");
     }, 500);
   };
@@ -997,10 +1048,10 @@ const addSystemMessage = (text: string, options?: ChatMessage['options'], input?
     addUserMessage(`Noise level: ${noiseLevel}`, "roommates");
     
     setTimeout(() => {
-      addSystemMessage("Preferred cleanliness level? ✨", [
-        { value: "clean-low", label: "Low", action: () => handleCleanlinessPreference("Low") },
-        { value: "clean-medium", label: "Medium", action: () => handleCleanlinessPreference("Medium") },
-        { value: "clean-high", label: "High", action: () => handleCleanlinessPreference("High") },
+      addSystemMessage("Preferred cleanliness level?", [
+        { value: "clean-low", label: "Low", icon: "star", action: () => handleCleanlinessPreference("Low") },
+        { value: "clean-medium", label: "Medium", icon: "star", action: () => handleCleanlinessPreference("Medium") },
+        { value: "clean-high", label: "High", icon: "star", action: () => handleCleanlinessPreference("High") },
       ], undefined, "roommates");
     }, 500);
   };
@@ -1019,12 +1070,8 @@ const addSystemMessage = (text: string, options?: ChatMessage['options'], input?
     setTimeout(() => askPhotos(), 500);
   };
 
-  // ========================================================================================
-  // STEP 10: PHOTOS (MOVED FROM STEP 9)
-  // ========================================================================================
-
   const askPhotos = () => {
-    addSystemMessage("Please upload at least 3 photos of your space 📸\n\n(The more photos you include, the more likely your listing will get a takeover!)\n\nInclude: bedroom, bathroom, living space, kitchen, etc.", undefined, {
+    addSystemMessage("Please upload at least 3 photos of your space. The more photos you include, the more likely your listing will get attention! Include: bedroom, bathroom, living space, kitchen, etc.", undefined, {
       type: "file",
       action: (files: File[]) => {
         setFormData(prev => ({ ...prev, photos: files }));
@@ -1035,14 +1082,10 @@ const addSystemMessage = (text: string, options?: ChatMessage['options'], input?
     }, "photos");
   };
 
-  // ========================================================================================
-  // STEP 11: FURNISHED STATUS (MOVED FROM STEP 10)
-  // ========================================================================================
-
   const askFurnishedStatus = () => {
-    addSystemMessage("Is your place furnished? 🛋️", [
-      { value: "furnished-yes", label: "Yes, it's furnished", action: () => handleFurnishedStatus(true) },
-      { value: "furnished-no", label: "No, it's not furnished", action: () => handleFurnishedStatus(false) },
+    addSystemMessage("Is your place furnished?", [
+      { value: "furnished-yes", label: "Yes, it's furnished", icon: "home", action: () => handleFurnishedStatus(true) },
+      { value: "furnished-no", label: "No, it's not furnished", icon: "x", action: () => handleFurnishedStatus(false) },
     ], undefined, "furnished");
   };
 
@@ -1065,12 +1108,8 @@ const addSystemMessage = (text: string, options?: ChatMessage['options'], input?
     }
   };
 
-  // ========================================================================================
-  // STEP 12: INCLUDED ITEMS (MOVED FROM STEP 11)
-  // ========================================================================================
-
   const askIncludedItems = () => {
-    addSystemMessage("Since your place isn't furnished, are you including any furniture or items for the next tenant? 📦\n\n(Select all that apply, or skip if none)", undefined, {
+    addSystemMessage("Since your place isn't furnished, are you including any furniture or items for the next tenant? (Select all that apply, or skip if none)", undefined, {
       type: "included-items",
       action: (data: { selectedIds: string[], customItems: string }) => {
         const updatedItems = formData.includedItems.map(item => ({
@@ -1100,15 +1139,12 @@ const addSystemMessage = (text: string, options?: ChatMessage['options'], input?
     }, "includedItems");
   };
 
-  // ========================================================================================
-  // STEP 13: SUBLEASE REASON (MOVED FROM STEP 12)
-  // ========================================================================================
-
   const askSubleaseReason = () => {
-    addSystemMessage("Would you like to share why you're subletting? (Optional) 💭\n\nThis can help potential renters understand your situation better.", [
+    addSystemMessage("Would you like to share why you're subletting? (Optional) This can help potential renters understand your situation better.", [
       { 
         value: "reason-yes", 
         label: "Yes, I'll share the reason", 
+        icon: "fileText",
         action: () => {
           addSystemMessage("What's the reason for your sublease?", undefined, {
             type: "textarea",
@@ -1125,6 +1161,7 @@ const addSystemMessage = (text: string, options?: ChatMessage['options'], input?
       { 
         value: "reason-no", 
         label: "Skip this question", 
+        icon: "x",
         action: () => {
           addUserMessage("Skipping reason", "subleaseReason");
           goToNextStep();
@@ -1134,14 +1171,10 @@ const addSystemMessage = (text: string, options?: ChatMessage['options'], input?
     ], undefined, "subleaseReason");
   };
 
-  // ========================================================================================
-  // STEP 14: ROOM TOUR (MOVED FROM STEP 13)
-  // ========================================================================================
-
   const askRoomTour = () => {
-    addSystemMessage("Are you open to giving room tours to potential renters? 🏠👀", [
-      { value: "tour-yes", label: "Yes, I'm open to tours", action: () => handleRoomTour(true) },
-      { value: "tour-no", label: "No tours, photos only", action: () => handleRoomTour(false) },
+    addSystemMessage("Are you open to giving room tours to potential renters?", [
+      { value: "tour-yes", label: "Yes, I'm open to tours", icon: "eye", action: () => handleRoomTour(true) },
+      { value: "tour-no", label: "No tours, photos only", icon: "camera", action: () => handleRoomTour(false) },
     ], undefined, "roomTour");
   };
 
@@ -1156,19 +1189,16 @@ const addSystemMessage = (text: string, options?: ChatMessage['options'], input?
         : `Room tours: ${tourInfo}`
     }));
     
-    goToNextStep();
+    // Don't increment step here since we're going to ask additional details next
     setTimeout(() => askAdditionalDetails(), 500);
   };
 
-  // ========================================================================================
-  // STEP 15: ADDITIONAL DETAILS (MOVED FROM STEP 14)
-  // ========================================================================================
-
   const askAdditionalDetails = () => {
-    addSystemMessage("Any additional details to make your listing stand out? ✨\n\n(Optional - apartment features, neighborhood highlights, etc.)", [
+    addSystemMessage("Any additional details to make your listing stand out? (Optional - apartment features, neighborhood highlights, etc.)", [
       { 
         value: "details-yes", 
         label: "Yes, I have more details", 
+        icon: "plus",
         action: () => {
           addSystemMessage("What additional details would you like to include?", undefined, {
             type: "textarea",
@@ -1190,6 +1220,7 @@ const addSystemMessage = (text: string, options?: ChatMessage['options'], input?
       { 
         value: "details-no", 
         label: "No additional details", 
+        icon: "x",
         action: () => {
           addUserMessage("No additional details", "additionalDetails");
           goToNextStep();
@@ -1199,14 +1230,10 @@ const addSystemMessage = (text: string, options?: ChatMessage['options'], input?
     ], undefined, "additionalDetails");
   };
 
-  // ========================================================================================
-  // STEP 16: PARTIAL AVAILABILITY (MOVED FROM STEP 15)
-  // ========================================================================================
-
   const askPartialAvailability = () => {
-    addSystemMessage("Are you open to renting for just part of the dates? 📅\n\n(e.g., if your lease is June to August, would you consider renting just for June?)", [
-      { value: "partial-yes", label: "Yes, I'm flexible with dates", action: () => handlePartialAvailability(true) },
-      { value: "partial-no", label: "No, I need the entire period covered", action: () => handlePartialAvailability(false) },
+    addSystemMessage("Are you open to renting for just part of the dates? (e.g., if your lease is June to August, would you consider renting just for June?)", [
+      { value: "partial-yes", label: "Yes, I'm flexible with dates", icon: "calendar", action: () => handlePartialAvailability(true) },
+      { value: "partial-no", label: "No, I need the entire period covered", icon: "lock", action: () => handlePartialAvailability(false) },
     ], undefined, "partialAvailability");
   };
 
@@ -1216,100 +1243,69 @@ const addSystemMessage = (text: string, options?: ChatMessage['options'], input?
     setTimeout(() => askContactInfo(), 500);
   };
 
-  // ========================================================================================
-  // STEP 17: CONTACT INFORMATION (MOVED FROM STEP 16)
-  // ========================================================================================
-
-  // const askContactInfo = () => {
-  //   addSystemMessage("How would you like potential renters to contact you? 📱\n\nWe have our built-in chat system, but you can also provide additional contact methods if you prefer.", undefined, {
-  //     type: "contact-info",
-  //     action: (contactData: any) => {
-  //       setFormData(prev => {
-  //         const updatedData = { ...prev, contactInfo: contactData };
-  //         // setTimeout(() => {
-  //         //   console.log("About to show summary with data:", updatedData);
-  //         //   showListingSummaryWithData(updatedData);
-  //         // }, 100);
-  //           setTimeout(() => {
-  //             askTitleOfListing();
-  //           }, 100);
-  //         // return updatedData;
-  //       });
-        
-  //       const selectedMethods = contactData.methods
-  //         .filter((m: any) => m.selected && m.value.trim())
-  //         .map((m: any) => `${m.name}: ${m.value}`)
-  //         .join(", ");
-        
-  //       addUserMessage(`Contact methods: ${selectedMethods || "Built-in chat only"}${contactData.note ? `\nNote: ${contactData.note}` : ""}`, "contactInfo");
-  //     }
-  //   }, "contactInfo");
-  // };
-
   const askContactInfo = () => {
-  addSystemMessage("How would you like potential renters to contact you? 📱\n\nWe have our built-in chat system, but you can also provide additional contact methods if you prefer.", undefined, {
-    type: "contact-info",
-    action: (contactData: any) => {
-       setFormData(prev => {
-        const updatedData = { ...prev, contactInfo: contactData };
-        
-        setTimeout(() => {
-          const selectedMethods = contactData.methods
-            .filter((m: any) => m.selected && m.value.trim())
-            .map((m: any) => `${m.name}: ${m.value}`)
-            .join(", ");
-          
-          addUserMessage(`Contact methods: ${selectedMethods || "Built-in chat only"}${contactData.note ? `\nNote: ${contactData.note}` : ""}`, "contactInfo");
+    addSystemMessage("How would you like potential renters to contact you? We have our built-in chat system, but you can also provide additional contact methods if you prefer.", undefined, {
+      type: "contact-info",
+      action: (contactData: any) => {
+        setFormData(prev => {
+          const updatedData = { ...prev, contactInfo: contactData };
           
           setTimeout(() => {
-            askTitleOfListing();
-          }, 50);
-        }, 10);
-        
-        return updatedData;
-      });
+            const selectedMethods = contactData.methods
+              .filter((m: any) => m.selected && m.value.trim())
+              .map((m: any) => `${m.name}: ${m.value}`)
+              .join(", ");
+            
+            addUserMessage(`Contact methods: ${selectedMethods || "Built-in chat only"}${contactData.note ? `\nNote: ${contactData.note}` : ""}`, "contactInfo");
+            
+            setTimeout(() => {
+              askTitleOfListing();
+            }, 50);
+          }, 10);
+          
+          return updatedData;
+        });
+      }
+    }, "contactInfo");
+  };
+
+  const askTitleOfListing = () => {
+    // Check if title question already exists
+    const hasTitleMessage = messages.some(msg => 
+      !msg.isUser && msg.text && msg.text.includes("create a catchy title")
+    );
+      
+    if (hasTitleMessage) {
+      console.log('Title message already exists, skipping');
+      return;
     }
-  }, "contactInfo");
-};
-
-  // ========================================================================================
-  // STEP 18: Listing Title (MOVED FROM STEP 17)
-  // ========================================================================================
-
-    const askTitleOfListing = () => {
-      const hasTitleMessage = messages.some(msg => 
-          msg.content && msg.content.includes("create a catchy title")
+    
+    addSystemMessage("Finally, let's create a catchy title for your listing! Write a short, descriptive title that will attract potential renters:", undefined, {
+      type: "textarea",
+      placeholder: "e.g., Cozy Room Near Campus with Great Amenities",
+      action: (title: string) => {
+        // Check if this exact title response already exists
+        const hasTitleResponse = messages.some(msg => 
+          msg.isUser && 
+          msg.text && 
+          msg.text === `Listing title: "${title}"`
         );
         
-        if (hasTitleMessage) {
-          console.log('Title message already exists, skipping');
+        if (hasTitleResponse) {
+          console.log('Title response already exists, skipping');
           return;
         }
-        addSystemMessage("Finally, let's create a catchy title for your listing! 📝\n\nWrite a short, descriptive title that will attract potential renters:", undefined, {
-          type: "textarea",
-          placeholder: "e.g., Cozy Room Near Campus with Great Amenities",
-          action: (title: string) => {
-              const hasTitleResponse = messages.some(msg => 
-                msg.type === 'user' && 
-                msg.content && 
-                msg.content.includes(`Listing title: "${title}"`)
-              );
-              
-              if (hasTitleResponse) {
-                console.log('Title response already exists, skipping');
-                return;
-              }
 
-            setFormData(prev => {
-              const updatedData = { ...prev, listingTitle: title };
-              
-              addUserMessage(`Listing title: "${title}"`, "listingTitle");
+        setFormData(prev => {
+          const updatedData = { ...prev, listingTitle: title };
           
-
+          addUserMessage(`Listing title: "${title}"`, "listingTitle");
+      
+          // Use a longer timeout to ensure the user message is added first
           setTimeout(() => {
             console.log("About to show summary with data:", updatedData);
             showListingSummaryWithData(updatedData);
-          }, 100);
+          }, 500);
           
           return updatedData;
         });
@@ -1317,14 +1313,18 @@ const addSystemMessage = (text: string, options?: ChatMessage['options'], input?
     }, "listingTitle");
   };
 
-  // ========================================================================================
-  // SUMMARY AND FINAL STEPS
-  // ========================================================================================
-
   const showListingSummaryWithData = (currentFormData: ListingData) => {
     console.log("📋 Summary called with data:", currentFormData);
-    console.log("📋 Start date in summary:", currentFormData.startDate);
-    console.log("📋 End date in summary:", currentFormData.endDate);
+    
+    // Check if summary already exists
+    const hasSummaryMessage = messages.some(msg => 
+      !msg.isUser && msg.text && msg.text.includes("Here's your listing summary!")
+    );
+    
+    if (hasSummaryMessage) {
+      console.log('Summary already exists, skipping');
+      return;
+    }
     
     // Store the data in a ref for immediate access
     currentListingDataRef.current = currentFormData;
@@ -1345,7 +1345,6 @@ const addSystemMessage = (text: string, options?: ChatMessage['options'], input?
       .join(", ");
     
     const formatDate = (dateStr: string) => {
-      console.log("📅 Formatting date:", dateStr);
       if (!dateStr) return "Not set";
       const date = new Date(dateStr);
       if (isNaN(date.getTime())) return "Invalid date";
@@ -1406,21 +1405,21 @@ const addSystemMessage = (text: string, options?: ChatMessage['options'], input?
       return "Not specified";
     };
     
-    let summary = `Here's your listing summary! ✨
+    let summary = `Here's your listing summary!
 
-🏠 Title: ${currentFormData.listingTitle || "Not set"}
-📝 Type: ${currentFormData.listingType || "Not set"}
-👤 Gender Preference: ${currentFormData.preferredGender || "Not set"}
-📅 Available: ${formatDate(currentFormData.startDate)} to ${formatDate(currentFormData.endDate)}
-📍 Location: ${getLocationDisplay()}
-💵 Rent: ${getRentDisplay()}${getNegotiationDisplay()}
-🏠 Utilities: ${getUtilitiesDisplay()}
-🛏️ Space: ${currentFormData.bedrooms} bedroom(s), ${currentFormData.bathrooms} bathroom(s), ${getRoomTypeDisplay()}
-🏠 Amenities: ${selectedAmenities || "None"}`;
+Title: ${currentFormData.listingTitle || "Not set"}
+Type: ${currentFormData.listingType || "Not set"}
+Gender Preference: ${currentFormData.preferredGender || "Not set"}
+Available: ${formatDate(currentFormData.startDate)} to ${formatDate(currentFormData.endDate)}
+Location: ${getLocationDisplay()}
+Rent: ${getRentDisplay()}${getNegotiationDisplay()}
+Utilities: ${getUtilitiesDisplay()}
+Space: ${currentFormData.bedrooms} bedroom(s), ${currentFormData.bathrooms} bathroom(s), ${getRoomTypeDisplay()}
+Amenities: ${selectedAmenities || "None"}`;
 
     if (currentFormData.hasRoommates === true) {
-      summary += `\n👤 About current roommate: ${currentFormData.currentRoommateInfo.isQuiet ? 'Quiet' : 'Can be loud'}, ${currentFormData.currentRoommateInfo.smokes ? 'Smokes' : "Doesn't smoke"}, ${currentFormData.currentRoommateInfo.hasPets ? 'Has pets' : 'No pets'}`;
-      summary += `\n👥 New Roommate Preferences: Pets (${currentFormData.roommatePreferences.petsAllowed ? 'Yes' : 'No'}), Smoking (${currentFormData.roommatePreferences.smokingAllowed ? 'Yes' : 'No'}), Noise (${currentFormData.roommatePreferences.noiseLevel || 'Not specified'}), Cleanliness (${currentFormData.roommatePreferences.cleanlinessLevel || 'Not specified'})`;
+      summary += `\nAbout current roommate: ${currentFormData.currentRoommateInfo.isQuiet ? 'Quiet' : 'Can be loud'}, ${currentFormData.currentRoommateInfo.smokes ? 'Smokes' : "Doesn't smoke"}, ${currentFormData.currentRoommateInfo.hasPets ? 'Has pets' : 'No pets'}`;
+      summary += `\nNew Roommate Preferences: Pets (${currentFormData.roommatePreferences.petsAllowed ? 'Yes' : 'No'}), Smoking (${currentFormData.roommatePreferences.smokingAllowed ? 'Yes' : 'No'}), Noise (${currentFormData.roommatePreferences.noiseLevel || 'Not specified'}), Cleanliness (${currentFormData.roommatePreferences.cleanlinessLevel || 'Not specified'})`;
     }
 
     const isFurnished = currentFormData.amenities.find(a => a.id === 'furnished')?.selected;
@@ -1429,633 +1428,119 @@ const addSystemMessage = (text: string, options?: ChatMessage['options'], input?
       if (currentFormData.customIncludedItems) {
         itemsDisplay = itemsDisplay ? `${itemsDisplay}, ${currentFormData.customIncludedItems}` : currentFormData.customIncludedItems;
       }
-      summary += `\n📦 Included Items: ${itemsDisplay || "None"}`;
+      summary += `\nIncluded Items: ${itemsDisplay || "None"}`;
     }
 
-    summary += `\n📸 Photos: ${currentFormData.photos.length} uploaded
-⏰ Partial availability: ${currentFormData.partialDatesOk === true ? 'Yes' : currentFormData.partialDatesOk === false ? 'No' : 'Not specified'}`;
+    summary += `\nPhotos: ${currentFormData.photos.length} uploaded
+Partial availability: ${currentFormData.partialDatesOk === true ? 'Yes' : currentFormData.partialDatesOk === false ? 'No' : 'Not specified'}`;
 
     if (currentFormData.subleaseReason) {
-      summary += `\n💭 Reason for sublease: ${currentFormData.subleaseReason}`;
+      summary += `\nReason for sublease: ${currentFormData.subleaseReason}`;
     }
 
     if (currentFormData.additionalDetails) {
-      summary += `\n✨ Additional details: ${currentFormData.additionalDetails}`;
+      summary += `\nAdditional details: ${currentFormData.additionalDetails}`;
     }
 
-    summary += `\n📱 Contact: ${contactMethods || "Built-in chat system"}`;
+    summary += `\nContact: ${contactMethods || "Built-in chat system"}`;
     
     if (currentFormData.contactInfo.note) {
-      summary += `\n📝 Contact note: ${currentFormData.contactInfo.note}`;
+      summary += `\nContact note: ${currentFormData.contactInfo.note}`;
     }
     
     addSystemMessage(summary, [
       { 
         value: "confirm", 
-        label: "✅ Confirm and publish listing", 
+        label: "Confirm and publish listing", 
+        icon: "check",
         action: () => {
-          console.log("🚀 Submit button clicked");
-          console.log("🚀 Using ref data:", currentListingDataRef.current);
           handleSubmitFormWithData();
         }
       },
       { 
         value: "edit", 
-        label: "✏️ Edit listing", 
+        label: "Edit listing", 
+        icon: "edit",
         action: () => showEditOptions() 
       },
     ], undefined, "summary");
   };
 
-  // ========================================================================================
-  // IMPROVED PRICE RANGE INPUT WITH VALIDATION
-  // ========================================================================================
-
-  const renderCustomInput = (input: ChatMessage['input']) => {
-    if (!input) return null;
-    
-    switch (input.type) {
-      case 'price-range':
-        return (
-          <div className="mt-3 space-y-3 bg-gray-50 p-4 rounded-2xl border border-gray-200">
-            <div className="text-sm text-gray-600 mb-3">
-              <p className="font-medium text-gray-800 mb-1">💰 Price Range</p>
-              <p>Current rent: <span className="font-semibold">${formData.rent}</span></p>
-              <p className="text-yellow-700">💡 Tip: Set a realistic range around your rent price</p>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block mb-2 text-sm font-medium text-gray-700">Minimum Price</label>
-                <input
-                  type="number"
-                  placeholder={`Min (e.g. ${Math.max(0, formData.rent - 200)})`}
-                  max={formData.rent}
-                  className="w-full p-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-orange-300 focus:border-transparent transition-all"
-                  onChange={(e) => {
-                    const value = Number(e.target.value);
-                    setFormData(prev => ({ 
-                      ...prev, 
-                      rentNegotiation: { 
-                        ...prev.rentNegotiation, 
-                        minPrice: value
-                      } 
-                    }));
-                  }}
-                />
-                <p className="text-xs text-gray-500 mt-1">Should be less than ${formData.rent}</p>
-              </div>
-              <div>
-                <label className="block mb-2 text-sm font-medium text-gray-700">Maximum Price</label>
-                <input
-                  type="number"
-                  placeholder={`Max (e.g. ${formData.rent + 100})`}
-                  className="w-full p-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-orange-300 focus:border-transparent transition-all"
-                  onChange={(e) => {
-                    const value = Number(e.target.value);
-                    setFormData(prev => ({ 
-                      ...prev, 
-                      rentNegotiation: { 
-                        ...prev.rentNegotiation, 
-                        maxPrice: value
-                      } 
-                    }));
-                  }}
-                />
-                <p className="text-xs text-gray-500 mt-1">Can be more than ${formData.rent}</p>
-              </div>
-            </div>
-            
-            {/* Validation Messages */}
-            {formData.rentNegotiation.minPrice > 0 && formData.rentNegotiation.maxPrice > 0 && (
-              <div className="mt-2">
-                {formData.rentNegotiation.minPrice >= formData.rentNegotiation.maxPrice && (
-                  <p className="text-red-600 text-sm">⚠️ Minimum price should be less than maximum price</p>
-                )}
-                {formData.rentNegotiation.minPrice > formData.rent && (
-                  <p className="text-yellow-600 text-sm">⚠️ Minimum price is higher than your listed rent</p>
-                )}
-                {formData.rentNegotiation.maxPrice < formData.rent && (
-                  <p className="text-yellow-600 text-sm">⚠️ Maximum price is lower than your listed rent</p>
-                )}
-              </div>
-            )}
-            
-            <button 
-              className={`w-full p-3 rounded-xl font-medium transition-all shadow-sm hover:shadow-md ${
-                formData.rentNegotiation.minPrice > 0 && 
-                formData.rentNegotiation.maxPrice > 0 && 
-                formData.rentNegotiation.minPrice < formData.rentNegotiation.maxPrice
-                  ? "bg-orange-300 text-white hover:bg-orange-400"
-                  : "bg-gray-300 text-gray-500 cursor-not-allowed"
-              }`}
-              onClick={() => {
-                if (formData.rentNegotiation.minPrice > 0 && 
-                    formData.rentNegotiation.maxPrice > 0 && 
-                    formData.rentNegotiation.minPrice < formData.rentNegotiation.maxPrice) {
-                  input.action({ 
-                    min: formData.rentNegotiation.minPrice, 
-                    max: formData.rentNegotiation.maxPrice 
-                  });
-                }
-              }}
-              disabled={!(formData.rentNegotiation.minPrice > 0 && 
-                         formData.rentNegotiation.maxPrice > 0 && 
-                         formData.rentNegotiation.minPrice < formData.rentNegotiation.maxPrice)}
-            >
-              Confirm Price Range
-            </button>
-          </div>
-        );
-        
-      case 'date-range':
-        return (
-          <div className="mt-3 space-y-3 bg-gray-50 p-4 rounded-2xl border border-gray-200">
-            <div>
-              <label className="block mb-2 text-sm font-medium text-gray-700">Start Date</label>
-              <input
-                type="date"
-                className="w-full p-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-orange-300 focus:border-transparent transition-all"
-                onChange={(e) => {
-                  setFormData(prev => ({ ...prev, startDate: e.target.value }));
-                }}
-              />
-            </div>
-            <div>
-              <label className="block mb-2 text-sm font-medium text-gray-700">End Date</label>
-              <input
-                type="date"
-                className="w-full p-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-orange-300 focus:border-transparent transition-all"
-                onChange={(e) => {
-                  setFormData(prev => ({ ...prev, endDate: e.target.value }));
-                }}
-              />
-            </div>
-            <button 
-              className="w-full p-3 bg-orange-300 text-white rounded-xl hover:bg-orange-400 font-medium transition-all shadow-sm hover:shadow-md"
-              onClick={() => {
-                if (formData.startDate && formData.endDate) {
-                  input.action({ start: formData.startDate, end: formData.endDate });
-                }
-              }}
-            >
-              Confirm Dates
-            </button>
-          </div>
-        );
-        
-      case 'location-picker':
-        return (
-          <div className="mt-3 bg-gray-50 p-4 rounded-2xl border border-gray-200">
-            <LocationPicker
-              onLocationSelect={(location) => {
-                input.action(location);
-              }}
-              showDeliveryOptions={false}
-            />
-          </div>
-        );
-        
-      case 'contact-info':
-        return (
-          <div className="mt-3 space-y-4 bg-gray-50 p-4 rounded-2xl border border-gray-200">
-            <div className="text-sm text-gray-600 mb-3">
-              <p className="font-medium text-gray-800 mb-2">📱 Contact Methods</p>
-              <p>Select and fill in the contact methods you'd like to use:</p>
-            </div>
-            
-            {formData.contactInfo.methods.map((method) => (
-              <div key={method.id} className="space-y-2">
-                <div className="flex items-center gap-3">
-                  <input
-                    type="checkbox"
-                    checked={method.selected}
-                    onChange={(e) => {
-                      const updatedMethods = formData.contactInfo.methods.map(m =>
-                        m.id === method.id ? { ...m, selected: e.target.checked } : m
-                      );
-                      setFormData(prev => ({
-                        ...prev,
-                        contactInfo: { ...prev.contactInfo, methods: updatedMethods }
-                      }));
-                    }}
-                    className="w-4 h-4 text-orange-300 rounded focus:ring-orange-300"
-                  />
-                  <label className="font-medium text-gray-700 flex items-center gap-2">
-                    {method.id === 'phone' && <Phone size={16} />}
-                    {method.id === 'email' && <Mail size={16} />}
-                    {method.id === 'instagram' && <MessageCircle size={16} />}
-                    {method.id === 'snapchat' && <MessageCircle size={16} />}
-                    {method.id === 'other' && <MessageCircle size={16} />}
-                    {method.name}
-                  </label>
-                </div>
-                {method.selected && (
-                  <input
-                    type={method.id === 'email' ? 'email' : method.id === 'phone' ? 'tel' : 'text'}
-                    placeholder={
-                      method.id === 'phone' ? '(123) 456-7890' :
-                      method.id === 'email' ? 'your@email.com' :
-                      method.id === 'instagram' ? '@username' :
-                      method.id === 'snapchat' ? 'username' :
-                      'Contact details'
-                    }
-                    value={method.value}
-                    onChange={(e) => {
-                      const updatedMethods = formData.contactInfo.methods.map(m =>
-                        m.id === method.id ? { ...m, value: e.target.value } : m
-                      );
-                      setFormData(prev => ({
-                        ...prev,
-                        contactInfo: { ...prev.contactInfo, methods: updatedMethods }
-                      }));
-                    }}
-                    className="w-full p-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-orange-300 focus:border-transparent ml-7 transition-all"
-                  />
-                )}
-              </div>
-            ))}
-            
-            <div className="mt-4">
-              <label className="block mb-2 text-sm font-medium text-gray-700">
-                Additional contact note (optional)
-              </label>
-              <textarea
-                placeholder="e.g., 'Prefer texts over calls', 'Available weekdays 9-5', etc."
-                value={formData.contactInfo.note}
-                onChange={(e) => {
-                  setFormData(prev => ({
-                    ...prev,
-                    contactInfo: { ...prev.contactInfo, note: e.target.value }
-                  }));
-                }}
-                className="w-full p-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-orange-300 focus:border-transparent resize-none transition-all"
-                rows={2}
-              />
-            </div>
-            
-            <button 
-              className="w-full p-3 bg-orange-300 text-white rounded-xl hover:bg-orange-400 font-medium transition-all shadow-sm hover:shadow-md"
-              onClick={() => {
-                input.action(formData.contactInfo);
-              }}
-            >
-              Confirm Contact Information
-            </button>
-          </div>
-        );
-        
-      case 'rooms':
-        return (
-          <div className="mt-3 space-y-4 bg-gray-50 p-4 rounded-2xl border border-gray-200">
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block mb-2 text-sm font-medium text-gray-700">Bedrooms</label>
-                <select 
-                  className="w-full p-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-orange-300 focus:border-transparent transition-all"
-                  value={formData.bedrooms}
-                  onChange={(e) => setFormData(prev => ({ ...prev, bedrooms: Number(e.target.value) }))}
-                >
-                  {[0, 1, 2, 3, 4, 5].map(num => (
-                    <option key={num} value={num}>{num}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block mb-2 text-sm font-medium text-gray-700">Bathrooms</label>
-                <select 
-                  className="w-full p-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-orange-300 focus:border-transparent transition-all"
-                  value={formData.bathrooms}
-                  onChange={(e) => setFormData(prev => ({ ...prev, bathrooms: Number(e.target.value) }))}
-                >
-                  {[0, 1, 1.5, 2, 2.5, 3, 3.5, 4].map(num => (
-                    <option key={num} value={num}>{num}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
-            
-            <div>
-              <label className="block mb-2 text-sm font-medium text-gray-700">Room Type</label>
-              <div className="grid grid-cols-2 gap-3">
-                <button
-                  type="button"
-                  className={`p-3 rounded-xl border text-center font-medium transition-all ${
-                    formData.isPrivateRoom === true
-                      ? "bg-orange-300 border-orange-300 text-white shadow-md" 
-                      : "border-gray-300 text-gray-700 hover:bg-gray-100 hover:border-gray-400"
-                  }`}
-                  onClick={() => setFormData(prev => ({ ...prev, isPrivateRoom: true }))}
-                >
-                  Private Room
-                </button>
-                <button
-                  type="button"
-                  className={`p-3 rounded-xl border text-center font-medium transition-all ${
-                    formData.isPrivateRoom === false
-                      ? "bg-orange-300 border-orange-300 text-white shadow-md" 
-                      : "border-gray-300 text-gray-700 hover:bg-gray-100 hover:border-gray-400"
-                  }`}
-                  onClick={() => setFormData(prev => ({ ...prev, isPrivateRoom: false }))}
-                >
-                  Shared Room
-                </button>
-              </div>
-            </div>
-           
-            <button 
-              className="w-full p-3 bg-orange-300 text-white rounded-xl hover:bg-orange-400 font-medium transition-all shadow-sm hover:shadow-md"
-              onClick={() => {
-                if (formData.isPrivateRoom !== null) {
-                  input.action({ 
-                    bedrooms: formData.bedrooms, 
-                    bathrooms: formData.bathrooms, 
-                    isPrivate: formData.isPrivateRoom 
-                  });
-                }
-              }}
-            >
-              Confirm Room Details
-            </button>
-          </div>
-        );
-        
-      case 'multiselect':
-        return (
-          <div className="mt-3 space-y-3 bg-gray-50 p-4 rounded-2xl border border-gray-200">
-            <div className="grid grid-cols-1 gap-2">
-              {input.options?.map((option) => {
-                const isAmenitySelected = formData.amenities.some(
-                  a => a.id === option.value && a.selected
-                );
-                
-                const isItemSelected = formData.includedItems.some(
-                  i => i.id === option.value && i.selected
-                );
-                
-                const isSelected = isAmenitySelected || isItemSelected;
-                
-                return (
-                  <button
-                    key={option.value}
-                    className={`p-3 rounded-xl border text-left font-medium transition-all ${
-                      isSelected
-                        ? "bg-orange-300 border-orange-300 text-white shadow-md" 
-                        : "border-gray-300 text-gray-700 hover:bg-gray-100 hover:border-gray-400"
-                    }`}
-                    onClick={() => {
-                      if (formData.amenities.some(a => a.id === option.value)) {
-                        const updatedAmenities = formData.amenities.map(amenity => 
-                          amenity.id === option.value 
-                            ? { ...amenity, selected: !amenity.selected }
-                            : amenity
-                        );
-                        setFormData(prev => ({ ...prev, amenities: updatedAmenities }));
-                      } 
-                      else if (formData.includedItems.some(i => i.id === option.value)) {
-                        const updatedItems = formData.includedItems.map(item => 
-                          item.id === option.value 
-                            ? { ...item, selected: !item.selected }
-                            : item
-                        );
-                        setFormData(prev => ({ ...prev, includedItems: updatedItems }));
-                      }
-                    }}
-                  >
-                    {isSelected ? '✓ ' : ''}{option.label}
-                  </button>
-                );
-              })}
-            </div>
-            <button 
-              className="w-full p-3 bg-orange-300 text-white rounded-xl hover:bg-orange-400 font-medium transition-all shadow-sm hover:shadow-md"
-              onClick={() => {
-                if (input.options?.[0]?.value === formData.amenities[0].id) {
-                  const selectedIds = formData.amenities
-                    .filter(a => a.selected)
-                    .map(a => a.id);
-                  input.action(selectedIds);
-                } else {
-                  const selectedIds = formData.includedItems
-                    .filter(i => i.selected)
-                    .map(i => i.id);
-                  input.action(selectedIds);
-                }
-              }}
-            >
-              Confirm Selection
-            </button>
-          </div>
-        );
-
-      case 'included-items':
-        return (
-          <div className="mt-3 space-y-4 bg-gray-50 p-4 rounded-2xl border border-gray-200">
-            <div className="space-y-2">
-              <p className="text-sm font-medium text-gray-700 mb-3">Select items you're including:</p>
-              {formData.includedItems.map((item) => (
-                <button
-                  key={item.id}
-                  className={`w-full p-3 rounded-xl border text-left font-medium transition-all ${
-                    item.selected
-                      ? "bg-orange-300 border-orange-300 text-white shadow-md" 
-                      : "border-gray-300 text-gray-700 hover:bg-gray-100 hover:border-gray-400"
-                  }`}
-                  onClick={() => {
-                    const updatedItems = formData.includedItems.map(i => 
-                      i.id === item.id ? { ...i, selected: !i.selected } : i
-                    );
-                    setFormData(prev => ({ ...prev, includedItems: updatedItems }));
-                  }}
-                >
-                  {item.selected ? '✓ ' : ''}{item.name}
-                </button>
-              ))}
-            </div>
-            
-            <div>
-              <label className="block mb-2 text-sm font-medium text-gray-700">
-                Other items you're including (optional)
-              </label>
-              <textarea
-                placeholder="e.g., bed frame, kitchen utensils, cleaning supplies, extra blankets..."
-                value={formData.customIncludedItems}
-                onChange={(e) => {
-                  setFormData(prev => ({ ...prev, customIncludedItems: e.target.value }));
-                }}
-                className="w-full p-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-orange-300 focus:border-transparent resize-none transition-all"
-                rows={3}
-              />
-            </div>
-            
-            <button 
-              className="w-full p-3 bg-orange-300 text-white rounded-xl hover:bg-orange-400 font-medium transition-all shadow-sm hover:shadow-md"
-              onClick={() => {
-                const selectedIds = formData.includedItems
-                  .filter(i => i.selected)
-                  .map(i => i.id);
-                input.action({ 
-                  selectedIds, 
-                  customItems: formData.customIncludedItems 
-                });
-              }}
-            >
-              Confirm Included Items
-            </button>
-          </div>
-        );
-        
-      case 'file':
-        return (
-          <div className="mt-3 space-y-3 bg-gray-50 p-4 rounded-2xl border border-gray-200">
-            <div className="text-sm text-gray-600 mb-3">
-              <p className="font-medium text-gray-800 mb-1">📸 Photo Requirements</p>
-              <p>• At least 3 photos required</p>
-              <p>• Supported formats: JPG, PNG, WebP</p>
-              <p className="text-red-600">• HEIC files not supported (iPhone users: change to JPG in camera settings)</p>
-            </div>
-            
-            <input
-              type="file"
-              multiple
-              accept="image/jpeg,image/jpg,image/png,image/webp"
-              className="hidden"
-              ref={fileInputRef}
-              onChange={(e) => {
-                const files = Array.from(e.target.files || []);
-                const validFiles = files.filter(file => {
-                  const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
-                  return validTypes.includes(file.type);
-                });
-                
-                if (validFiles.length !== files.length) {
-                  addSystemMessage("⚠️ Some files were rejected. Please use JPG, PNG, or WebP format only. HEIC files are not supported.");
-                }
-                
-                setFormData(prev => ({ ...prev, photos: [...prev.photos, ...validFiles] }));
-              }}
-            />
-            
-            <input
-              type="file"
-              accept="image/jpeg,image/jpg,image/png,image/webp"
-              capture="environment"
-              className="hidden"
-              ref={cameraInputRef}
-              onChange={(e) => {
-                const files = Array.from(e.target.files || []);
-                const validFiles = files.filter(file => {
-                  const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
-                  return validTypes.includes(file.type);
-                });
-                
-                if (validFiles.length !== files.length) {
-                  addSystemMessage("⚠️ Some files were rejected. Please use JPG, PNG, or WebP format only.");
-                }
-                
-                setFormData(prev => ({ ...prev, photos: [...prev.photos, ...validFiles] }));
-              }}
-            />
-            
-            <div className="grid grid-cols-2 gap-3">
-              <button 
-                className="w-full p-4 bg-white border-2 border-dashed border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 hover:border-gray-400 flex items-center justify-center transition-all"
-                onClick={() => fileInputRef.current?.click()}
-              >
-                <Plus size={20} className="mr-2" />
-                Choose Photos
-              </button>
-              
-              <button 
-                className="w-full p-4 bg-white border-2 border-dashed border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 hover:border-gray-400 flex items-center justify-center transition-all"
-                onClick={() => cameraInputRef.current?.click()}
-              >
-                <Camera size={20} className="mr-2" />
-                Take Photo
-              </button>
-            </div>
-            
-            {formData.photos.length > 0 && (
-              <div>
-                <div className="flex justify-between items-center mb-3">
-                  <p className="text-sm text-gray-600 font-medium">
-                    {formData.photos.length} photo{formData.photos.length !== 1 ? 's' : ''} selected
-                  </p>
-                  <button
-                    onClick={() => setFormData(prev => ({ ...prev, photos: [] }))}
-                    className="text-red-500 hover:text-red-700 text-sm font-medium"
-                  >
-                    Clear All
-                  </button>
-                </div>
-                
-                <div className="grid grid-cols-3 gap-2 mb-4">
-                  {formData.photos.slice(0, 9).map((file, index) => (
-                    <div key={index} className="relative aspect-square rounded-xl bg-gray-200 overflow-hidden border border-gray-300">
-                      <img
-                        src={URL.createObjectURL(file)}
-                        alt={`Preview ${index + 1}`}
-                        className="w-full h-full object-cover"
-                      />
-                      <button
-                        onClick={() => {
-                          setFormData(prev => ({
-                            ...prev,
-                            photos: prev.photos.filter((_, i) => i !== index)
-                          }));
-                        }}
-                        className="absolute top-1 right-1 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs hover:bg-red-600"
-                      >
-                        ×
-                      </button>
-                    </div>
-                  ))}
-                  {formData.photos.length > 9 && (
-                    <div className="aspect-square rounded-xl bg-gray-300 flex items-center justify-center text-gray-600 text-sm font-medium border border-gray-400">
-                      +{formData.photos.length - 9} more
-                    </div>
-                  )}
-                </div>
-                
-                {formData.photos.length < 3 && (
-                  <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-3 mb-3">
-                    <p className="text-yellow-800 text-sm">
-                      ⚠️ You need at least 3 photos. Please add {3 - formData.photos.length} more photo{3 - formData.photos.length !== 1 ? 's' : ''}.
-                    </p>
-                  </div>
-                )}
-                
-                <button 
-                  className={`w-full p-3 rounded-xl font-medium transition-all shadow-sm hover:shadow-md ${
-                    formData.photos.length >= 3
-                      ? "bg-orange-300 text-white hover:bg-orange-400"
-                      : "bg-gray-300 text-gray-500 cursor-not-allowed"
-                  }`}
-                  onClick={() => {
-                    if (formData.photos.length >= 3) {
-                      input.action(formData.photos);
-                    }
-                  }}
-                  disabled={formData.photos.length < 3}
-                >
-                  {formData.photos.length >= 3 
-                    ? `Upload ${formData.photos.length} Photos` 
-                    : `Need ${3 - formData.photos.length} More Photo${3 - formData.photos.length !== 1 ? 's' : ''}`
-                  }
-                </button>
-              </div>
-            )}
-          </div>
-        );
-        
-      default:
-        return null;
-    }
+  const showEditOptions = () => {
+    addSystemMessage("What would you like to edit?", [
+      { value: "edit-type", label: "Listing Type", icon: "fileText", action: () => handleEditStep("listingType") },
+      { value: "edit-gender", label: "Gender Preference", icon: "user", action: () => handleEditStep("preferredGender") },
+      { value: "edit-dates", label: "Availability", icon: "calendar", action: () => handleEditStep("availability") },
+      { value: "edit-location", label: "Location", icon: "mapPin", action: () => handleEditStep("location") },
+      { value: "edit-rent", label: "Rent & Price", icon: "dollarSign", action: () => handleEditStep("rent") },
+      { value: "edit-utilities", label: "Utilities", icon: "zap", action: () => handleEditStep("utilities") },
+      { value: "edit-rooms", label: "Room Details", icon: "bed", action: () => handleEditStep("rooms") },
+      { value: "edit-amenities", label: "Amenities", icon: "home", action: () => handleEditStep("amenities") },
+      { value: "edit-roommates", label: "Roommate Info", icon: "users", action: () => handleEditStep("roommates") },
+      { value: "edit-photos", label: "Photos", icon: "camera", action: () => handleEditStep("photos") },
+      { value: "edit-furnished", label: "Furnished Status", icon: "home", action: () => handleEditStep("furnished") },
+      { value: "edit-items", label: "Included Items", icon: "grid", action: () => handleEditStep("includedItems") },
+      { value: "edit-reason", label: "Sublease Reason", icon: "fileText", action: () => handleEditStep("subleaseReason") },
+      { value: "edit-details", label: "Additional Details", icon: "star", action: () => handleEditStep("additionalDetails") },
+      { value: "edit-partial", label: "Partial Availability", icon: "clock", action: () => handleEditStep("partialAvailability") },
+      { value: "edit-contact", label: "Contact Info", icon: "phone", action: () => handleEditStep("contactInfo") },
+      { value: "edit-title", label: "Title", icon: "tag", action: () => handleEditStep("listingTitle") },
+      { value: "back-summary", label: "Back to Summary", icon: "arrowLeft", action: () => showListingSummaryWithData(formData) },
+    ], undefined, "editMenu");
   };
 
-  // ========================================================================================
-  // UPLOAD AND SUBMISSION FUNCTIONS
-  // ========================================================================================
+  const handleEditStep = (step: string) => {
+    setEditingStep(step);
+    
+    setMessages(prev => {
+      const stepMessageIndex = prev.findIndex(m => m.step === step && !m.isUser);
+      if (stepMessageIndex !== -1) {
+        return prev.slice(0, stepMessageIndex);
+      }
+      return prev;
+    });
+    
+    setTimeout(() => {
+      switch (step) {
+        case "listingType":
+          addSystemMessage("What type of listing are you posting?", [
+            { value: "Sublet", label: "Sublet", icon: "home", action: () => handleListingTypeSelect("Sublet") },
+            { value: "Lease Takeover", label: "Lease Takeover", icon: "fileText", action: () => handleListingTypeSelect("Lease Takeover") },
+            { value: "Room in Shared Unit", label: "Room in Shared Unit", icon: "users", action: () => handleListingTypeSelect("Room in Shared Unit") },
+          ], undefined, "listingType");
+          break;
+        case "preferredGender":
+          askGenderPreference();
+          break;
+        case "availability":
+          addSystemMessage("When is your place available?", [
+            { value: "Summer (May–Aug)", label: "Summer (May–Aug)", icon: "calendar", action: () => handleDateOptionSelect("Summer (May–Aug)") },
+            { value: "Fall (Sept–Dec)", label: "Fall (Sept–Dec)", icon: "calendar", action: () => handleDateOptionSelect("Fall (Sept–Dec)") },
+            { value: "Spring (Jan–Apr)", label: "Spring (Jan–Apr)", icon: "calendar", action: () => handleDateOptionSelect("Spring (Jan–Apr)") },
+            { value: "Full Year", label: "Full Year", icon: "calendar", action: () => handleDateOptionSelect("Full Year") },
+            { value: "Custom", label: "Custom dates", icon: "settings", action: () => handleDateOptionSelect("Custom") },
+          ], undefined, "availability");
+          break;
+        case "location": askLocation(); break;
+        case "rent": askRentPrice(); break;
+        case "utilities": askUtilities(); break;
+        case "rooms": askRoomsDetails(); break;
+        case "amenities": askAmenities(); break;
+        case "roommates": askRoommates(); break;
+        case "photos": askPhotos(); break;
+        case "furnished": askFurnishedStatus(); break;
+        case "includedItems": askIncludedItems(); break;
+        case "subleaseReason": askSubleaseReason(); break;
+        case "additionalDetails": askAdditionalDetails(); break;
+        case "partialAvailability": askPartialAvailability(); break;
+        case "contactInfo": askContactInfo(); break;
+        case "listingTitle": askTitleOfListing(); break;
+      }
+      setEditingStep(null);
+    }, 100);
+  };
 
+  // Firebase image upload function
   const uploadImagesToStorage = async (files: File[], listingId: string): Promise<string[]> => {
     console.log("📸 Starting image upload...", files.length, "files");
     
@@ -2093,26 +1578,26 @@ const addSystemMessage = (text: string, options?: ChatMessage['options'], input?
     
     if (!dataToSubmit) {
       console.error("❌ No listing data found in ref");
-      addSystemMessage("❌ Error: No listing data found. Please try again.", undefined, undefined, "error");
+      addSystemMessage("Error: No listing data found. Please try again.", undefined, undefined, "error");
       return;
     }
     
     try {
-      addSystemMessage("🔄 Creating your listing and uploading photos...", undefined, undefined, "creating");
+      addSystemMessage("Creating your listing and uploading photos...", undefined, undefined, "creating");
       
       // Validation
       if (!dataToSubmit.startDate || typeof dataToSubmit.startDate !== 'string' || dataToSubmit.startDate.trim() === '') {
-        addSystemMessage("❌ Invalid start date. Please check your availability dates.", undefined, undefined, "error");
+        addSystemMessage("Invalid start date. Please check your availability dates.", undefined, undefined, "error");
         return;
       }
       
       if (!dataToSubmit.endDate || typeof dataToSubmit.endDate !== 'string' || dataToSubmit.endDate.trim() === '') {
-        addSystemMessage("❌ Invalid end date. Please check your availability dates.", undefined, undefined, "error");
+        addSystemMessage("Invalid end date. Please check your availability dates.", undefined, undefined, "error");
         return;
       }
       
       if (!dataToSubmit.photos || dataToSubmit.photos.length < 3) {
-        addSystemMessage("❌ Please upload at least 3 photos before submitting.", undefined, undefined, "error");
+        addSystemMessage("Please upload at least 3 photos before submitting.", undefined, undefined, "error");
         return;
       }
       
@@ -2128,24 +1613,23 @@ const addSystemMessage = (text: string, options?: ChatMessage['options'], input?
         }
         
         if (endDate <= startDate) {
-          addSystemMessage("❌ End date must be after start date. Please check your dates.", undefined, undefined, "error");
+          addSystemMessage("End date must be after start date. Please check your dates.", undefined, undefined, "error");
           return;
         }
         
       } catch (dateError) {
-        addSystemMessage("❌ Error processing dates. Please check your availability dates and try again.", undefined, undefined, "error");
+        addSystemMessage("Error processing dates. Please check your availability dates and try again.", undefined, undefined, "error");
         return;
       }
       
       if (!dataToSubmit.listingType || !dataToSubmit.location || !dataToSubmit.rent || dataToSubmit.rent <= 0) {
-        addSystemMessage("❌ Please fill in all required fields.", undefined, undefined, "error");
+        addSystemMessage("Please fill in all required fields.", undefined, undefined, "error");
         return;
       }
       
       console.log("✅ All validations passed, creating listing...");
       
       const tempListingData = {
-        // title: `${dataToSubmit.listingType} in ${dataToSubmit.location}`,
         title: dataToSubmit.listingTitle,
         listingType: dataToSubmit.listingType,
         location: dataToSubmit.location,
@@ -2162,7 +1646,7 @@ const addSystemMessage = (text: string, options?: ChatMessage['options'], input?
         uploadedImageUrls = await uploadImagesToStorage(dataToSubmit.photos, docRef.id);
       } catch (uploadError) {
         console.error("❌ Image upload failed:", uploadError);
-        addSystemMessage("❌ Failed to upload images. Please try again.", undefined, undefined, "error");
+        addSystemMessage("Failed to upload images. Please try again.", undefined, undefined, "error");
         return;
       }
       
@@ -2278,7 +1762,7 @@ const addSystemMessage = (text: string, options?: ChatMessage['options'], input?
       
       console.log("🎉 Listing created successfully with uploaded images!");
       
-      addSystemMessage("🎉 Your listing has been successfully created with all photos!\n\nRedirecting to your listing page...", undefined, undefined, "submitted");
+      addSystemMessage("Your listing has been successfully created with all photos! Redirecting to your listing page...", undefined, undefined, "submitted");
       
       setTimeout(() => {
         router.push(`/sublease/search/${docRef.id}`);
@@ -2286,285 +1770,1136 @@ const addSystemMessage = (text: string, options?: ChatMessage['options'], input?
       
     } catch (error) {
       console.error('❌ Error creating listing:', error);
-      addSystemMessage("❌ Error creating listing. Please try again.", undefined, undefined, "error");
+      addSystemMessage("Error creating listing. Please try again.", undefined, undefined, "error");
     }
   };
 
-  // ========================================================================================
-  // RENDER COMPONENT
-  // ========================================================================================
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-300"></div>
-      </div>
-    );
-  }
-  
-  // If not authenticated, show message while redirecting
-  if (!user) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-300 mx-auto mb-4"></div>
-          <p className="text-gray-600">Please sign in to create listings. Redirecting...</p>
-        </div>
-      </div>
-    );
-  }
+  // Icon component helper
+  const IconComponent = ({ name, size = 16, className = "" }) => {
+    const icons = {
+      home: Home,
+      fileText: FileText,
+      users: Users,
+      user: User,
+      calendar: Calendar,
+      settings: Settings,
+      mapPin: MapPin,
+      search: MapPin,
+      eye: Settings,
+      dollarSign: DollarSign,
+      lock: Shield,
+      zap: Zap,
+      x: X,
+      check: Check,
+      heart: Heart,
+      volume: Settings,
+      star: Star,
+      camera: Camera,
+      plus: Plus,
+      edit: Edit3,
+      arrowLeft: ArrowLeft,
+      phone: Phone,
+      tag: Tag,
+      bed: Bed,
+      grid: Grid,
+      clock: Clock,
+      wifi: Wifi,
+      car: Car,
+      building: Building,
+      shield: Shield
+    };
+    
+    const Icon = icons[name] || Settings;
+    return <Icon size={size} className={className} />;
+  };
+
+  // Custom Input Components
+  const renderCustomInput = (input: ChatMessage['input']) => {
+    if (!input) return null;
+    
+    switch (input.type) {
+      case 'price-range':
+        return (
+          <div className="mt-4 space-y-4 bg-orange-50 p-6 rounded-2xl border border-orange-200">
+            <div className="text-sm text-gray-700 mb-4">
+              <div className="flex items-center gap-2 mb-2">
+                <DollarSign className="w-5 h-5 text-orange-500" />
+                <p className="font-semibold text-gray-800">Price Range</p>
+              </div>
+              <p>Current rent: <span className="font-semibold">${formData.rent}</span></p>
+              <p className="text-orange-600 text-sm mt-1">Set a realistic range around your rent price</p>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block mb-2 text-sm font-medium text-gray-700">Minimum Price</label>
+                <input
+                  type="number"
+                  placeholder={`Min (e.g. ${Math.max(0, formData.rent - 200)})`}
+                  max={formData.rent}
+                  className="w-full p-3 rounded-xl border border-orange-200 focus:outline-none focus:ring-2 focus:ring-orange-300 focus:border-transparent transition-all"
+                  onChange={(e) => {
+                    const value = Number(e.target.value);
+                    setFormData(prev => ({ 
+                      ...prev, 
+                      rentNegotiation: { 
+                        ...prev.rentNegotiation, 
+                        minPrice: value
+                      } 
+                    }));
+                  }}
+                />
+                <p className="text-xs text-gray-500 mt-1">Should be less than ${formData.rent}</p>
+              </div>
+              <div>
+                <label className="block mb-2 text-sm font-medium text-gray-700">Maximum Price</label>
+                <input
+                  type="number"
+                  placeholder={`Max (e.g. ${formData.rent + 100})`}
+                  className="w-full p-3 rounded-xl border border-orange-200 focus:outline-none focus:ring-2 focus:ring-orange-300 focus:border-transparent transition-all"
+                  onChange={(e) => {
+                    const value = Number(e.target.value);
+                    setFormData(prev => ({ 
+                      ...prev, 
+                      rentNegotiation: { 
+                        ...prev.rentNegotiation, 
+                        maxPrice: value
+                      } 
+                    }));
+                  }}
+                />
+                <p className="text-xs text-gray-500 mt-1">Can be more than ${formData.rent}</p>
+              </div>
+            </div>
+            
+            {formData.rentNegotiation.minPrice > 0 && formData.rentNegotiation.maxPrice > 0 && (
+              <div className="mt-3">
+                {formData.rentNegotiation.minPrice >= formData.rentNegotiation.maxPrice && (
+                  <p className="text-red-600 text-sm flex items-center gap-2">
+                    <X className="w-4 h-4" />
+                    Minimum price should be less than maximum price
+                  </p>
+                )}
+                {formData.rentNegotiation.minPrice > formData.rent && (
+                  <p className="text-orange-600 text-sm flex items-center gap-2">
+                    <Info className="w-4 h-4" />
+                    Minimum price is higher than your listed rent
+                  </p>
+                )}
+                {formData.rentNegotiation.maxPrice < formData.rent && (
+                  <p className="text-orange-600 text-sm flex items-center gap-2">
+                    <Info className="w-4 h-4" />
+                    Maximum price is lower than your listed rent
+                  </p>
+                )}
+              </div>
+            )}
+            
+            <button 
+              className={`w-full p-3 rounded-xl font-medium transition-all shadow-sm hover:shadow-md flex items-center justify-center gap-2 ${
+                formData.rentNegotiation.minPrice > 0 && 
+                formData.rentNegotiation.maxPrice > 0 && 
+                formData.rentNegotiation.minPrice < formData.rentNegotiation.maxPrice
+                  ? "bg-orange-400 text-white hover:bg-orange-500"
+                  : "bg-gray-300 text-gray-500 cursor-not-allowed"
+              }`}
+              onClick={() => {
+                if (formData.rentNegotiation.minPrice > 0 && 
+                    formData.rentNegotiation.maxPrice > 0 && 
+                    formData.rentNegotiation.minPrice < formData.rentNegotiation.maxPrice) {
+                  input.action({ 
+                    min: formData.rentNegotiation.minPrice, 
+                    max: formData.rentNegotiation.maxPrice 
+                  });
+                }
+              }}
+              disabled={!(formData.rentNegotiation.minPrice > 0 && 
+                         formData.rentNegotiation.maxPrice > 0 && 
+                         formData.rentNegotiation.minPrice < formData.rentNegotiation.maxPrice)}
+            >
+              <Check className="w-4 h-4" />
+              Confirm Price Range
+            </button>
+          </div>
+        );
+        
+      case 'date-range':
+        return (
+          <div className="mt-4 space-y-4 bg-orange-50 p-6 rounded-2xl border border-orange-200">
+            <div className="flex items-center gap-2 mb-4">
+              <Calendar className="w-5 h-5 text-orange-500" />
+              <h3 className="font-semibold text-gray-800">Select Date Range</h3>
+            </div>
+            <div>
+              <label className="block mb-2 text-sm font-medium text-gray-700">Start Date</label>
+              <input
+                type="date"
+                className="w-full p-3 rounded-xl border border-orange-200 focus:outline-none focus:ring-2 focus:ring-orange-300 focus:border-transparent transition-all"
+                onChange={(e) => {
+                  setFormData(prev => ({ ...prev, startDate: e.target.value }));
+                }}
+              />
+            </div>
+            <div>
+              <label className="block mb-2 text-sm font-medium text-gray-700">End Date</label>
+              <input
+                type="date"
+                className="w-full p-3 rounded-xl border border-orange-200 focus:outline-none focus:ring-2 focus:ring-orange-300 focus:border-transparent transition-all"
+                onChange={(e) => {
+                  setFormData(prev => ({ ...prev, endDate: e.target.value }));
+                }}
+              />
+            </div>
+            <button 
+              className="w-full p-3 bg-orange-400 text-white rounded-xl hover:bg-orange-500 font-medium transition-all shadow-sm hover:shadow-md flex items-center justify-center gap-2"
+              onClick={() => {
+                if (formData.startDate && formData.endDate) {
+                  input.action({ start: formData.startDate, end: formData.endDate });
+                }
+              }}
+            >
+              <Check className="w-4 h-4" />
+              Confirm Dates
+            </button>
+          </div>
+        );
+        
+      case 'location-picker':
+        return (
+          <div className="mt-4 bg-orange-50 p-6 rounded-2xl border border-orange-200">
+            <div className="flex items-center gap-2 mb-4">
+              <MapPin className="w-5 h-5 text-orange-500" />
+              <h3 className="font-semibold text-gray-800">Location Picker</h3>
+            </div>
+            <LocationPicker
+              onLocationSelect={(location) => {
+                input.action(location);
+              }}
+              showDeliveryOptions={false}
+            />
+          </div>
+        );
+        
+      case 'contact-info':
+        return (
+          <div className="mt-4 space-y-6 bg-orange-50 p-6 rounded-2xl border border-orange-200">
+            <div className="flex items-center gap-2 mb-4">
+              <Phone className="w-5 h-5 text-orange-500" />
+              <h3 className="font-semibold text-gray-800">Contact Methods</h3>
+            </div>
+            <p className="text-sm text-gray-600">Select and fill in the contact methods you'd like to use:</p>
+            
+            {formData.contactInfo.methods.map((method) => (
+              <div key={method.id} className="space-y-3">
+                <div className="flex items-center gap-3">
+                  <input
+                    type="checkbox"
+                    checked={method.selected}
+                    onChange={(e) => {
+                      const updatedMethods = formData.contactInfo.methods.map(m =>
+                        m.id === method.id ? { ...m, selected: e.target.checked } : m
+                      );
+                      setFormData(prev => ({
+                        ...prev,
+                        contactInfo: { ...prev.contactInfo, methods: updatedMethods }
+                      }));
+                    }}
+                    className="w-4 h-4 text-orange-400 rounded focus:ring-orange-300 border-orange-300"
+                  />
+                  <label className="font-medium text-gray-700 flex items-center gap-2">
+                    {method.id === 'phone' && <Phone size={16} className="text-orange-400" />}
+                    {method.id === 'email' && <Mail size={16} className="text-orange-400" />}
+                    {method.id === 'instagram' && <MessageCircle size={16} className="text-orange-400" />}
+                    {method.id === 'snapchat' && <MessageCircle size={16} className="text-orange-400" />}
+                    {method.id === 'other' && <MessageCircle size={16} className="text-orange-400" />}
+                    {method.name}
+                  </label>
+                </div>
+                {method.selected && (
+                  <input
+                    type={method.id === 'email' ? 'email' : method.id === 'phone' ? 'tel' : 'text'}
+                    placeholder={
+                      method.id === 'phone' ? '(123) 456-7890' :
+                      method.id === 'email' ? 'your@email.com' :
+                      method.id === 'instagram' ? '@username' :
+                      method.id === 'snapchat' ? 'username' :
+                      'Contact details'
+                    }
+                    value={method.value}
+                    onChange={(e) => {
+                      const updatedMethods = formData.contactInfo.methods.map(m =>
+                        m.id === method.id ? { ...m, value: e.target.value } : m
+                      );
+                      setFormData(prev => ({
+                        ...prev,
+                        contactInfo: { ...prev.contactInfo, methods: updatedMethods }
+                      }));
+                    }}
+                    className="w-full p-3 rounded-xl border border-orange-200 focus:outline-none focus:ring-2 focus:ring-orange-300 focus:border-transparent ml-7 transition-all"
+                  />
+                )}
+              </div>
+            ))}
+            
+            <div className="mt-6">
+              <label className="block mb-2 text-sm font-medium text-gray-700">
+                Additional contact note (optional)
+              </label>
+              <textarea
+                placeholder="e.g., 'Prefer texts over calls', 'Available weekdays 9-5', etc."
+                value={formData.contactInfo.note}
+                onChange={(e) => {
+                  setFormData(prev => ({
+                    ...prev,
+                    contactInfo: { ...prev.contactInfo, note: e.target.value }
+                  }));
+                }}
+                className="w-full p-3 rounded-xl border border-orange-200 focus:outline-none focus:ring-2 focus:ring-orange-300 focus:border-transparent resize-none transition-all"
+                rows={3}
+              />
+            </div>
+            
+            <button 
+              className="w-full p-3 bg-orange-400 text-white rounded-xl hover:bg-orange-500 font-medium transition-all shadow-sm hover:shadow-md flex items-center justify-center gap-2"
+              onClick={() => {
+                input.action(formData.contactInfo);
+              }}
+            >
+              <Check className="w-4 h-4" />
+              Confirm Contact Information
+            </button>
+          </div>
+        );
+        
+      case 'rooms':
+        return (
+          <div className="mt-4 space-y-6 bg-orange-50 p-6 rounded-2xl border border-orange-200">
+            <div className="flex items-center gap-2 mb-4">
+              <Bed className="w-5 h-5 text-orange-500" />
+              <h3 className="font-semibold text-gray-800">Room Details</h3>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block mb-2 text-sm font-medium text-gray-700">Bedrooms</label>
+                <select 
+                  className="w-full p-3 rounded-xl border border-orange-200 focus:outline-none focus:ring-2 focus:ring-orange-300 focus:border-transparent transition-all"
+                  value={formData.bedrooms}
+                  onChange={(e) => setFormData(prev => ({ ...prev, bedrooms: Number(e.target.value) }))}
+                >
+                  {[0, 1, 2, 3, 4, 5].map(num => (
+                    <option key={num} value={num}>{num}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block mb-2 text-sm font-medium text-gray-700">Bathrooms</label>
+                <select 
+                  className="w-full p-3 rounded-xl border border-orange-200 focus:outline-none focus:ring-2 focus:ring-orange-300 focus:border-transparent transition-all"
+                  value={formData.bathrooms}
+                  onChange={(e) => setFormData(prev => ({ ...prev, bathrooms: Number(e.target.value) }))}
+                >
+                  {[0, 1, 1.5, 2, 2.5, 3, 3.5, 4].map(num => (
+                    <option key={num} value={num}>{num}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            
+            <div>
+              <label className="block mb-3 text-sm font-medium text-gray-700">Room Type</label>
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  className={`p-4 rounded-xl border text-center font-medium transition-all flex items-center justify-center gap-2 ${
+                    formData.isPrivateRoom === true
+                      ? "bg-orange-400 border-orange-400 text-white shadow-md" 
+                      : "border-orange-200 text-gray-700 hover:bg-orange-100 hover:border-orange-300"
+                  }`}
+                  onClick={() => setFormData(prev => ({ ...prev, isPrivateRoom: true }))}
+                >
+                  <User className="w-4 h-4" />
+                  Private Room
+                </button>
+                <button
+                  type="button"
+                  className={`p-4 rounded-xl border text-center font-medium transition-all flex items-center justify-center gap-2 ${
+                    formData.isPrivateRoom === false
+                      ? "bg-orange-400 border-orange-400 text-white shadow-md" 
+                      : "border-orange-200 text-gray-700 hover:bg-orange-100 hover:border-orange-300"
+                  }`}
+                  onClick={() => setFormData(prev => ({ ...prev, isPrivateRoom: false }))}
+                >
+                  <Users className="w-4 h-4" />
+                  Shared Room
+                </button>
+              </div>
+            </div>
+           
+            <button 
+              className="w-full p-3 bg-orange-400 text-white rounded-xl hover:bg-orange-500 font-medium transition-all shadow-sm hover:shadow-md flex items-center justify-center gap-2"
+              onClick={() => {
+                if (formData.isPrivateRoom !== null) {
+                  input.action({ 
+                    bedrooms: formData.bedrooms, 
+                    bathrooms: formData.bathrooms, 
+                    isPrivate: formData.isPrivateRoom 
+                  });
+                }
+              }}
+            >
+              <Check className="w-4 h-4" />
+              Confirm Room Details
+            </button>
+          </div>
+        );
+        
+      case 'multiselect':
+        return (
+          <div className="mt-4 space-y-4 bg-orange-50 p-6 rounded-2xl border border-orange-200">
+            <div className="flex items-center gap-2 mb-4">
+              <Home className="w-5 h-5 text-orange-500" />
+              <h3 className="font-semibold text-gray-800">Select Amenities</h3>
+            </div>
+            <div className="grid grid-cols-1 gap-3">
+              {input.options?.map((option) => {
+                const isAmenitySelected = formData.amenities.some(
+                  a => a.id === option.value && a.selected
+                );
+                
+                const isItemSelected = formData.includedItems.some(
+                  i => i.id === option.value && i.selected
+                );
+                
+                const isSelected = isAmenitySelected || isItemSelected;
+                
+                return (
+                  <button
+                    key={option.value}
+                    className={`p-4 rounded-xl border text-left font-medium transition-all flex items-center gap-3 ${
+                      isSelected
+                        ? "bg-orange-400 border-orange-400 text-white shadow-md" 
+                        : "border-orange-200 text-gray-700 hover:bg-orange-100 hover:border-orange-300"
+                    }`}
+                    onClick={() => {
+                      if (formData.amenities.some(a => a.id === option.value)) {
+                        const updatedAmenities = formData.amenities.map(amenity => 
+                          amenity.id === option.value 
+                            ? { ...amenity, selected: !amenity.selected }
+                            : amenity
+                        );
+                        setFormData(prev => ({ ...prev, amenities: updatedAmenities }));
+                      } 
+                      else if (formData.includedItems.some(i => i.id === option.value)) {
+                        const updatedItems = formData.includedItems.map(item => 
+                          item.id === option.value 
+                            ? { ...item, selected: !item.selected }
+                            : item
+                        );
+                        setFormData(prev => ({ ...prev, includedItems: updatedItems }));
+                      }
+                    }}
+                  >
+                    <div className={`w-5 h-5 rounded border-2 flex items-center justify-center ${
+                      isSelected ? 'border-white bg-white' : 'border-orange-300'
+                    }`}>
+                      {isSelected && <Check className="w-3 h-3 text-orange-400" />}
+                    </div>
+                    {option.label}
+                  </button>
+                );
+              })}
+            </div>
+            <button 
+              className="w-full p-3 bg-orange-400 text-white rounded-xl hover:bg-orange-500 font-medium transition-all shadow-sm hover:shadow-md flex items-center justify-center gap-2"
+              onClick={() => {
+                if (input.options?.[0]?.value === formData.amenities[0].id) {
+                  const selectedIds = formData.amenities
+                    .filter(a => a.selected)
+                    .map(a => a.id);
+                  input.action(selectedIds);
+                } else {
+                  const selectedIds = formData.includedItems
+                    .filter(i => i.selected)
+                    .map(i => i.id);
+                  input.action(selectedIds);
+                }
+              }}
+            >
+              <Check className="w-4 h-4" />
+              Confirm Selection
+            </button>
+          </div>
+        );
+
+      case 'included-items':
+        return (
+          <div className="mt-4 space-y-6 bg-orange-50 p-6 rounded-2xl border border-orange-200">
+            <div className="flex items-center gap-2 mb-4">
+              <Grid className="w-5 h-5 text-orange-500" />
+              <h3 className="font-semibold text-gray-800">Included Items</h3>
+            </div>
+            <div className="space-y-3">
+              <p className="text-sm font-medium text-gray-700 mb-4">Select items you're including:</p>
+              {formData.includedItems.map((item) => (
+                <button
+                  key={item.id}
+                  className={`w-full p-4 rounded-xl border text-left font-medium transition-all flex items-center gap-3 ${
+                    item.selected
+                      ? "bg-orange-400 border-orange-400 text-white shadow-md" 
+                      : "border-orange-200 text-gray-700 hover:bg-orange-100 hover:border-orange-300"
+                  }`}
+                  onClick={() => {
+                    const updatedItems = formData.includedItems.map(i => 
+                      i.id === item.id ? { ...i, selected: !i.selected } : i
+                    );
+                    setFormData(prev => ({ ...prev, includedItems: updatedItems }));
+                  }}
+                >
+                  <div className={`w-5 h-5 rounded border-2 flex items-center justify-center ${
+                    item.selected ? 'border-white bg-white' : 'border-orange-300'
+                  }`}>
+                    {item.selected && <Check className="w-3 h-3 text-orange-400" />}
+                  </div>
+                  {item.name}
+                </button>
+              ))}
+            </div>
+            
+            <div>
+              <label className="block mb-2 text-sm font-medium text-gray-700">
+                Other items you're including (optional)
+              </label>
+              <textarea
+                placeholder="e.g., bed frame, kitchen utensils, cleaning supplies, extra blankets..."
+                value={formData.customIncludedItems}
+                onChange={(e) => {
+                  setFormData(prev => ({ ...prev, customIncludedItems: e.target.value }));
+                }}
+                className="w-full p-3 rounded-xl border border-orange-200 focus:outline-none focus:ring-2 focus:ring-orange-300 focus:border-transparent resize-none transition-all"
+                rows={3}
+              />
+            </div>
+            
+            <button 
+              className="w-full p-3 bg-orange-400 text-white rounded-xl hover:bg-orange-500 font-medium transition-all shadow-sm hover:shadow-md flex items-center justify-center gap-2"
+              onClick={() => {
+                const selectedIds = formData.includedItems
+                  .filter(i => i.selected)
+                  .map(i => i.id);
+                input.action({ 
+                  selectedIds, 
+                  customItems: formData.customIncludedItems 
+                });
+              }}
+            >
+              <Check className="w-4 h-4" />
+              Confirm Included Items
+            </button>
+          </div>
+        );
+        
+      case 'file':
+        return (
+          <div className="mt-4 space-y-4 bg-orange-50 p-6 rounded-2xl border border-orange-200">
+            <div className="flex items-center gap-2 mb-4">
+              <Camera className="w-5 h-5 text-orange-500" />
+              <h3 className="font-semibold text-gray-800">Upload Photos</h3>
+            </div>
+            <div className="text-sm text-gray-600 space-y-1">
+              <p className="font-medium text-gray-800">Photo Requirements:</p>
+              <p>• At least 3 photos required</p>
+              <p>• Supported formats: JPG, PNG, WebP</p>
+              <p className="text-red-600">• HEIC files not supported (iPhone users: change to JPG in camera settings)</p>
+            </div>
+            
+            <input
+              type="file"
+              multiple
+              accept="image/jpeg,image/jpg,image/png,image/webp"
+              className="hidden"
+              ref={fileInputRef}
+              onChange={(e) => {
+                const files = Array.from(e.target.files || []);
+                const validFiles = files.filter(file => {
+                  const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+                  return validTypes.includes(file.type);
+                });
+                
+                if (validFiles.length !== files.length) {
+                  addSystemMessage("Some files were rejected. Please use JPG, PNG, or WebP format only. HEIC files are not supported.");
+                }
+                
+                setFormData(prev => ({ ...prev, photos: [...prev.photos, ...validFiles] }));
+              }}
+            />
+            
+            <input
+              type="file"
+              accept="image/jpeg,image/jpg,image/png,image/webp"
+              capture="environment"
+              className="hidden"
+              ref={cameraInputRef}
+              onChange={(e) => {
+                const files = Array.from(e.target.files || []);
+                const validFiles = files.filter(file => {
+                  const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+                  return validTypes.includes(file.type);
+                });
+                
+                if (validFiles.length !== files.length) {
+                  addSystemMessage("Some files were rejected. Please use JPG, PNG, or WebP format only.");
+                }
+                
+                setFormData(prev => ({ ...prev, photos: [...prev.photos, ...validFiles] }));
+              }}
+            />
+            
+            <div className="grid grid-cols-2 gap-4">
+              <button 
+                className="w-full p-4 bg-white border-2 border-dashed border-orange-300 text-gray-700 rounded-xl hover:bg-orange-50 hover:border-orange-400 flex items-center justify-center transition-all"
+                onClick={() => fileInputRef.current?.click()}
+              >
+                <Plus size={20} className="mr-2 text-orange-400" />
+                Choose Photos
+              </button>
+              
+              <button 
+                className="w-full p-4 bg-white border-2 border-dashed border-orange-300 text-gray-700 rounded-xl hover:bg-orange-50 hover:border-orange-400 flex items-center justify-center transition-all"
+                onClick={() => cameraInputRef.current?.click()}
+              >
+                <Camera size={20} className="mr-2 text-orange-400" />
+                Take Photo
+              </button>
+            </div>
+            
+            {formData.photos.length > 0 && (
+              <div>
+                <div className="flex justify-between items-center mb-4">
+                  <p className="text-sm text-gray-600 font-medium flex items-center gap-2">
+                    <ImageIcon className="w-4 h-4 text-orange-400" />
+                    {formData.photos.length} photo{formData.photos.length !== 1 ? 's' : ''} selected
+                  </p>
+                  <button
+                    onClick={() => setFormData(prev => ({ ...prev, photos: [] }))}
+                    className="text-red-500 hover:text-red-700 text-sm font-medium flex items-center gap-1"
+                  >
+                    <X className="w-4 h-4" />
+                    Clear All
+                  </button>
+                </div>
+                
+                <div className="grid grid-cols-3 gap-3 mb-4">
+                  {formData.photos.slice(0, 9).map((file, index) => (
+                    <div key={index} className="relative aspect-square rounded-xl bg-gray-200 overflow-hidden border border-orange-200">
+                      <img
+                        src={URL.createObjectURL(file)}
+                        alt={`Preview ${index + 1}`}
+                        className="w-full h-full object-cover"
+                      />
+                      <button
+                        onClick={() => {
+                          setFormData(prev => ({
+                            ...prev,
+                            photos: prev.photos.filter((_, i) => i !== index)
+                          }));
+                        }}
+                        className="absolute top-1 right-1 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs hover:bg-red-600 transition-colors"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+                  ))}
+                  {formData.photos.length > 9 && (
+                    <div className="aspect-square rounded-xl bg-orange-100 flex items-center justify-center text-orange-600 text-sm font-medium border border-orange-200">
+                      +{formData.photos.length - 9} more
+                    </div>
+                  )}
+                </div>
+                
+                {formData.photos.length < 3 && (
+                  <div className="bg-orange-100 border border-orange-300 rounded-xl p-4 mb-4">
+                    <p className="text-orange-800 text-sm flex items-center gap-2">
+                      <Info className="w-4 h-4" />
+                      You need at least 3 photos. Please add {3 - formData.photos.length} more photo{3 - formData.photos.length !== 1 ? 's' : ''}.
+                    </p>
+                  </div>
+                )}
+                
+                <button 
+                  className={`w-full p-3 rounded-xl font-medium transition-all shadow-sm hover:shadow-md flex items-center justify-center gap-2 ${
+                    formData.photos.length >= 3
+                      ? "bg-orange-400 text-white hover:bg-orange-500"
+                      : "bg-gray-300 text-gray-500 cursor-not-allowed"
+                  }`}
+                  onClick={() => {
+                    if (formData.photos.length >= 3) {
+                      input.action(formData.photos);
+                    }
+                  }}
+                  disabled={formData.photos.length < 3}
+                >
+                  {formData.photos.length >= 3 ? (
+                    <>
+                      <Upload className="w-4 h-4" />
+                      Upload {formData.photos.length} Photos
+                    </>
+                  ) : (
+                    <>
+                      <ImageIcon className="w-4 h-4" />
+                      Need {3 - formData.photos.length} More Photo{3 - formData.photos.length !== 1 ? 's' : ''}
+                    </>
+                  )}
+                </button>
+              </div>
+            )}
+          </div>
+        );
+        
+      default:
+        return null;
+    }
+  };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+    <div className="min-h-screen bg-gradient-to-br from-orange-50 to-orange-100">
       {/* Show loading while auth is checking */}
       {loading && (
-        <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-300"></div>
+        <div className="min-h-screen bg-gradient-to-br from-orange-50 to-orange-100 flex items-center justify-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-400"></div>
         </div>
       )}
 
       {/* If not authenticated, show message while redirecting */}
       {!loading && !user && (
-        <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center">
+        <div className="min-h-screen bg-gradient-to-br from-orange-50 to-orange-100 flex items-center justify-center">
           <div className="text-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-300 mx-auto mb-4"></div>
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-400 mx-auto mb-4"></div>
             <p className="text-gray-600">Please sign in to create listings. Redirecting...</p>
           </div>
         </div>
       )}
+
+{!loading && user && showIntroScreen && (
+  <div className="min-h-screen bg-gradient-to-br from-orange-50 to-orange-100 flex items-center justify-center p-4">
+    <div className="bg-white rounded-2xl shadow-xl border border-orange-200 max-w-2xl w-full p-8">
+      <div className="text-center mb-6">
+        <div className="w-16 h-16 bg-gradient-to-br from-orange-100 to-orange-200 rounded-full flex items-center justify-center mx-auto mb-4">
+          <Home className="w-8 h-8 text-orange-600" />
+        </div>
+        <h1 className="text-2xl font-bold text-gray-800 mb-2">Create Your Listing</h1>
+        <p className="text-gray-600">You can fill in up to 18 steps to give guests a complete view of your sublet.</p>
+      </div>
+      
+      {/* Progress Bar Preview */}
+      <div className="mb-6">
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-sm font-medium text-gray-700">Progress</span>
+          <span className="text-sm text-gray-500">18 steps</span>
+        </div>
+        <div className="w-full bg-gray-200 rounded-full h-2">
+          <div className="bg-orange-400 h-2 rounded-full w-0 transition-all duration-500"></div>
+        </div>
+        <p className="text-xs text-gray-500 mt-2">Many steps are optional - you can always edit later</p>
+      </div>
+
+     {savedDrafts.map((draft) => (
+  <div
+    key={draft.id}
+    className="bg-orange-50 border border-orange-200 rounded-lg p-4 hover:bg-orange-100 transition-colors"
+  >
+    <div className="flex items-center justify-between">
+      <div 
+        className="flex-1 cursor-pointer"
+        onClick={() => {
+          // Load draft data
+          setFormData(draft);
+          setShowIntroScreen(false);
+          setHasInitialized(true);
+          
+          // Continue from where user left off
+          const timeout = setTimeout(() => {
+            addSystemMessage("Welcome back! Let's continue where you left off. What would you like to do next?", [
+              { 
+                value: "continue", 
+                label: "Continue editing", 
+                icon: "edit",
+                action: () => {
+                  // Determine next step based on completion
+                  if (!draft.listingType) {
+                    handleListingTypeSelect(null);
+                  } else if (!draft.preferredGender) {
+                    askGenderPreference();
+                  } else {
+                    showListingSummaryWithData(draft);
+                  }
+                }
+              },
+              { 
+                value: "summary", 
+                label: "View summary", 
+                icon: "eye",
+                action: () => showListingSummaryWithData(draft) 
+              },
+            ], undefined, "draftContinue");
+          }, 100);
+          timeoutRefs.current.push(timeout);
+        }}
+      >
+        <h4 className="font-medium text-gray-800">
+          {draft.listingTitle || `${draft.listingType || 'Draft'} in ${draft.location || 'Campus Area'}`}
+        </h4>
+        <div className="flex items-center gap-4 mt-1">
+          <span className="text-sm text-orange-600 font-medium">
+            {draft.completionPercentage || 0}% complete
+          </span>
+          <span className="text-xs text-gray-500">
+            Last saved: {draft.lastSaved.toLocaleDateString()}
+          </span>
+        </div>
+      </div>
+      <div className="flex items-center gap-3">
+        <div className="w-12 h-2 bg-gray-200 rounded-full">
+          <div 
+            className="h-2 bg-orange-400 rounded-full transition-all"
+            style={{ width: `${draft.completionPercentage || 0}%` }}
+          ></div>
+        </div>
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            if (confirm('Are you sure you want to delete this draft?')) {
+              deleteDraft(draft.id);
+            }
+          }}
+          className="p-1 text-red-500 hover:text-red-700 hover:bg-red-100 rounded transition-colors"
+          title="Delete draft"
+        >
+          <X className="w-4 h-4" />
+        </button>
+      </div>
+    </div>
+  </div>
+))}
+
+      
+      <div className="space-y-3">
+        <button
+          onClick={() => {
+            setShowIntroScreen(false);
+            setHasInitialized(true);
+            const timeout = setTimeout(() => {
+              setMessages([{
+                id: Date.now(),
+                text: "Let's create a listing for your space! What type of listing are you posting?",
+                isUser: false,
+                timestamp: new Date(),
+                step: "listingType",
+                options: [
+                  { 
+                    value: "Sublet", 
+                    label: "Sublet", 
+                    icon: "home",
+                    action: () => handleListingTypeSelect("Sublet") 
+                  },
+                  { 
+                    value: "Lease Takeover", 
+                    label: "Lease Takeover", 
+                    icon: "fileText",
+                    action: () => handleListingTypeSelect("Lease Takeover") 
+                  },
+                  { 
+                    value: "Room in Shared Unit", 
+                    label: "Room in Shared Unit", 
+                    icon: "users",
+                    action: () => handleListingTypeSelect("Room in Shared Unit") 
+                  },
+                ]
+              }]);
+            }, 100);
+            timeoutRefs.current.push(timeout);
+          }}
+          className="w-full p-4 bg-orange-400 text-white rounded-xl hover:bg-orange-500 font-medium transition-all shadow-sm hover:shadow-md flex items-center justify-center gap-2"
+        >
+          <Home className="w-5 h-5" />
+          {savedDrafts.length > 0 ? 'Start New Listing' : 'Start Now'}
+        </button>
+        
+        <button
+          onClick={() => {
+            router.push('/find');
+          }}
+          className="w-full p-4 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 font-medium transition-all flex items-center justify-center gap-2"
+        >
+          <ArrowLeft className="w-5 h-5" />
+          Skip & Fill Later
+        </button>
+      </div>
+    </div>
+  </div>
+)}
+
 
       {/* Main content - only show if user is authenticated */}
       {!loading && user && (
         <>
           {/* Header */}
           <div className="bg-white shadow-sm border-b sticky top-0 z-50 backdrop-blur-sm bg-white/95">
-            <div className="max-w-4xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between">
-              <button
-                onClick={() => router.back()}
-                className="flex items-center gap-2 text-gray-600 hover:text-gray-800 transition-all duration-200 p-2 rounded-lg hover:bg-gray-100 hover:scale-105 active:scale-95"
-              >
-                <ArrowLeft size={20} className="transition-transform group-hover:-translate-x-1" />
-                <span className="hidden sm:inline font-medium">Back</span>
-              </button>
-              
-             
-              {/* User Menu */}
-              <div className="relative">
-                <button
-                  onClick={() => setShowUserMenu(!showUserMenu)}
-                  className="flex items-center space-x-3 text-sm text-gray-700 hover:text-gray-900 transition-all duration-200 p-2 rounded-lg hover:bg-gray-100 hover:scale-105 active:scale-95"
-                >
-                  <div className="w-9 h-9 bg-gradient-to-br from-blue-100 to-purple-100 rounded-full flex items-center justify-center ring-2 ring-white shadow-sm">
-                    <span className="text-orange-400 font-bold text-sm">
-                      {getUserInitials()}
-                    </span>
-                  </div>
-                  <div className="hidden sm:block text-left">
-                    <div className="text-sm font-semibold text-gray-900">
-                      {getUserDisplayName()}
-                    </div>
-                    <div className="text-xs text-gray-500 truncate max-w-24">
-                      {user?.email || 'No email'}
-                    </div>
-                  </div>
-                  <div className={`transform transition-transform duration-200 ${showUserMenu ? 'rotate-180' : ''}`}>
-                    <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                    </svg>
-                  </div>
-                </button>
-                
-                {/* User Dropdown */}
-                {showUserMenu && (
-                  <>
-                    <div className="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-lg py-2 z-50 border border-gray-200 animate-in slide-in-from-top-2 duration-200">
-                      {/* User Info Header */}
-                      <div className="px-4 py-3 border-b border-gray-100 bg-gradient-to-r from-orange-50 to-purple-50 rounded-t-xl">
-                        <div className="flex items-center space-x-3">
-                          <div className="w-10 h-10 bg-gradient-to-br from-blue-100 to-purple-100 rounded-full flex items-center justify-center">
-                            <span className="text-orange-400 font-bold">
-                              {getUserInitials()}
-                            </span>
-                          </div>
-                          <div>
-                            <div className="font-semibold text-gray-900">{getUserDisplayName()}</div>
-                            <div className="text-xs text-gray-500 truncate">{user?.email || 'No email'}</div>
-                          </div>
-                        </div>
-                      </div>
-                      
-                      {/* Account Status */}
-                      <div className="px-4 py-2 border-b border-gray-100">
-                        <div className="flex items-center space-x-2 text-xs">
-                          <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-                          <span className="text-green-600 font-medium">Account Active</span>
-                        </div>
-                      </div>
-                      
-                      {/* Menu Items */}
-                      <div className="py-1">
-                        <button
-                          onClick={() => {
-                            setShowUserMenu(false);
-                            router.push('/profile');
-                          }}
-                          className="flex items-center w-full px-4 py-3 text-sm text-gray-700 hover:bg-orange-50 hover:text-orange-700 transition-all duration-150 group"
-                        >
-                          <User size={16} className="mr-3 group-hover:scale-110 transition-transform" />
-                          <span className="font-medium">Profile Settings</span>
-                          <svg className="w-4 h-4 ml-auto text-gray-400 group-hover:text-orange-300 group-hover:translate-x-1 transition-all" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                          </svg>
-                        </button>
-                        
-                        <button
-                          onClick={() => {
-                            setShowUserMenu(false);
-                            router.push('/dashboard');
-                          }}
-                          className="flex items-center w-full px-4 py-3 text-sm text-gray-700 hover:bg-orange-50 hover:text-orange-700 transition-all duration-150 group"
-                        >
-                          <div className="mr-3 group-hover:scale-110 transition-transform">
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2-2z" />
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 5v6m8-6v6" />
-                            </svg>
-                          </div>
-                          <span className="font-medium">My Dashboard</span>
-                          <svg className="w-4 h-4 ml-auto text-gray-400 group-hover:text-orange-300 group-hover:translate-x-1 transition-all" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                          </svg>
-                        </button>
-                        
-                        <button
-                          onClick={() => {
-                            setShowUserMenu(false);
-                            router.push('/listings');
-                          }}
-                          className="flex items-center w-full px-4 py-3 text-sm text-gray-700 hover:bg-orange-50 hover:text-orange-700 transition-all duration-150 group"
-                        >
-                          <div className="mr-3 group-hover:scale-110 transition-transform">
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5" />
-                            </svg>
-                          </div>
-                          <span className="font-medium">My Listings</span>
-                          <svg className="w-4 h-4 ml-auto text-gray-400 group-hover:text-orange-300 group-hover:translate-x-1 transition-all" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                          </svg>
-                        </button>
-                      </div>
-                      
-                      {/* Divider */}
-                      <div className="border-t border-gray-100 my-1"></div>
-                      
-                      {/* Sign Out */}
-                      <button
-                        onClick={handleSignOut}
-                        className="flex items-center w-full px-4 py-3 text-sm text-red-600 hover:bg-red-50 hover:text-red-700 transition-all duration-150 group"
-                      >
-                        <LogOut size={16} className="mr-3 group-hover:scale-110 transition-transform" />
-                        <span className="font-medium">Sign Out</span>
-                        <svg className="w-4 h-4 ml-auto text-red-400 group-hover:text-red-500 group-hover:translate-x-1 transition-all" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                        </svg>
-                      </button>
-                    </div>
-                    
-                    {/* Click outside overlay */}
-                    <div 
-                      className="fixed inset-0 z-40" 
-                      onClick={() => setShowUserMenu(false)}
-                    />
-                  </>
-                )}
-              </div>
-            </div>
-          </div>
-       
-          {/* Chat Container */}
-          <div className="max-w-4xl mx-auto px-4 sm:px-6">
-            <div className="bg-white min-h-[calc(100vh-80px)] flex flex-col rounded-t-3xl shadow-xl">
-              {/* Messages Area */}
-              <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4">
-                {messages.map((message) => (
-                  <div
-                    key={message.id}
-                    className={`flex ${message.isUser ? 'justify-end' : 'justify-start'} group`}
-                  >
-                    <div className="relative max-w-xs sm:max-w-md lg:max-w-lg">
-                      {/* Edit button for system messages with steps */}
-                      {!message.isUser && message.step && message.step !== 'summary' && message.step !== 'editMenu' && (
-                        <button
-                          onClick={() => handleEditStep(message.step!)}
-                          className="absolute -top-2 -right-2 bg-gray-200 hover:bg-gray-300 text-gray-600 p-1 rounded-full opacity-0 group-hover:opacity-100 transition-all duration-200 z-10"
-                        >
-                          <Edit3 size={12} />
-                        </button>
-                      )}
-                      
-                      <div
-                        className={`px-4 py-3 rounded-3xl shadow-sm ${
-                          message.isUser
-                            ? 'bg-orange-300 text-white ml-auto rounded-br-lg'
-                            : 'bg-gray-100 text-gray-800 mr-auto rounded-bl-lg'
-                        }`}
-                      >
-                        <div className="whitespace-pre-wrap text-sm leading-relaxed">{message.text}</div>
-                        {message.options && (
-                          <div className="mt-3 space-y-2">
-                            {message.options.map((option, index) => (
-                              <button
-                                key={index}
-                                onClick={option.action}
-                                className="w-full text-left p-3 bg-white text-gray-800 rounded-xl border border-gray-200 hover:bg-gray-50 hover:border-gray-300 transition-all text-sm font-medium shadow-sm"
-                              >
-                                {option.label}
-                              </button>
-                            ))}
-                          </div>
-                        )}
-                        {message.input && renderCustomInput(message.input)}
-                        <div className="text-xs opacity-70 mt-2">
-                          {formatTime(message.timestamp)}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-                
-                {/* Typing Indicator */}
-                {isTyping && (
-                  <div className="flex justify-start">
-                    <div className="bg-gray-100 text-gray-800 px-4 py-3 rounded-3xl rounded-bl-lg shadow-sm">
-                      <div className="flex space-x-1">
-                        <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce"></div>
-                        <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-                        <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-                
-                <div ref={chatEndRef} />
-              </div>
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
+          <button
+            onClick={() => router.back()}
+            className="flex items-center gap-2 text-gray-600 hover:text-gray-800 transition-all duration-200 p-2 rounded-lg hover:bg-orange-50 hover:scale-105 active:scale-95"
+          >
+            <ArrowLeft size={20} className="transition-transform group-hover:-translate-x-1" />
+            <span className="hidden sm:inline font-medium">Back</span>
+          </button>
+          
+<div className="text-center">
+  <h1 className="text-lg font-semibold text-gray-800">Create Listing</h1>
+  <div className="flex items-center gap-2 mt-1">
+    <div className="w-32 bg-gray-200 rounded-full h-2">
+      <div 
+        className="bg-orange-400 h-2 rounded-full transition-all duration-500" 
+        style={{ width: `${completionPercentage}%` }}
+      ></div>
+    </div>
+    <span className="text-xs text-gray-500">{completionPercentage}% complete</span>
+  </div>
+  <p className="text-xs text-gray-500 mt-1">Step {Math.min(currentStep, 18)} of 18</p>
+</div>
 
-              {/* Input Area */}
-              {showInput && (
-                <div className="border-t bg-white p-4 sm:p-6 rounded-b-3xl">
-                  <form onSubmit={handleTextInputSubmit} className="flex gap-3">
-                    <input
-                      ref={inputRef}
-                      type="text"
-                      value={inputValue}
-                      onChange={(e) => setInputValue(e.target.value)}
-                      placeholder="Type your message..."
-                      className="flex-1 p-3 rounded-2xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-orange-300 focus:border-transparent transition-all bg-gray-50 focus:bg-white"
-                    />
+{/* Save Draft and Preview Buttons */}
+<div className="flex items-center gap-2">
+  <button
+    onClick={showListingPreview}
+    className="px-3 py-1.5 text-sm bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-all flex items-center gap-1"
+  >
+    <Eye className="w-4 h-4" />
+    Preview
+  </button>
+  
+  <button
+    onClick={saveDraft}
+    className={`px-3 py-1.5 text-sm rounded-lg transition-all flex items-center gap-1 ${
+      draftSaved 
+        ? 'bg-green-100 text-green-700' 
+        : 'bg-orange-100 text-orange-700 hover:bg-orange-200'
+    }`}
+  >
+    {draftSaved ? (
+      <>
+        <Check className="w-4 h-4" />
+        Saved
+      </>
+    ) : (
+      <>
+        <Plus className="w-4 h-4" />
+        Save Draft
+      </>
+    )}
+  </button>
+</div>
+         
+          {/* User Menu */}
+          <div className="relative">
+            <button
+              onClick={() => setShowUserMenu(!showUserMenu)}
+              className="flex items-center space-x-3 text-sm text-gray-700 hover:text-gray-900 transition-all duration-200 p-2 rounded-lg hover:bg-orange-50 hover:scale-105 active:scale-95"
+            >
+              <div className="w-9 h-9 bg-gradient-to-br from-orange-100 to-orange-200 rounded-full flex items-center justify-center ring-2 ring-white shadow-sm">
+                <span className="text-orange-600 font-bold text-sm">
+                  {getUserInitials()}
+                </span>
+              </div>
+              <div className="hidden sm:block text-left">
+                <div className="text-sm font-semibold text-gray-900">
+                  {getUserDisplayName()}
+                </div>
+                <div className="text-xs text-gray-500 truncate max-w-24">
+                  {user?.email || 'No email'}
+                </div>
+              </div>
+              <ChevronDown className={`w-4 h-4 text-gray-400 transform transition-transform duration-200 ${showUserMenu ? 'rotate-180' : ''}`} />
+            </button>
+            
+            {/* User Dropdown */}
+            {showUserMenu && (
+              <>
+                <div className="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-lg py-2 z-50 border border-gray-200 animate-in slide-in-from-top-2 duration-200">
+                  {/* User Info Header */}
+                  <div className="px-4 py-3 border-b border-gray-100 bg-gradient-to-r from-orange-50 to-orange-100 rounded-t-xl">
+                    <div className="flex items-center space-x-3">
+                      <div className="w-10 h-10 bg-gradient-to-br from-orange-100 to-orange-200 rounded-full flex items-center justify-center">
+                        <span className="text-orange-600 font-bold">
+                          {getUserInitials()}
+                        </span>
+                      </div>
+                      <div>
+                        <div className="font-semibold text-gray-900">{getUserDisplayName()}</div>
+                        <div className="text-xs text-gray-500 truncate">{user?.email || 'No email'}</div>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Account Status */}
+                  <div className="px-4 py-2 border-b border-gray-100">
+                    <div className="flex items-center space-x-2 text-xs">
+                      <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                      <span className="text-green-600 font-medium">Account Active</span>
+                    </div>
+                  </div>
+                  
+                  {/* Menu Items */}
+                  <div className="py-1">
                     <button
-                      type="submit"
-                      disabled={!inputValue.trim()}
-                      className="px-4 py-3 bg-blue-300 text-white rounded-2xl hover:bg-orange-400 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm hover:shadow-md flex items-center justify-center"
+                      onClick={() => {
+                        setShowUserMenu(false);
+                        router.push('/profile');
+                      }}
+                      className="flex items-center w-full px-4 py-3 text-sm text-gray-700 hover:bg-orange-50 hover:text-orange-700 transition-all duration-150 group"
                     >
+                      <User size={16} className="mr-3 group-hover:scale-110 transition-transform text-orange-400" />
+                      <span className="font-medium">Profile Settings</span>
+                      <ArrowLeft size={16} className="ml-auto text-gray-400 group-hover:text-orange-300 group-hover:translate-x-1 transition-all rotate-180" />
+                    </button>
+                    
+                    <button
+                      onClick={() => {
+                        setShowUserMenu(false);
+                        router.push('/dashboard');
+                      }}
+                      className="flex items-center w-full px-4 py-3 text-sm text-gray-700 hover:bg-orange-50 hover:text-orange-700 transition-all duration-150 group"
+                    >
+                      <Grid size={16} className="mr-3 group-hover:scale-110 transition-transform text-orange-400" />
+                      <span className="font-medium">My Dashboard</span>
+                      <ArrowLeft size={16} className="ml-auto text-gray-400 group-hover:text-orange-300 group-hover:translate-x-1 transition-all rotate-180" />
+                    </button>
+                    
+                    <button
+                      onClick={() => {
+                        setShowUserMenu(false);
+                        router.push('/listings');
+                      }}
+                      className="flex items-center w-full px-4 py-3 text-sm text-gray-700 hover:bg-orange-50 hover:text-orange-700 transition-all duration-150 group"
+                    >
+                      <List size={16} className="mr-3 group-hover:scale-110 transition-transform text-orange-400" />
+                      <span className="font-medium">My Listings</span>
+                      <ArrowLeft size={16} className="ml-auto text-gray-400 group-hover:text-orange-300 group-hover:translate-x-1 transition-all rotate-180" />
+                    </button>
+                  </div>
+                  
+                  {/* Divider */}
+                  <div className="border-t border-gray-100 my-1"></div>
+                  
+                  {/* Sign Out */}
+                  <button
+                    onClick={() => {
+                      signOut();
+                      setShowUserMenu(false);
+                    }}
+                    className="flex items-center w-full px-4 py-3 text-sm text-red-600 hover:bg-red-50 hover:text-red-700 transition-all duration-150 group"
+                  >
+                    <LogOut size={16} className="mr-3 group-hover:scale-110 transition-transform" />
+                    <span className="font-medium">Sign Out</span>
+                    <ArrowLeft size={16} className="ml-auto text-red-400 group-hover:text-red-500 group-hover:translate-x-1 transition-all rotate-180" />
+                  </button>
+                </div>
+                
+                {/* Click outside overlay */}
+                <div 
+                  className="fixed inset-0 z-40" 
+                  onClick={() => setShowUserMenu(false)}
+                />
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+   
+      {/* Chat Container */}
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 pb-4">
+        <div className="bg-white min-h-[calc(100vh-120px)] flex flex-col rounded-2xl shadow-xl border border-orange-200">
+          {/* Messages Area */}
+          <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4">
+            {messages.map((message) => (
+              <div
+                key={message.id}
+                className={`flex ${message.isUser ? 'justify-end' : 'justify-start'} group`}
+              >
+                <div className="relative max-w-xs sm:max-w-md lg:max-w-lg">
+                  {/* Edit button for system messages with steps */}
+                  {!message.isUser && message.step && message.step !== 'summary' && message.step !== 'editMenu' && (
+                    <button
+                      onClick={() => handleEditStep(message.step!)}
+                      className="absolute -top-2 -right-2 bg-orange-100 hover:bg-orange-200 text-orange-600 p-1 rounded-full opacity-0 group-hover:opacity-100 transition-all duration-200 z-10 shadow-sm"
+                    >
+                      <Edit3 size={12} />
+                    </button>
+                  )}
+                  
+                  <div
+                    className={`px-4 py-3 rounded-2xl shadow-sm ${
+                      message.isUser
+                        ? 'bg-orange-400 text-white ml-auto rounded-br-md'
+                        : 'bg-gray-50 text-gray-800 mr-auto rounded-bl-md border border-gray-200'
+                    }`}
+                  >
+                    <div className="whitespace-pre-wrap text-sm leading-relaxed">{message.text}</div>
+                    {message.options && (
+                      <div className="mt-4 space-y-2">
+                        {message.options.map((option, index) => (
+                          <button
+                            key={index}
+                            onClick={option.action}
+                            className="w-full text-left p-3 bg-white text-gray-800 rounded-xl border border-orange-200 hover:bg-orange-50 hover:border-orange-300 transition-all text-sm font-medium shadow-sm flex items-center gap-3"
+                          >
+                            {option.icon && <IconComponent name={option.icon} size={16} className="text-orange-400" />}
+                            {option.label}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                    {message.input && renderCustomInput(message.input)}
+                    <div className="text-xs opacity-70 mt-2 flex items-center gap-1">
+                      <Clock size={10} />
+                      {formatTime(message.timestamp)}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+            
+            {/* Typing Indicator */}
+            {isTyping && (
+              <div className="flex justify-start">
+                <div className="bg-gray-50 text-gray-800 px-4 py-3 rounded-2xl rounded-bl-md shadow-sm border border-gray-200">
+                  <div className="flex space-x-1">
+                    <div className="w-2 h-2 bg-orange-400 rounded-full animate-bounce"></div>
+                    <div className="w-2 h-2 bg-orange-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+                    <div className="w-2 h-2 bg-orange-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                  </div>
+                </div>
+              </div>
+            )}
+            
+            <div ref={chatEndRef} />
+          </div>
+
+          {/* Input Area */}
+          {showInput && (
+            <div className="border-t bg-white p-4 sm:p-6 rounded-b-2xl border-orange-200">
+              <form onSubmit={handleTextInputSubmit} className="flex gap-3">
+                <input
+                  ref={inputRef}
+                  type="text"
+                  value={inputValue}
+                  onChange={(e) => setInputValue(e.target.value)}
+                  placeholder="Type your message..."
+                  className="flex-1 p-3 rounded-xl border border-orange-200 focus:outline-none focus:ring-2 focus:ring-orange-300 focus:border-transparent transition-all bg-orange-50 focus:bg-white"
+                />
+                <button
+                  type="submit"
+                  disabled={!inputValue.trim()}
+                  className="px-4 py-3 bg-orange-400 text-white rounded-xl hover:bg-orange-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm hover:shadow-md flex items-center justify-center"
+                >
                       <Send size={18} />
                     </button>
                   </form>
