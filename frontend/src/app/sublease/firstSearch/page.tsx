@@ -10,8 +10,124 @@ import {
   Building, Route, Car, Layers
 } from 'lucide-react';
 import { collection, getDocs, query, orderBy, where, limit } from 'firebase/firestore';
+import { Bed, Cigarette } from 'lucide-react';
 import { db } from '@/lib/firebase';
 import SearchLocationPicker from '../../../components/SearchLocationPicker';
+
+
+const minneapolisCenter = { lat: 44.9778, lng: -93.2358 };
+const neighborhoodCoords = {
+  'Dinkytown': { lat: 44.9796, lng: -93.2354 },
+  'East Bank': { lat: 44.9743, lng: -93.2277 },
+  'Stadium Village': { lat: 44.9756, lng: -93.2189 },
+  'Como': { lat: 44.9823, lng: -93.2077 },
+  'Southeast Como': { lat: 44.9815, lng: -93.2065 },
+  'St. Paul': { lat: 44.9537, lng: -93.0900 },
+  'Other': { lat: 44.9778, lng: -93.2358 }
+};
+
+
+
+
+const calculateDistanceFromCenter = (coordinates, locationData) => {
+  if (!coordinates || !locationData) return 0.5;
+  
+  const centerLat = locationData.expandedArea?.centerPoint?.lat || locationData.lat || 44.9778;
+  const centerLng = locationData.expandedArea?.centerPoint?.lng || locationData.lng || -93.2358;
+  
+  const R = 3959; // Earth's radius in miles
+  const dLat = (coordinates.lat - centerLat) * Math.PI / 180;
+  const dLng = (coordinates.lng - centerLng) * Math.PI / 180;
+  const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+            Math.cos(centerLat * Math.PI / 180) * Math.cos(coordinates.lat * Math.PI / 180) *
+            Math.sin(dLng/2) * Math.sin(dLng/2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  const distance = R * c;
+  
+  return Math.round(distance * 10) / 10; // Round to 1 decimal place
+};
+
+
+const calculateAverageDistance = (listings, locationData) => {
+  if (!listings.length) return 0;
+  
+  const totalDistance = listings.reduce((sum, listing) => {
+    return sum + calculateDistanceFromCenter({ lat: listing.lat, lng: listing.lng }, locationData);
+  }, 0);
+  
+  return Math.round((totalDistance / listings.length) * 10) / 10;
+};
+
+
+const convertPrice = (monthlyPrice, type) => {
+  switch(type) {
+    case 'weekly':
+      return Math.round(monthlyPrice / 4);
+    case 'daily':
+      return Math.round(monthlyPrice / 30);
+    case 'monthly':
+    default:
+      return monthlyPrice;
+  }
+};
+
+const getPriceUnit = (type) => {
+  switch(type) {
+    case 'weekly':
+      return '/week';
+    case 'daily':
+      return '/day';
+    case 'monthly':
+    default:
+      return '/mo';
+  }
+};
+
+
+
+const FirstSearchPage = ({ userData = null }) => { 
+  // =========================
+  // State Definitions - UNIFIED with SearchPage
+  // =========================
+  const [dateRange, setDateRange] = useState({ checkIn: null, checkOut: null });
+  const [bathrooms, setBathrooms] = useState('any'); // Change from 1 to 'any'
+  const [bedrooms, setBedrooms] = useState('any');   // Change from 1 to
+  const [location, setLocation] = useState([]);
+  const [neighborhoods, setNeighborhoods] = useState([]);
+const [isLoadingNeighborhoods, setIsLoadingNeighborhoods] = useState(false);
+const [hasLoadedUserLocation, setHasLoadedUserLocation] = useState(false);
+const [isGoogleMapsReady, setIsGoogleMapsReady] = useState(false);
+
+  
+  const [currentMonth, setCurrentMonth] = useState(new Date().getMonth());
+  const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
+  const [selectedDates, setSelectedDates] = useState([]);
+  const [activeSection, setActiveSection] = useState(null);
+  const [accommodationType, setAccommodationType] = useState(null);
+  const [priceRange, setPriceRange] = useState({ min: 500, max: 2000 });
+  const [priceType, setPriceType] = useState('monthly');
+  const [selectedAmenities, setSelectedAmenities] = useState([]);
+  const [searchResults, setSearchResults] = useState([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [userListings, setUserListings] = useState([]);
+  const [allListings, setAllListings] = useState([]);  
+  const [showMap, setShowMap] = useState(false);
+  const [mapListings, setMapListings] = useState([]);
+  const [favoriteListings, setFavoriteListings] = useState([]);
+  const router = useRouter(); 
+  const [preferredGender, setPreferredGender] = useState(null); 
+  const [smokingPreference, setSmokingPreference] = useState(null);
+  const [isMounted, setIsMounted] = useState(false);
+  
+ const [selectedLocationData, setSelectedLocationData] = useState(null);
+const [expandedSearchActive, setExpandedSearchActive] = useState(false);
+const [expandedAreaInfo, setExpandedAreaInfo] = useState(null);
+const [searchStats, setSearchStats] = useState({ 
+  totalListings: 0, 
+  neighborhoodsSearched: 0,
+  averageDistance: 0 
+});
+
 
 
 const detectCityFromCoordinates = async (lat, lng) => {
@@ -86,51 +202,192 @@ const detectCityFromCoordinates = async (lat, lng) => {
   });
 };
 
-const FirstSearchPage = () => {
-  // =========================
-  // State Definitions - UNIFIED with SearchPage
-  // =========================
-  const [dateRange, setDateRange] = useState({ checkIn: null, checkOut: null });
-  const [bathrooms, setBathrooms] = useState(1);
-  const [bedrooms, setBedrooms] = useState(1);
-  const [location, setLocation] = useState([]);
-  const [selectedLocationData, setSelectedLocationData] = useState(null);
-  const [currentMonth, setCurrentMonth] = useState(new Date().getMonth());
-  const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
-  const [selectedDates, setSelectedDates] = useState([]);
-  const [activeSection, setActiveSection] = useState(null);
-  const [accommodationType, setAccommodationType] = useState(null);
-  const [priceRange, setPriceRange] = useState({ min: 500, max: 2000 });
-  const [priceType, setPriceType] = useState('monthly');
-  const [selectedAmenities, setSelectedAmenities] = useState([]);
-  const [searchResults, setSearchResults] = useState([]);
-  const [isSearching, setIsSearching] = useState(false);
-  const [userListings, setUserListings] = useState([]);
-  const [allListings, setAllListings] = useState([]);  
-  const [showMap, setShowMap] = useState(false);
-  const [mapListings, setMapListings] = useState([]);
-  const [favoriteListings, setFavoriteListings] = useState([]);
-  const router = useRouter(); 
-  const [preferredGender, setPreferredGender] = useState(null); 
-  const [smokingPreference, setSmokingPreference] = useState(null);
-  const [isMounted, setIsMounted] = useState(false);
-  
-  // 🔥 UNIFIED: Enhanced location state for Airbnb-style expansion - IDENTICAL to SearchPage
-  const [expandedSearchActive, setExpandedSearchActive] = useState(false);
-  const [expandedAreaInfo, setExpandedAreaInfo] = useState(null);
-  const [searchStats, setSearchStats] = useState({ 
-    totalListings: 0, 
-    neighborhoodsSearched: 0,
-    averageDistance: 0 
-  });
-  
-  const minneapolisCenter = { lat: 44.9778, lng: -93.2358 };
 
-  // =========================
-  // 🔥 UNIFIED: Enhanced Firebase Integration with Area Expansion - EXACTLY SAME AS SEARCHPAGE
-  // =========================
+const getListingCoordinates = (listing) => {
+  // Priority 1: customLocation coordinates
+  if (listing.customLocation?.lat && listing.customLocation?.lng) {
+    return {
+      lat: Number(listing.customLocation.lat),
+      lng: Number(listing.customLocation.lng)
+    };
+  }
+  
+  // Priority 2: direct coordinates
+  if (listing.lat && listing.lng) {
+    return {
+      lat: Number(listing.lat),
+      lng: Number(listing.lng)
+    };
+  }
+  
+  // Priority 3: neighborhood coordinates
+  if (listing.location && neighborhoodCoords[listing.location]) {
+    return neighborhoodCoords[listing.location];
+  }
+  
+  // Fallback to Minneapolis center
+  return minneapolisCenter; // <- This was missing!
+};
 
-  // Add Google Maps loading (same as SearchPage)
+
+const getNeighborhoodCount = (neighborhoodName) => {
+  return allListings.filter(listing => {
+    const listingLocation = listing.location || listing.neighborhood || '';
+    return listingLocation.toLowerCase().includes(neighborhoodName.toLowerCase()) ||
+           neighborhoodName.toLowerCase().includes(listingLocation.toLowerCase());
+  }).length;
+};
+
+const handleNeighborhoodClick = (neighborhoodName) => {
+  setLocation([neighborhoodName]);
+  
+  setTimeout(() => {
+    handleSearch();
+    window.scrollTo({
+      top: 0,
+      behavior: 'smooth'
+    });
+  }, 100);
+};
+
+
+const generateNearbyNeighborhoods = async (userLocation) => {
+  if (!window.google || !userLocation.lat || !userLocation.lng) {
+    console.log('Google Maps not ready or invalid location:', { userLocation });
+    return;
+  }
+  
+  setIsLoadingNeighborhoods(true);
+  
+  try {
+    const neighborhoods = new Set();
+    
+    // Add user's current area as the first item
+    const userAreaName = userLocation.displayName || 
+                        userLocation.placeName || 
+                        userLocation.city || 
+                        'Your Area';
+    neighborhoods.add(userAreaName);
+    
+    const placesService = new window.google.maps.places.PlacesService(document.createElement('div'));
+    
+    // Reduced radius for more accurate local neighborhoods (8km for cities, 5km for specific locations)
+    const searchRadius = userLocation.areaType === 'city' ? 8000 : 5000;
+    
+    // Search for neighborhoods within reduced radius
+    const request = {
+      location: new google.maps.LatLng(userLocation.lat, userLocation.lng),
+      radius: searchRadius,
+      type: 'sublocality_level_1'
+    };
+
+    await new Promise((resolve) => {
+      placesService.nearbySearch(request, (results, status) => {
+        if (status === google.maps.places.PlacesServiceStatus.OK && results) {
+          results.forEach(place => {
+            if (place.name && place.name.length > 2 && !place.name.includes('Unnamed')) {
+              neighborhoods.add(place.name);
+            }
+          });
+        }
+        resolve();
+      });
+    });
+    
+    // Search for establishments and points of interest with smaller radius
+    const poiRequest = {
+      location: new google.maps.LatLng(userLocation.lat, userLocation.lng),
+      radius: 3000, // 3km for POIs
+      type: 'establishment'
+    };
+    
+    await new Promise((resolve) => {
+      placesService.nearbySearch(poiRequest, (results, status) => {
+        if (status === google.maps.places.PlacesServiceStatus.OK && results) {
+          // Only add well-known establishments that could serve as area identifiers
+          results.slice(0, 5).forEach(place => {
+            if (place.name && 
+                place.name.length > 3 && 
+                place.rating && place.rating > 4.0 &&
+                place.user_ratings_total && place.user_ratings_total > 100) {
+              neighborhoods.add(`Near ${place.name}`);
+            }
+          });
+        }
+        resolve();
+      });
+    });
+    
+    // Add city-based areas if we have a city name
+    const cityName = userLocation.city || userLocation.placeName;
+    if (cityName && cityName !== userAreaName) {
+      neighborhoods.add(cityName);
+      neighborhoods.add(`Downtown ${cityName}`);
+      
+      // Only add university area if it's likely to have one
+      if (cityName.toLowerCase().includes('college') || 
+          cityName.toLowerCase().includes('university') ||
+          neighborhoods.size < 4) {
+        neighborhoods.add(`${cityName} - University Area`);
+      }
+    }
+    
+    // Convert Set to Array and clean up
+    const cleanedNeighborhoods = Array.from(neighborhoods)
+      .filter(name => name && name.length > 2)
+      .filter(name => !name.toLowerCase().includes('unnamed'))
+      .filter(name => !name.toLowerCase().includes('null'))
+      .sort()
+      .slice(0, 8); // Limit to 8 results for better UX
+    
+    console.log('Generated neighborhoods with user location:', cleanedNeighborhoods);
+    setNeighborhoods(cleanedNeighborhoods);
+    setIsLoadingNeighborhoods(false);
+    
+  } catch (error) {
+    console.error('Error generating neighborhoods:', error);
+    setIsLoadingNeighborhoods(false);
+    
+    // Fallback with basic city-based areas
+    const cityName = userLocation.city || userLocation.placeName || "Your Area";
+    const fallbackNeighborhoods = [
+      userLocation.displayName || userLocation.placeName || cityName,
+      cityName !== (userLocation.displayName || userLocation.placeName) ? cityName : null,
+      `Downtown ${cityName}`,
+    ].filter(Boolean);
+    
+    console.log('Using fallback neighborhoods:', fallbackNeighborhoods);
+    setNeighborhoods(fallbackNeighborhoods);
+  }
+};
+
+
+
+useEffect(() => {
+  const checkGoogleMapsReady = () => {
+    if (window.google && window.google.maps && window.google.maps.places) {
+      setIsGoogleMapsReady(true);
+      return true;
+    }
+    return false;
+  };
+
+  // Check immediately
+  if (checkGoogleMapsReady()) return;
+
+  // Check periodically if not ready
+  const interval = setInterval(() => {
+    if (checkGoogleMapsReady()) {
+      clearInterval(interval);
+    }
+  }, 500);
+
+  return () => clearInterval(interval);
+}, []);
+
+  
+
+
   useEffect(() => {
     const loadGoogleMaps = async () => {
       const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
@@ -179,30 +436,14 @@ const FirstSearchPage = () => {
     loadGoogleMaps();
   }, []);
 
-  const generateCoordinatesForNeighborhood = (locationName) => {
-    const neighborhoodCoords = {
-      'Dinkytown': { lat: 44.9796, lng: -93.2354 },
-      'East Bank': { lat: 44.9743, lng: -93.2277 },
-      'West Bank': { lat: 44.9720, lng: -93.2470 },
-      'Stadium Village': { lat: 44.9756, lng: -93.2189 },
-      'Como': { lat: 44.9823, lng: -93.2077 },
-      'Southeast Como': { lat: 44.9815, lng: -93.2065 },
-      'Prospect Park': { lat: 44.9700, lng: -93.2150 },
-      'Cedar-Riverside': { lat: 44.9720, lng: -93.2470 },
-      'Marcy-Holmes': { lat: 44.9820, lng: -93.2280 },
-      'St. Anthony Park': { lat: 44.9710, lng: -93.1080 },
-      'Saint Anthony Park': { lat: 44.9710, lng: -93.1080 },
-      'Northeast Minneapolis': { lat: 44.9950, lng: -93.2400 },
-      'Seward': { lat: 44.9650, lng: -93.2380 },
-      'Other': { lat: 44.9778, lng: -93.2358 }
-    };
-    
-    const baseCoords = neighborhoodCoords[locationName] || { lat: 44.9778, lng: -93.2358 };
-    return {
-      lat: baseCoords.lat + (Math.random() - 0.5) * 0.005,
-      lng: baseCoords.lng + (Math.random() - 0.5) * 0.005
-    };
+const generateCoordinatesForNeighborhood = (neighborhood) => {
+  const baseCoords = neighborhoodCoords[neighborhood] || minneapolisCenter;
+  return {
+    lat: baseCoords.lat + (Math.random() - 0.5) * 0.005, // Smaller random spread
+    lng: baseCoords.lng + (Math.random() - 0.5) * 0.005
   };
+};
+
 
   // 🔥 UNIFIED: EXACTLY SAME fetchUserListings as SearchPage
   useEffect(() => {
@@ -402,15 +643,16 @@ const FirstSearchPage = () => {
 }, [allListings]);
 
 
+
 const fetchListingsWithExpandedArea = async (locationData) => {
   try {
     setIsSearching(true);
     let listings = [];
 
-    // 🔥 FIX: Better location matching logic
+    // Better location matching logic
     if (locationData) {
       const searchTerm = (locationData.city || locationData.placeName || locationData.address || '').toLowerCase();
-      console.log('🎯 UNIFIED: Looking for location term:', searchTerm);
+      console.log('Looking for location term:', searchTerm);
       
       listings = allListings.filter(listing => {
         // Try multiple matching strategies
@@ -420,37 +662,37 @@ const fetchListingsWithExpandedArea = async (locationData) => {
         
         // Strategy 1: Direct location match
         if (listingLocation.includes(searchTerm) || searchTerm.includes(listingLocation)) {
-          console.log(`✅ LOCATION MATCH: ${listing.id} (${listing.location}) matches ${searchTerm}`);
+          console.log(`LOCATION MATCH: ${listing.id} (${listing.location}) matches ${searchTerm}`);
           return true;
         }
         
         // Strategy 2: Detected city match
         if (detectedCity && (detectedCity.includes(searchTerm) || searchTerm.includes(detectedCity))) {
-          console.log(`✅ DETECTED CITY MATCH: ${listing.id} (${detectedCity}) matches ${searchTerm}`);
+          console.log(`DETECTED CITY MATCH: ${listing.id} (${detectedCity}) matches ${searchTerm}`);
           return true;
         }
         
         // Strategy 3: Detected neighborhood match
         if (detectedNeighborhood && (detectedNeighborhood.includes(searchTerm) || searchTerm.includes(detectedNeighborhood))) {
-          console.log(`✅ NEIGHBORHOOD MATCH: ${listing.id} (${detectedNeighborhood}) matches ${searchTerm}`);
+          console.log(`NEIGHBORHOOD MATCH: ${listing.id} (${detectedNeighborhood}) matches ${searchTerm}`);
           return true;
         }
         
-        console.log(`❌ NO MATCH: ${listing.id} - location:"${listingLocation}" detectedCity:"${detectedCity}" detectedNeighborhood:"${detectedNeighborhood}" != "${searchTerm}"`);
+        console.log(`NO MATCH: ${listing.id} - location:"${listingLocation}" detectedCity:"${detectedCity}" detectedNeighborhood:"${detectedNeighborhood}" != "${searchTerm}"`);
         return false;
       });
       
-      console.log(`🎯 Found ${listings.length} listings for ${searchTerm}`);
+      console.log(`Found ${listings.length} listings for ${searchTerm}`);
     } else {
       listings = [...allListings];
     }
 
-    // Apply additional filters - same logic as SearchPage
-    if (bedrooms > 1) {
+    // Apply additional filters
+    if (bedrooms !== 'any' && bedrooms > 0) {
       listings = listings.filter(listing => listing.bedrooms >= bedrooms);
     }
     
-    if (bathrooms > 1) {
+    if (bathrooms !== 'any' && bathrooms > 1) {
       listings = listings.filter(listing => listing.bathrooms >= bathrooms);
     }
     
@@ -485,7 +727,7 @@ const fetchListingsWithExpandedArea = async (locationData) => {
     }
     
   } catch (error) {
-    console.error('❌ Error in search:', error);
+    console.error('Error in search:', error);
     setSearchResults([]);
   } finally {
     setIsSearching(false);
@@ -526,11 +768,11 @@ const fetchListingsWithExpandedArea = async (locationData) => {
   // =========================
 
 const handleLocationSelect = (selectedLocation) => {
-  console.log('🎯 Location Selected - Full Data:', selectedLocation);
+  console.log('Location Selected - Full Data:', selectedLocation);
   
   setSelectedLocationData({
     ...selectedLocation,
-    // 🔥 FIX: Ensure we have the right search term
+    // Ensure we have the right search term
     searchTerm: selectedLocation.placeName || selectedLocation.city || selectedLocation.address,
     originalSelection: selectedLocation
   });
@@ -547,15 +789,12 @@ const handleLocationSelect = (selectedLocation) => {
   setLocation([displayName]);
 };
 
-  // =========================
-  // 🔥 UNIFIED: handleSearch function - SAME AS SEARCHPAGE
-  // =========================
 const handleSearch = () => {
   setIsSearching(true);
   
   const searchParams = new URLSearchParams();
   
-  // Enhanced location parameters with expansion data - SAME AS BEFORE
+  // Enhanced location parameters with expansion data
   if (selectedLocationData) {
     searchParams.append('areaType', selectedLocationData.areaType || 'specific');
     searchParams.append('placeName', selectedLocationData.placeName || '');
@@ -592,9 +831,13 @@ const handleSearch = () => {
     searchParams.append('checkOut', dateRange.checkOut.toISOString());
   }
   
-  // Room parameters
-  searchParams.append('bedrooms', bedrooms.toString());
-  searchParams.append('bathrooms', bathrooms.toString());
+  // Room parameters - handle 'any' values properly
+  if (bedrooms !== 'any') {
+    searchParams.append('bedrooms', bedrooms.toString());
+  }
+  if (bathrooms !== 'any') {
+    searchParams.append('bathrooms', bathrooms.toString());
+  }
   
   // Price parameters
   searchParams.append('minPrice', priceRange.min.toString());
@@ -618,17 +861,19 @@ const handleSearch = () => {
     searchParams.append('smokingPreference', smokingPreference);
   }
 
+  // Store selectedLocationData for the search page
+  if (selectedLocationData) {
+    searchParams.append('selectedLocationData', JSON.stringify(selectedLocationData));
+  }
+
   setTimeout(() => {
     const searchUrl = `/sublease/search?${searchParams.toString()}`;
-    console.log('🎯 Enhanced search URL:', searchUrl);
+    console.log('Enhanced search URL with preserved parameters:', searchUrl);
     window.location.href = searchUrl;
     setIsSearching(false);
   }, 1500);
 };
 
-  // =========================
-  // Rest of the existing functions (keeping them the same)
-  // =========================
 
   useEffect(() => {
     setIsMounted(true);
@@ -741,13 +986,32 @@ const handleSearch = () => {
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   };
 
-  const toggleSection = (section) => {
-    if (activeSection === section) {
-      setActiveSection(null);
-    } else {
-      setActiveSection(section);
+const toggleSection = (section) => {
+  if (activeSection === section) {
+    setActiveSection(null);
+  } else {
+    setActiveSection(section);
+    
+    // Generate neighborhoods when location section opens
+    if (section === 'location' && neighborhoods.length === 0) {
+      // Use any available user location data
+      const userLocationData = userData?.userLocation || selectedLocationData;
+      if (userLocationData && isGoogleMapsReady) {
+        generateNearbyNeighborhoods(userLocationData);
+      } else if (isGoogleMapsReady) {
+        // Fallback to default location if no user location
+        const defaultLocation = {
+          lat: 44.9778,
+          lng: -93.2358,
+          city: 'Minneapolis',
+          placeName: 'Minneapolis',
+          areaType: 'city'
+        };
+        generateNearbyNeighborhoods(defaultLocation);
+      }
     }
-  };
+  }
+};
 
   const toggleAmenity = (amenity) => {
     if (selectedAmenities.includes(amenity)) {
@@ -823,19 +1087,21 @@ const handleSearch = () => {
     window.location.href = '/sublease/search';
   };
 
-  const hasSearchCriteria = () => {
-    return (
-      dateRange.checkIn !== null || 
-      dateRange.checkOut !== null || 
-      bathrooms > 1 || 
-      bedrooms > 1 || 
-      location.length > 0 || 
-      accommodationType !== null ||
-      priceRange.min !== 500 ||
-      priceRange.max !== 2000 ||
-      selectedAmenities.length > 0
-    );
-  };
+const hasSearchCriteria = () => {
+  return (
+    dateRange.checkIn !== null || 
+    dateRange.checkOut !== null || 
+    bathrooms !== 'any' || 
+    bedrooms !== 'any' || 
+    location.length > 0 || 
+    accommodationType !== null ||
+    priceRange.min !== 500 ||
+    priceRange.max !== 2000 ||
+    selectedAmenities.length > 0 ||
+    preferredGender !== null ||
+    smokingPreference !== null
+  );
+};
 
   const getAmenityIcon = (amenity) => {
     switch (amenity) {
@@ -870,22 +1136,27 @@ const handleSearch = () => {
     }
   };
 
-  const resetSearch = () => {
-    setDateRange({ checkIn: null, checkOut: null });
-    setBathrooms(1);
-    setBedrooms(1);
-    setLocation([]);
-    setSelectedLocationData(null);
-    setSelectedDates([]);
-    setAccommodationType(null);
-    setPriceRange({ min: 500, max: 2000 });
-    setSelectedAmenities([]);
-    setExpandedSearchActive(false);
-    setExpandedAreaInfo(null);
-    setSearchStats({ totalListings: 0, neighborhoodsSearched: 0, averageDistance: 0 });
-    
-    setSearchResults([...allListings]);
-  };
+const resetSearch = () => {
+  setDateRange({ checkIn: null, checkOut: null });
+  setBathrooms('any'); // Change from 1 to 'any'
+  setBedrooms('any');  // Change from 1 to 'any'
+  setLocation([]);
+  setSelectedLocationData(null);
+  setSelectedDates([]);
+  setAccommodationType(null);
+  setPriceRange({ min: 500, max: 2000 });
+  setSelectedAmenities([]);
+  setPreferredGender(null);
+  setSmokingPreference(null);
+  
+  // Reset expansion-related states
+  setExpandedSearchActive(false);
+  setExpandedAreaInfo(null);
+  setSearchStats({ totalListings: 0, neighborhoodsSearched: 0, averageDistance: 0 });
+  
+  // Reset to show all listings
+  setSearchResults([...allListings]);
+};
 
   const handleListingClick = (listing) => {
     console.log('🔍 Navigating to listing:', listing.id);
@@ -896,336 +1167,167 @@ const handleSearch = () => {
     }
   };
 
-  // =========================
-  // Enhanced Location Section Render - UNIFIED
-  // =========================
 
-  const renderLocationSection = () => {
-    return (
-      <div className="p-5 border-t border-gray-200 animate-fadeIn">
-        <div className="grid grid-cols-1 gap-6">
-          
-          {/* Enhanced SearchLocationPicker - SAME AS SEARCHPAGE */}
-          <div className="w-full"> 
-            <h3 className="font-bold mb-3 text-gray-800 flex items-center gap-2">
-              <MapPin size={18} className="text-orange-500" />
-              Search Location
-              {expandedSearchActive && (
-                <span className="text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded-full flex items-center gap-1">
-                  <Layers size={12} />
-                  Smart Expansion Active
-                </span>
-              )}
-            </h3>
-            <div className="w-full">
-              <SearchLocationPicker 
-                initialValue={location[0] || "University of Minnesota"}
-                onLocationSelect={handleLocationSelect} // 🔥 UNIFIED: Use the same handler as SearchPage
-                showDeliveryOptions={false}
-              />
-            </div>
-          </div>
-        </div>
-        
-        <div className="mt-6 flex justify-end items-center space-x-3">
-          <button 
-            className="px-3 py-1.5 text-orange-500 hover:underline"
-            onClick={() => setActiveSection(null)}
-          >
-            Cancel
-          </button>
-          <button 
-            className="px-4 py-2 rounded-lg bg-orange-500 text-white hover:bg-orange-700 font-medium"
-            onClick={() => {
-              setActiveSection(null);
-              if (selectedLocationData) {
-                fetchListingsWithExpandedArea(selectedLocationData); // 🔥 UNIFIED: Use the same function
-              } else {
-              }
-            }}
-          >
-            Apply Location
-          </button>
-        </div>
-      </div>
-    );
-  };
 
-  // =========================
-  // Enhanced Calendar, Rooms, and Filters sections (keeping existing code)
-  // =========================
-
-  const renderCalendarSection = () => (
+const renderLocationSection = () => {
+  return (
     <div className="p-5 border-t border-gray-200 animate-fadeIn">
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Quick Date Presets */}
-        <div className="lg:order-2">
-          <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2">
-            <Clock size={18} className="text-orange-500" />
-            Quick Options
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Search by Location - Left Side */}
+        <div>
+          <h3 className="font-bold mb-3 text-gray-800 flex items-center gap-2">
+            <MapPin size={18} className="text-orange-500" />
+            Search by Location
+            {expandedSearchActive && (
+              <span className="text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded-full flex items-center gap-1">
+                <Layers size={12} />
+                Smart Expansion Active
+              </span>
+            )}
           </h3>
-          <div className="space-y-3">
-            <button 
-              onClick={() => {
-                const startDate = new Date();
-                const endDate = new Date();
-                endDate.setDate(endDate.getDate() + 14);
-                setDateRange({ checkIn: startDate, checkOut: endDate });
-                setCurrentMonth(startDate.getMonth());
-                setCurrentYear(startDate.getFullYear());
-              }}
-              className="w-full p-4 border-2 border-green-200 text-green-700 rounded-xl flex items-center justify-between hover:bg-green-50 transition-all group hover:border-green-300"
-            >
-              <div className="text-left">
-                <div className="font-semibold flex items-center gap-2">
-                  <Clock size={16} />
-                  Available Now
-                </div>
-                <div className="text-sm text-green-600">Next 2 weeks</div>
+          
+          {/* Location Search Input */}
+          <div className="mb-4">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="w-6 h-6 rounded-full border-2 border-orange-400 flex items-center justify-center">
+                <div className="w-2 h-2 bg-orange-400 rounded-full"></div>
               </div>
-            </button>
+              <span className="font-medium text-gray-700">Choose Location</span>
+            </div>
+            <p className="text-sm text-gray-600 mb-3">
+              Search for any place. Specific addresses will expand to show the entire city area.
+            </p>
             
-            <button 
-              onClick={() => {
-                const startDate = new Date(currentYear, 4, 1);
-                const endDate = new Date(currentYear, 7, 31);
-                setDateRange({ checkIn: startDate, checkOut: endDate });
-                setCurrentMonth(4);
-              }}
-              className="w-full p-4 border-2 border-yellow-200 text-yellow-700 rounded-xl flex items-center justify-between hover:bg-yellow-50 transition-all group hover:border-yellow-300"
-            >
-              <div className="text-left">
-                <div className="font-semibold flex items-center gap-2">
-                  <Sparkles size={16} />
-                  Summer Semester
-                </div>
-                <div className="text-sm text-yellow-600">May - August</div>
-              </div>
-            </button>
+            {/* SearchLocationPicker Integration */}
+            <SearchLocationPicker 
+              initialValue={location[0] || ""}
+              onLocationSelect={handleLocationSelect}
+              showDeliveryOptions={false}
+              placeholder="Enter any city, address, or landmark..."
+            />
             
+            {/* Use Current Location Button */}
             <button 
+              className="w-full mt-3 bg-orange-500 text-white py-2.5 px-4 rounded-lg hover:bg-orange-600 transition-colors flex items-center justify-center gap-2 font-medium"
               onClick={() => {
-                const startDate = new Date(currentYear, 7, 30);
-                const endDate = new Date(currentYear, 11, 15);
-                setDateRange({ checkIn: startDate, checkOut: endDate });
-                setCurrentMonth(7);
+                // Handle current location functionality
+                if (navigator.geolocation) {
+                  navigator.geolocation.getCurrentPosition((position) => {
+                    const { latitude, longitude } = position.coords;
+                    console.log('Current location:', latitude, longitude);
+                  });
+                }
               }}
-              className="w-full p-4 border-2 border-orange-200 text-orange-700 rounded-xl flex items-center justify-between hover:bg-orange-50 transition-all group hover:border-orange-300"
             >
-              <div className="text-left">
-                <div className="font-semibold flex items-center gap-2">
-                  <Calendar size={16} />
-                  Fall Semester
-                </div>
-                <div className="text-sm text-orange-600">August - December</div>
-              </div>
+              <MapPin size={16} />
+              Use my current location
             </button>
           </div>
         </div>
         
-        {/* Calendar */}
-        <div className="lg:col-span-2 lg:order-1">
-          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
-            <div className="bg-gradient-to-r from-orange-500 to-orange-600 text-white p-4">
-              <div className="flex justify-between items-center">
-                <button 
-                  onClick={goToPreviousMonth} 
-                  className="p-2 rounded-full hover:bg-white/20 transition-colors"
-                >
-                  <ChevronLeft size={20} />
-                </button>
-                <div className="text-xl font-bold flex items-center gap-2">
-                  <Calendar size={20} />
-                  {monthNames[currentMonth]} {currentYear}
-                </div>
-                <button 
-                  onClick={goToNextMonth} 
-                  className="p-2 rounded-full hover:bg-white/20 transition-colors"
-                >
-                  <ChevronRight size={20} />
-                </button>
-              </div>
-            </div>
-            
-            <div className="p-4">
-              <div className="grid grid-cols-7 gap-1 mb-2">
-                {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day, i) => (
-                  <div key={i} className="text-center text-sm font-semibold text-gray-600 py-2">
-                    {day}
-                  </div>
+        {/* Popular Areas Near You - Right Side */}
+        <div>
+          <h3 className="font-bold mb-3 text-gray-800">
+            Popular Areas Near You
+            {isLoadingNeighborhoods && (
+              <span className="ml-2">
+                <span className="inline-block animate-spin rounded-full h-4 w-4 border-2 border-orange-500 border-t-transparent"></span>
+              </span>
+            )}
+          </h3>
+          
+          <div className="overflow-y-auto max-h-80">
+            {neighborhoods.length > 0 ? (
+              <div className="space-y-2">
+                {neighborhoods.map((neighborhood, idx) => (
+                  <button
+                    key={idx}
+                    className={`w-full p-3 rounded-lg text-left transition-all border ${
+                      location.includes(neighborhood)
+                        ? 'bg-orange-50 border-orange-300 text-orange-700'
+                        : 'bg-gray-50 border-gray-200 hover:bg-orange-50 hover:border-orange-300'
+                    }`}
+                    onClick={() => {
+                      if (location.includes(neighborhood)) {
+                        // Remove if already selected
+                        setLocation(location.filter(loc => loc !== neighborhood));
+                      } else {
+                        // Add to selection
+                        setLocation([...location, neighborhood]);
+                      }
+                    }}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center">
+                        <MapPin size={16} className="text-orange-500 mr-3 flex-shrink-0" />
+                        <span className="font-medium">{neighborhood}</span>
+                      </div>
+                      <div className="text-xs text-gray-500">
+                        {getNeighborhoodCount(neighborhood)} listings
+                      </div>
+                    </div>
+                  </button>
                 ))}
               </div>
-              <div className="grid grid-cols-7 gap-1">
-                {generateCalendarDays(currentMonth, currentYear).map((day, i) => {
-                  const isToday = day && new Date().getDate() === day && 
-                                new Date().getMonth() === currentMonth && 
-                                new Date().getFullYear() === currentYear;
-                  const isSelected = selectedDates.includes(day);
-                  const isCheckIn = dateRange.checkIn && 
-                                dateRange.checkIn.getDate() === day && 
-                                dateRange.checkIn.getMonth() === currentMonth && 
-                                dateRange.checkIn.getFullYear() === currentYear;
-                  const isCheckOut = dateRange.checkOut && 
-                                dateRange.checkOut.getDate() === day && 
-                                dateRange.checkOut.getMonth() === currentMonth && 
-                                dateRange.checkOut.getFullYear() === currentYear;
-                  
-                  return (
-                    <div 
-                      key={i} 
-                      className={`
-                        h-12 flex items-center justify-center rounded-lg cursor-pointer relative transition-all duration-200 font-medium
-                        ${!day ? 'text-gray-300 cursor-default' : 'hover:bg-orange-100 hover:scale-105'}
-                        ${isToday ? 'ring-2 ring-blue-300 bg-blue-50' : ''}
-                        ${isSelected && !isCheckIn && !isCheckOut ? 'bg-orange-100 text-orange-800' : ''}
-                        ${isCheckIn ? 'bg-orange-500 text-white shadow-lg scale-110' : ''}
-                        ${isCheckOut ? 'bg-orange-500 text-white shadow-lg scale-110' : ''}
-                      `}
-                      onClick={() => day && handleDateClick(day)}
-                    >
-                      {day}
-                      {isToday && (
-                        <div className="absolute -bottom-1 w-2 h-2 bg-blue-500 rounded-full"></div>
-                      )}
-                    </div>
-                  );
-                })}
+            ) : !isLoadingNeighborhoods ? (
+              <div className="text-center py-8 text-gray-500">
+                <MapPin size={48} className="mx-auto text-gray-300 mb-4" />
+                <p className="text-sm">No nearby areas found</p>
+                <p className="text-xs mt-1">Use the search on the left to find locations</p>
               </div>
-            </div>
+            ) : (
+              <div className="text-center py-8 text-gray-500">
+                <div className="animate-spin rounded-full h-8 w-8 border-2 border-orange-500 border-t-transparent mx-auto mb-4"></div>
+                <p className="text-sm">Loading nearby areas...</p>
+              </div>
+            )}
           </div>
         </div>
       </div>
       
-      {/* Apply button */}
-      <div className="mt-6 flex justify-end items-center space-x-3">
+      {/* Enhanced area info display when expanded search is active */}
+      {expandedSearchActive && expandedAreaInfo && (
+        <div className="mt-6 p-4 bg-gradient-to-r from-purple-50 to-indigo-50 border border-purple-200 rounded-lg">
+          <div className="flex items-center gap-3 mb-3">
+            <Layers size={20} className="text-purple-600" />
+            <div>
+              <h4 className="font-semibold text-purple-800">Smart Area Expansion Active</h4>
+              <p className="text-sm text-purple-600">Automatically expanded your search to find the best options</p>
+            </div>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div className="bg-white p-3 rounded-lg border border-purple-200">
+              <div className="text-lg font-bold text-purple-800">{expandedAreaInfo.neighborhoods?.length || 0}</div>
+              <div className="text-xs text-purple-600">Neighborhoods</div>
+            </div>
+            <div className="bg-white p-3 rounded-lg border border-purple-200">
+              <div className="text-lg font-bold text-purple-800">{(expandedAreaInfo.searchRadius / 1000).toFixed(1)}km</div>
+              <div className="text-xs text-purple-600">Search Radius</div>
+            </div>
+            <div className="bg-white p-3 rounded-lg border border-purple-200">
+              <div className="text-lg font-bold text-purple-800">{expandedAreaInfo.regionName}</div>
+              <div className="text-xs text-purple-600">Region Name</div>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Action Buttons */}
+      <div className="mt-6 flex justify-between items-center">
         <button 
-          className="px-3 py-1.5 text-orange-500 hover:underline"
+          className="text-orange-500 hover:underline"
           onClick={() => setActiveSection(null)}
         >
           Cancel
         </button>
         <button 
-          className="px-4 py-2 rounded-lg bg-orange-500 text-white hover:bg-orange-600 font-medium"
+          className="bg-orange-500 text-white px-6 py-2 rounded-lg hover:bg-orange-600 font-medium transition-colors"
           onClick={() => {
             setActiveSection(null);
-            handleSearch(); // 🔥 UNIFIED: Use the unified handleSearch
-          }}
-        >
-          Apply Dates
-        </button>
-      </div>
-    </div>
-  );
-
-  const renderRoomsSection = () => (
-    <div className="p-5 border-t border-gray-200 animate-fadeIn">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div>
-          <h3 className="font-bold mb-3 text-gray-800">Room Configuration</h3>
-          
-          <div className="p-4 border rounded-lg mb-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="font-semibold text-gray-600">Bedrooms</div>
-                <div className="text-sm text-gray-500">Number of bedrooms</div>
-              </div>
-              <div className="flex items-center space-x-3">
-                <button 
-                  className={`w-8 h-8 rounded-full border border-orange-500 flex items-center justify-center cursor-pointer ${bedrooms > 1 ? 'text-orange-500' : 'text-gray-300'}`}
-                  onClick={() => setBedrooms(Math.max(1, bedrooms - 1))}
-                  disabled={bedrooms <= 1}
-                >
-                  -
-                </button>
-                <span className="text-lg font-medium w-6 text-center text-gray-700">{bedrooms}</span>
-                <button 
-                  className="w-8 h-8 rounded-full border border-orange-500 flex items-center justify-center text-orange-500 cursor-pointer"
-                  onClick={() => setBedrooms(bedrooms + 1)}
-                >
-                  +
-                </button>
-              </div>
-            </div>
-          </div>
-          
-          <div className="p-4 border rounded-lg">
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="font-semibold text-gray-600">Bathrooms</div>
-                <div className="text-sm text-gray-500">Number of bathrooms</div>
-              </div>
-              <div className="flex items-center space-x-3">
-                <button 
-                  className={`w-8 h-8 rounded-full border border-orange-500 flex items-center justify-center cursor-pointer ${bathrooms > 1 ? 'text-orange-500' : 'text-gray-300'}`}
-                  onClick={() => setBathrooms(Math.max(1, bathrooms - 1))}
-                  disabled={bathrooms <= 1}
-                >
-                  -
-                </button>
-                <span className="text-lg font-medium w-6 text-center text-gray-700">{bathrooms}</span>
-                <button 
-                  className="w-8 h-8 rounded-full border border-orange-500 flex items-center justify-center text-orange-500 cursor-pointer"
-                  onClick={() => setBathrooms(bathrooms + 1)}
-                >
-                  +
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-        
-        {/* Accommodation Type */}
-        <div className="mb-6">
-          <h3 className="font-bold mb-3 text-gray-800">Accommodation Type</h3>
-          <div className="grid grid-cols-1 gap-3">
-            {[
-              { key: 'entire', label: 'Entire Place', desc: 'Have the entire place to yourself', icon: '🏠' },
-              { key: 'private', label: 'Private Room', desc: 'Your own bedroom, shared spaces', icon: '🚪' },
-              { key: 'shared', label: 'Shared Room', desc: 'Share a bedroom with others', icon: '👥' }
-            ].map((type) => (
-              <div
-                key={type.key}
-                className={`p-4 rounded-lg border cursor-pointer transition-all hover:shadow-md ${
-                  accommodationType === type.key 
-                    ? 'bg-orange-50 border-orange-200 shadow-md' 
-                    : 'hover:bg-gray-50 border-gray-200'
-                }`}
-                onClick={() => setAccommodationType(accommodationType === type.key ? null : type.key)}
-              >
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-2">
-                    <span className="text-lg">{type.icon}</span>
-                    <div className="font-semibold text-gray-700">{type.label}</div>
-                  </div>
-                  {accommodationType === type.key && (
-                    <div className="w-4 h-4 rounded-full bg-orange-500 flex items-center justify-center text-white">
-                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3 h-3">
-                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                      </svg>
-                    </div>
-                  )}
-                </div>
-                <div className="text-xs text-gray-500">
-                  {type.desc}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-      
-      <div className="mt-6 flex justify-end items-center space-x-3">
-        <button 
-          className="px-3 py-1.5 text-orange-500 hover:underline"
-          onClick={() => setActiveSection(null)}
-        >
-          Cancel
-        </button>
-        <button 
-          className="px-4 py-2 rounded-lg bg-orange-500 text-white hover:bg-orange-700 font-medium"
-          onClick={() => {
-            setActiveSection(null);
-            handleSearch(); // 🔥 UNIFIED: Use the unified handleSearch
+            if (selectedLocationData) {
+              fetchListingsWithExpandedArea(selectedLocationData);
+            }
           }}
         >
           Apply
@@ -1233,44 +1335,488 @@ const handleSearch = () => {
       </div>
     </div>
   );
+};
 
-  const renderFiltersSection = () => (
-    <div className="p-5 border-t border-gray-200 animate-fadeIn">
+  // =========================
+  // Enhanced Calendar, Rooms, and Filters sections (keeping existing code)
+  // =========================
+
+const renderCalendarSection = () => (
+  <div className="p-5 border-t border-gray-200">
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      {/* Quick Options - Orange Theme */}
+      <div className="lg:order-2">
+        <h3 className="font-semibold text-gray-800 mb-3 flex items-center gap-2">
+          <Clock size={16} className="text-orange-500" />
+          Quick Options
+        </h3>
+        <div className="space-y-2">
+          <button 
+            onClick={() => {
+              const startDate = new Date();
+              const endDate = new Date();
+              endDate.setDate(endDate.getDate() + 14);
+              setDateRange({ checkIn: startDate, checkOut: endDate });
+              setCurrentMonth(startDate.getMonth());
+              setCurrentYear(startDate.getFullYear());
+            }}
+            className="w-full p-3 border border-orange-200 text-gray-700 rounded-lg hover:border-orange-300 hover:bg-orange-50 transition-colors"
+          >
+            <div className="font-medium">Available Now</div>
+            <div className="text-sm text-gray-500">Next 2 weeks</div>
+          </button>
+          
+          <button 
+            onClick={() => {
+              const startDate = new Date(currentYear, 4, 1);
+              const endDate = new Date(currentYear, 7, 31);
+              setDateRange({ checkIn: startDate, checkOut: endDate });
+              setCurrentMonth(4);
+            }}
+            className="w-full p-3 border border-orange-200 text-gray-700 rounded-lg hover:border-orange-300 hover:bg-orange-50 transition-colors"
+          >
+            <div className="font-medium">Summer Semester</div>
+            <div className="text-sm text-gray-500">May - August</div>
+          </button>
+          
+          <button 
+            onClick={() => {
+              const startDate = new Date(currentYear, 7, 30);
+              const endDate = new Date(currentYear, 11, 15);
+              setDateRange({ checkIn: startDate, checkOut: endDate });
+              setCurrentMonth(7);
+            }}
+            className="w-full p-3 border border-orange-200 text-gray-700 rounded-lg hover:border-orange-300 hover:bg-orange-50 transition-colors"
+          >
+            <div className="font-medium">Fall Semester</div>
+            <div className="text-sm text-gray-500">August - December</div>
+          </button>
+        </div>
+      </div>
+      
+      {/* Calendar - Orange Theme */}
+      <div className="lg:col-span-2 lg:order-1">
+        <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+          {/* Orange Header */}
+          <div className="bg-orange-500 text-white p-3">
+            <div className="flex justify-between items-center">
+              <button 
+                onClick={goToPreviousMonth} 
+                className="p-2 hover:bg-orange-600 rounded transition-colors"
+              >
+                <ChevronLeft size={18} />
+              </button>
+              <div className="font-semibold">
+                {monthNames[currentMonth]} {currentYear}
+              </div>
+              <button 
+                onClick={goToNextMonth} 
+                className="p-2 hover:bg-orange-600 rounded transition-colors"
+              >
+                <ChevronRight size={18} />
+              </button>
+            </div>
+          </div>
+          
+          {/* Calendar Grid */}
+          <div className="p-3">
+            <div className="grid grid-cols-7 gap-1 mb-2">
+              {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day, i) => (
+                <div key={i} className="text-center text-sm font-medium text-gray-600 py-2">
+                  {day}
+                </div>
+              ))}
+            </div>
+            <div className="grid grid-cols-7 gap-1">
+              {generateCalendarDays(currentMonth, currentYear).map((day, i) => {
+                const isToday = day && new Date().getDate() === day && 
+                              new Date().getMonth() === currentMonth && 
+                              new Date().getFullYear() === currentYear;
+                const isSelected = selectedDates.includes(day);
+                const isCheckIn = dateRange.checkIn && 
+                              dateRange.checkIn.getDate() === day && 
+                              dateRange.checkIn.getMonth() === currentMonth && 
+                              dateRange.checkIn.getFullYear() === currentYear;
+                const isCheckOut = dateRange.checkOut && 
+                              dateRange.checkOut.getDate() === day && 
+                              dateRange.checkOut.getMonth() === currentMonth && 
+                              dateRange.checkOut.getFullYear() === currentYear;
+                
+                let dayClass = "h-10 flex items-center justify-center rounded cursor-pointer transition-colors ";
+                
+                if (!day) {
+                  dayClass += "text-gray-300 cursor-default";
+                } else if (isCheckIn || isCheckOut) {
+                  dayClass += "bg-orange-500 text-white font-medium";
+                } else if (isSelected) {
+                  dayClass += "bg-orange-100 text-orange-800";
+                } else if (isToday) {
+                  dayClass += "bg-gray-100 text-gray-900 font-medium ring-2 ring-orange-300";
+                } else {
+                  dayClass += "hover:bg-orange-50 text-gray-700";
+                }
+                
+                return (
+                  <div 
+                    key={i} 
+                    className={dayClass}
+                    onClick={() => day && handleDateClick(day)}
+                  >
+                    {day}
+                    {/* Today indicator */}
+                    {isToday && !isCheckIn && !isCheckOut && (
+                      <div className="absolute bottom-1 w-1.5 h-1.5 bg-orange-500 rounded-full"></div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    {/* Orange Selection Summary */}
+    <div className="mt-4 bg-orange-50 p-4 rounded-lg border border-orange-200">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center space-x-4">
+          <div className="text-sm">
+            <span className="text-gray-600">Check-in: </span>
+            <span className="font-medium">
+              {dateRange.checkIn ? formatDate(dateRange.checkIn) : 'Select date'}
+            </span>
+          </div>
+          <div className="text-sm">
+            <span className="text-gray-600">Check-out: </span>
+            <span className="font-medium">
+              {dateRange.checkOut ? formatDate(dateRange.checkOut) : 'Select date'}
+            </span>
+          </div>
+          {dateRange.checkIn && dateRange.checkOut && (
+            <div className="text-sm px-2 py-1 bg-orange-200 text-orange-800 rounded">
+              {Math.ceil((dateRange.checkOut - dateRange.checkIn) / (1000 * 60 * 60 * 24))} nights
+            </div>
+          )}
+        </div>
+        
+        <div className="flex items-center space-x-2">
+          {(dateRange.checkIn || dateRange.checkOut) && (
+            <button 
+              className="text-sm text-gray-500 hover:text-gray-700"
+              onClick={() => {
+                setDateRange({ checkIn: null, checkOut: null });
+                setSelectedDates([]);
+              }}
+            >
+              Clear
+            </button>
+          )}
+          <button 
+            className="px-4 py-2 rounded bg-orange-500 text-white hover:bg-orange-600 font-medium transition-colors"
+            onClick={() => {
+              setActiveSection(null);
+              handleSearch();
+            }}
+          >
+            Apply Dates
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+);
+
+const renderRoomsSection = () => (
+  <div className="p-5 border-t border-gray-200 animate-fadeIn">
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div>
+        <h3 className="font-bold mb-3 text-gray-800">Room Configuration</h3>
+        
+        {/* Bedrooms Section */}
+        <div className="p-4 border rounded-lg mb-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="font-semibold text-gray-600">Bedrooms</div>
+              <div className="text-sm text-gray-500">Number of bedrooms</div>
+            </div>
+            <div className="flex items-center space-x-3">
+              <button 
+                className={`px-3 py-1 rounded-full border text-sm font-medium transition-colors ${
+                  bedrooms === 'any' 
+                    ? 'bg-orange-500 text-white border-orange-500' 
+                    : 'border-gray-300 text-gray-600 hover:border-orange-500'
+                }`}
+                onClick={() => setBedrooms('any')}
+              >
+                Any+
+              </button>
+              <button 
+                className={`w-8 h-8 rounded-full border border-orange-500 flex items-center justify-center cursor-pointer ${
+                  bedrooms !== 'any' && bedrooms > 0 ? 'text-orange-500' : 'text-gray-300'
+                }`}
+                onClick={() => setBedrooms(bedrooms === 'any' ? 1 : Math.max(0, bedrooms - 1))}
+                disabled={bedrooms === 'any' || bedrooms <= 0}
+              >
+                -
+              </button>
+              <span className="text-lg font-medium w-6 text-center text-gray-700">
+                {bedrooms === 'any' ? 'Any' : bedrooms}
+              </span>
+              <button 
+                className="w-8 h-8 rounded-full border border-orange-500 flex items-center justify-center text-orange-500 cursor-pointer"
+                onClick={() => setBedrooms(bedrooms === 'any' ? 0 : bedrooms + 1)}
+              >
+                +
+              </button>
+            </div>
+          </div>
+        </div>
+        
+        {/* Bathrooms Section */}
+        <div className="p-4 border rounded-lg">
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="font-semibold text-gray-600">Bathrooms</div>
+              <div className="text-sm text-gray-500">Number of bathrooms</div>
+            </div>
+            <div className="flex items-center space-x-3">
+              <button 
+                className={`px-3 py-1 rounded-full border text-sm font-medium transition-colors ${
+                  bathrooms === 'any' 
+                    ? 'bg-orange-500 text-white border-orange-500' 
+                    : 'border-gray-300 text-gray-600 hover:border-orange-500'
+                }`}
+                onClick={() => setBathrooms('any')}
+              >
+                Any+
+              </button>
+              <button 
+                className={`w-8 h-8 rounded-full border border-orange-500 flex items-center justify-center cursor-pointer ${
+                  bathrooms !== 'any' && bathrooms > 1 ? 'text-orange-500' : 'text-gray-300'
+                }`}
+                onClick={() => setBathrooms(bathrooms === 'any' ? 2 : Math.max(1, bathrooms - 1))}
+                disabled={bathrooms === 'any' || bathrooms <= 1}
+              >
+                -
+              </button>
+              <span className="text-lg font-medium w-6 text-center text-gray-700">
+                {bathrooms === 'any' ? 'Any' : bathrooms}
+              </span>
+              <button 
+                className="w-8 h-8 rounded-full border border-orange-500 flex items-center justify-center text-orange-500 cursor-pointer"
+                onClick={() => setBathrooms(bathrooms === 'any' ? 1 : bathrooms + 1)}
+              >
+                +
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      {/* Accommodation Type */}
+      <div className="mb-6">
+        <h3 className="font-bold mb-3 text-gray-800">Accommodation Type</h3>
+        <div className="grid grid-cols-1 gap-3">
+          {[
+            { key: 'entire', label: 'Entire Place', desc: 'Have the entire place to yourself', icon: <Home size={18} className="text-gray-700"/> },
+            { key: 'private', label: 'Private Room', desc: 'Your own bedroom, shared spaces', icon: <Bed size={18} className="text-gray-700"/> },
+            { key: 'shared', label: 'Shared Room', desc: 'Share a bedroom with others', icon: <Users size={18} className="text-gray-700"/> }
+          ].map((type) => (
+            <div
+              key={type.key}
+              className={`p-4 rounded-lg border cursor-pointer transition-all hover:shadow-md ${
+                accommodationType === type.key 
+                  ? 'bg-orange-50 border-orange-200 shadow-md' 
+                  : 'hover:bg-gray-50 border-gray-200'
+              }`}
+              onClick={() => setAccommodationType(accommodationType === type.key ? null : type.key)}
+            >
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <span className="text-lg">{type.icon}</span>
+                  <div className="font-semibold text-gray-700">{type.label}</div>
+                </div>
+                {accommodationType === type.key && (
+                  <div className="w-4 h-4 rounded-full bg-orange-500 flex items-center justify-center text-white">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3 h-3">
+                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                    </svg>
+                  </div>
+                )}
+              </div>
+              <div className="text-xs text-gray-500">
+                {type.desc}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+    
+    <div className="mt-6 flex justify-end items-center space-x-3">
+      <button 
+        className="px-3 py-1.5 text-orange-500 hover:underline"
+        onClick={() => setActiveSection(null)}
+      >
+        Cancel
+      </button>
+      <button 
+        className="px-4 py-2 rounded-lg bg-orange-500 text-white hover:bg-orange-700 font-medium"
+        onClick={() => {
+          setActiveSection(null);
+          handleSearch();
+        }}
+      >
+        Apply
+      </button>
+    </div>
+  </div>
+);
+const renderFiltersSection = () => {
+  // Simple function to count listings in range
+  const getListingsInRange = (min, max) => {
+    return allListings.filter(listing => {
+      const price = listing.price || listing.rent || 0;
+      return price >= min && price <= max;
+    }).length;
+  };
+
+  return (
+    <div className="p-5 border-t border-gray-200">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Price Section */}
+        {/* Clean Price Range Section */}
         <div>
           <h3 className="font-bold mb-3 text-gray-800">Price Range</h3>
           <div className="p-4 border rounded-lg">
+            {/* Payment Frequency Toggle */}
             <div className="mb-4">
               <div className="text-sm font-medium text-gray-700 mb-3">Payment Frequency</div>
               <div className="grid grid-cols-3 gap-2 p-1 bg-gray-100 rounded-lg">
                 {[
-                  { key: 'monthly', label: 'Monthly', icon: <Calendar size={16} /> },
-                  { key: 'weekly', label: 'Weekly', icon: <Clock size={16} /> },
-                  { key: 'daily', label: 'Daily', icon: <MapPin size={16} /> }
+                  { key: 'monthly', label: 'Monthly' },
+                  { key: 'weekly', label: 'Weekly' },
+                  { key: 'daily', label: 'Daily' }
                 ].map(type => (
                   <button 
                     key={type.key}
-                    className={`px-3 py-2.5 rounded-md text-sm font-medium transition-all duration-200 flex items-center justify-center gap-2 ${
+                    className={`px-3 py-2 rounded text-sm font-medium transition-colors ${
                       priceType === type.key 
-                        ? 'bg-orange-500 text-white shadow-md transform scale-105' 
-                        : 'text-gray-600 hover:bg-white hover:shadow-sm'
+                        ? 'bg-orange-500 text-white' 
+                        : 'text-gray-600 hover:bg-white'
                     }`}
                     onClick={() => setPriceType(type.key)}
                   >
-                    {type.icon}
-                    <span>{type.label}</span>
+                    {type.label}
                   </button>
                 ))}
               </div>
             </div>
-            
-            <div className="flex justify-between items-center mb-3">
-              <span className="text-sm font-medium text-gray-700">Budget Range</span>
-              <div className="bg-gradient-to-r from-orange-50 to-orange-100 px-4 py-2 rounded-full border border-orange-200">
-                <span className="text-orange-700 font-bold text-sm">
-                  ${convertPrice(priceRange.min, priceType)} - ${convertPrice(priceRange.max, priceType)} {getPriceUnit(priceType)}
-                </span>
+
+            {/* Visual Price Bar with Selected Range */}
+            <div className="mb-4">
+              <div className="flex justify-between text-sm text-gray-600 mb-2">
+        
+              </div>
+              
+              {/* Visual Price Bar */}
+              <div className="relative h-8 bg-gray-200 rounded-lg overflow-hidden">
+                {/* Background bars showing distribution */}
+                <div className="absolute inset-0 flex">
+                  {[500, 750, 1000, 1250, 1500, 1750, 2000].map((price, index) => {
+                    const count = getListingsInRange(price - 125, price + 125);
+                    const opacity = count > 0 ? Math.min(count / 10, 1) : 0.1;
+                    
+                    return (
+                      <div 
+                        key={index}
+                        className="flex-1 bg-orange-200 mx-px"
+                        style={{ opacity: opacity }}
+                      />
+                    );
+                  })}
+                </div>
+                
+                {/* Selected range overlay */}
+                <div 
+                  className="absolute h-full bg-orange-500 transition-all duration-300"
+                  style={{
+                    left: `${((priceRange.min - 500) / (2000 - 500)) * 100}%`,
+                    width: `${((priceRange.max - priceRange.min) / (2000 - 500)) * 100}%`
+                  }}
+                />
+              </div>
+              
+              <div className="flex justify-between text-xs text-gray-500 mt-1">
+                <span>${convertPrice(500, priceType)}</span>
+                <span>${convertPrice(1250, priceType)}</span>
+                <span>${convertPrice(2000, priceType)}</span>
+              </div>
+            </div>
+
+            {/* Selected Range Display */}
+            <div className="mb-4 text-center">
+              <div className="text-lg font-semibold text-gray-800">
+                ${convertPrice(priceRange.min, priceType)} - ${convertPrice(priceRange.max, priceType)} {getPriceUnit(priceType)}
+              </div>
+              <div className="text-sm text-gray-600">
+                {getListingsInRange(priceRange.min, priceRange.max)} listings available
+              </div>
+            </div>
+
+            {/* Manual Input */}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-2">
+                  Minimum
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm">$</span>
+                  <input
+                    type="number"
+                    min={priceType === 'monthly' ? 500 : priceType === 'weekly' ? 125 : 17}
+                    max={priceType === 'monthly' ? 1950 : priceType === 'weekly' ? 487 : 65}
+                    step={priceType === 'monthly' ? 25 : priceType === 'weekly' ? 6 : 1}
+                    value={convertPrice(priceRange.min, priceType)}
+                    onChange={(e) => {
+                      const value = parseInt(e.target.value) || 0;
+                      let monthlyValue;
+                      switch(priceType) {
+                        case 'weekly': monthlyValue = value * 4; break;
+                        case 'daily': monthlyValue = value * 30; break;
+                        default: monthlyValue = value;
+                      }
+                      handlePriceChange('min', monthlyValue);
+                    }}
+                    className="w-full pl-8 pr-3 py-2 border border-gray-300 rounded focus:ring-1 focus:ring-orange-300 focus:border-orange-400 text-sm"
+                  />
+                </div>
+              </div>
+              
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-2">
+                  Maximum
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm">$</span>
+                  <input
+                    type="number"
+                    min={priceType === 'monthly' ? 550 : priceType === 'weekly' ? 137 : 18}
+                    max={priceType === 'monthly' ? 2000 : priceType === 'weekly' ? 500 : 67}
+                    step={priceType === 'monthly' ? 25 : priceType === 'weekly' ? 6 : 1}
+                    value={convertPrice(priceRange.max, priceType)}
+                    onChange={(e) => {
+                      const value = parseInt(e.target.value) || 0;
+                      let monthlyValue;
+                      switch(priceType) {
+                        case 'weekly': monthlyValue = value * 4; break;
+                        case 'daily': monthlyValue = value * 30; break;
+                        default: monthlyValue = value;
+                      }
+                      handlePriceChange('max', monthlyValue);
+                    }}
+                    className="w-full pl-8 pr-3 py-2 border border-gray-300 rounded focus:ring-1 focus:ring-orange-300 focus:border-orange-400 text-sm"
+                  />
+                </div>
               </div>
             </div>
           </div>
@@ -1279,7 +1825,7 @@ const handleSearch = () => {
         {/* Amenities Section */}
         <div>
           <h3 className="font-bold mb-3 text-gray-800">Amenities</h3>
-          <div className="grid grid-cols-2 gap-3 max-h-60 overflow-y-auto">
+          <div className="grid grid-cols-2 gap-3">
             {[
               { id: 'wifi', label: 'WiFi Included', icon: <Wifi size={16} /> },
               { id: 'parking', label: 'Parking', icon: <MapPin size={16} /> },
@@ -1288,7 +1834,13 @@ const handleSearch = () => {
               { id: 'furnished', label: 'Furnished', icon: <Home size={16} /> },
               { id: 'utilities', label: 'Utilities Included', icon: <DollarSign size={16} /> },
               { id: 'ac', label: 'Air Conditioning', icon: <Sparkles size={16} /> },
-              { id: 'gym', label: 'Fitness Center', icon: <Users size={16} /> }
+              { id: 'gym', label: 'Fitness Center', icon: <Users size={16} /> },
+              { id: 'dishwasher', label: 'Dishwasher', icon: <Utensils size={16} /> },
+              { id: 'elevator', label: 'Elevator access', icon: <ArrowUp size={16} /> },
+              { id: 'security', label: '24/7 Security', icon: <Shield size={16} /> },
+              { id: 'study', label: 'Study space', icon: <BookOpen size={16} /> },
+              { id: 'swim', label: 'Swimming pool', icon: <Waves size={16} /> },
+              { id: 'grill', label: 'BBQ Area', icon: <Flame size={16} /> }
             ].map(amenity => (
               <button
                 key={amenity.id}
@@ -1311,16 +1863,67 @@ const handleSearch = () => {
             ))}
           </div>
         </div>
+
+        {/* Preferred Gender */}
+        <div>
+          <h3 className="font-bold mb-3 text-gray-800">Preferred Gender</h3>
+          <div className="grid grid-cols-1 gap-3">
+            {[
+              { key: 'any', label: 'Any Gender', icon: <Users size={18} className="text-gray-700"/> },
+              { key: 'Female', label: 'Female Only', icon: <User size={18} className="text-gray-700"/>},
+              { key: 'Male', label: 'Male Only', icon: <User size={18} className="text-gray-700"/> }
+            ].map(gender => (
+              <button
+                key={gender.key}
+                className={`flex items-center p-3 border rounded-lg transition-all ${
+                  preferredGender === gender.key 
+                    ? 'bg-orange-50 border-orange-500 text-orange-700' 
+                    : 'hover:bg-gray-50 text-gray-700'
+                }`}
+                onClick={() => setPreferredGender(gender.key)}
+              >
+                <span className="text-lg mr-2">{gender.icon}</span>
+                <span className="text-sm font-medium">{gender.label}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Smoking Preference */}
+        <div>
+          <h3 className="font-bold mb-3 text-gray-800">Smoking Preference</h3>
+          <div className="grid grid-cols-1 gap-3">
+            {[
+              { key: 'any', label: 'Any', icon: <Users size={18} className="text-gray-700"/> },
+              { key: 'allowed', label: 'Smoking Allowed', icon: <Cigarette size={18} className="text-gray-700"/>},
+              { key: 'not-allowed', label: 'Non-Smoking Only', icon: <X size={18} className="text-gray-700"/> }
+            ].map(option => (
+              <button
+                key={option.key}
+                className={`flex items-center p-3 border rounded-lg transition-all ${
+                  smokingPreference === option.key
+                    ? 'bg-orange-50 border-orange-500 text-orange-700'
+                    : 'hover:bg-gray-50 text-gray-700'
+                }`}
+                onClick={() => setSmokingPreference(option.key)}
+              >
+                <span className="text-lg mr-2">{option.icon}</span>
+                <span className="text-sm font-medium">{option.label}</span>
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
       
+      {/* Action Buttons */}
       <div className="mt-6 flex justify-between items-center">
         <button 
           className="text-orange-500 text-sm font-medium hover:underline flex items-center"
           onClick={() => {
             setPriceRange({ min: 500, max: 2000 });
             setSelectedAmenities([]);
-            setPreferredGender(null);     
-            setSmokingPreference(null);    
+            setPreferredGender(null);
+            setSmokingPreference(null);
           }}
         >
           <X size={16} className="mr-1" />
@@ -1338,6 +1941,7 @@ const handleSearch = () => {
             className="px-4 py-2 rounded-lg bg-orange-500 text-white hover:bg-orange-600 font-medium"
             onClick={() => {
               setActiveSection(null);
+              handleSearch();
             }}
           >
             Apply Filters
@@ -1346,6 +1950,7 @@ const handleSearch = () => {
       </div>
     </div>
   );
+};
 
   // =========================
   // 🔥 UNIFIED: Enhanced Listings Display with Expansion Info - SAME AS SEARCHPAGE
@@ -1724,9 +2329,9 @@ const handleSearch = () => {
                   <BedDouble className={`mr-2 text-orange-500 flex-shrink-0 transition-all duration-300 ${activeSection === 'rooms' ? 'animate-bounce' : ''}`} size={18} />
                   <div>
                     <div className="font-medium text-sm text-gray-500">Rooms</div>
-                    <div className="font-semibold text-gray-800">
-                      {bedrooms} bedroom{bedrooms !== 1 ? 's' : ''}, {bathrooms} bathroom{bathrooms !== 1 ? 's' : ''}
-                    </div>
+                   <div className="font-semibold text-gray-800">
+  {bedrooms === 'any' ? 'Any' : bedrooms} bedroom{bedrooms !== 1 && bedrooms !== 'any' ? 's' : ''}, {bathrooms === 'any' ? 'Any' : bathrooms} bathroom{bathrooms !== 1 && bathrooms !== 'any' ? 's' : ''}
+</div>
                   </div>
                 </div>
               </div>

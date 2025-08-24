@@ -383,6 +383,8 @@ export default function ItemListingPage() {
     }
   };
 
+  
+
   // ===============================
   // DATA MANAGEMENT FUNCTIONS
   // ===============================
@@ -534,6 +536,8 @@ const getCompletionPercentage = (item) => {
   const completedFields = requiredFields.filter(field => item[field] && item[field].trim() !== '').length;
   return Math.round((completedFields / requiredFields.length) * 100);
 };
+
+
 
 // Helper function to format price display
 const formatPriceDisplay = (item) => {
@@ -1900,13 +1904,16 @@ const getDeliveryInfo = (delivery) => {
                 <MapPin size={20} className="mr-2 text-orange-600" />
                 Location *
               </label>
-              <LocationPicker
-                initialValue={currentItem.location}
-                onLocationSelect={(location) => {
-                  updateItemData(currentItemIndex, 'location', location.address);
-                  setSelectedLocation(location);
-                }}
-              />
+             <LocationPicker
+  initialValue={currentItem.location}
+  mode={currentItem.delivery === 'delivery' ? 'delivery' : 
+        currentItem.delivery === 'pickup' ? 'pickup' : 'both'}
+  onLocationSelect={(location) => {
+    updateItemData(currentItemIndex, 'location', location.address);
+    setSelectedLocation(location);
+  }}
+/>
+
             </div>
  
             <div>
@@ -1964,12 +1971,6 @@ const getDeliveryInfo = (delivery) => {
     );
   }
  
-  // ===============================
-  // DESCRIPTION SCREEN
-  // ===============================
- // ===============================
-// DESCRIPTION SCREEN
-// ===============================
 
 if (step === "description") {
   // Mode selection screen

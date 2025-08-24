@@ -4,11 +4,11 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useRouter, useParams } from 'next/navigation';
 import { 
   Send, ArrowLeft, Phone, Video, MoreVertical, 
-  Image as ImageIcon, Paperclip, Info,
-  MapPin, Calendar, DollarSign, Star, User, Heart,
-  X, ChevronLeft, ChevronRight, Wifi, Droplets,
-  Sparkles, Home, BedDouble, Plus, MessageCircle,
-  Search, Filter, Package, Truck, Clock, Shield
+  Image as ImageIcon, Paperclip, Info, MapPin, 
+  Calendar, DollarSign, Star, User, Heart, X, 
+  ChevronLeft, ChevronRight, Wifi, Home, BedDouble, 
+  Plus, MessageCircle, Search, Package, Truck, 
+  Clock, Shield, Menu
 } from 'lucide-react';
 import { 
   collection, query, orderBy, onSnapshot, where,
@@ -16,7 +16,7 @@ import {
   increment, getDocs, limit
 } from 'firebase/firestore';
 import { 
-  ref, uploadBytes, getDownloadURL, deleteObject 
+  ref, uploadBytes, getDownloadURL 
 } from 'firebase/storage';
 import { db, storage } from '@/lib/firebase';
 import { useAuth } from '@/app/contexts/AuthInfo';
@@ -38,7 +38,6 @@ const ConversationDetailPage = () => {
   const [loading, setLoading] = useState(true);
   const [conversationsLoading, setConversationsLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [retryCount, setRetryCount] = useState(0);
   
   // UI state
   const [newMessage, setNewMessage] = useState('');
@@ -52,6 +51,7 @@ const ConversationDetailPage = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [showConversationList, setShowConversationList] = useState(true);
   const [activeTab, setActiveTab] = useState('all');
+  const [showMobileMenu, setShowMobileMenu] = useState(false);
   
   // Refs
   const messagesEndRef = useRef(null);
@@ -75,9 +75,7 @@ const ConversationDetailPage = () => {
         listingType: 'Item',
         priceLabel: '',
         actionButton: 'View Item Details',
-        tourButton: 'Ask About Pickup',
-        hostActions: ['Send Sale Agreement', 'Schedule Item Pickup', 'Request Payment Info'],
-        guestActions: ['Ask About Condition', 'Inquire About Pickup Time', 'Request More Photos']
+        tourButton: 'Ask About Pickup'
       };
     } else {
       return {
@@ -86,52 +84,92 @@ const ConversationDetailPage = () => {
         listingType: 'Listing',
         priceLabel: '/month',
         actionButton: 'View Full Details',
-        tourButton: 'Schedule Tour',
-        hostActions: ['Send Rental Agreement', 'Schedule Property Tour', 'Request References'],
-        guestActions: ['Request Tour', 'Ask About Utilities', 'Inquire About Move-in Date']
+        tourButton: 'Schedule Tour'
       };
     }
   }, [isMoveOutSale]);
 
-  // Optimized scroll to bottom
+  // Generate color for user avatar based on name
+  const getAvatarColor = useCallback((name) => {
+    if (!name) return '#f97316'; // Default orange
+    
+    const colors = [
+      '#f97316', // Orange
+      '#3b82f6', // Blue
+      '#10b981', // Emerald
+      '#8b5cf6', // Purple
+      '#ef4444', // Red
+      '#f59e0b', // Amber
+      '#06b6d4', // Cyan
+      '#84cc16', // Lime
+      '#ec4899', // Pink
+      '#6366f1'  // Indigo
+    ];
+    
+    let hash = 0;
+    for (let i = 0; i < name.length; i++) {
+      hash = name.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    
+    return colors[Math.abs(hash) % colors.length];
+  }, []);
+
+  // Get user initials for fallback
+  const getUserInitials = useCallback((name) => {
+    if (!name) return 'U';
+    return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+  }, []);
+
+  // Check if image exists and is valid
+  const checkImageExists = useCallback((url) => {
+    return new Promise((resolve) => {
+      if (!url) {
+        resolve(false);
+        return;
+      }
+      
+      const img = new Image();
+      img.onload = () => resolve(true);
+      img.onerror = () => resolve(false);
+      img.src = url;
+    });
+  }, []);
+
+  // Safe image helper with fallback
+  const getSafeImageUrl = useCallback((imageUrl, fallbackType = 'user') => {
+    if (!imageUrl || imageUrl.includes('placeholder') || imageUrl === '/api/placeholder/40/40') {
+      if (fallbackType === 'listing') {
+        return `data:image/svg+xml,${encodeURIComponent(`
+          <svg width="64" height="64" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+            <rect width="64" height="64" fill="#f9fafb"/>
+            <rect x="16" y="20" width="32" height="24" fill="#e5e7eb" rx="2"/>
+            <circle cx="24" cy="28" r="3" fill="#d1d5db"/>
+            <path d="M16 36l8-6 4 3 8-5v12H16z" fill="#d1d5db"/>
+          </svg>
+        `)}`;
+      }
+      return null; // Return null for user images to trigger initials display
+    }
+    return imageUrl;
+  }, []);
+
+  // Auto-scroll when messages update
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, []);
 
-  // Auto-scroll when messages update
   useEffect(() => {
     const timer = setTimeout(scrollToBottom, 100);
     return () => clearTimeout(timer);
   }, [messages, scrollToBottom]);
 
-  // Retry mechanism for failed operations
-  const withRetry = useCallback(async (operation, maxRetries = 3) => {
-    for (let attempt = 1; attempt <= maxRetries; attempt++) {
-      try {
-        return await operation();
-      } catch (error) {
-        console.error(`Attempt ${attempt} failed:`, error);
-        if (attempt === maxRetries) throw error;
-        await new Promise(resolve => setTimeout(resolve, attempt * 1000));
-      }
-    }
-  }, []);
-
   // Enhanced error handling
   const handleError = useCallback((error, context = '') => {
     console.error(`Error in ${context}:`, error);
     setError(`${context}: ${error.message}`);
-    
-    // Auto-retry for network errors
-    if (error.code === 'unavailable' || error.message.includes('network')) {
-      setTimeout(() => {
-        setRetryCount(prev => prev + 1);
-        setError(null);
-      }, 2000);
-    }
   }, []);
 
-  // Optimized conversations loading with error handling
+  // Load conversations
   useEffect(() => {
     if (!user?.uid) {
       setConversationsLoading(false);
@@ -154,7 +192,6 @@ const ConversationDetailPage = () => {
             if (!mounted) return;
 
             try {
-              // Process conversations in batches for better performance
               const conversationPromises = snapshot.docs.map(async (docSnap) => {
                 const data = docSnap.data();
                 
@@ -163,15 +200,14 @@ const ConversationDetailPage = () => {
                   id: data.guestId,
                   name: data.guestName || 'Unknown User',
                   email: data.guestEmail || '',
-                  image: data.guestImage || '/api/placeholder/40/40'
+                  image: data.guestImage
                 } : {
                   id: data.hostId,
                   name: data.hostName || 'Unknown User',
                   email: data.hostEmail || '',
-                  image: data.hostImage || '/api/placeholder/40/40'
+                  image: data.hostImage
                 };
 
-                // Get latest message with timeout
                 let latestMessage = null;
                 try {
                   const messagesQuery = query(
@@ -180,12 +216,7 @@ const ConversationDetailPage = () => {
                     limit(1)
                   );
                   
-                  const messagesSnapshot = await Promise.race([
-                    getDocs(messagesQuery),
-                    new Promise((_, reject) => 
-                      setTimeout(() => reject(new Error('Timeout')), 5000)
-                    )
-                  ]);
+                  const messagesSnapshot = await getDocs(messagesQuery);
                   
                   if (!messagesSnapshot.empty) {
                     const messageData = messagesSnapshot.docs[0].data();
@@ -215,13 +246,7 @@ const ConversationDetailPage = () => {
                 };
               });
 
-              // Wait for all conversations to load with timeout
-              const conversationData = await Promise.race([
-                Promise.all(conversationPromises),
-                new Promise((_, reject) => 
-                  setTimeout(() => reject(new Error('Conversations loading timeout')), 10000)
-                )
-              ]);
+              const conversationData = await Promise.all(conversationPromises);
 
               if (mounted) {
                 setConversations(conversationData);
@@ -260,9 +285,9 @@ const ConversationDetailPage = () => {
         unsubscribeRefs.current.conversations();
       }
     };
-  }, [user?.uid, handleError, retryCount]);
+  }, [user?.uid, handleError]);
 
-  // Enhanced conversation loading with better error handling
+  // Load conversation
   useEffect(() => {
     if (!conversationId || !user?.uid) {
       setLoading(false);
@@ -276,9 +301,7 @@ const ConversationDetailPage = () => {
         setLoading(true);
         setError(null);
 
-        const conversationDoc = await withRetry(async () => {
-          return await getDoc(doc(db, 'conversations', conversationId));
-        });
+        const conversationDoc = await getDoc(doc(db, 'conversations', conversationId));
         
         if (!mounted) return;
 
@@ -289,25 +312,23 @@ const ConversationDetailPage = () => {
 
         const conversationData = conversationDoc.data();
         
-        // Check if user is participant
         if (!conversationData.participants?.includes(user.uid)) {
           setError('You do not have access to this conversation.');
           setLoading(false);
           return;
         }
 
-        // Determine user role
         const isUserHost = conversationData.hostId === user.uid;
         const otherParticipant = isUserHost ? {
           id: conversationData.guestId,
           name: conversationData.guestName || 'Unknown User',
           email: conversationData.guestEmail || '',
-          image: conversationData.guestImage || '/api/placeholder/40/40'
+          image: conversationData.guestImage
         } : {
           id: conversationData.hostId,
           name: conversationData.hostName || 'Unknown User',
           email: conversationData.hostEmail || '',
-          image: conversationData.hostImage || '/api/placeholder/40/40'
+          image: conversationData.hostImage
         };
 
         const conversationWithType = {
@@ -323,12 +344,10 @@ const ConversationDetailPage = () => {
         if (mounted) {
           setConversation(conversationWithType);
           
-          // Load listing details in parallel
           if (conversationData.listingId) {
             loadListingDetails(conversationData.listingId, conversationWithType.conversationType);
           }
 
-          // Mark messages as read
           try {
             await markMessagesAsRead(conversationDoc.id, isUserHost);
           } catch (readError) {
@@ -352,14 +371,13 @@ const ConversationDetailPage = () => {
     return () => {
       mounted = false;
     };
-  }, [conversationId, user?.uid, withRetry, handleError]);
+  }, [conversationId, user?.uid]);
 
-  // Optimized listing details loading
+  // Load listing details
   const loadListingDetails = useCallback(async (listingId, conversationType = 'sublease') => {
     if (!listingId) return;
 
     try {
-      // Try featured listings first (mock data) - primarily for sublease
       if (conversationType !== 'moveout') {
         const foundListing = featuredListings.find(listing => listing.id === listingId);
         if (foundListing) {
@@ -368,16 +386,10 @@ const ConversationDetailPage = () => {
         }
       }
       
-      // Try Firestore with timeout
-      const collectionName = conversationType === 'moveout' ? 'moveout-items' : 'listings';
+      // Use the correct collection name based on conversation type
+      const collectionName = conversationType === 'moveout' ? 'saleItems' : 'listings';
       const docRef = doc(db, collectionName, listingId);
-      
-      const docSnap = await Promise.race([
-        getDoc(docRef),
-        new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Listing load timeout')), 8000)
-        )
-      ]);
+      const docSnap = await getDoc(docRef);
       
       if (docSnap.exists()) {
         const firestoreData = docSnap.data();
@@ -390,32 +402,35 @@ const ConversationDetailPage = () => {
           return new Date(dateValue) || new Date();
         };
 
-        // Format data based on conversation type
         let formattedListing;
         
         if (conversationType === 'moveout') {
+          // Map saleItems fields to the expected format
           formattedListing = {
             id: docSnap.id,
-            title: firestoreData.title || firestoreData.itemName || 'Unnamed Item',
-            location: firestoreData.location || firestoreData.pickupLocation || 'Campus Area',
-            image: firestoreData.image || firestoreData.images?.[0] || "https://images.unsplash.com/photo-1586023492125-27b2c045efd7?q=80&w=800&h=500&auto=format&fit=crop",
-            additionalImages: firestoreData.additionalImages || firestoreData.images?.slice(1) || [],
+            title: firestoreData.name || firestoreData.title || 'Unnamed Item',
+            location: firestoreData.location || 'Campus Area',
+            image: firestoreData.image || (firestoreData.images && firestoreData.images[0]) || "https://images.unsplash.com/photo-1586023492125-27b2c045efd7?q=80&w=800&h=500&auto=format&fit=crop",
+            additionalImages: firestoreData.additionalImages || (firestoreData.images ? firestoreData.images.slice(1) : []) || [],
             price: Number(firestoreData.price || 0),
+            originalPrice: Number(firestoreData.originalPrice || firestoreData.price || 0),
             condition: firestoreData.condition || 'Good',
             category: firestoreData.category || 'Other',
-            rating: Number(firestoreData.sellerRating),
-            reviews: Number(firestoreData.sellerReviews),
-            features: Array.isArray(firestoreData.features) ? firestoreData.features : [],
-            hostName: firestoreData.sellerName || firestoreData.hostName || 'Anonymous',
-            hostImage: firestoreData.sellerImage || firestoreData.hostImage || "https://images.unsplash.com/photo-1587300003388-59208cc962cb?q=80&w=800&h=500&auto=format&fit=crop",
-            description: firestoreData.description || 'No description available',
-            availableFrom: convertFirestoreDate(firestoreData.availableFrom || firestoreData.pickupDate),
-            availableTo: convertFirestoreDate(firestoreData.availableTo || firestoreData.lastPickupDate),
+            rating: Number(firestoreData.sellerRating || 4.5),
+            reviews: Number(firestoreData.sellerReviews || 12),
+            features: firestoreData.features || [],
+            hostName: firestoreData.seller || firestoreData.sellerEmail || 'Anonymous',
+            hostImage: firestoreData.sellerPhoto,
+            description: firestoreData.description || firestoreData.shortDescription || 'No description available',
+            availableFrom: new Date(),
+            availableTo: firestoreData.availableUntil ? new Date(firestoreData.availableUntil) : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
             isVerifiedUMN: Boolean(firestoreData.isVerifiedUMN || false),
-            dimensions: firestoreData.dimensions,
-            weight: firestoreData.weight,
-            pickupInfo: firestoreData.pickupInfo,
-            paymentMethods: firestoreData.paymentMethods || []
+            priceType: firestoreData.priceType || 'fixed',
+            pickupAvailable: Boolean(firestoreData.pickupAvailable || true),
+            deliveryAvailable: Boolean(firestoreData.deliveryAvailable || false),
+            views: Number(firestoreData.views || 0),
+            createdAt: convertFirestoreDate(firestoreData.createdAt),
+            updatedAt: convertFirestoreDate(firestoreData.updatedAt)
           };
         } else {
           formattedListing = {
@@ -427,11 +442,11 @@ const ConversationDetailPage = () => {
             price: Number(firestoreData.price || firestoreData.rent || 0),
             bedrooms: Number(firestoreData.bedrooms || 1),
             bathrooms: Number(firestoreData.bathrooms || 1),
-            rating: Number(firestoreData.rating ),
-            reviews: Number(firestoreData.reviews),
+            rating: Number(firestoreData.rating || 4.5),
+            reviews: Number(firestoreData.reviews || 8),
             amenities: Array.isArray(firestoreData.amenities) ? firestoreData.amenities : [],
             hostName: firestoreData.hostName || 'Anonymous',
-            hostImage: firestoreData.hostImage || "https://images.unsplash.com/photo-1587300003388-59208cc962cb?q=80&w=800&h=500&auto=format&fit=crop",
+            hostImage: firestoreData.hostImage,
             description: firestoreData.description || 'No description available',
             availableFrom: convertFirestoreDate(firestoreData.availableFrom),
             availableTo: convertFirestoreDate(firestoreData.availableTo),
@@ -440,16 +455,13 @@ const ConversationDetailPage = () => {
         }
         
         setListing(formattedListing);
-      } else {
-        console.warn('Listing not found in Firestore');
       }
     } catch (error) {
       console.error('Error loading listing:', error);
-      // Don't set error state for listing load failures, just log them
     }
   }, []);
 
-  // Optimized real-time messages listener
+  // Messages listener
   useEffect(() => {
     if (!conversationId || !user?.uid) return;
 
@@ -494,7 +506,7 @@ const ConversationDetailPage = () => {
     };
   }, [conversationId, user?.uid]);
 
-  // Optimized mark messages as read
+  // Mark messages as read
   const markMessagesAsRead = useCallback(async (convId, isHost) => {
     try {
       const updateField = isHost ? 'hostUnreadCount' : 'guestUnreadCount';
@@ -506,7 +518,7 @@ const ConversationDetailPage = () => {
     }
   }, []);
 
-  // Enhanced send message with better error handling
+  // Send message
   const sendMessage = useCallback(async (e, messageData = null) => {
     if (e) e.preventDefault();
     
@@ -529,24 +541,18 @@ const ConversationDetailPage = () => {
         listingId: conversation.listingId
       };
 
-      // Send message with retry
-      await withRetry(async () => {
-        await addDoc(
-          collection(db, 'conversations', conversationId, 'messages'), 
-          messageDoc
-        );
-      });
+      await addDoc(
+        collection(db, 'conversations', conversationId, 'messages'), 
+        messageDoc
+      );
 
       const otherUserUnreadField = conversation.isUserHost ? 'guestUnreadCount' : 'hostUnreadCount';
       
-      // Update conversation with retry
-      await withRetry(async () => {
-        await updateDoc(doc(db, 'conversations', conversationId), {
-          lastMessage: finalMessageData.text || (finalMessageData.type === 'image' ? '📷 Image' : '📎 File'),
-          lastMessageTime: serverTimestamp(),
-          updatedAt: serverTimestamp(),
-          [otherUserUnreadField]: increment(1)
-        });
+      await updateDoc(doc(db, 'conversations', conversationId), {
+        lastMessage: finalMessageData.text || (finalMessageData.type === 'image' ? 'Image' : 'File'),
+        lastMessageTime: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        [otherUserUnreadField]: increment(1)
       });
 
       if (!messageData) {
@@ -560,13 +566,12 @@ const ConversationDetailPage = () => {
     } finally {
       setSending(false);
     }
-  }, [newMessage, sending, conversation, user, conversationId, withRetry, handleError]);
+  }, [newMessage, sending, conversation, user, conversationId, handleError]);
 
-  // Enhanced file upload with progress tracking
+  // File upload
   const handleFileUpload = useCallback(async (file, type = 'file') => {
     if (!file || !conversation) return;
 
-    // Validate file size (max 10MB)
     if (file.size > 10 * 1024 * 1024) {
       alert('File size must be less than 10MB');
       return;
@@ -575,20 +580,14 @@ const ConversationDetailPage = () => {
     setUploadingFile(true);
 
     try {
-      // Create unique filename
       const timestamp = Date.now();
       const filename = `${timestamp}_${file.name}`;
       const folderPath = type === 'image' ? 'conversation-images' : 'conversation-files';
       const storageRef = ref(storage, `${folderPath}/${conversationId}/${filename}`);
 
-      // Upload file with retry
-      const snapshot = await withRetry(async () => {
-        return await uploadBytes(storageRef, file);
-      });
-
+      const snapshot = await uploadBytes(storageRef, file);
       const downloadURL = await getDownloadURL(snapshot.ref);
 
-      // Create message data
       const messageData = {
         type: type,
         [type === 'image' ? 'imageUrl' : 'fileUrl']: downloadURL,
@@ -597,7 +596,6 @@ const ConversationDetailPage = () => {
         text: type === 'image' ? '' : `Shared a file: ${file.name}`
       };
 
-      // Send message with file
       await sendMessage(null, messageData);
 
     } catch (error) {
@@ -606,7 +604,7 @@ const ConversationDetailPage = () => {
     } finally {
       setUploadingFile(false);
     }
-  }, [conversation, conversationId, sendMessage, withRetry, handleError]);
+  }, [conversation, conversationId, sendMessage, handleError]);
 
   // File input handlers
   const handleImageUpload = useCallback((e) => {
@@ -651,10 +649,9 @@ const ConversationDetailPage = () => {
     }
   }, [handleFileUpload]);
 
-  // Memoized filtered conversations
+  // Filtered conversations
   const filteredConversations = useMemo(() => {
     return conversations.filter(conv => {
-      // Tab filter
       let matchesTab = true;
       if (activeTab === 'sublease') {
         matchesTab = conv.conversationType !== 'moveout';
@@ -662,7 +659,6 @@ const ConversationDetailPage = () => {
         matchesTab = conv.conversationType === 'moveout';
       }
 
-      // Search filter
       const matchesSearch = !searchTerm || 
         conv.listingTitle?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         conv.otherParticipant.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -672,7 +668,7 @@ const ConversationDetailPage = () => {
     });
   }, [conversations, activeTab, searchTerm]);
 
-  // Memoized time formatting functions
+  // Time formatting functions
   const formatConversationTime = useCallback((date) => {
     if (!date) return '';
     
@@ -734,9 +730,9 @@ const ConversationDetailPage = () => {
     
     switch (message.type) {
       case 'image':
-        return '📷 Image';
+        return 'Image';
       case 'file':
-        return '📎 File';
+        return 'File';
       default:
         return message.text || 'Message';
     }
@@ -791,10 +787,8 @@ const ConversationDetailPage = () => {
     switch (feature.toLowerCase()) {
       case 'wifi': return <Wifi size={16} />;
       case 'parking': return <MapPin size={16} />;
-      case 'laundry': return <Droplets size={16} />;
       case 'furnished': return <Home size={16} />;
       case 'utilities': return <DollarSign size={16} />;
-      case 'ac': return <Sparkles size={16} />;
       case 'delivery': return <Truck size={16} />;
       case 'warranty': return <Shield size={16} />;
       case 'pickup': return <Package size={16} />;
@@ -802,39 +796,13 @@ const ConversationDetailPage = () => {
     }
   }, []);
 
-  // File size formatter
-  const formatFileSize = useCallback((bytes) => {
-    if (bytes === 0) return '0 Bytes';
-    const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-  }, []);
-
-  // Error retry handler
-  const handleRetry = useCallback(() => {
-    setError(null);
-    setRetryCount(prev => prev + 1);
-  }, []);
-
   // Loading state
   if (loading || conversationsLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading conversations...</p>
-          {error && (
-            <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
-              <p className="text-red-600 text-sm">{error}</p>
-              <button 
-                onClick={handleRetry}
-                className="mt-2 px-3 py-1 bg-red-500 text-white rounded text-sm hover:bg-red-600 transition"
-              >
-                Retry
-              </button>
-            </div>
-          )}
+          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-orange-500 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading conversation...</p>
         </div>
       </div>
     );
@@ -844,7 +812,7 @@ const ConversationDetailPage = () => {
   if (error && !conversation) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center max-w-md">
+        <div className="text-center max-w-md mx-auto p-6">
           <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <X className="w-8 h-8 text-red-500" />
           </div>
@@ -852,14 +820,14 @@ const ConversationDetailPage = () => {
           <p className="text-gray-600 mb-4">{error}</p>
           <div className="space-x-3">
             <button 
-              onClick={handleRetry}
-              className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition"
+              onClick={() => setError(null)}
+              className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors"
             >
               Try Again
             </button>
             <button 
               onClick={() => router.push('/sublease/search/')}
-              className="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition"
+              className="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-colors"
             >
               Back to Messages
             </button>
@@ -873,15 +841,15 @@ const ConversationDetailPage = () => {
   if (!conversation) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center">
+        <div className="text-center max-w-md mx-auto p-6">
           <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <MessageCircle className="w-8 h-8 text-gray-400" />
           </div>
-          <p className="text-xl text-gray-600 mb-4">Conversation not found</p>
-          <p className="text-gray-500 mb-6">This conversation may have been deleted or you may not have access to it.</p>
+          <h2 className="text-xl font-semibold text-gray-900 mb-2">Conversation not found</h2>
+          <p className="text-gray-600 mb-6">This conversation may have been deleted or you may not have access to it.</p>
           <button 
             onClick={() => router.push('/sublease/search/')}
-            className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition"
+            className="px-6 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors font-medium"
           >
             Back to Messages
           </button>
@@ -891,15 +859,15 @@ const ConversationDetailPage = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex">
+    <div className="min-h-screen bg-gray-50">
       {/* Image Gallery Modal */}
       {showAllImages && listing && (
         <div className="fixed inset-0 bg-black bg-opacity-90 z-50 flex flex-col items-center justify-center p-4">
           <div className="w-full max-w-4xl">
-            <div className="flex justify-end mb-2">
+            <div className="flex justify-end mb-4">
               <button 
                 onClick={() => setShowAllImages(false)}
-                className="p-1 bg-white rounded-full text-black hover:bg-gray-200"
+                className="p-2 bg-white rounded-full text-black hover:bg-gray-200 transition-colors"
               >
                 <X size={24} />
               </button>
@@ -908,9 +876,9 @@ const ConversationDetailPage = () => {
             <div className="relative mb-4">
               <div className="h-96 flex items-center justify-center">
                 <img 
-                  src={allImages[activeImage]} 
+                  src={getSafeImageUrl(allImages[activeImage], 'listing')} 
                   alt={`Image ${activeImage + 1}`}
-                  className="max-h-full max-w-full object-contain"
+                  className="max-h-full max-w-full object-contain rounded-lg"
                 />
               </div>
               
@@ -918,14 +886,14 @@ const ConversationDetailPage = () => {
                 <>
                   <button 
                     onClick={goToPrevImage}
-                    className="absolute left-0 top-1/2 transform -translate-y-1/2 p-2 bg-white bg-opacity-80 rounded-full text-gray-800 hover:bg-opacity-100 transition"
+                    className="absolute left-4 top-1/2 transform -translate-y-1/2 p-2 bg-white bg-opacity-80 rounded-full text-gray-800 hover:bg-opacity-100 transition-colors"
                   >
                     <ChevronLeft size={24} />
                   </button>
                   
                   <button 
                     onClick={goToNextImage}
-                    className="absolute right-0 top-1/2 transform -translate-y-1/2 p-2 bg-white bg-opacity-80 rounded-full text-gray-800 hover:bg-opacity-100 transition"
+                    className="absolute right-4 top-1/2 transform -translate-y-1/2 p-2 bg-white bg-opacity-80 rounded-full text-gray-800 hover:bg-opacity-100 transition-colors"
                   >
                     <ChevronRight size={24} />
                   </button>
@@ -933,26 +901,23 @@ const ConversationDetailPage = () => {
               )}
             </div>
             
-            <div className="text-white text-center mb-4">
-              {activeImage + 1} / {allImages.length}
+            <div className="text-white text-center">
+              {activeImage + 1} of {allImages.length}
             </div>
           </div>
         </div>
       )}
- 
-      {/* Left Sidebar - Conversations List */}
-      {showConversationList && (
-        <div className="w-80 bg-white border-r border-gray-200 flex flex-col">
-          {/* Conversations Header */}
+
+      <div className="flex h-screen">
+        {/* Left Sidebar - Conversations List */}
+        <div className={`${showConversationList ? 'w-80' : 'w-0'} bg-white border-r border-gray-200 flex flex-col transition-all duration-300 overflow-hidden lg:w-80`}>
+          {/* Header */}
           <div className="p-4 border-b border-gray-200">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold text-gray-900 flex items-center">
-                <MessageCircle className="w-5 h-5 mr-2" />
-                Messages
-              </h2>
+              <h2 className="text-lg font-semibold text-gray-900">Messages</h2>
               <button
                 onClick={() => setShowConversationList(false)}
-                className="p-1 hover:bg-gray-100 rounded-full transition lg:hidden"
+                className="p-1 hover:bg-gray-100 rounded-full transition-colors lg:hidden"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -962,7 +927,7 @@ const ConversationDetailPage = () => {
             <div className="flex space-x-1 mb-4 bg-gray-100 rounded-lg p-1">
               <button
                 onClick={() => setActiveTab('all')}
-                className={`flex-1 px-3 py-1 rounded-md text-sm transition ${
+                className={`flex-1 px-3 py-2 rounded-md text-sm transition-colors font-medium ${
                   activeTab === 'all' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600'
                 }`}
               >
@@ -970,7 +935,7 @@ const ConversationDetailPage = () => {
               </button>
               <button
                 onClick={() => setActiveTab('sublease')}
-                className={`flex-1 px-3 py-1 rounded-md text-sm transition flex items-center justify-center ${
+                className={`flex-1 px-3 py-2 rounded-md text-sm transition-colors flex items-center justify-center font-medium ${
                   activeTab === 'sublease' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600'
                 }`}
               >
@@ -979,7 +944,7 @@ const ConversationDetailPage = () => {
               </button>
               <button
                 onClick={() => setActiveTab('moveout')}
-                className={`flex-1 px-3 py-1 rounded-md text-sm transition flex items-center justify-center ${
+                className={`flex-1 px-3 py-2 rounded-md text-sm transition-colors flex items-center justify-center font-medium ${
                   activeTab === 'moveout' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600'
                 }`}
               >
@@ -996,11 +961,11 @@ const ConversationDetailPage = () => {
                 placeholder="Search conversations..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm"
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 text-sm transition-all"
               />
             </div>
           </div>
- 
+
           {/* Conversations List */}
           <div className="flex-1 overflow-y-auto">
             {filteredConversations.length === 0 ? (
@@ -1014,15 +979,15 @@ const ConversationDetailPage = () => {
                   <div
                     key={conv.id}
                     onClick={() => router.push(`/sublease/search/${conv.id}/message`)}
-                    className={`p-4 hover:bg-gray-50 cursor-pointer transition ${
+                    className={`p-4 hover:bg-gray-50 cursor-pointer transition-colors ${
                       conv.id === conversationId ? 'bg-orange-50 border-r-2 border-orange-500' : ''
                     }`}
                   >
                     <div className="flex items-start space-x-3">
-                      {/* Listing Image with Type Indicator */}
+                      {/* Listing Image */}
                       <div className="w-12 h-12 rounded-lg overflow-hidden flex-shrink-0 relative">
                         <img 
-                          src={conv.listingImage || '/api/placeholder/48/48'}
+                          src={getSafeImageUrl(conv.listingImage, 'listing')}
                           alt={conv.listingTitle || 'Listing'}
                           className="w-full h-full object-cover"
                         />
@@ -1034,7 +999,7 @@ const ConversationDetailPage = () => {
                           )}
                         </div>
                       </div>
- 
+
                       {/* Conversation Info */}
                       <div className="flex-1 min-w-0">
                         <div className="flex items-start justify-between">
@@ -1046,7 +1011,7 @@ const ConversationDetailPage = () => {
                               {conv.otherParticipant.name}
                             </p>
                             <div className="flex items-center mt-1">
-                              <span className={`px-2 py-1 rounded-full text-xs ${
+                              <span className={`px-2 py-1 rounded-full text-xs font-medium ${
                                 conv.isUserHost 
                                   ? 'bg-green-100 text-green-700' 
                                   : 'bg-blue-100 text-blue-700'
@@ -1058,19 +1023,19 @@ const ConversationDetailPage = () => {
                               </span>
                             </div>
                           </div>
- 
+
                           <div className="flex flex-col items-end ml-2">
                             <span className="text-xs text-gray-500">
                               {formatConversationTime(conv.lastMessageTime)}
                             </span>
                             {conv.unreadCount > 0 && (
-                              <span className="bg-red-500 text-white text-xs px-2 py-1 rounded-full mt-1">
+                              <span className="bg-red-500 text-white text-xs px-2 py-1 rounded-full mt-1 font-medium">
                                 {conv.unreadCount}
                               </span>
                             )}
                           </div>
                         </div>
- 
+
                         {/* Latest Message Preview */}
                         <div className="mt-2 text-xs text-gray-600">
                           <span className={conv.latestMessage?.senderId === user.uid ? 'font-medium' : ''}>
@@ -1088,20 +1053,16 @@ const ConversationDetailPage = () => {
             )}
           </div>
         </div>
-      )}
- 
-      {/* Main Content Container */}
-      <div className={`flex w-full transition-all duration-300 ${showListingDetails ? 'mr-0' : ''}`}>
-        
-        {/* Center - Messages */}
-        <div className={`flex flex-col transition-all duration-300 ${showListingDetails ? 'flex-1 max-w-none' : 'w-full'}`}>
+
+        {/* Main Content */}
+        <div className="flex-1 flex flex-col">
           {/* Header */}
           <div className="bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between">
             <div className="flex items-center">
               {!showConversationList && (
                 <button
                   onClick={() => setShowConversationList(true)}
-                  className="p-2 hover:bg-gray-100 rounded-full mr-3 transition lg:hidden"
+                  className="p-2 hover:bg-gray-100 rounded-full mr-3 transition-colors lg:hidden"
                 >
                   <ArrowLeft className="w-5 h-5" />
                 </button>
@@ -1109,19 +1070,34 @@ const ConversationDetailPage = () => {
               
               <button
                 onClick={() => router.push('/sublease/search/')}
-                className="p-2 hover:bg-gray-100 rounded-full mr-3 transition hidden lg:block"
+                className="p-2 hover:bg-gray-100 rounded-full mr-3 transition-colors hidden lg:block"
               >
                 <ArrowLeft className="w-5 h-5" />
               </button>
               
               {conversation && (
                 <div className="flex items-center">
-                  <div className="w-10 h-10 rounded-full overflow-hidden mr-3">
-                    <img 
-                      src={conversation.otherParticipant.image}
-                      alt={conversation.otherParticipant.name}
-                      className="w-full h-full object-cover"
-                    />
+                  <div className="w-10 h-10 rounded-full overflow-hidden mr-3 flex-shrink-0">
+                    {getSafeImageUrl(conversation.otherParticipant.image, 'user') ? (
+                      <img 
+                        src={getSafeImageUrl(conversation.otherParticipant.image, 'user')}
+                        alt={conversation.otherParticipant.name}
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          e.target.style.display = 'none';
+                          e.target.nextSibling.style.display = 'flex';
+                        }}
+                      />
+                    ) : null}
+                    <div 
+                      className="w-full h-full flex items-center justify-center text-white font-semibold text-sm"
+                      style={{ 
+                        backgroundColor: getAvatarColor(conversation.otherParticipant.name),
+                        display: getSafeImageUrl(conversation.otherParticipant.image, 'user') ? 'none' : 'flex'
+                      }}
+                    >
+                      {getUserInitials(conversation.otherParticipant.name)}
+                    </div>
                   </div>
                   <div>
                     <h1 className="font-semibold text-gray-900">
@@ -1139,30 +1115,30 @@ const ConversationDetailPage = () => {
                 </div>
               )}
             </div>
- 
+
             <div className="flex items-center space-x-2">
               <button
                 onClick={() => setShowListingDetails(!showListingDetails)}
-                className={`p-2 rounded-full transition ${showListingDetails ? 'bg-orange-100 text-orange-600' : 'hover:bg-gray-100'}`}
+                className={`p-2 rounded-full transition-colors ${showListingDetails ? 'bg-orange-100 text-orange-600' : 'hover:bg-gray-100'}`}
               >
                 <Info className="w-5 h-5" />
               </button>
-              <button className="p-2 hover:bg-gray-100 rounded-full transition">
+              <button className="p-2 hover:bg-gray-100 rounded-full transition-colors">
                 <Phone className="w-5 h-5" />
               </button>
-              <button className="p-2 hover:bg-gray-100 rounded-full transition">
+              <button className="p-2 hover:bg-gray-100 rounded-full transition-colors">
                 <Video className="w-5 h-5" />
               </button>
-              <button className="p-2 hover:bg-gray-100 rounded-full transition">
+              <button className="p-2 hover:bg-gray-100 rounded-full transition-colors">
                 <MoreVertical className="w-5 h-5" />
               </button>
             </div>
           </div>
- 
+
           {/* Messages Container */}
           <div className="flex-1 overflow-y-auto p-4 space-y-4">
             {messageGroups.length === 0 ? (
-              <div className="text-center py-8">
+              <div className="text-center py-12">
                 <div className="w-16 h-16 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-4">
                   {isMoveOutSale ? <Package className="w-8 h-8 text-orange-500" /> : <Send className="w-8 h-8 text-orange-500" />}
                 </div>
@@ -1178,7 +1154,7 @@ const ConversationDetailPage = () => {
               messageGroups.map((group, groupIndex) => (
                 <div key={groupIndex}>
                   {/* Date separator */}
-                  <div className="text-center my-4">
+                  <div className="text-center my-6">
                     <span className="bg-gray-200 text-gray-600 text-xs px-3 py-1 rounded-full">
                       {new Date(group.date).toLocaleDateString('en-US', { 
                         weekday: 'long', 
@@ -1200,16 +1176,31 @@ const ConversationDetailPage = () => {
                     return (
                       <div
                         key={message.id}
-                        className={`flex ${isOwnMessage ? 'justify-end' : 'justify-start'} mb-2`}
+                        className={`flex ${isOwnMessage ? 'justify-end' : 'justify-start'} mb-3`}
                       >
                         {/* Avatar for other user's messages */}
                         {!isOwnMessage && (
-                          <div className={`w-8 h-8 rounded-full overflow-hidden mr-2 ${showAvatar ? '' : 'invisible'}`}>
-                            <img 
-                              src={conversation.otherParticipant.image}
-                              alt={conversation.otherParticipant.name}
-                              className="w-full h-full object-cover"
-                            />
+                          <div className={`w-8 h-8 rounded-full overflow-hidden mr-2 flex-shrink-0 ${showAvatar ? '' : 'invisible'}`}>
+                            {getSafeImageUrl(conversation.otherParticipant.image, 'user') ? (
+                              <img 
+                                src={getSafeImageUrl(conversation.otherParticipant.image, 'user')}
+                                alt={conversation.otherParticipant.name}
+                                className="w-full h-full object-cover"
+                                onError={(e) => {
+                                  e.target.style.display = 'none';
+                                  e.target.nextSibling.style.display = 'flex';
+                                }}
+                              />
+                            ) : null}
+                            <div 
+                              className="w-full h-full flex items-center justify-center text-white font-medium text-xs"
+                              style={{ 
+                                backgroundColor: getAvatarColor(conversation.otherParticipant.name),
+                                display: getSafeImageUrl(conversation.otherParticipant.image, 'user') ? 'none' : 'flex'
+                              }}
+                            >
+                              {getUserInitials(conversation.otherParticipant.name)}
+                            </div>
                           </div>
                         )}
                         
@@ -1217,7 +1208,7 @@ const ConversationDetailPage = () => {
                           {/* Handle different message types */}
                           {message.type === 'image' ? (
                             <div className="mb-2">
-                              <div className="rounded-2xl overflow-hidden border border-gray-200">
+                              <div className="rounded-2xl overflow-hidden border border-gray-200 shadow-sm">
                                 <img 
                                   src={message.imageUrl} 
                                   alt="Shared image"
@@ -1230,19 +1221,19 @@ const ConversationDetailPage = () => {
                             <div className={`p-3 rounded-2xl border ${
                               isOwnMessage 
                                 ? 'bg-orange-500 text-white border-orange-500' 
-                                : 'bg-white text-gray-900 border-gray-200'
+                                : 'bg-white text-gray-900 border-gray-200 shadow-sm'
                             }`}>
                               <div className="flex items-center">
                                 <Paperclip className="w-4 h-4 mr-2 flex-shrink-0" />
                                 <div className="min-w-0 flex-1">
                                   <p className="text-sm font-medium truncate">{message.fileName}</p>
                                   <p className={`text-xs ${isOwnMessage ? 'text-orange-100' : 'text-gray-500'}`}>
-                                    {formatFileSize(message.fileSize)}
+                                    {Math.round(message.fileSize / 1024)} KB
                                   </p>
                                 </div>
                                 <button
                                   onClick={() => window.open(message.fileUrl, '_blank')}
-                                  className={`ml-2 p-1 rounded ${
+                                  className={`ml-2 p-1 rounded transition-colors ${
                                     isOwnMessage 
                                       ? 'hover:bg-orange-600' 
                                       : 'hover:bg-gray-100'
@@ -1259,7 +1250,7 @@ const ConversationDetailPage = () => {
                               className={`px-4 py-2 rounded-2xl ${
                                 isOwnMessage
                                   ? 'bg-orange-500 text-white rounded-br-sm'
-                                  : 'bg-white text-gray-900 border border-gray-200 rounded-bl-sm'
+                                  : 'bg-white text-gray-900 border border-gray-200 rounded-bl-sm shadow-sm'
                               }`}
                             >
                               <p className="text-sm">{message.text}</p>
@@ -1277,11 +1268,11 @@ const ConversationDetailPage = () => {
             )}
             <div ref={messagesEndRef} />
           </div>
- 
+
           {/* Message Input */}
           {conversation && (
             <div 
-              className={`bg-white border-t border-gray-200 p-4 sticky bottom-0 left-0 right-0 ${dragOver ? 'bg-orange-50 border-orange-300' : ''}`}
+              className={`bg-white border-t border-gray-200 p-4 ${dragOver ? 'bg-orange-50 border-orange-300' : ''}`}
               onDragOver={handleDragOver}
               onDragLeave={handleDragLeave}
               onDrop={handleDrop}
@@ -1295,14 +1286,14 @@ const ConversationDetailPage = () => {
                   </div>
                 </div>
               )}
- 
+
               {dragOver && (
                 <div className="mb-3 p-4 border-2 border-dashed border-orange-300 rounded-lg text-center">
                   <p className="text-orange-600 text-sm">Drop files here to upload</p>
                 </div>
               )}
- 
-              <form onSubmit={sendMessage} className="flex items-end space-x-2">
+
+              <form onSubmit={sendMessage} className="flex items-end space-x-3">
                 <div className="flex-1 relative">
                   <input
                     ref={inputRef}
@@ -1310,7 +1301,7 @@ const ConversationDetailPage = () => {
                     value={newMessage}
                     onChange={(e) => setNewMessage(e.target.value)}
                     placeholder="Type a message..."
-                    className="w-full px-4 py-3 pr-20 border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                    className="w-full px-4 py-3 pr-20 border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all"
                     disabled={sending || uploadingFile}
                   />
                   <div className="absolute right-3 top-1/2 transform -translate-y-1/2 flex items-center space-x-2">
@@ -1325,7 +1316,7 @@ const ConversationDetailPage = () => {
                       type="button" 
                       onClick={() => fileInputRef.current?.click()}
                       disabled={uploadingFile}
-                      className="p-1 text-gray-400 hover:text-gray-600 transition disabled:opacity-50"
+                      className="p-1 text-gray-400 hover:text-gray-600 transition-colors disabled:opacity-50"
                     >
                       <Paperclip className="w-4 h-4" />
                     </button>
@@ -1341,7 +1332,7 @@ const ConversationDetailPage = () => {
                       type="button" 
                       onClick={() => imageInputRef.current?.click()}
                       disabled={uploadingFile}
-                      className="p-1 text-gray-400 hover:text-gray-600 transition disabled:opacity-50"
+                      className="p-1 text-gray-400 hover:text-gray-600 transition-colors disabled:opacity-50"
                     >
                       <ImageIcon className="w-4 h-4" />
                     </button>
@@ -1351,7 +1342,7 @@ const ConversationDetailPage = () => {
                 <button
                   type="submit"
                   disabled={(!newMessage.trim() || sending || uploadingFile)}
-                  className={`p-3 rounded-full transition ${
+                  className={`p-3 rounded-full transition-colors ${
                     newMessage.trim() && !sending && !uploadingFile
                       ? 'bg-orange-500 text-white hover:bg-orange-600'
                       : 'bg-gray-200 text-gray-400 cursor-not-allowed'
@@ -1367,8 +1358,8 @@ const ConversationDetailPage = () => {
             </div>
           )}
         </div>
- 
-        {/* Right Side - Listing/Item Details */}
+
+        {/* Right Sidebar - Listing Details */}
         {showListingDetails && listing && (
           <div className="w-80 xl:w-96 bg-white border-l border-gray-200 overflow-y-auto flex-shrink-0">
             {/* Header */}
@@ -1376,14 +1367,20 @@ const ConversationDetailPage = () => {
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-lg font-semibold text-gray-900 flex items-center">
                   {isMoveOutSale ? (
-                    <><Package className="w-5 h-5 mr-2" />Item Details</>
+                    <>
+                      <Package className="w-5 h-5 mr-2" />
+                      Item Details
+                    </>
                   ) : (
-                    <><Home className="w-5 h-5 mr-2" />Listing Details</>
+                    <>
+                      <Home className="w-5 h-5 mr-2" />
+                      Listing Details
+                    </>
                   )}
                 </h2>
                 <button
                   onClick={() => setShowListingDetails(false)}
-                  className="p-1 hover:bg-gray-100 rounded-full transition"
+                  className="p-1 hover:bg-gray-100 rounded-full transition-colors"
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -1393,7 +1390,7 @@ const ConversationDetailPage = () => {
               <div className="relative mb-4">
                 <div className="h-40 rounded-lg overflow-hidden">
                   <img 
-                    src={allImages[activeImage] || listing.image}
+                    src={getSafeImageUrl(allImages[activeImage] || listing.image, 'listing')}
                     alt={listing.title}
                     className="w-full h-full object-cover cursor-pointer"
                     onClick={() => setShowAllImages(true)}
@@ -1405,13 +1402,13 @@ const ConversationDetailPage = () => {
                   <>
                     <button 
                       onClick={goToPrevImage}
-                      className="absolute left-2 top-1/2 transform -translate-y-1/2 p-2 bg-white bg-opacity-80 rounded-full hover:bg-opacity-100 transition"
+                      className="absolute left-2 top-1/2 transform -translate-y-1/2 p-2 bg-white bg-opacity-80 rounded-full hover:bg-opacity-100 transition-colors"
                     >
                       <ChevronLeft size={16} />
                     </button>
                     <button 
                       onClick={goToNextImage}
-                      className="absolute right-2 top-1/2 transform -translate-y-1/2 p-2 bg-white bg-opacity-80 rounded-full hover:bg-opacity-100 transition"
+                      className="absolute right-2 top-1/2 transform -translate-y-1/2 p-2 bg-white bg-opacity-80 rounded-full hover:bg-opacity-100 transition-colors"
                     >
                       <ChevronRight size={16} />
                     </button>
@@ -1431,20 +1428,41 @@ const ConversationDetailPage = () => {
                 )}
               </div>
             </div>
- 
+
             {/* Title and Owner */}
             <div className="p-4 border-b border-gray-200">
               <h3 className="text-lg font-semibold text-gray-900 mb-2">{listing.title}</h3>
               <p className="text-gray-600 mb-3">{isMoveOutSale ? 'Sold by' : 'Hosted by'} {listing.hostName}</p>
               
-              {/* Owner Avatar */}
-              <div className="flex items-center">
-                <div className="w-8 h-8 rounded-full overflow-hidden mr-3">
-                  <img 
-                    src={listing.hostImage}
-                    alt={listing.hostName}
-                    className="w-full h-full object-cover"
-                  />
+              {/* Owner Info */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center">
+                  <div className="w-8 h-8 rounded-full overflow-hidden mr-3">
+                    {getSafeImageUrl(listing.hostImage, 'user') ? (
+                      <img 
+                        src={getSafeImageUrl(listing.hostImage, 'user')}
+                        alt={listing.hostName}
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          e.target.style.display = 'none';
+                          e.target.nextSibling.style.display = 'flex';
+                        }}
+                      />
+                    ) : null}
+                    <div 
+                      className="w-full h-full flex items-center justify-center text-white font-medium text-xs"
+                      style={{ 
+                        backgroundColor: getAvatarColor(listing.hostName),
+                        display: getSafeImageUrl(listing.hostImage, 'user') ? 'none' : 'flex'
+                      }}
+                    >
+                      {getUserInitials(listing.hostName)}
+                    </div>
+                  </div>
+                  <div className="flex items-center">
+                    <Star className="w-3 h-3 text-yellow-400 mr-1" />
+                    <span className="text-sm text-gray-600">{listing.rating || 4.5} ({listing.reviews || 8} reviews)</span>
+                  </div>
                 </div>
                 {listing.isVerifiedUMN && (
                   <div className="bg-orange-100 text-orange-800 text-xs px-2 py-1 rounded-full flex items-center">
@@ -1454,50 +1472,48 @@ const ConversationDetailPage = () => {
                 )}
               </div>
             </div>
- 
+
             {/* Key Details */}
             <div className="p-4 border-b border-gray-200">
-              <div className="space-y-2">
-                <div className="flex items-center justify-between text-sm">
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
                   <span className="text-gray-600">Price</span>
-                  <span className="font-semibold">${listing.price}{labels.priceLabel}</span>
+                  <span className="font-semibold text-lg">${listing.price}{labels.priceLabel}</span>
                 </div>
-                <div className="flex items-center justify-between text-sm">
+                <div className="flex items-center justify-between">
                   <span className="text-gray-600">Location</span>
-                  <span className="font-medium text-right text-xs">{listing.location}</span>
+                  <span className="font-medium text-sm">{listing.location}</span>
                 </div>
                 
-                {/* Conditional details based on type */}
+                {/* Conditional details */}
                 {isMoveOutSale ? (
                   <>
                     {listing.condition && (
-                      <div className="flex items-center justify-between text-sm">
+                      <div className="flex items-center justify-between">
                         <span className="text-gray-600">Condition</span>
-                        <span className="font-medium text-xs">{listing.condition}</span>
+                        <span className="font-medium text-sm">{listing.condition}</span>
                       </div>
                     )}
                     {listing.category && (
-                      <div className="flex items-center justify-between text-sm">
+                      <div className="flex items-center justify-between">
                         <span className="text-gray-600">Category</span>
-                        <span className="font-medium text-xs">{listing.category}</span>
+                        <span className="font-medium text-sm">{listing.category}</span>
                       </div>
                     )}
                   </>
                 ) : (
-                  <div className="flex items-center justify-between text-sm">
+                  <div className="flex items-center justify-between">
                     <span className="text-gray-600">Bedrooms</span>
-                    <span className="font-medium text-xs">{listing.bedrooms} bed, {listing.bathrooms} bath</span>
+                    <span className="font-medium text-sm">{listing.bedrooms} bed, {listing.bathrooms} bath</span>
                   </div>
                 )}
-                
-                
               </div>
             </div>
- 
+
             {/* Features/Amenities */}
             {((isMoveOutSale && listing.features) || (!isMoveOutSale && listing.amenities)) && (
               <div className="p-4 border-b border-gray-200">
-                <h4 className="font-medium text-gray-900 mb-3 text-sm">
+                <h4 className="font-medium text-gray-900 mb-3">
                   {isMoveOutSale ? 'Features' : 'Amenities'}
                 </h4>
                 <div className="grid grid-cols-2 gap-2">
@@ -1512,12 +1528,12 @@ const ConversationDetailPage = () => {
                 </div>
               </div>
             )}
- 
+
             {/* Action Buttons */}
-            <div className="p-4 space-y-2">
+            <div className="p-4 space-y-3">
               <button
                 onClick={() => setIsFavorited(!isFavorited)}
-                className={`w-full py-2 px-3 rounded-lg border transition flex items-center justify-center text-sm ${
+                className={`w-full py-3 px-4 rounded-lg border transition-colors flex items-center justify-center font-medium ${
                   isFavorited 
                     ? 'bg-red-50 border-red-200 text-red-600' 
                     : 'bg-gray-50 border-gray-200 text-gray-700 hover:bg-gray-100'
@@ -1529,69 +1545,39 @@ const ConversationDetailPage = () => {
               
               <button
                 onClick={() => router.push(`/sublease/search/${listing.id}`)}
-                className="w-full py-2 px-3 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition font-medium text-sm"
+                className="w-full py-3 px-4 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors font-medium"
               >
                 {labels.actionButton}
               </button>
               
               <button
                 onClick={() => router.push(`/sublease/search/${listing.id}/tour`)}
-                className="w-full py-2 px-3 border border-orange-500 text-orange-600 rounded-lg hover:bg-orange-50 transition font-medium text-sm"
+                className="w-full py-3 px-4 border border-orange-500 text-orange-600 rounded-lg hover:bg-orange-50 transition-colors font-medium"
               >
                 {labels.tourButton}
               </button>
             </div>
- 
-            {/* Quick Actions for Conversations */}
-            {conversation && (
-              <div className="p-4 bg-gray-50 border-t border-gray-200">
-                <h4 className="font-medium text-gray-900 mb-3 text-sm">Quick Actions</h4>
-                <div className="space-y-2 text-xs">
-                  {conversation.isUserHost ? (
-                    labels.hostActions.map((action, index) => (
-                      <button key={index} className="w-full text-left text-orange-600 hover:text-orange-800 py-2">
-                        {action}
-                      </button>
-                    ))
-                  ) : (
-                    labels.guestActions.map((action, index) => (
-                      <button 
-                        key={index}
-                        onClick={() => {
-                          if (action.includes('Tour') || action.includes('Pickup')) {
-                            router.push(`/sublease/search/${listing.id}/tour`);
-                          }
-                        }}
-                        className="w-full text-left text-orange-600 hover:text-orange-800 py-2"
-                      >
-                        {action}
-                      </button>
-                    ))
-                  )}
-                </div>
-              </div>
-            )}
- 
+
             {/* Description */}
             {listing.description && (
               <div className="p-4 border-t border-gray-200">
-                <h4 className="font-medium text-gray-900 mb-3 text-sm">
+                <h4 className="font-medium text-gray-900 mb-3">
                   {isMoveOutSale ? 'About this item' : 'About this place'}
                 </h4>
-                <p className="text-gray-700 text-xs leading-relaxed">
+                <p className="text-gray-700 text-sm leading-relaxed">
                   {listing.description}
                 </p>
               </div>
             )}
- 
-            {/* Availability/Pickup Information */}
+
+            {/* Availability Information */}
             {listing.availableFrom && listing.availableTo && (
               <div className="p-4 border-t border-gray-200">
-                <h4 className="font-medium text-gray-900 mb-3 text-sm">
-                  {isMoveOutSale ? 'Pickup Availability' : 'Availability'}
+                <h4 className="font-medium text-gray-900 mb-3">
+                  {isMoveOutSale ? 'Item Availability' : 'Availability'}
                 </h4>
                 <div className="space-y-2">
-                  <div className="flex items-center justify-between text-xs">
+                  <div className="flex items-center justify-between text-sm">
                     <span className="text-gray-600">
                       {isMoveOutSale ? 'Available from' : 'Check-in'}
                     </span>
@@ -1603,9 +1589,9 @@ const ConversationDetailPage = () => {
                       })}
                     </span>
                   </div>
-                  <div className="flex items-center justify-between text-xs">
+                  <div className="flex items-center justify-between text-sm">
                     <span className="text-gray-600">
-                      {isMoveOutSale ? 'Last pickup date' : 'Check-out'}
+                      {isMoveOutSale ? 'Available until' : 'Check-out'}
                     </span>
                     <span className="font-medium">
                       {listing.availableTo.toLocaleDateString('en-US', { 
@@ -1619,56 +1605,6 @@ const ConversationDetailPage = () => {
               </div>
             )}
 
-            {/* Move Out Sale Specific Information */}
-            {isMoveOutSale && (
-              <>
-                {/* Dimensions and Weight */}
-                {(listing.dimensions || listing.weight) && (
-                  <div className="p-4 border-t border-gray-200">
-                    <h4 className="font-medium text-gray-900 mb-3 text-sm">Item Specifications</h4>
-                    <div className="space-y-2">
-                      {listing.dimensions && (
-                        <div className="flex items-center justify-between text-xs">
-                          <span className="text-gray-600">Dimensions</span>
-                          <span className="font-medium">{listing.dimensions}</span>
-                        </div>
-                      )}
-                      {listing.weight && (
-                        <div className="flex items-center justify-between text-xs">
-                          <span className="text-gray-600">Weight</span>
-                          <span className="font-medium">{listing.weight}</span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {/* Payment Methods */}
-                {listing.paymentMethods && listing.paymentMethods.length > 0 && (
-                  <div className="p-4 border-t border-gray-200">
-                    <h4 className="font-medium text-gray-900 mb-3 text-sm">Payment Methods</h4>
-                    <div className="flex flex-wrap gap-2">
-                      {listing.paymentMethods.map((method, index) => (
-                        <span key={index} className="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded">
-                          {method}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Pickup Information */}
-                {listing.pickupInfo && (
-                  <div className="p-4 border-t border-gray-200">
-                    <h4 className="font-medium text-gray-900 mb-3 text-sm">Pickup Information</h4>
-                    <p className="text-gray-700 text-xs leading-relaxed">
-                      {listing.pickupInfo}
-                    </p>
-                  </div>
-                )}
-              </>
-            )}
-
             {/* Contact Information */}
             {conversation && (
               <div className="p-4 border-t border-gray-200 bg-orange-50">
@@ -1676,18 +1612,18 @@ const ConversationDetailPage = () => {
                   <div className="w-10 h-10 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-3">
                     <User className="w-5 h-5 text-orange-600" />
                   </div>
-                  <h4 className="font-medium text-gray-900 mb-1 text-sm">Need Help?</h4>
-                  <p className="text-gray-600 text-xs mb-4">
+                  <h4 className="font-medium text-gray-900 mb-1">Need Help?</h4>
+                  <p className="text-gray-600 text-sm mb-4">
                     Contact {conversation.isUserHost 
                       ? `your ${isMoveOutSale ? 'buyer' : 'guest'}` 
                       : `your ${isMoveOutSale ? 'seller' : 'host'}`
-                    } if you have any questions about this {isMoveOutSale ? 'item' : 'listing'}.
+                    } if you have any questions.
                   </p>
                   <div className="flex space-x-2">
-                    <button className="flex-1 py-2 px-3 bg-white border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition text-xs">
+                    <button className="flex-1 py-2 px-3 bg-white border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors">
                       <Phone className="w-4 h-4 mx-auto" />
                     </button>
-                    <button className="flex-1 py-2 px-3 bg-white border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition text-xs">
+                    <button className="flex-1 py-2 px-3 bg-white border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors">
                       <Video className="w-4 h-4 mx-auto" />
                     </button>
                   </div>

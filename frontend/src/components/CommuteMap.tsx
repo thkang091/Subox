@@ -1,8 +1,22 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { MapPin, Clock, Car, Route, X, Navigation, Users, Heart, Star, Calendar, BedDouble, Train, Bus, Bike, Zap, ChevronDown, ChevronUp, Info } from 'lucide-react';
-import { AlertCircle } from 'lucide-react';
+import { 
+  MapPin, Clock, Car, Route, X, Navigation, Users, Heart, Star, 
+  Calendar, BedDouble, Train, Bus, Bike, Zap, ChevronDown, ChevronUp, 
+  Info, AlertCircle, Eye, EyeOff, Home
+} from 'lucide-react';
 
-// Enhanced map component that shows mode-specific results from CommuteLocationPicker
+// Helper function to calculate distance between two points
+const calculateDistance = (lat1, lng1, lat2, lng2) => {
+  const R = 6371; // Earth's radius in kilometers
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLng = (lng2 - lng1) * Math.PI / 180;
+  const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLng/2) * Math.sin(dLng/2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  return R * c; // Distance in kilometers
+};
+
 const EnhancedCommuteResultsMap = ({ 
   routeResults = [], 
   selectedDestination = null,
@@ -18,14 +32,11 @@ const EnhancedCommuteResultsMap = ({
   const markersRef = useRef([]);
   const directionsRenderersRef = useRef([]);
   const alternativeRenderersRef = useRef([]);
-  const [isGoogleMapsReady, setIsGoogleMapsReady] = useState(false);
-  const [googleMapsError, setGoogleMapsError] = useState(null);
-  const [isLoadingGoogleMaps, setIsLoadingGoogleMaps] = useState(false);
+  
   const [isGoogleMapsLoaded, setIsGoogleMapsLoaded] = useState(false);
-  const [selectedListing, setSelectedListing] = useState(null);
   const [mapInitialized, setMapInitialized] = useState(false);
+  const [selectedListing, setSelectedListing] = useState(null);
   const [showAlternatives, setShowAlternatives] = useState(true);
-  const [selectedRouteIndex, setSelectedRouteIndex] = useState({});
   const [routeDetailsExpanded, setRouteDetailsExpanded] = useState({});
 
   // Check if Google Maps is loaded
@@ -103,39 +114,14 @@ const EnhancedCommuteResultsMap = ({
     };
   };
 
-  // Enhanced route colors and styles based on transport mode
-  const getRouteStyle = (transportMode, isAlternative = false, alternativeIndex = 0) => {
+  // Route styling based on transport mode
+  const getRouteStyle = (transportMode, isAlternative = false) => {
     const baseStyles = {
-      walking: { 
-        color: '#22c55e', 
-        weight: 4, 
-        opacity: 0.8,
-        pattern: 'solid'
-      },
-      transit: { 
-        color: '#3b82f6', 
-        weight: 5, 
-        opacity: 0.9,
-        pattern: 'solid'
-      },
-      bicycling: { 
-        color: '#f97316', 
-        weight: 4, 
-        opacity: 0.8,
-        pattern: 'solid'
-      },
-      driving: { 
-        color: '#8b5cf6', 
-        weight: 5, 
-        opacity: 0.8,
-        pattern: 'solid'
-      },
-      scooter: { 
-        color: '#eab308', 
-        weight: 4, 
-        opacity: 0.8,
-        pattern: 'solid'
-      }
+      walking: { color: '#22c55e', weight: 4, opacity: 0.8 },
+      transit: { color: '#3b82f6', weight: 5, opacity: 0.9 },
+      bicycling: { color: '#f97316', weight: 4, opacity: 0.8 },
+      driving: { color: '#8b5cf6', weight: 5, opacity: 0.8 },
+      scooter: { color: '#eab308', weight: 4, opacity: 0.8 }
     };
 
     const style = baseStyles[transportMode] || baseStyles.transit;
@@ -143,33 +129,17 @@ const EnhancedCommuteResultsMap = ({
     if (isAlternative) {
       return {
         ...style,
-        opacity: style.opacity * 0.6,
-        weight: style.weight - 1,
-        color: adjustColorBrightness(style.color, alternativeIndex * 20)
+        opacity: style.opacity * 0.5,
+        weight: style.weight - 1
       };
     }
     
     return style;
   };
 
-  const adjustColorBrightness = (hex, percent) => {
-    const num = parseInt(hex.replace("#",""), 16);
-    const amt = Math.round(2.55 * percent);
-    const R = (num >> 16) + amt;
-    const G = (num >> 8 & 0x00FF) + amt;
-    const B = (num & 0x0000FF) + amt;
-    return "#" + (0x1000000 + (R<255?R<1?0:R:255)*0x10000 + (G<255?G<1?0:G:255)*0x100 + (B<255?B<1?0:B:255)).toString(16).slice(1);
-  };
-
-  // Enhanced map update with mode-specific route rendering
+  // Update map with route results
   useEffect(() => {
     if (!mapInstanceRef.current || !isVisible || !mapInitialized) return;
-
-    console.log('🗺️ Updating enhanced map with:', {
-      routeResults: routeResults.length,
-      selectedDestination,
-      listings: listings.length
-    });
 
     // Clear existing markers and routes
     markersRef.current.forEach(marker => marker.setMap(null));
@@ -186,141 +156,143 @@ const EnhancedCommuteResultsMap = ({
       const destinationMarker = new window.google.maps.Marker({
         position: { lat: selectedDestination.lat, lng: selectedDestination.lng },
         map: mapInstanceRef.current,
-        title: selectedDestination.placeName || 'Your Commute Destination',
+        title: selectedDestination.placeName || 'Your Destination',
+        zIndex: 1000,
         icon: {
           url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
-            <svg width="40" height="40" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
-              <circle cx="20" cy="20" r="18" fill="#dc2626" stroke="#fff" stroke-width="3"/>
-              <circle cx="20" cy="20" r="8" fill="#fff"/>
-              <circle cx="20" cy="20" r="4" fill="#dc2626"/>
+            <svg width="40" height="48" viewBox="0 0 40 48" xmlns="http://www.w3.org/2000/svg">
+              <path d="M20 0C9 0 0 9 0 20c0 15 20 28 20 28s20-13 20-28C40 9 31 0 20 0z" fill="#dc2626"/>
+              <circle cx="20" cy="20" r="12" fill="#fff"/>
+              <circle cx="20" cy="20" r="8" fill="#dc2626"/>
             </svg>
           `),
-          scaledSize: new window.google.maps.Size(40, 40)
+          scaledSize: new window.google.maps.Size(40, 48),
+          anchor: new window.google.maps.Point(20, 48)
         }
       });
       markersRef.current.push(destinationMarker);
       bounds.extend({ lat: selectedDestination.lat, lng: selectedDestination.lng });
     }
 
-    // Add enhanced markers for listings with mode-specific route rendering
+    // Add listing markers
     listings.forEach((listing, index) => {
       const coords = getListingCoordinates(listing);
       const routeResult = routeResults.find(r => r.listingId === listing.id);
       const hasRoute = !!routeResult;
       
-      console.log(`🏠 Processing listing ${listing.id}:`, {
-        coords,
-        hasRoute,
-        routeResult: routeResult ? { 
-          duration: routeResult.duration, 
-          distance: routeResult.distance,
-          transportMode: routeResult.transportMode,
-          hasAlternatives: !!routeResult.alternatives?.length 
-        } : null
-      });
+      // Check if listing is close to destination
+      const isCloseToDestination = selectedDestination && 
+        calculateDistance(coords.lat, coords.lng, selectedDestination.lat, selectedDestination.lng) < 0.05;
       
-      // Create enhanced marker with transport mode indication
-      const transportIcon = routeResult ? getTransportModeIcon(routeResult.transportMode) : '📍';
+      // Adjust position slightly if too close to destination
+      let adjustedCoords = coords;
+      if (isCloseToDestination) {
+        const offsetAngle = (index * 45) * (Math.PI / 180);
+        const offsetDistance = 0.001;
+        adjustedCoords = {
+          ...coords,
+          lat: coords.lat + Math.sin(offsetAngle) * offsetDistance,
+          lng: coords.lng + Math.cos(offsetAngle) * offsetDistance
+        };
+      }
+      
+      // Create marker with clean design
       const marker = new window.google.maps.Marker({
-        position: { lat: coords.lat, lng: coords.lng },
+        position: { lat: adjustedCoords.lat, lng: adjustedCoords.lng },
         map: mapInstanceRef.current,
-        title: hasRoute 
-          ? `${listing.title} - ${routeResult.duration} ${routeResult.transportMode} commute`
-          : `${listing.title} - Route not calculated`,
+        title: routeResult?.isAtDestination 
+          ? `${listing.title} - At destination`
+          : hasRoute 
+            ? `${listing.title} - ${routeResult.duration} commute`
+            : `${listing.title}`,
+        zIndex: routeResult?.isAtDestination ? 1001 : (isCloseToDestination ? 999 : 500),
         icon: {
           url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
-            <svg width="50" height="60" viewBox="0 0 50 60" xmlns="http://www.w3.org/2000/svg">
-              <path d="M25 0C11.2 0 0 11.2 0 25c0 18.8 25 35 25 35s25-16.2 25-35C50 11.2 38.8 0 25 0z" fill="${hasRoute ? '#f97316' : '#6b7280'}"/>
-              <circle cx="25" cy="25" r="18" fill="#fff"/>
-              <text x="25" y="18" text-anchor="middle" fill="${hasRoute ? '#f97316' : '#6b7280'}" font-size="7" font-weight="bold">${Math.round(listing.price/100)}k</text>
-              <text x="25" y="28" text-anchor="middle" fill="${hasRoute ? '#f97316' : '#6b7280'}" font-size="8">${transportIcon}</text>
-              ${hasRoute 
-                ? `<text x="25" y="36" text-anchor="middle" fill="#f97316" font-size="5" font-weight="bold">${routeResult.duration.split(' ')[0]}min</text>`
-                : `<text x="25" y="36" text-anchor="middle" fill="#6b7280" font-size="5" font-weight="bold">No route</text>`
-              }
+            <svg width="36" height="44" viewBox="0 0 36 44" xmlns="http://www.w3.org/2000/svg">
+              <path d="M18 0C8 0 0 8 0 18c0 14 18 26 18 26s18-12 18-26C36 8 28 0 18 0z" 
+                    fill="${routeResult?.isAtDestination ? '#10b981' : (hasRoute ? '#f97316' : '#6b7280')}" 
+                    stroke="#fff" 
+                    stroke-width="2"/>
+              <circle cx="18" cy="18" r="12" fill="#fff"/>
+              <text x="18" y="15" text-anchor="middle" fill="${routeResult?.isAtDestination ? '#10b981' : (hasRoute ? '#f97316' : '#6b7280')}" 
+                    font-size="7" font-weight="bold">$${Math.round(listing.price/100)}k</text>
+              <text x="18" y="23" text-anchor="middle" fill="${routeResult?.isAtDestination ? '#10b981' : (hasRoute ? '#f97316' : '#6b7280')}" 
+                    font-size="6">${routeResult?.isAtDestination 
+                      ? 'HERE' 
+                      : hasRoute 
+                        ? `${routeResult.duration.split(' ')[0]}min`
+                        : 'N/A'
+                    }</text>
             </svg>
           `),
-          scaledSize: new window.google.maps.Size(40, 48)
+          scaledSize: new window.google.maps.Size(36, 44),
+          anchor: new window.google.maps.Point(18, 44)
         }
       });
 
-      // Add click listener with enhanced info
+      // Add click listener
       marker.addListener('click', () => {
         setSelectedListing({
           ...listing, 
           commute: routeResult, 
-          coordinates: coords,
-          alternatives: routeResult?.alternatives || []
+          coordinates: adjustedCoords,
+          alternatives: routeResult?.alternatives || [],
+          isCloseToDestination,
+          isAtDestination: routeResult?.isAtDestination
         });
       });
 
       markersRef.current.push(marker);
-      bounds.extend({ lat: coords.lat, lng: coords.lng });
+      bounds.extend({ lat: adjustedCoords.lat, lng: adjustedCoords.lng });
 
-      // Enhanced route rendering with mode-specific styles and alternatives
-      if (routeResult && routeResult.route && selectedDestination) {
-        console.log(`🛣️ Drawing enhanced ${routeResult.transportMode} route for listing ${listing.id}`);
-        
+      // Render routes
+      if (routeResult && routeResult.route && selectedDestination && !routeResult.isAtDestination) {
         try {
-          // Render primary route
-          renderEnhancedRoute(
+          renderRoute(
             routeResult.route, 
             routeResult.transportMode, 
-            listing.id, 
-            false, 
-            0
+            false
           );
 
-          // Render alternative routes if enabled and available
+          // Render alternatives if enabled
           if (showAlternatives && routeResult.alternatives && routeResult.alternatives.length > 0) {
-            console.log(`🔀 Drawing ${routeResult.alternatives.length} alternative routes for ${listing.id}`);
-            
             routeResult.alternatives.forEach((alternative, altIndex) => {
-              renderEnhancedRoute(
+              renderRoute(
                 alternative.route,
                 routeResult.transportMode,
-                listing.id,
-                true,
-                altIndex
+                true
               );
             });
           }
           
         } catch (error) {
-          console.error(`❌ Error rendering enhanced route for listing ${listing.id}:`, error);
+          console.error(`Error rendering route for listing ${listing.id}:`, error);
           
           // Fallback to simple line
-          try {
-            const path = [
-              { lat: coords.lat, lng: coords.lng },
-              { lat: selectedDestination.lat, lng: selectedDestination.lng }
-            ];
+          const path = [
+            { lat: adjustedCoords.lat, lng: adjustedCoords.lng },
+            { lat: selectedDestination.lat, lng: selectedDestination.lng }
+          ];
 
-            const style = getRouteStyle(routeResult.transportMode);
-            const polyline = new window.google.maps.Polyline({
-              path: path,
-              geodesic: true,
-              strokeColor: style.color,
-              strokeOpacity: style.opacity,
-              strokeWeight: style.weight,
-              map: mapInstanceRef.current
-            });
+          const style = getRouteStyle(routeResult.transportMode);
+          const polyline = new window.google.maps.Polyline({
+            path: path,
+            geodesic: true,
+            strokeColor: style.color,
+            strokeOpacity: style.opacity,
+            strokeWeight: style.weight,
+            map: mapInstanceRef.current
+          });
 
-            directionsRenderersRef.current.push({
-              setMap: (map) => polyline.setMap(map)
-            });
-            
-          } catch (fallbackError) {
-            console.error(`❌ All route rendering methods failed for listing ${listing.id}:`, fallbackError);
-          }
+          directionsRenderersRef.current.push({
+            setMap: (map) => polyline.setMap(map)
+          });
         }
       }
     });
 
-    // Apply optimal zoom immediately
+    // Fit map bounds
     if (routeResults.length > 0 && selectedDestination) {
-      console.log('🎯 Calculating optimal zoom for enhanced routes...');
-      
       const routeBounds = new window.google.maps.LatLngBounds();
       routeBounds.extend(new window.google.maps.LatLng(selectedDestination.lat, selectedDestination.lng));
       
@@ -333,12 +305,12 @@ const EnhancedCommuteResultsMap = ({
       });
       
       setTimeout(() => {
-        mapInstanceRef.current.fitBounds(routeBounds, { padding: 60 });
+        mapInstanceRef.current.fitBounds(routeBounds, { padding: 80 });
         
         setTimeout(() => {
           const currentZoom = mapInstanceRef.current.getZoom();
-          if (currentZoom < 13) {
-            mapInstanceRef.current.setZoom(13);
+          if (currentZoom < 12) {
+            mapInstanceRef.current.setZoom(12);
           } else if (currentZoom > 16) {
             mapInstanceRef.current.setZoom(16);
           }
@@ -352,9 +324,9 @@ const EnhancedCommuteResultsMap = ({
     
   }, [routeResults, selectedDestination, listings, isVisible, mapInitialized, showAlternatives]);
 
-  // Enhanced route rendering function
-  const renderEnhancedRoute = (route, transportMode, listingId, isAlternative, alternativeIndex) => {
-    const style = getRouteStyle(transportMode, isAlternative, alternativeIndex);
+  // Route rendering function
+  const renderRoute = (route, transportMode, isAlternative) => {
+    const style = getRouteStyle(transportMode, isAlternative);
     
     try {
       if (route.overview_path && route.overview_path.length > 0) {
@@ -363,7 +335,6 @@ const EnhancedCommuteResultsMap = ({
           lng: point.lng()
         }));
 
-        // Enhanced polyline with mode-specific styling
         const polylineOptions = {
           path: routePath,
           geodesic: true,
@@ -376,21 +347,11 @@ const EnhancedCommuteResultsMap = ({
         // Add dashed pattern for alternatives
         if (isAlternative) {
           polylineOptions.strokePattern = [
-            { icon: { path: 'M 0,-1 0,1', strokeOpacity: 1, scale: 2 }, offset: '0', repeat: '10px' }
+            { icon: { path: 'M 0,-1 0,1', strokeOpacity: 1, scale: 2 }, offset: '0', repeat: '8px' }
           ];
         }
 
-        // Special handling for transit routes - add station markers
-        if (transportMode === 'transit' && !isAlternative) {
-          addTransitStationMarkers(route, listingId);
-        }
-
         const polyline = new window.google.maps.Polyline(polylineOptions);
-
-        // Add route click listener for details
-        polyline.addListener('click', (event) => {
-          showRouteDetails(route, transportMode, event.latLng, isAlternative, alternativeIndex);
-        });
 
         if (isAlternative) {
           alternativeRenderersRef.current.push({
@@ -401,132 +362,33 @@ const EnhancedCommuteResultsMap = ({
             setMap: (map) => polyline.setMap(map)
           });
         }
-        
-        console.log(`✅ Enhanced ${transportMode} route rendered for ${listingId} (alternative: ${isAlternative})`);
       }
     } catch (error) {
-      console.error(`❌ Error in enhanced route rendering:`, error);
+      console.error('Error in route rendering:', error);
     }
-  };
-
-  // Add transit station markers for better visualization
-  const addTransitStationMarkers = (route, listingId) => {
-    if (!route.legs || !route.legs[0] || !route.legs[0].steps) return;
-
-    route.legs[0].steps.forEach((step, stepIndex) => {
-      if (step.travel_mode === 'TRANSIT' && step.transit) {
-        const transit = step.transit;
-        
-        // Add departure station marker
-        if (transit.departure_stop) {
-          const stationMarker = new window.google.maps.Marker({
-            position: transit.departure_stop.location,
-            map: mapInstanceRef.current,
-            title: `${transit.departure_stop.name} - ${transit.line.name}`,
-            icon: {
-              url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
-                <svg width="20" height="20" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
-                  <circle cx="10" cy="10" r="8" fill="#3b82f6" stroke="#fff" stroke-width="2"/>
-                  <circle cx="10" cy="10" r="4" fill="#fff"/>
-                </svg>
-              `),
-              scaledSize: new window.google.maps.Size(20, 20)
-            }
-          });
-          markersRef.current.push(stationMarker);
-        }
-      }
-    });
-  };
-
-  // Show detailed route information
-  const showRouteDetails = (route, transportMode, position, isAlternative, alternativeIndex) => {
-    const infoWindow = new window.google.maps.InfoWindow({
-      content: generateRouteInfoContent(route, transportMode, isAlternative, alternativeIndex),
-      position: position
-    });
-    
-    infoWindow.open(mapInstanceRef.current);
-  };
-
-  // Generate enhanced route info content
-  const generateRouteInfoContent = (route, transportMode, isAlternative, alternativeIndex) => {
-    const leg = route.legs[0];
-    const routeType = isAlternative ? `Alternative Route ${alternativeIndex + 1}` : 'Primary Route';
-    
-    let content = `
-      <div style="max-width: 250px; font-family: Arial, sans-serif;">
-        <h4 style="margin: 0 0 8px 0; color: #1f2937;">${routeType}</h4>
-        <p style="margin: 4px 0; color: #6b7280;"><strong>Mode:</strong> ${getTransportModeLabel(transportMode)}</p>
-        <p style="margin: 4px 0; color: #6b7280;"><strong>Duration:</strong> ${leg.duration?.text || 'Unknown'}</p>
-        <p style="margin: 4px 0; color: #6b7280;"><strong>Distance:</strong> ${leg.distance?.text || 'Unknown'}</p>
-    `;
-
-    if (transportMode === 'transit' && leg.steps) {
-      const transitSteps = leg.steps.filter(step => step.travel_mode === 'TRANSIT');
-      if (transitSteps.length > 0) {
-        content += '<p style="margin: 8px 0 4px 0; color: #1f2937;"><strong>Transit Lines:</strong></p>';
-        transitSteps.forEach(step => {
-          const transit = step.transit;
-          if (transit?.line?.name) {
-            content += `<p style="margin: 2px 0; color: #3b82f6; font-size: 12px;">• ${transit.line.name}</p>`;
-          }
-        });
-      }
-    }
-
-    if (transportMode === 'driving' && leg.duration_in_traffic) {
-      content += `<p style="margin: 4px 0; color: #dc2626;"><strong>In Traffic:</strong> ${leg.duration_in_traffic.text}</p>`;
-    }
-
-    content += '</div>';
-    return content;
   };
 
   // Helper functions
-  const getTransportModeIcon = (mode) => {
-    switch (mode?.toLowerCase()) {
-      case 'walking': return '🚶';
-      case 'transit': return '🚌';
-      case 'bicycling': return '🚴';
-      case 'driving': return '🚗';
-      case 'scooter': return '🛴';
-      default: return '📍';
-    }
-  };
-
   const getTransportIcon = (mode) => {
     switch (mode?.toLowerCase()) {
-      case 'walking': return <Users size={14} className="text-green-500" />;
-      case 'transit': return <Train size={14} className="text-blue-500" />;
-      case 'bicycling': return <Bike size={14} className="text-orange-500" />;
-      case 'driving': return <Car size={14} className="text-purple-500" />;
-      case 'scooter': return <Zap size={14} className="text-yellow-500" />;
-      default: return <Route size={14} className="text-gray-500" />;
+      case 'walking': return <Users size={16} className="text-green-600" />;
+      case 'transit': return <Train size={16} className="text-blue-600" />;
+      case 'bicycling': return <Bike size={16} className="text-orange-600" />;
+      case 'driving': return <Car size={16} className="text-purple-600" />;
+      case 'scooter': return <Zap size={16} className="text-yellow-600" />;
+      default: return <Route size={16} className="text-gray-500" />;
     }
   };
 
-  const getTransportModeLabel = (mode) => {
+  const getTransportLabel = (mode) => {
     switch (mode?.toLowerCase()) {
       case 'walking': return 'Walking';
-      case 'transit': return 'Public Transit';
+      case 'transit': return 'Transit';
       case 'bicycling': return 'Biking';
       case 'driving': return 'Driving';
-      case 'scooter': return 'Scooter/E-bike';
+      case 'scooter': return 'Scooter';
       default: return 'Unknown';
     }
-  };
-
-  const convertPrice = (monthlyPrice, type = 'monthly') => {
-    switch(type) {
-      case 'weekly': return Math.round(monthlyPrice / 4);
-      case 'daily': return Math.round(monthlyPrice / 30);
-      default: return monthlyPrice;
-    }
-  };
-
-  const toggleAlternativeRoutes = () => {
-    setShowAlternatives(!showAlternatives);
   };
 
   const toggleRouteDetails = (listingId) => {
@@ -544,190 +406,205 @@ const EnhancedCommuteResultsMap = ({
         <div className="bg-white rounded-lg p-8 max-w-md w-full mx-4">
           <div className="text-center">
             <div className="animate-spin w-8 h-8 border-4 border-orange-500 border-t-transparent rounded-full mx-auto mb-4"></div>
-            <p className="text-gray-600">Loading Enhanced Map...</p>
+            <p className="text-gray-600">Loading Map...</p>
           </div>
         </div>
       </div>
     );
   }
 
+  const listingsAtDestination = routeResults.filter(r => r.isAtDestination).length;
+
   return (
-    <div className="w-full">
-      {/* Enhanced Map Section */}
-      <div className="bg-white rounded-lg shadow-md overflow-hidden mb-6">
+    <div className="w-full max-w-7xl mx-auto space-y-6">
+      {/* Map Section */}
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
         <div className="relative">
           <div ref={mapRef} className="w-full h-96" />
           
-          {/* Enhanced Map Controls */}
-          <div className="absolute top-4 left-4 bg-white rounded-lg shadow-lg p-3 z-10">
-            <h4 className="font-medium text-gray-800 mb-2 text-sm">Enhanced Route Controls</h4>
+          {/* Map Controls */}
+          <div className="absolute top-4 left-4 bg-white rounded-lg shadow-lg p-4 z-10 border border-gray-200">
+            <h3 className="font-semibold text-gray-900 mb-3 text-sm">Map Controls</h3>
             <div className="space-y-2">
               <button
-                onClick={toggleAlternativeRoutes}
-                className={`w-full text-xs px-2 py-1 rounded transition-colors ${
+                onClick={() => setShowAlternatives(!showAlternatives)}
+                className={`flex items-center gap-2 w-full text-xs px-3 py-2 rounded-md transition-colors ${
                   showAlternatives 
-                    ? 'bg-blue-500 text-white' 
+                    ? 'bg-orange-500 text-white' 
                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                 }`}
               >
-                {showAlternatives ? 'Hide' : 'Show'} Alternative Routes
+                {showAlternatives ? <EyeOff size={14} /> : <Eye size={14} />}
+                {showAlternatives ? 'Hide' : 'Show'} Alternatives
               </button>
             </div>
           </div>
           
-          {/* Enhanced Selected Listing Info Panel */}
+          {/* Selected Listing Panel */}
           {selectedListing && (
-            <div className="absolute top-4 right-4 bg-white rounded-lg shadow-lg p-4 max-w-sm z-10 max-h-96 overflow-y-auto">
-              <div className="flex items-start justify-between mb-2">
-                <h4 className="font-semibold text-gray-800">{selectedListing.title}</h4>
+            <div className="absolute top-4 right-4 bg-white rounded-lg shadow-lg border border-gray-200 p-4 max-w-sm z-10 max-h-96 overflow-y-auto">
+              <div className="flex items-start justify-between mb-3">
+                <h3 className="font-semibold text-gray-900">{selectedListing.title}</h3>
                 <button
                   onClick={() => setSelectedListing(null)}
-                  className="text-gray-400 hover:text-gray-600"
+                  className="text-gray-400 hover:text-gray-600 transition-colors"
                 >
-                  <X size={16} />
+                  <X size={18} />
                 </button>
               </div>
               
-              <div className="text-sm text-gray-600 mb-2">
-                <MapPin size={14} className="inline mr-1" />
+              <div className="text-sm text-gray-600 mb-2 flex items-center gap-1">
+                <MapPin size={14} />
                 {selectedListing.coordinates?.address || selectedListing.address || selectedListing.location}
               </div>
               
-              <div className="text-lg font-bold text-orange-600 mb-2">
+              <div className="text-xl font-bold text-orange-600 mb-2">
                 ${selectedListing.price}/month
               </div>
               
-              <div className="text-sm text-gray-600 mb-3">
+              <div className="text-sm text-gray-600 mb-3 flex items-center gap-1">
+                <BedDouble size={14} />
                 {selectedListing.bedrooms} bed • {selectedListing.bathrooms} bath
               </div>
               
-              {/* Enhanced Commute Info */}
+              {/* Commute Information */}
               {selectedListing.commute ? (
-                <div className="border-t pt-3">
-                  <div className="flex items-center gap-2 text-sm mb-2">
-                    {getTransportIcon(selectedListing.commute.transportMode)}
-                    <span className="font-medium text-blue-800">
-                      {selectedListing.commute.duration} {getTransportModeLabel(selectedListing.commute.transportMode).toLowerCase()}
-                    </span>
-                  </div>
-                  <div className="text-xs text-gray-500 mb-2">
-                    Distance: {selectedListing.commute.distance}
-                  </div>
-
-                  {/* Transit Details */}
-                  {selectedListing.commute.transitDetails && (
-                    <div className="bg-blue-50 p-2 rounded text-xs mb-2">
-                      <div className="font-medium text-blue-800 mb-1">Transit Details:</div>
-                      {selectedListing.commute.transitDetails.departureTime && (
-                        <div>Depart: {selectedListing.commute.transitDetails.departureTime}</div>
-                      )}
-                      {selectedListing.commute.transitDetails.totalFare && (
-                        <div>Fare: {selectedListing.commute.transitDetails.totalFare}</div>
-                      )}
+                selectedListing.isAtDestination ? (
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-3 mb-3">
+                    <div className="flex items-center gap-2 text-sm mb-1">
+                      <Home size={16} className="text-green-600" />
+                      <span className="font-medium text-green-800">At destination</span>
                     </div>
-                  )}
-
-                  {/* Alternative Routes */}
-                  {selectedListing.alternatives && selectedListing.alternatives.length > 0 && (
-                    <div className="mt-2">
-                      <button
-                        onClick={() => toggleRouteDetails(selectedListing.id)}
-                        className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800"
-                      >
-                        {routeDetailsExpanded[selectedListing.id] ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
-                        {selectedListing.alternatives.length} alternative route{selectedListing.alternatives.length > 1 ? 's' : ''}
-                      </button>
-                      
-                      {routeDetailsExpanded[selectedListing.id] && (
-                        <div className="mt-2 space-y-1">
-                          {selectedListing.alternatives.map((alt, index) => (
-                            <div key={index} className="bg-gray-50 p-2 rounded text-xs">
-                              <div className="font-medium">Route {index + 1}</div>
-                              <div className="text-gray-600">{alt.duration} • {alt.distance}</div>
-                              {alt.description && (
-                                <div className="text-gray-500 text-xs">{alt.description}</div>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                      )}
+                    <div className="text-xs text-green-700">
+                      No commute needed - you're already here!
                     </div>
-                  )}
-                </div>
+                  </div>
+                ) : (
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-3">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        {getTransportIcon(selectedListing.commute.transportMode)}
+                        <span className="font-medium text-blue-800 text-sm">
+                          {selectedListing.commute.duration}
+                        </span>
+                      </div>
+                      <span className="text-blue-600 text-xs">
+                        {selectedListing.commute.distance}
+                      </span>
+                    </div>
+                    
+                    {selectedListing.alternatives && selectedListing.alternatives.length > 0 && (
+                      <div className="mt-2">
+                        <button
+                          onClick={() => toggleRouteDetails(selectedListing.id)}
+                          className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 transition-colors"
+                        >
+                          {routeDetailsExpanded[selectedListing.id] ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+                          {selectedListing.alternatives.length} alternative{selectedListing.alternatives.length > 1 ? 's' : ''}
+                        </button>
+                        
+                        {routeDetailsExpanded[selectedListing.id] && (
+                          <div className="mt-2 space-y-2">
+                            {selectedListing.alternatives.map((alt, index) => (
+                              <div key={index} className="bg-white border border-blue-200 rounded p-2 text-xs">
+                                <div className="font-medium text-gray-900">Route {index + 1}</div>
+                                <div className="text-gray-600">{alt.duration} • {alt.distance}</div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )
               ) : (
-                <div className="border-t pt-2">
-                  <div className="text-sm text-gray-500">
-                    📍 Route not calculated for this listing
+                <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 mb-3">
+                  <div className="text-sm text-gray-600">
+                    Route not calculated
                   </div>
                 </div>
               )}
 
               <button
                 onClick={() => onListingClick && onListingClick(selectedListing)}
-                className="w-full mt-3 px-3 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 text-sm font-medium"
+                className="w-full px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 text-sm font-medium transition-colors"
               >
-                View Full Details
+                View Details
               </button>
             </div>
           )}
 
-          {/* Enhanced Map Legend */}
-          <div className="absolute bottom-4 left-4 bg-white rounded-lg shadow-lg p-3 z-10">
-            <h4 className="font-medium text-gray-800 mb-2 text-sm">Enhanced Route Legend</h4>
-            <div className="space-y-1 text-xs">
+          {/* Map Legend */}
+          <div className="absolute bottom-4 left-4 bg-white rounded-lg shadow-lg border border-gray-200 p-3 z-10">
+            <h4 className="font-medium text-gray-900 mb-2 text-sm">Legend</h4>
+            <div className="space-y-2 text-xs">
               <div className="flex items-center gap-2">
-                <div className="w-4 h-4 bg-red-600 rounded-full"></div>
-                <span>Your Destination</span>
+                <div className="w-3 h-3 bg-red-600 rounded-full"></div>
+                <span>Your destination</span>
               </div>
               <div className="flex items-center gap-2">
-                <div className="w-4 h-4 bg-orange-500 rounded-full"></div>
-                <span>Listings with Routes ({routeResults.length})</span>
+                <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                <span>At destination ({listingsAtDestination})</span>
               </div>
               <div className="flex items-center gap-2">
-                <div className="w-4 h-4 bg-gray-500 rounded-full"></div>
-                <span>Other Listings ({listings.length - routeResults.length})</span>
+                <div className="w-3 h-3 bg-orange-500 rounded-full"></div>
+                <span>With routes ({routeResults.length - listingsAtDestination})</span>
               </div>
               <div className="flex items-center gap-2">
-                <div className="w-4 h-1 bg-blue-500"></div>
-                <span>Primary Routes (solid)</span>
-              </div>
-              {showAlternatives && (
-                <div className="flex items-center gap-2">
-                  <div className="w-4 h-1 border-b-2 border-dashed border-blue-300"></div>
-                  <span>Alternative Routes (dashed)</span>
-                </div>
-              )}
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
-                <span>Transit Stations</span>
+                <div className="w-3 h-3 bg-gray-500 rounded-full"></div>
+                <span>Other listings</span>
               </div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Enhanced Listings Grid */}
-      <div className="bg-white rounded-lg shadow-md p-6">
+      {/* At Destination Notice */}
+      {listingsAtDestination > 0 && (
+        <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-green-500 rounded-lg flex items-center justify-center text-white">
+              <Home size={20} />
+            </div>
+            <div>
+              <h3 className="font-semibold text-green-800 mb-1">
+                {listingsAtDestination} listing{listingsAtDestination > 1 ? 's' : ''} at your destination
+              </h3>
+              <p className="text-sm text-green-700">
+                These properties are located at your destination - perfect for zero-commute living!
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Results Summary */}
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
         <div className="flex justify-between items-center mb-6">
-          <h2 className="text-xl font-bold text-orange-600">
-            Enhanced Commute Results
-            <span className="text-sm font-normal text-gray-600 block">
-              {routeResults.length} with detailed routes • {listings.length - routeResults.length} others
-            </span>
-          </h2>
-          <div className="flex items-center gap-2">
-            <Info size={16} className="text-blue-500" />
-            <span className="text-sm text-gray-600">Click routes on map for details</span>
+          <div>
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">Commute Results</h2>
+            <p className="text-gray-600">
+              {listingsAtDestination} at destination • {routeResults.length - listingsAtDestination} with calculated routes • {listings.length - routeResults.length} without routes
+            </p>
+          </div>
+          <div className="flex items-center gap-2 text-sm text-gray-500">
+            <Info size={16} />
+            Click markers for details
           </div>
         </div>
         
+        {/* Listings Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {listings
             .sort((a, b) => {
               const routeA = routeResults.find(r => r.listingId === a.id);
               const routeB = routeResults.find(r => r.listingId === b.id);
               
-              if (routeA && routeB) {
+              // Prioritize listings at destination
+              if (routeA?.isAtDestination && !routeB?.isAtDestination) return -1;
+              if (!routeA?.isAtDestination && routeB?.isAtDestination) return 1;
+              
+              if (routeA && routeB && !routeA.isAtDestination && !routeB.isAtDestination) {
                 const parseTime = (timeStr) => {
                   const match = timeStr.match(/(\d+)/);
                   return match ? parseInt(match[1]) : 999;
@@ -739,15 +616,14 @@ const EnhancedCommuteResultsMap = ({
               if (!routeA && routeB) return 1;
               return a.price - b.price;
             })
-            .map((listing, index) => {
+            .map((listing) => {
               const routeResult = routeResults.find(r => r.listingId === listing.id);
               const isFavorited = favoriteListings.some(fav => fav.id === listing.id);
-              const hasAlternatives = routeResult?.alternatives && routeResult.alternatives.length > 0;
               
               return (
                 <div 
                   key={listing.id}
-                  className="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-lg transition-all cursor-pointer transform hover:-translate-y-1"
+                  className="bg-white border border-gray-200 rounded-lg overflow-hidden hover:shadow-md transition-shadow cursor-pointer"
                   onClick={() => onListingClick && onListingClick(listing)}
                 >
                   <div 
@@ -758,11 +634,11 @@ const EnhancedCommuteResultsMap = ({
                       backgroundPosition: 'center'
                     }}
                   >
-                    <div className="absolute top-2 right-2 bg-white px-2 py-1 rounded-lg text-xs font-bold text-gray-700">
-                      ${convertPrice(listing.price)}/mo
+                    <div className="absolute top-3 right-3 bg-white px-3 py-1 rounded-full text-sm font-bold text-gray-800">
+                      ${listing.price}/mo
                     </div>
                     <button 
-                      className={`absolute top-2 left-2 p-2 rounded-full transition-all cursor-pointer ${
+                      className={`absolute top-3 left-3 p-2 rounded-full transition-all ${
                         isFavorited ? 'bg-red-500 text-white' : 'bg-white text-gray-500 hover:text-red-500'
                       }`}
                       onClick={(e) => {
@@ -770,74 +646,90 @@ const EnhancedCommuteResultsMap = ({
                         onFavoriteToggle && onFavoriteToggle(listing);
                       }}
                     >
-                      <Heart size={18} className={isFavorited ? 'fill-current' : ''} />
+                      <Heart size={16} className={isFavorited ? 'fill-current' : ''} />
                     </button>
                   </div>
                   
                   <div className="p-4">
                     <div className="flex justify-between items-start mb-2">
-                      <div>
-                        <div className="font-bold text-gray-800">{listing.title}</div>
-                        <div className="text-gray-500 text-sm">{listing.location} · 0.5 miles from campus</div>
-                      </div>
+                      <h3 className="font-semibold text-gray-900">{listing.title}</h3>
                       <div className="flex items-center text-amber-500">
-                        <Star size={16} className="fill-current" />
-                        <span className="ml-1 text-sm font-medium">{listing.rating || '4.2'}</span>
+                        <Star size={14} className="fill-current" />
+                        <span className="ml-1 text-sm">{listing.rating || '4.2'}</span>
                       </div>
                     </div>
                     
-                    <div className="flex items-center mt-2 text-sm text-gray-500">
-                      <Calendar size={14} className="mr-1" />
-                      <span>{listing.dateRange || 'Available now'}</span>
+                    <div className="text-sm text-gray-600 mb-2 flex items-center gap-1">
+                      <MapPin size={14} />
+                      {listing.location}
                     </div>
                     
-                    <div className="mt-2 flex items-center text-sm text-gray-700">
-                      <BedDouble size={14} className="mr-1" />
-                      <span>{listing.bedrooms} bedroom{listing.bedrooms !== 1 ? 's' : ''} · {listing.bathrooms} bath{listing.bathrooms !== 1 ? 's' : ''}</span>
+                    <div className="text-sm text-gray-600 mb-3 flex items-center gap-1">
+                      <BedDouble size={14} />
+                      {listing.bedrooms} bed • {listing.bathrooms} bath
                     </div>
                     
-                    {/* Enhanced Commute Info */}
-                    <div className="mt-3 p-3 rounded-lg border">
+                    <div className="text-sm text-gray-600 mb-3 flex items-center gap-1">
+                      <Calendar size={14} />
+                      {listing.dateRange || 'Available now'}
+                    </div>
+                    
+                    {/* Commute Information */}
+                    <div className="border-t pt-3">
                       {routeResult ? (
-                        <div className="bg-blue-50 border-blue-200">
-                          <div className="flex items-center justify-between text-sm mb-2">
-                            <div className="flex items-center gap-2">
-                              {getTransportIcon(routeResult.transportMode)}
-                              <span className="font-medium text-blue-800">
-                                {routeResult.duration} {getTransportModeLabel(routeResult.transportMode).toLowerCase()}
+                        routeResult.isAtDestination ? (
+                          <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                            <div className="flex items-center justify-between mb-1">
+                              <div className="flex items-center gap-2">
+                                <Home size={16} className="text-green-600" />
+                                <span className="font-medium text-green-800 text-sm">At destination</span>
+                              </div>
+                              <span className="text-green-600 text-xs">0 mi</span>
+                            </div>
+                            <div className="text-xs text-green-700">
+                              No commute needed!
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                            <div className="flex items-center justify-between mb-1">
+                              <div className="flex items-center gap-2">
+                                {getTransportIcon(routeResult.transportMode)}
+                                <span className="font-medium text-blue-800 text-sm">
+                                  {routeResult.duration}
+                                </span>
+                              </div>
+                              <span className="text-blue-600 text-xs">
+                                {routeResult.distance}
                               </span>
                             </div>
-                            <span className="text-blue-600 text-xs">
-                              {routeResult.distance}
-                            </span>
+                            
+                            <div className="text-xs text-blue-700">
+                              {getTransportLabel(routeResult.transportMode)} commute
+                            </div>
+                            
+                            {/* Transit details */}
+                            {routeResult.transportMode === 'transit' && routeResult.transitDetails && (
+                              <div className="text-xs text-blue-600 mt-1">
+                                {routeResult.transitDetails.totalFare && (
+                                  <div>Fare: {routeResult.transitDetails.totalFare}</div>
+                                )}
+                              </div>
+                            )}
+                            
+                            {/* Alternatives indicator */}
+                            {routeResult.alternatives && routeResult.alternatives.length > 0 && (
+                              <div className="text-xs text-blue-600 flex items-center gap-1 mt-1">
+                                <Route size={10} />
+                                <span>{routeResult.alternatives.length} alternative{routeResult.alternatives.length > 1 ? 's' : ''}</span>
+                              </div>
+                            )}
                           </div>
-                          
-                          {/* Transit-specific details */}
-                          {routeResult.transportMode === 'transit' && routeResult.transitDetails && (
-                            <div className="text-xs text-blue-700 mb-1">
-                              {routeResult.transitDetails.departureTime && (
-                                <div>🚌 Next departure: {routeResult.transitDetails.departureTime}</div>
-                              )}
-                              {routeResult.transitDetails.totalFare && (
-                                <div>💰 Fare: {routeResult.transitDetails.totalFare}</div>
-                              )}
-                            </div>
-                          )}
-                          
-                          {/* Alternatives indicator */}
-                          {hasAlternatives && (
-                            <div className="text-xs text-blue-600 flex items-center gap-1">
-                              <Route size={10} />
-                              <span>{routeResult.alternatives.length} alternative route{routeResult.alternatives.length > 1 ? 's' : ''} available</span>
-                            </div>
-                          )}
-                        </div>
+                        )
                       ) : (
-                        <div className="bg-gray-50 border-gray-200">
-                          <div className="flex items-center justify-between text-sm">
-                            <span className="text-gray-600">
-                              📍 Click "Show Enhanced Commute" to calculate route
-                            </span>
+                        <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
+                          <div className="text-sm text-gray-600 text-center">
+                            Route not calculated
                           </div>
                         </div>
                       )}
@@ -847,12 +739,12 @@ const EnhancedCommuteResultsMap = ({
                     {listing.amenities && listing.amenities.length > 0 && (
                       <div className="mt-3 flex flex-wrap gap-1">
                         {listing.amenities.slice(0, 2).map((amenity, index) => (
-                          <div key={index} className="bg-orange-50 text-orange-700 text-xs px-2 py-1 rounded-md">
+                          <div key={index} className="bg-orange-50 text-orange-700 text-xs px-2 py-1 rounded">
                             {amenity.charAt(0).toUpperCase() + amenity.slice(1)}
                           </div>
                         ))}
                         {listing.amenities.length > 2 && (
-                          <div className="bg-gray-100 text-gray-600 text-xs px-2 py-1 rounded-md">
+                          <div className="bg-gray-100 text-gray-600 text-xs px-2 py-1 rounded">
                             +{listing.amenities.length - 2} more
                           </div>
                         )}
@@ -863,7 +755,45 @@ const EnhancedCommuteResultsMap = ({
               );
             })}
         </div>
+
+        {/* No Results Message */}
+        {listings.length === 0 && (
+          <div className="text-center py-12">
+            <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <MapPin size={24} className="text-gray-400" />
+            </div>
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">No listings found</h3>
+            <p className="text-gray-600">Try adjusting your search criteria or commute preferences.</p>
+          </div>
+        )}
+
+        {/* No Routes Message */}
+        {listings.length > 0 && routeResults.length === 0 && (
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mt-4">
+            <div className="flex items-center gap-3">
+              <Info size={20} className="text-blue-600 flex-shrink-0" />
+              <div>
+                <h3 className="font-medium text-blue-800">No routes calculated yet</h3>
+                <p className="text-sm text-blue-700 mt-1">
+                  Use the commute location picker to calculate routes to these listings.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
+
+      {/* Close Button */}
+      {onClose && (
+        <div className="text-center">
+          <button
+            onClick={onClose}
+            className="px-6 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+          >
+            Close Map
+          </button>
+        </div>
+      )}
     </div>
   );
 };

@@ -569,61 +569,91 @@ const getTransportIcon = (mode) => {
   }
 };
   
- useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    
-    // Location parameter
-    const locationParam = urlParams.get('location');
-    if (locationParam) {
-      setLocation(locationParam.split(','));
+useEffect(() => {
+  const urlParams = new URLSearchParams(window.location.search);
+  
+  // Location parameter
+  const locationParam = urlParams.get('location');
+  if (locationParam) {
+    setLocation(locationParam.split(','));
+  }
+  
+  // Date parameters
+  const checkInParam = urlParams.get('checkIn');
+  const checkOutParam = urlParams.get('checkOut');
+  if (checkInParam || checkOutParam) {
+    setDateRange({
+      checkIn: checkInParam ? new Date(checkInParam) : null,
+      checkOut: checkOutParam ? new Date(checkOutParam) : null
+    });
+  }
+  
+  // Room parameters - properly handle 'any' values
+  const bedroomsParam = urlParams.get('bedrooms');
+  const bathroomsParam = urlParams.get('bathrooms');
+  if (bedroomsParam !== null) {
+    setBedrooms(bedroomsParam === 'any' ? 'any' : parseInt(bedroomsParam));
+  }
+  if (bathroomsParam !== null) {
+    setBathrooms(bathroomsParam === 'any' ? 'any' : parseInt(bathroomsParam));
+  }
+  
+  // Other parameters...
+  const amenitiesParam = urlParams.get('amenities');
+  if (amenitiesParam) {
+    setSelectedAmenities(amenitiesParam.split(','));
+  }
+  
+  const accommodationTypeParam = urlParams.get('accommodationType');
+  if (accommodationTypeParam) {
+    setAccommodationType(accommodationTypeParam);
+  }
+  
+  const preferredGenderParam = urlParams.get('preferredGender');
+  if (preferredGenderParam) {
+    setPreferredGender(preferredGenderParam);
+  }
+  
+  const smokingPreferenceParam = urlParams.get('smokingPreference');
+  if (smokingPreferenceParam) {
+    setSmokingPreference(smokingPreferenceParam);
+  }
+  
+  // Price parameters
+  const minPriceParam = urlParams.get('minPrice');
+  const maxPriceParam = urlParams.get('maxPrice');
+  const priceTypeParam = urlParams.get('priceType');
+  if (minPriceParam || maxPriceParam) {
+    setPriceRange({
+      min: minPriceParam ? parseInt(minPriceParam) : 500,
+      max: maxPriceParam ? parseInt(maxPriceParam) : 2000
+    });
+  }
+  if (priceTypeParam) {
+    setPriceType(priceTypeParam);
+  }
+  
+  // Restore selectedLocationData if available
+  const selectedLocationDataParam = urlParams.get('selectedLocationData');
+  if (selectedLocationDataParam) {
+    try {
+      const locationData = JSON.parse(selectedLocationDataParam);
+      setSelectedLocationData(locationData);
+    } catch (error) {
+      console.error('Error parsing selectedLocationData from URL:', error);
     }
-    
-    // Date parameter - change string to date object
-    const checkInParam = urlParams.get('checkIn');
-    const checkOutParam = urlParams.get('checkOut');
-    if (checkInParam || checkOutParam) {
-      setDateRange({
-        checkIn: checkInParam ? new Date(checkInParam) : null,
-        checkOut: checkOutParam ? new Date(checkOutParam) : null
-      });
-    }
-    
-    // Room parameter
-    const bedroomsParam = urlParams.get('bedrooms');
-    const bathroomsParam = urlParams.get('bathrooms');
-   if (bedroomsParam) setBedrooms(bedroomsParam === 'any' ? 'any' : parseInt(bedroomsParam));
-if (bathroomsParam) setBathrooms(bathroomsParam === 'any' ? 'any' : parseInt(bathroomsParam));
+  }
+  
+  // Auto-run search if URL has parameters
+  if (urlParams.toString()) {
+    setTimeout(() => {
+      handleSearch();
+    }, 500); 
+  }
+}, []);
 
-// In handleSearch for URL generation:
-if (bedrooms !== 'any') {
-  searchParams.set('bedrooms', bedrooms);
-}
-if (bathrooms !== 'any') {
-  searchParams.set('bathrooms', bathrooms);
-}
- // Amenities parameter
-    const amenitiesParam = urlParams.get('amenities');
-    if (amenitiesParam) {
-      setSelectedAmenities(amenitiesParam.split(','));
-    }
-    
-    // Price parameter
-    const priceMinParam = urlParams.get('priceMin');
-    const priceMaxParam = urlParams.get('priceMax');
-    if (priceMinParam || priceMaxParam) {
-      setPriceRange({
-        min: priceMinParam ? parseInt(priceMinParam) : 500,
-        max: priceMaxParam ? parseInt(priceMaxParam) : 2000
-      });
-    }
-    
-    // automatically run if the url have parameter
-    if (urlParams.toString()) {
-      setTimeout(() => {
-        handleSearch();
-      }, 500); 
-    }
-  }, []);
+
+
   useEffect(() => {
     if (!isLoadingUser && !hasLoadedUserLocation && isGoogleMapsReady) {
       // Priority: firebaseUserData > userData prop
