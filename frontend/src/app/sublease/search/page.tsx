@@ -17,10 +17,7 @@ import { collection, getDocs, query, orderBy } from 'firebase/firestore';
 import { db } from '@/lib/firebase'; // Adjust path to your firebase config
 
 import CommuteLocationPicker from '../../../components/CommuteLocationPicker'
-import CommuteResultsMap from '../../../components/CommuteMap' // Adjust path as needed
 import EnhancedCommuteResultsMap from '../../../components/CommuteMap' // Update path as needed
-import { address } from 'framer-motion/client';
-// Component imports - This should use the actual LocationPicker component
 import SearchLocationPicker from '../../../components/SearchLocationPicker';
 
 
@@ -471,10 +468,13 @@ const getListingCoordinates = (listing) => {
 };
 
 
-const SearchPage = () => {
+
+
+const SearchPage = ({ userData = null }) => { // Add default value for userData
   // =========================
   // State Definitions
   // =========================
+  const [firebaseUserData, setFirebaseUserData] = useState(null);
   const [selectedLocationData, setSelectedLocationData] = useState(null);
   const [dateRange, setDateRange] = useState({ checkIn: null, checkOut: null });
   const [bathrooms, setBathrooms] = useState('any'); 
@@ -486,6 +486,8 @@ const SearchPage = () => {
   const [selectedDates, setSelectedDates] = useState([]);
   const [activeSection, setActiveSection] = useState(null);
   const [accommodationType, setAccommodationType] = useState(null);
+  const [hasLoadedUserLocation, setHasLoadedUserLocation] = useState(false);
+
   const [priceRange, setPriceRange] = useState({ min: 500, max: 2000 });
   const [priceType, setPriceType] = useState('monthly'); // for monthly, weekly, daily price
   const [selectedAmenities, setSelectedAmenities] = useState([]);
@@ -499,14 +501,23 @@ const [showEnhancedCommute, setShowEnhancedCommute] = useState(false);
   const [showMap, setShowMap] = useState(false);
   const [mapListings, setMapListings] = useState([]);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [neighborhoods, setNeighborhoods] = useState([]);
+const [isLoadingNeighborhoods, setIsLoadingNeighborhoods] = useState(false);
   const [favoriteListings, setFavoriteListings] = useState([]);
   const [activeTab, setActiveTab] = useState('favorites');
   const router = useRouter(); 
   const [commuteDestination, setCommuteDestination] = useState(null);
+   // Add these state variables with your other state
+const [isGoogleMapsLoading, setIsGoogleMapsLoading] = useState(false);
+const [googleMapsError, setGoogleMapsError] = useState(null);
+const [isGoogleMapsReady, setIsGoogleMapsReady] = useState(false);
+const [locationError, setLocationError] = useState(null);
 const [commuteRoutes, setCommuteRoutes] = useState([]);
 const [showCommuteResults, setShowCommuteResults] = useState(false);
 const [isCommuteMode, setIsCommuteMode] = useState(false);
 const [isCalculatingRoutes, setIsCalculatingRoutes] = useState(false);
+ // Add these state variables with your other st
+const [isLoadingUser] = useState(null);
 const [showSavedSearches, setShowSavedSearches] = useState(false);
 const [preferredGender, setPreferredGender] = useState(null); 
 const [smokingPreference, setSmokingPreference] = useState(null);
@@ -613,10 +624,36 @@ if (bathrooms !== 'any') {
       }, 500); 
     }
   }, []);
+  useEffect(() => {
+    if (!isLoadingUser && !hasLoadedUserLocation && isGoogleMapsReady) {
+      // Priority: firebaseUserData > userData prop
+      const userLocationData = firebaseUserData?.userLocation || userData?.userLocation;
+      
+      if (userLocationData && userLocationData.lat && userLocationData.lng) {
+        console.log('Auto-loading user saved location:', userLocationData);
+        
+        // Set the location display name
+        const displayName = userLocationData.displayName || 
+                           userLocationData.placeName || 
+                           userLocationData.city || 
+                           userLocationData.address;
+        
+        if (displayName) {
+          setLocation([displayName]);
+        }
+        setHasLoadedUserLocation(true);
+        
+        // Generate neighborhoods around user's saved location
+        generateNearbyNeighborhoods(userLocationData);
+      } else {
+        console.log('No saved user location found, using default setup');
+        setHasLoadedUserLocation(true);
+      }
+    }
+  }, [firebaseUserData, userData, isGoogleMapsReady, isLoadingUser, hasLoadedUserLocation]);
 
 
-// Fetch user listings from Firestore
-// Fetch user listings from Firestore
+
 useEffect(() => {
   const fetchUserListings = async () => {
     try {
@@ -929,11 +966,36 @@ const formatDate = (date) => {
     setMapListings(filteredListings);
   };
   
- // Add these state variables with your other state
-const [isGoogleMapsLoading, setIsGoogleMapsLoading] = useState(false);
-const [googleMapsError, setGoogleMapsError] = useState(null);
-const [isGoogleMapsReady, setIsGoogleMapsReady] = useState(false);
-const [locationError, setLocationError] = useState(null);
+
+
+
+  useEffect(() => {
+    if (!isLoadingUser && !hasLoadedUserLocation && isGoogleMapsReady) {
+      // Priority: firebaseUserData > userData prop
+      const userLocationData = firebaseUserData?.userLocation || userData?.userLocation;
+      
+      if (userLocationData && userLocationData.lat && userLocationData.lng) {
+        console.log('Auto-loading user saved location:', userLocationData);
+        
+        // Set the location display name
+        const displayName = userLocationData.displayName || 
+                           userLocationData.placeName || 
+                           userLocationData.city || 
+                           userLocationData.address;
+        
+        if (displayName) {
+          setLocation([displayName]);
+        }
+        setHasLoadedUserLocation(true);
+        
+        // Generate neighborhoods around user's saved location
+        generateNearbyNeighborhoods(userLocationData);
+      } else {
+        console.log('No saved user location found, using default setup');
+        setHasLoadedUserLocation(true);
+      }
+    }
+  }, [firebaseUserData, userData, isGoogleMapsReady, isLoadingUser, hasLoadedUserLocation]);
 
 // Add this useEffect after your existing useEffects
 useEffect(() => {
@@ -1711,14 +1773,160 @@ const debugGoogleMaps = () => {
   }
 };
 
+ const generateNearbyNeighborhoods = async (userLocation) => {
+    if (!window.google || !userLocation.lat || !userLocation.lng) {
+      console.log('Google Maps not ready or invalid location:', { userLocation });
+      return;
+    }
+    
+    setIsLoadingNeighborhoods(true);
+    
+    try {
+      const neighborhoods = new Set();
+      
+      // Add user's current area as the first item
+      const userAreaName = userLocation.displayName || 
+                          userLocation.placeName || 
+                          userLocation.city || 
+                          'Your Area';
+      neighborhoods.add(userAreaName);
+      
+      const placesService = new window.google.maps.places.PlacesService(document.createElement('div'));
+      
+      // Reduced radius for more accurate local neighborhoods (8km for cities, 5km for specific locations)
+      const searchRadius = userLocation.areaType === 'city' ? 8000 : 5000;
+      
+      // Search for neighborhoods within reduced radius
+      const request = {
+        location: new google.maps.LatLng(userLocation.lat, userLocation.lng),
+        radius: searchRadius,
+        type: 'sublocality_level_1'
+      };
+
+      await new Promise((resolve) => {
+        placesService.nearbySearch(request, (results, status) => {
+          if (status === google.maps.places.PlacesServiceStatus.OK && results) {
+            results.forEach(place => {
+              if (place.name && place.name.length > 2 && !place.name.includes('Unnamed')) {
+                neighborhoods.add(place.name);
+              }
+            });
+          }
+          resolve();
+        });
+      });
+      
+      // Search for establishments and points of interest with smaller radius
+      const poiRequest = {
+        location: new google.maps.LatLng(userLocation.lat, userLocation.lng),
+        radius: 3000, // 3km for POIs
+        type: 'establishment'
+      };
+      
+      await new Promise((resolve) => {
+        placesService.nearbySearch(poiRequest, (results, status) => {
+          if (status === google.maps.places.PlacesServiceStatus.OK && results) {
+            // Only add well-known establishments that could serve as area identifiers
+            results.slice(0, 5).forEach(place => {
+              if (place.name && 
+                  place.name.length > 3 && 
+                  place.rating && place.rating > 4.0 &&
+                  place.user_ratings_total && place.user_ratings_total > 100) {
+                neighborhoods.add(`Near ${place.name}`);
+              }
+            });
+          }
+          resolve();
+        });
+      });
+      
+      // Add city-based areas if we have a city name
+      const cityName = userLocation.city || userLocation.placeName;
+      if (cityName && cityName !== userAreaName) {
+        neighborhoods.add(cityName);
+        neighborhoods.add(`Downtown ${cityName}`);
+        
+        // Only add university area if it's likely to have one
+        if (cityName.toLowerCase().includes('college') || 
+            cityName.toLowerCase().includes('university') ||
+            neighborhoods.size < 4) {
+          neighborhoods.add(`${cityName} - University Area`);
+        }
+      }
+      
+      // Convert Set to Array and clean up
+      const cleanedNeighborhoods = Array.from(neighborhoods)
+        .filter(name => name && name.length > 2)
+        .filter(name => !name.toLowerCase().includes('unnamed'))
+        .filter(name => !name.toLowerCase().includes('null'))
+        .sort()
+        .slice(0, 8); // Limit to 8 results for better UX
+      
+      console.log('Generated neighborhoods with user location:', cleanedNeighborhoods);
+      setNeighborhoods(cleanedNeighborhoods);
+      setIsLoadingNeighborhoods(false);
+      
+    } catch (error) {
+      console.error('Error generating neighborhoods:', error);
+      setIsLoadingNeighborhoods(false);
+      
+      // Fallback with basic city-based areas
+      const cityName = userLocation.city || userLocation.placeName || "Your Area";
+      const fallbackNeighborhoods = [
+        userLocation.displayName || userLocation.placeName || cityName,
+        cityName !== (userLocation.displayName || userLocation.placeName) ? cityName : null,
+        `Downtown ${cityName}`,
+      ].filter(Boolean);
+      
+      console.log('Using fallback neighborhoods:', fallbackNeighborhoods);
+      setNeighborhoods(fallbackNeighborhoods);
+    }
+  };
+
+
 // Call this when the location section opens
 const toggleSection = (section) => {
-  if (activeSection === section) {
-    setActiveSection(null);
-  } else {
-    setActiveSection(section);
+    if (activeSection === section) {
+      setActiveSection(null);
+    } else {
+      setActiveSection(section);
+      
+      // Generate neighborhoods when location section opens
+      if (section === 'location' && neighborhoods.length === 0) {
+        const userLocationData = firebaseUserData?.userLocation || userData?.userLocation;
+        if (userLocationData && isGoogleMapsReady) {
+          generateNearbyNeighborhoods(userLocationData);
+        }
+      }
+    }
+  };
+
+  // Add loading state UI like in your MoveOutSaleSearchPage
+  if (isLoadingUser) {
+    return (
+      <div className="min-h-screen bg-white text-gray-800 flex flex-col items-center justify-center px-4">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-2 border-orange-500 border-t-transparent mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading your preferences...</p>
+        </div>
+      </div>
+    );
   }
-};
+
+  // Add location status display in your header area (add this after the logo section)
+  const renderLocationStatus = () => {
+    if (location && location.length > 0 && location[0] !== "Select location") {
+      return (
+        <div className="text-center mb-4">
+          <p className="text-sm text-gray-600">
+            Searching in: <span className="font-semibold text-orange-600">{location[0]}</span>
+            {location.length > 1 && <span> +{location.length - 1} more</span>}
+          </p>
+        </div>
+      );
+    }
+    return null;
+  };
 
 const handleCommuteResults = (routes, destination) => {
   console.log('🎯 Handling commute results in SearchPage:', routes.length, 'routes');
@@ -1843,13 +2051,13 @@ const handleCommuteResults = (routes, destination) => {
     }, 100);
   };
 
-  const getNeighborhoodCount = (neighborhoodName) => {
-    return allListings.filter(listing => {
-      const listingLocation = listing.location || listing.neighborhood || '';
-      return listingLocation.toLowerCase().includes(neighborhoodName.toLowerCase()) ||
-             neighborhoodName.toLowerCase().includes(listingLocation.toLowerCase());
-    }).length;
-  };
+const getNeighborhoodCount = (neighborhoodName) => {
+  return allListings.filter(listing => {
+    const listingLocation = listing.location || listing.neighborhood || '';
+    return listingLocation.toLowerCase().includes(neighborhoodName.toLowerCase()) ||
+           neighborhoodName.toLowerCase().includes(listingLocation.toLowerCase());
+  }).length;
+};
 
 
   useEffect(() => {
@@ -1977,57 +2185,119 @@ const processListingsWithRealCoordinates = async (listings) => {
   // =========================
   // Render Components
   // =========================
-const renderLocationSection = () => {
-  return (
-    <div className="p-5 border-t border-gray-200 animate-fadeIn">
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Enhanced Location Picker */}
-        <div>
-          <h3 className="font-bold mb-3 text-gray-800">Search by Location</h3>
-          <SearchLocationPicker 
-            initialValue={location[0] || ""}
-            onLocationSelect={(selectedLocation) => {
-              console.log('🔍 Location selected:', selectedLocation);
-              
-              // Handle different location types
-              if (selectedLocation.areaType === 'city') {
-                // For city searches, set broader location filter
-                setLocation([selectedLocation.city || selectedLocation.placeName]);
-              } else {
-                // For specific locations, use place name or address
-                setLocation([selectedLocation.placeName || selectedLocation.address]);
-              }
-              
-              // Store full location data for filtering
-              setSelectedLocationData(selectedLocation);
-            }}
-            customLocationsData={allListings}
-          />
+ const renderLocationSection = () => {
+    return (
+      <div className="p-5 border-t border-gray-200 animate-fadeIn">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Enhanced Location Picker */}
+          <div>
+            <h3 className="font-bold mb-3 text-gray-800">Search by Location</h3>
+            <SearchLocationPicker 
+              initialValue={location[0] || ""}
+              onLocationSelect={(selectedLocation) => {
+                console.log('Location selected:', selectedLocation);
+                
+                // Handle different location types
+                if (selectedLocation.areaType === 'city') {
+                  // For city searches, set broader location filter
+                  setLocation([selectedLocation.city || selectedLocation.placeName]);
+                } else {
+                  // For specific locations, use place name or address
+                  setLocation([selectedLocation.placeName || selectedLocation.address]);
+                }
+                
+                // Store full location data for filtering
+                setSelectedLocationData(selectedLocation);
+                
+                // Generate new neighborhoods for the selected location
+                if (selectedLocation.lat && selectedLocation.lng) {
+                  generateNearbyNeighborhoods(selectedLocation);
+                }
+              }}
+              customLocationsData={allListings}
+            />
+          </div>
+          
+          {/* Popular Neighborhoods */}
+          <div>
+            <h3 className="font-bold mb-3 text-gray-800">
+              Popular Areas Near You
+              {isLoadingNeighborhoods && (
+                <span className="ml-2">
+                  <span className="inline-block animate-spin rounded-full h-4 w-4 border-2 border-orange-500 border-t-transparent"></span>
+                </span>
+              )}
+            </h3>
+            
+            <div className="overflow-y-auto max-h-80">
+              {neighborhoods.length > 0 ? (
+                <div className="space-y-2">
+                  {neighborhoods.map((neighborhood, idx) => (
+                    <button
+                      key={idx}
+                      className={`w-full p-3 rounded-lg text-left transition-all border ${
+                        location.includes(neighborhood)
+                          ? 'bg-orange-50 border-orange-300 text-orange-700'
+                          : 'bg-gray-50 border-gray-200 hover:bg-orange-50 hover:border-orange-300'
+                      }`}
+                      onClick={() => {
+                        if (location.includes(neighborhood)) {
+                          // Remove if already selected
+                          setLocation(location.filter(loc => loc !== neighborhood));
+                        } else {
+                          // Add to selection
+                          setLocation([...location, neighborhood]);
+                        }
+                      }}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center">
+                          <MapPin size={16} className="text-orange-500 mr-3 flex-shrink-0" />
+                          <span className="font-medium">{neighborhood}</span>
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          {getNeighborhoodCount(neighborhood)} listings
+                        </div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              ) : !isLoadingNeighborhoods ? (
+                <div className="text-center py-8 text-gray-500">
+                  <MapPin size={48} className="mx-auto text-gray-300 mb-4" />
+                  <p className="text-sm">No nearby areas found</p>
+                  <p className="text-xs mt-1">Use the search on the left to find locations</p>
+                </div>
+              ) : (
+                <div className="text-center py-8 text-gray-500">
+                  <div className="animate-spin rounded-full h-8 w-8 border-2 border-orange-500 border-t-transparent mx-auto mb-4"></div>
+                  <p className="text-sm">Loading nearby areas...</p>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
         
-       
+        <div className="mt-6 flex justify-end items-center space-x-3">
+          <button 
+            className="px-3 py-1.5 text-orange-500 hover:underline"
+            onClick={() => setActiveSection(null)}
+          >
+            Cancel
+          </button>
+          <button 
+            className="px-4 py-2 rounded-lg bg-orange-500 text-white hover:bg-orange-700 font-medium"
+            onClick={() => {
+              setActiveSection(null);
+              handleSearch();
+            }}
+          >
+            Apply
+          </button>
+        </div>
       </div>
-      
-      <div className="mt-6 flex justify-end items-center space-x-3">
-        <button 
-          className="px-3 py-1.5 text-orange-500 hover:underline"
-          onClick={() => setActiveSection(null)}
-        >
-          Cancel
-        </button>
-        <button 
-          className="px-4 py-2 rounded-lg bg-orange-500 text-white hover:bg-orange-700 font-medium"
-          onClick={() => {
-            setActiveSection(null);
-            handleSearch();
-          }}
-        >
-          Apply
-        </button>
-      </div>
-    </div>
-  );
-};
+    );
+  };
 
 
 const renderCalendarSection = () => (

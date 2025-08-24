@@ -476,58 +476,61 @@ const deleteDraft = async (draftId) => {
 
 
 const showListingPreview = () => {
+  // Use the current form data or the ref data
+  const dataToPreview = currentListingDataRef.current || formData;
+  
   // Create a preview object that mimics the listing detail structure
   const previewData = {
     id: 'preview-' + Date.now(),
-    title: formData.listingTitle || `${formData.listingType || 'Sublease'} in ${formData.location || 'Campus Area'}`,
-    listingType: formData.listingType || 'Sublease',
-    location: formData.location || 'Campus Area',
-    customLocation: formData.customLocation,
-    address: formData.address || '',
+    title: dataToPreview.listingTitle || `${dataToPreview.listingType || 'Sublease'} in ${dataToPreview.location || 'Campus Area'}`,
+    listingType: dataToPreview.listingType || 'Sublease',
+    location: dataToPreview.location || 'Campus Area',
+    customLocation: dataToPreview.customLocation,
+    address: dataToPreview.address || '',
     
     // Only include images if photos exist
-    image: formData.photos && formData.photos.length > 0 
-      ? URL.createObjectURL(formData.photos[0]) 
+    image: dataToPreview.photos && dataToPreview.photos.length > 0 
+      ? URL.createObjectURL(dataToPreview.photos[0]) 
       : "https://images.unsplash.com/photo-1543852786-1cf6624b9987?q=80&w=800&h=500&auto=format&fit=crop",
-    additionalImages: formData.photos && formData.photos.length > 1 
-      ? formData.photos.slice(1).map(photo => URL.createObjectURL(photo))
+    additionalImages: dataToPreview.photos && dataToPreview.photos.length > 1 
+      ? dataToPreview.photos.slice(1).map(photo => URL.createObjectURL(photo))
       : [],
       
-    availableFrom: formData.startDate ? new Date(formData.startDate) : new Date(),
-    availableTo: formData.endDate ? new Date(formData.endDate) : new Date(),
-    dateRange: formData.startDate && formData.endDate 
-      ? `${new Date(formData.startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${new Date(formData.endDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
+    availableFrom: dataToPreview.startDate ? new Date(dataToPreview.startDate) : new Date(),
+    availableTo: dataToPreview.endDate ? new Date(dataToPreview.endDate) : new Date(),
+    dateRange: dataToPreview.startDate && dataToPreview.endDate 
+      ? `${new Date(dataToPreview.startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${new Date(dataToPreview.endDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
       : 'Dates not set',
-    partialDatesOk: formData.partialDatesOk || false,
-    price: formData.rent || 0,
-    rent: formData.rent || 0,
-    negotiable: formData.rentNegotiation?.isNegotiable || false,
-    utilitiesIncluded: formData.utilitiesIncluded || false,
-    approximateUtilities: formData.approximateUtilities || 0,
-    bedrooms: formData.bedrooms || 1,
-    bathrooms: formData.bathrooms || 1,
+    partialDatesOk: dataToPreview.partialDatesOk || false,
+    price: dataToPreview.rent || 0,
+    rent: dataToPreview.rent || 0,
+    negotiable: dataToPreview.rentNegotiation?.isNegotiable || false,
+    utilitiesIncluded: dataToPreview.utilitiesIncluded || false,
+    approximateUtilities: dataToPreview.approximateUtilities || 0,
+    bedrooms: dataToPreview.bedrooms || 1,
+    bathrooms: dataToPreview.bathrooms || 1,
     distance: 0.5,
-    includedItems: formData.includedItems ? formData.includedItems.filter(i => i.selected).map(i => i.name) : [],
+    includedItems: dataToPreview.includedItems ? dataToPreview.includedItems.filter(i => i.selected).map(i => i.name) : [],
     rating: 0,
     reviews: 0,
-    amenities: formData.amenities ? formData.amenities.filter(a => a.selected).map(a => a.name) : [],
+    amenities: dataToPreview.amenities ? dataToPreview.amenities.filter(a => a.selected).map(a => a.name) : [],
     hostId: user?.uid || 'preview-user',
     hostName: user?.displayName || user?.email || 'Your Name',
     hostEmail: user?.email || '',
     hostBio: `Hello, I'm ${user?.displayName || 'a student'} looking to sublease my place.`,
     hostImage: user?.photoURL || "https://images.unsplash.com/photo-1587300003388-59208cc962cb?q=80&w=800&h=500&auto=format&fit=crop",
-    description: formData.additionalDetails || formData.subleaseReason || 'No description available',
-    accommodationType: formData.isPrivateRoom ? 'private' : 'shared',
-    preferredGender: formData.preferredGender || 'any',
+    description: dataToPreview.additionalDetails || dataToPreview.subleaseReason || 'No description available',
+    accommodationType: dataToPreview.isPrivateRoom ? 'private' : 'shared',
+    preferredGender: dataToPreview.preferredGender || 'any',
     isVerifiedUMN: false,
     hostReviews: [],
-    noiseLevel: formData.roommatePreferences?.noiseLevel,
-    cleanliness: formData.roommatePreferences?.cleanlinessLevel,
-    isPrivateRoom: formData.isPrivateRoom || false,
-    hasRoommates: formData.hasRoommates || false,
-    smokingAllowed: formData.roommatePreferences?.smokingAllowed || false,
-    petsAllowed: formData.roommatePreferences?.petsAllowed || false,
-    contactMethods: formData.contactInfo?.methods ? formData.contactInfo.methods.filter(method => method.selected && method.value.trim()) : []
+    noiseLevel: dataToPreview.roommatePreferences?.noiseLevel,
+    cleanliness: dataToPreview.roommatePreferences?.cleanlinessLevel,
+    isPrivateRoom: dataToPreview.isPrivateRoom || false,
+    hasRoommates: dataToPreview.hasRoommates || false,
+    smokingAllowed: dataToPreview.roommatePreferences?.smokingAllowed || false,
+    petsAllowed: dataToPreview.roommatePreferences?.petsAllowed || false,
+    contactMethods: dataToPreview.contactInfo?.methods ? dataToPreview.contactInfo.methods.filter(method => method.selected && method.value.trim()) : []
   };
 
   // Store preview data in localStorage
@@ -536,6 +539,9 @@ const showListingPreview = () => {
   // Navigate to a preview route within the same domain
   const previewUrl = `/sublease/search/preview?preview=true&timestamp=${Date.now()}`;
   window.open(previewUrl, '_blank');
+  
+  // Add a message confirming the preview opened
+  addSystemMessage("Preview opened in a new tab! You can return here to make changes or continue with publishing.", undefined, undefined, "previewOpened");
 };
 
 const saveDraft = async () => {
@@ -1448,22 +1454,31 @@ Partial availability: ${currentFormData.partialDatesOk === true ? 'Yes' : curren
       summary += `\nContact note: ${currentFormData.contactInfo.note}`;
     }
     
-    addSystemMessage(summary, [
-      { 
-        value: "confirm", 
-        label: "Confirm and publish listing", 
-        icon: "check",
-        action: () => {
-          handleSubmitFormWithData();
-        }
-      },
-      { 
-        value: "edit", 
-        label: "Edit listing", 
-        icon: "edit",
-        action: () => showEditOptions() 
-      },
-    ], undefined, "summary");
+   addSystemMessage(summary, [
+  { 
+    value: "preview", 
+    label: "Preview listing", 
+    icon: "eye",
+    action: () => {
+      showListingPreview();
+    }
+  },
+  { 
+    value: "confirm", 
+    label: "Confirm and publish listing", 
+    icon: "check",
+    action: () => {
+      handleSubmitFormWithData();
+    }
+  },
+  { 
+    value: "edit", 
+    label: "Edit listing", 
+    icon: "edit",
+    action: () => showEditOptions() 
+  },
+], undefined, "summary");
+
   };
 
   const showEditOptions = () => {
@@ -2669,14 +2684,6 @@ Partial availability: ${currentFormData.partialDatesOk === true ? 'Yes' : curren
 {/* Save Draft and Preview Buttons */}
 <div className="flex items-center gap-2">
   <button
-    onClick={showListingPreview}
-    className="px-3 py-1.5 text-sm bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-all flex items-center gap-1"
-  >
-    <Eye className="w-4 h-4" />
-    Preview
-  </button>
-  
-  <button
     onClick={saveDraft}
     className={`px-3 py-1.5 text-sm rounded-lg transition-all flex items-center gap-1 ${
       draftSaved 
@@ -2696,8 +2703,21 @@ Partial availability: ${currentFormData.partialDatesOk === true ? 'Yes' : curren
       </>
     )}
   </button>
+
+
+    {completionPercentage >= 60 && (
+    <button
+      onClick={() => showListingPreview()}
+      className="px-3 py-1.5 text-sm rounded-lg transition-all flex items-center gap-1 bg-blue-100 text-blue-700 hover:bg-blue-200"
+    >
+      <Eye className="w-4 h-4" />
+      Preview
+    </button>
+  )}
 </div>
-         
+
+
+
           {/* User Menu */}
           <div className="relative">
             <button

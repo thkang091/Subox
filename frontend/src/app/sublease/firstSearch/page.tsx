@@ -11,10 +11,9 @@ import {
 } from 'lucide-react';
 import { collection, getDocs, query, orderBy, where, limit } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-
 import SearchLocationPicker from '../../../components/SearchLocationPicker';
 
-// 🔥 UNIFIED: Copy the exact same detectCityFromCoordinates function from SearchPage
+
 const detectCityFromCoordinates = async (lat, lng) => {
   if (!window.google || !window.google.maps) {
     return null;

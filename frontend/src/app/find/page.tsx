@@ -720,7 +720,7 @@ function MoveOutPageContent() {
       if (action === "sell") {
         router.push("/sale/create/options/nonai");
       } else {
-        router.push("/sale/browse");
+        router.push("/sale/firstSearch");
       }
     }, 500);
   };
