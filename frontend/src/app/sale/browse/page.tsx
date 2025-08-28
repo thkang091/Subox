@@ -112,9 +112,12 @@ const MoveOutSalePage = () => {
 
     if (isLoggedIn) {
       list.push(Badges.schoolBadge());
+
     }
     else {
       list.push(Badges.alumniBadge());
+      list.push(Badges.bestBuyer());
+      list.push(Badges.bestRenter());
     }
     setBadgeList(list);
   }, []);
