@@ -101,6 +101,33 @@ export default function LocationPicker({
   // GOOGLE MAPS FUNCTIONS
   // =====================
 
+
+  useEffect(() => {
+  if (mode === 'pickup' && selectedLocation && pickupLocations.length === 0) {
+    setShowAddPickupButton(true);
+  }
+}, [mode, selectedLocation, pickupLocations.length]);
+
+
+
+// Handle mode transitions - clear circle for pickup modes
+useEffect(() => {
+  if (mode === 'pickup' || (mode === 'both' && deliveryType === 'pickup')) {
+    // Always clear circle when in pickup mode
+    if (circleInstance.current) {
+      circleInstance.current.setMap(null);
+      circleInstance.current = null;
+    }
+  } else if ((mode === 'delivery' || (mode === 'both' && deliveryType === 'delivery')) && selectedLocation && mapInstance.current) {
+    // Recreate circle when switching to delivery mode
+    const centerLocation = (activeDeliveryCenter.lat && activeDeliveryCenter.lng) 
+      ? activeDeliveryCenter 
+      : selectedLocation;
+    createDeliveryCircle(centerLocation.lat, centerLocation.lng);
+  }
+}, [mode, deliveryType]);
+
+
   useEffect(() => {
     loadGoogleMaps();
   }, []);
@@ -252,9 +279,9 @@ export default function LocationPicker({
         }
       });
 
-      // Click handler for setting delivery center
+      // Click handler for setting delivery center or showing info
       marker.addListener('click', () => {
-        if ((mode === 'both' || mode === 'delivery') && deliveryType === 'delivery') {
+        if ((mode === 'both' || mode === 'delivery') && (deliveryType === 'delivery' || mode === 'delivery')) {
           changeDeliveryCenter(location);
           
           // Show info
@@ -317,14 +344,19 @@ export default function LocationPicker({
     setPickupLocations(prev => [...prev, newPickupLocation]);
     setShowAddPickupButton(false);
     
-    // Set as active delivery center if first pickup location
-    if (pickupLocations.length === 0) {
+    // Set as active delivery center if first pickup location and in delivery mode
+    if (pickupLocations.length === 0 && (mode === 'delivery' || (mode === 'both' && deliveryType === 'delivery'))) {
       setActiveDeliveryCenter({ lat: selectedLocation.lat, lng: selectedLocation.lng });
     }
     
     // Update map markers
     if (mapInstance.current) {
       addPickupLocationMarkers(mapInstance.current);
+      // Re-add delivery circle if in delivery mode
+      if ((mode === 'delivery' || (mode === 'both' && deliveryType === 'delivery'))) {
+        const centerLocation = pickupLocations.length === 0 ? selectedLocation : activeDeliveryCenter;
+        createDeliveryCircle(centerLocation.lat, centerLocation.lng);
+      }
     }
     
     updateLocationData();
@@ -333,22 +365,31 @@ export default function LocationPicker({
   // Remove pickup location
   const removePickupLocation = (index) => {
     const removedLocation = pickupLocations[index];
-    setPickupLocations(prev => prev.filter((_, i) => i !== index));
+    const newPickupLocations = pickupLocations.filter((_, i) => i !== index);
+    setPickupLocations(newPickupLocations);
     
     // If removing active delivery center, set to first remaining or main location
     if (activeDeliveryCenter.lat === removedLocation.lat && 
         activeDeliveryCenter.lng === removedLocation.lng) {
-      const remaining = pickupLocations.filter((_, i) => i !== index);
-      if (remaining.length > 0) {
-        changeDeliveryCenter(remaining[0]);
+      if (newPickupLocations.length > 0) {
+        changeDeliveryCenter(newPickupLocations[0]);
       } else if (selectedLocation) {
         changeDeliveryCenter(selectedLocation);
       }
     }
     
-    // Update map markers
+    // Update map markers and circle
     if (mapInstance.current) {
       addPickupLocationMarkers(mapInstance.current);
+      // Re-create delivery circle if in delivery mode
+      if ((mode === 'delivery' || (mode === 'both' && deliveryType === 'delivery'))) {
+        const centerLocation = newPickupLocations.length > 0 
+          ? (activeDeliveryCenter.lat && activeDeliveryCenter.lng ? activeDeliveryCenter : newPickupLocations[0])
+          : selectedLocation;
+        if (centerLocation) {
+          createDeliveryCircle(centerLocation.lat, centerLocation.lng);
+        }
+      }
     }
     
     updateLocationData();
@@ -363,9 +404,9 @@ export default function LocationPicker({
     };
 
     // Add delivery zone if in delivery mode
-    if ((mode === 'delivery' || mode === 'both') && deliveryType === 'delivery') {
-      const center = pickupLocations.length > 0 && 
-                    activeDeliveryCenter.lat && activeDeliveryCenter.lng
+    if ((mode === 'delivery' || (mode === 'both' && deliveryType === 'delivery'))) {
+      const center = (pickupLocations.length > 0 && 
+                    activeDeliveryCenter.lat && activeDeliveryCenter.lng)
         ? activeDeliveryCenter
         : { lat: selectedLocation.lat, lng: selectedLocation.lng };
         
@@ -376,7 +417,7 @@ export default function LocationPicker({
       };
     }
 
-    // Add pickup locations if in pickup mode
+    // Add pickup locations if in pickup mode or both mode with pickup locations
     if ((mode === 'pickup' || mode === 'both') && pickupLocations.length > 0) {
       updatedLocation.pickupLocations = pickupLocations;
     }
@@ -397,15 +438,9 @@ export default function LocationPicker({
       addMainLocationMarker(mapInstance.current, location.lat, location.lng, location);
     }
     
-    // Update or create delivery circle
-    if (deliveryType === 'delivery') {
-      if (circleInstance.current) {
-        // Update existing circle
-        circleInstance.current.setCenter({ lat: location.lat, lng: location.lng });
-      } else {
-        // Create new circle if it doesn't exist
-        createDeliveryCircle(location.lat, location.lng);
-      }
+    // Update or create delivery circle only if in delivery mode
+    if ((mode === 'delivery' || (mode === 'both' && deliveryType === 'delivery'))) {
+      createDeliveryCircle(location.lat, location.lng);
       
       // Fit map bounds to show the delivery circle after a short delay
       setTimeout(() => {
@@ -424,10 +459,10 @@ export default function LocationPicker({
           }
         }
       }, 200);
+      
+      // Update parent component
+      updateLocationWithZone(deliveryRadius, location.lat, location.lng);
     }
-    
-    // Update parent component
-    updateLocationWithZone(deliveryRadius, location.lat, location.lng);
     
     // Refresh pickup markers to show active state
     if (mapInstance.current) {
@@ -442,6 +477,7 @@ export default function LocationPicker({
     // Remove existing circle
     if (circleInstance.current) {
       circleInstance.current.setMap(null);
+      circleInstance.current = null;
     }
 
     const circle = new window.google.maps.Circle({
@@ -486,59 +522,72 @@ export default function LocationPicker({
 
     markerInstance.current = marker;
   };
+const addMapElements = (map, lat, lng) => {
+  // Clear existing pickup markers
+  clearPickupMarkers();
 
-  const addMapElements = (map, lat, lng) => {
-    // Clear existing pickup markers
-    clearPickupMarkers();
+  // Add main location marker
+  addMainLocationMarker(map, lat, lng);
 
-    // Add main location marker
-    addMainLocationMarker(map, lat, lng);
+  // Handle delivery mode - ONLY create circle for delivery modes
+  if (mode === 'delivery' || (mode === 'both' && deliveryType === 'delivery')) {
+    // Use active delivery center if available, otherwise use main location
+    const centerLat = (activeDeliveryCenter.lat && activeDeliveryCenter.lng) ? activeDeliveryCenter.lat : lat;
+    const centerLng = (activeDeliveryCenter.lat && activeDeliveryCenter.lng) ? activeDeliveryCenter.lng : lng;
+    
+    createDeliveryCircle(centerLat, centerLng);
 
-    // Handle delivery mode - add delivery zone circle
-    if ((mode === 'delivery' || mode === 'both') && (deliveryType === 'delivery' || mode === 'delivery')) {
-      // Use active delivery center if available, otherwise use main location
-      const centerLat = (activeDeliveryCenter.lat && activeDeliveryCenter.lng) ? activeDeliveryCenter.lat : lat;
-      const centerLng = (activeDeliveryCenter.lat && activeDeliveryCenter.lng) ? activeDeliveryCenter.lng : lng;
-      
-      createDeliveryCircle(centerLat, centerLng);
-
-      // Fit map bounds to include the circle after a delay
-      setTimeout(() => {
-        if (circleInstance.current) {
-          const bounds = circleInstance.current.getBounds();
-          if (bounds) {
-            map.fitBounds(bounds);
-            const listener = window.google.maps.event.addListener(map, 'bounds_changed', () => {
-              if (map.getZoom() && map.getZoom() > 16) {
-                map.setZoom(16);
-              }
-              window.google.maps.event.removeListener(listener);
-            });
-          }
+    // Fit map bounds to include the circle after a delay
+    setTimeout(() => {
+      if (circleInstance.current) {
+        const bounds = circleInstance.current.getBounds();
+        if (bounds) {
+          map.fitBounds(bounds);
+          const listener = window.google.maps.event.addListener(map, 'bounds_changed', () => {
+            if (map.getZoom() && map.getZoom() > 16) {
+              map.setZoom(16);
+            }
+            window.google.maps.event.removeListener(listener);
+          });
         }
-      }, 200);
+      }
+    }, 200);
+  } else {
+    // For pickup modes or any non-delivery mode, ensure no circle exists
+    if (circleInstance.current) {
+      circleInstance.current.setMap(null);
+      circleInstance.current = null;
     }
+  }
 
-    // Handle pickup mode - add pickup location markers
-    if (mode === 'pickup' || mode === 'both') {
-      addPickupLocationMarkers(map);
-      
-      // If we have a selected location and it's not already in pickup locations, show the add button
-      if (selectedLocation && !pickupLocations.some(loc => 
-        Math.abs(loc.lat - selectedLocation.lat) < 0.0001 && 
-        Math.abs(loc.lng - selectedLocation.lng) < 0.0001
-      )) {
+  // Handle pickup mode - add pickup location markers
+  if (mode === 'pickup' || mode === 'both') {
+    addPickupLocationMarkers(map);
+    
+    // Show add button for current location if it's not already in pickup locations
+    if (selectedLocation && !pickupLocations.some(loc => 
+      Math.abs(loc.lat - selectedLocation.lat) < 0.0001 && 
+      Math.abs(loc.lng - selectedLocation.lng) < 0.0001
+    )) {
+      // For pickup-only mode, always show the button when there's a selected location
+      // For both mode, only show when in pickup tab
+      if (mode === 'pickup' || (mode === 'both' && deliveryType === 'pickup')) {
         setShowAddPickupButton(true);
+      } else {
+        setShowAddPickupButton(false);
       }
     }
+  } else {
+    // Not in pickup mode at all, hide the button
+    setShowAddPickupButton(false);
+  }
 
-    // Adjust map view if no circle bounds to fit
-    if (!(mode === 'delivery' || mode === 'both') || deliveryType !== 'delivery') {
-      map.setCenter({ lat, lng });
-      map.setZoom(14);
-    }
-  };
-
+  // Adjust map view for pickup modes (no circle to fit bounds to)
+  if (mode === 'pickup' || (mode === 'both' && deliveryType === 'pickup')) {
+    map.setCenter({ lat, lng });
+    map.setZoom(14);
+  }
+};
   const addCircleEventListeners = (circle: google.maps.Circle, map: google.maps.Map, lat: number, lng: number) => {
     circle.addListener('radius_changed', () => {
       try {
@@ -610,7 +659,7 @@ export default function LocationPicker({
       deliveryZone: {
         center: center,
         radius: radius || deliveryRadius,
-        type: deliveryType
+        type: 'delivery'
       }
     };
 
@@ -621,23 +670,24 @@ export default function LocationPicker({
   // SEARCH FUNCTIONS
   // =====================
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-    setSearchQuery(value);
-    setSelectedLocation(null);
-    setShowMap(false);
-    setLocationError(null);
+const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const value = e.target.value;
+  setSearchQuery(value);
+  setSelectedLocation(null);
+  setShowMap(false);
+  setLocationError(null);
+  // Don't reset showAddPickupButton here - let it be managed by addMapElements
 
-    if (searchTimeout.current) {
-      clearTimeout(searchTimeout.current);
+  if (searchTimeout.current) {
+    clearTimeout(searchTimeout.current);
+  }
+
+  searchTimeout.current = setTimeout(() => {
+    if (isGoogleMapsReady && !mapsError) {
+      searchPlaces(value);
     }
-
-    searchTimeout.current = setTimeout(() => {
-      if (isGoogleMapsReady && !mapsError) {
-        searchPlaces(value);
-      }
-    }, 300);
-  };
+  }, 300);
+};
 
   const searchPlaces = (query: string) => {
     if (!query.trim() || !autocompleteService.current || !isGoogleMapsReady) {
@@ -675,67 +725,86 @@ export default function LocationPicker({
     );
   };
 
-  const selectPlace = (suggestion: PlaceSuggestion) => {
-    if (!placesService.current || !isGoogleMapsReady) return;
+const selectPlace = (suggestion: PlaceSuggestion) => {
+  if (!placesService.current || !isGoogleMapsReady) return;
 
-    const request = {
-      placeId: suggestion.place_id,
-      fields: [
-        'formatted_address', 
-        'geometry.location', 
-        'name', 
-        'address_components', 
-        'types', 
-        'place_id'
-      ]
-    };
-
-    placesService.current.getDetails(request, (place, status) => {
-      if (status === 'OK' && place) {
-        const addressComponents = parseAddressComponents(place.address_components || []);
-        const placeName = place.name !== place.formatted_address ? place.name : '';
-        
-        const locationData = {
-          lat: place.geometry?.location?.lat() || 0,
-          lng: place.geometry?.location?.lng() || 0,
-          address: place.formatted_address || suggestion.description,
-          placeName: placeName || '',
-          ...addressComponents
-        };
-
-        setSearchQuery(place.formatted_address || suggestion.description);
-        setSelectedLocation(locationData);
-        setSuggestions([]);
-        setShowSuggestions(false);
-        setShowMap(true); // AUTO-SHOW MAP
-        
-        // Set active delivery center to new location
-        setActiveDeliveryCenter({ lat: locationData.lat, lng: locationData.lng });
-        
-        onLocationSelect(locationData);
-
-        // Initialize map immediately
-        setTimeout(() => {
-          initializeMap(locationData.lat, locationData.lng);
-        }, 100);
-      } else {
-        console.error('Place details request failed with status:', status);
-        const fallbackData = {
-          lat: 0,
-          lng: 0,
-          address: suggestion.description,
-          placeName: suggestion.structured_formatting.main_text
-        };
-        
-        setSearchQuery(suggestion.description);
-        setSelectedLocation(fallbackData);
-        setSuggestions([]);
-        setShowSuggestions(false);
-        setShowMap(true); // AUTO-SHOW MAP
-        onLocationSelect(fallbackData);
-      }
-    });
+  const request = {
+    placeId: suggestion.place_id,
+    fields: [
+      'formatted_address', 
+      'geometry.location', 
+      'name', 
+      'address_components', 
+      'types', 
+      'place_id'
+    ]
   };
+
+  placesService.current.getDetails(request, (place, status) => {
+    if (status === 'OK' && place) {
+      const addressComponents = parseAddressComponents(place.address_components || []);
+      const placeName = place.name !== place.formatted_address ? place.name : '';
+      
+      const locationData = {
+        lat: place.geometry?.location?.lat() || 0,
+        lng: place.geometry?.location?.lng() || 0,
+        address: place.formatted_address || suggestion.description,
+        placeName: placeName || '',
+        ...addressComponents
+      };
+
+      setSearchQuery(place.formatted_address || suggestion.description);
+      setSelectedLocation(locationData);
+      setSuggestions([]);
+      setShowSuggestions(false);
+      setShowMap(true); // AUTO-SHOW MAP
+      
+      // Set active delivery center to new location if no existing center or if in delivery mode
+      if (!activeDeliveryCenter.lat || !activeDeliveryCenter.lng || mode === 'delivery') {
+        setActiveDeliveryCenter({ lat: locationData.lat, lng: locationData.lng });
+      }
+      
+      // Show add pickup button immediately for pickup mode
+      if (mode === 'pickup' && !pickupLocations.some(loc => 
+        Math.abs(loc.lat - locationData.lat) < 0.0001 && 
+        Math.abs(loc.lng - locationData.lng) < 0.0001
+      )) {
+        setShowAddPickupButton(true);
+      }
+      
+      onLocationSelect(locationData);
+
+      // Initialize map immediately
+      setTimeout(() => {
+        initializeMap(locationData.lat, locationData.lng);
+      }, 100);
+    } else {
+      console.error('Place details request failed with status:', status);
+      const fallbackData = {
+        lat: 0,
+        lng: 0,
+        address: suggestion.description,
+        placeName: suggestion.structured_formatting.main_text
+      };
+      
+      setSearchQuery(suggestion.description);
+      setSelectedLocation(fallbackData);
+      setSuggestions([]);
+      setShowSuggestions(false);
+      setShowMap(true); // AUTO-SHOW MAP
+      
+      // Show add pickup button immediately for pickup mode (fallback case)
+      if (mode === 'pickup' && !pickupLocations.some(loc => 
+        Math.abs(loc.lat - fallbackData.lat) < 0.0001 && 
+        Math.abs(loc.lng - fallbackData.lng) < 0.0001
+      )) {
+        setShowAddPickupButton(true);
+      }
+      
+      onLocationSelect(fallbackData);
+    }
+  });
+};
 
   // =====================
   // PICKUP LOCATION SEARCH FUNCTIONS
@@ -818,7 +887,7 @@ export default function LocationPicker({
         setPickupLocations(prev => [...prev, newPickupLocation]);
         
         // Set as active delivery center if first pickup location and in delivery mode
-        if (pickupLocations.length === 0 && deliveryType === 'delivery') {
+        if (pickupLocations.length === 0 && (mode === 'delivery' || (mode === 'both' && deliveryType === 'delivery'))) {
           changeDeliveryCenter(newPickupLocation);
         } else {
           // Move map to show the new pickup location
@@ -840,6 +909,11 @@ export default function LocationPicker({
         // Update map markers
         if (mapInstance.current) {
           addPickupLocationMarkers(mapInstance.current);
+          // Re-add delivery circle if in delivery mode
+          if ((mode === 'delivery' || (mode === 'both' && deliveryType === 'delivery'))) {
+            const centerLocation = pickupLocations.length === 0 ? newPickupLocation : activeDeliveryCenter;
+            createDeliveryCircle(centerLocation.lat, centerLocation.lng);
+          }
         }
         
         updateLocationData();
@@ -851,101 +925,118 @@ export default function LocationPicker({
   // LOCATION FUNCTIONS
   // =====================
 
-  const getCurrentLocation = () => {
-    if (!navigator.geolocation) {
-      setLocationError('Geolocation is not supported by this browser. Please search for your location manually.');
-      return;
-    }
+const getCurrentLocation = () => {
+  if (!navigator.geolocation) {
+    setLocationError('Geolocation is not supported by this browser. Please search for your location manually.');
+    return;
+  }
 
-    setIsGettingCurrentLocation(true);
-    setLocationError(null);
+  setIsGettingCurrentLocation(true);
+  setLocationError(null);
 
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        const { latitude, longitude } = position.coords;
-        
-        if (isGoogleMapsReady && window.google && window.google.maps) {
-          const geocoder = new window.google.maps.Geocoder();
-          geocoder.geocode(
-            { location: { lat: latitude, lng: longitude } },
-            (results, status) => {
-              setIsGettingCurrentLocation(false);
-              if (status === 'OK' && results?.[0]) {
-                const result = results[0];
-                const addressComponents = parseAddressComponents(result.address_components || []);
-                
-                const locationData = {
-                  lat: latitude,
-                  lng: longitude,
-                  address: result.formatted_address,
-                  placeName: 'Current Location',
-                  ...addressComponents
-                };
+  navigator.geolocation.getCurrentPosition(
+    (position) => {
+      const { latitude, longitude } = position.coords;
+      
+      if (isGoogleMapsReady && window.google && window.google.maps) {
+        const geocoder = new window.google.maps.Geocoder();
+        geocoder.geocode(
+          { location: { lat: latitude, lng: longitude } },
+          (results, status) => {
+            setIsGettingCurrentLocation(false);
+            if (status === 'OK' && results?.[0]) {
+              const result = results[0];
+              const addressComponents = parseAddressComponents(result.address_components || []);
+              
+              const locationData = {
+                lat: latitude,
+                lng: longitude,
+                address: result.formatted_address,
+                placeName: 'Current Location',
+                ...addressComponents
+              };
 
-                setSearchQuery(result.formatted_address);
-                setSelectedLocation(locationData);
-                setShowMap(true); // AUTO-SHOW MAP
-                
-                // Set active delivery center to current location
-                setActiveDeliveryCenter({ lat: latitude, lng: longitude });
-                
-                onLocationSelect(locationData);
-
-                // Initialize map immediately
-                setTimeout(() => {
-                  initializeMap(latitude, longitude);
-                }, 100);
-              } else {
-                setLocationError('Could not determine your address. Please search manually.');
+              setSearchQuery(result.formatted_address);
+              setSelectedLocation(locationData);
+              setShowMap(true); // AUTO-SHOW MAP
+              
+              // Set active delivery center to current location
+              setActiveDeliveryCenter({ lat: latitude, lng: longitude });
+              
+              // Show add pickup button immediately for pickup mode
+              if (mode === 'pickup' && !pickupLocations.some(loc => 
+                Math.abs(loc.lat - latitude) < 0.0001 && 
+                Math.abs(loc.lng - longitude) < 0.0001
+              )) {
+                setShowAddPickupButton(true);
               }
+              
+              onLocationSelect(locationData);
+
+              // Initialize map immediately
+              setTimeout(() => {
+                initializeMap(latitude, longitude);
+              }, 100);
+            } else {
+              setLocationError('Could not determine your address. Please search manually.');
             }
-          );
-        } else {
-          setIsGettingCurrentLocation(false);
-          const fallbackAddress = `Current Location (${latitude.toFixed(4)}, ${longitude.toFixed(4)})`;
-          const locationData = {
-            lat: latitude,
-            lng: longitude,
-            address: fallbackAddress,
-            placeName: 'Current Location'
-          };
-          
-          setSearchQuery(fallbackAddress);
-          setSelectedLocation(locationData);
-          setShowMap(true); // AUTO-SHOW MAP
-          setActiveDeliveryCenter({ lat: latitude, lng: longitude });
-          onLocationSelect(locationData);
-        }
-      },
-      (error) => {
+          }
+        );
+      } else {
         setIsGettingCurrentLocation(false);
-        console.warn('Geolocation error:', error);
+        const fallbackAddress = `Current Location (${latitude.toFixed(4)}, ${longitude.toFixed(4)})`;
+        const locationData = {
+          lat: latitude,
+          lng: longitude,
+          address: fallbackAddress,
+          placeName: 'Current Location'
+        };
         
-        let errorMessage = 'Could not get your current location. ';
-        switch (error.code) {
-          case error.PERMISSION_DENIED:
-            errorMessage += 'Please enable location permissions in your browser settings and try again.';
-            break;
-          case error.POSITION_UNAVAILABLE:
-            errorMessage += 'Location information is unavailable.';
-            break;
-          case error.TIMEOUT:
-            errorMessage += 'Location request timed out.';
-            break;
-          default:
-            errorMessage += 'Please search for your location manually.';
-            break;
+        setSearchQuery(fallbackAddress);
+        setSelectedLocation(locationData);
+        setShowMap(true); // AUTO-SHOW MAP
+        setActiveDeliveryCenter({ lat: latitude, lng: longitude });
+        
+        // Show add pickup button immediately for pickup mode (fallback case)
+        if (mode === 'pickup' && !pickupLocations.some(loc => 
+          Math.abs(loc.lat - latitude) < 0.0001 && 
+          Math.abs(loc.lng - longitude) < 0.0001
+        )) {
+          setShowAddPickupButton(true);
         }
         
-        setLocationError(errorMessage);
-      },
-      {
-        enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 300000
+        onLocationSelect(locationData);
       }
-    );
-  };
+    },
+    (error) => {
+      setIsGettingCurrentLocation(false);
+      console.warn('Geolocation error:', error);
+      
+      let errorMessage = 'Could not get your current location. ';
+      switch (error.code) {
+        case error.PERMISSION_DENIED:
+          errorMessage += 'Please enable location permissions in your browser settings and try again.';
+          break;
+        case error.POSITION_UNAVAILABLE:
+          errorMessage += 'Location information is unavailable.';
+          break;
+        case error.TIMEOUT:
+          errorMessage += 'Location request timed out.';
+          break;
+        default:
+          errorMessage += 'Please search for your location manually.';
+          break;
+      }
+      
+      setLocationError(errorMessage);
+    },
+    {
+      enableHighAccuracy: true,
+      timeout: 10000,
+      maximumAge: 300000
+    }
+  );
+};
 
   // =====================
   // UTILITY FUNCTIONS
@@ -975,25 +1066,31 @@ export default function LocationPicker({
     return addressInfo;
   };
 
-  const clearSearch = () => {
-    setSearchQuery('');
-    setSelectedLocation(null);
-    setSuggestions([]);
-    setShowSuggestions(false);
-    setShowMap(false);
-    setLocationError(null);
-    setPickupLocations([]);
-    setActiveDeliveryCenter({ lat: 0, lng: 0 });
-    
-    // Clear pickup search states
-    setIsAddingPickupLocation(false);
-    setPickupSearchQuery('');
-    setPickupSuggestions([]);
-    setShowPickupSuggestions(false);
-    setShowAddPickupButton(false);
-    
-    inputRef.current?.focus();
-  };
+const clearSearch = () => {
+  setSearchQuery('');
+  setSelectedLocation(null);
+  setSuggestions([]);
+  setShowSuggestions(false);
+  setShowMap(false);
+  setLocationError(null);
+  setPickupLocations([]);
+  setActiveDeliveryCenter({ lat: 0, lng: 0 });
+  
+  // Clear delivery circle when clearing search
+  if (circleInstance.current) {
+    circleInstance.current.setMap(null);
+    circleInstance.current = null;
+  }
+  
+  // Clear pickup search states
+  setIsAddingPickupLocation(false);
+  setPickupSearchQuery('');
+  setPickupSuggestions([]);
+  setShowPickupSuggestions(false);
+  setShowAddPickupButton(false);
+  
+  inputRef.current?.focus();
+};
 
   const getPlaceIcon = (types: string[]) => {
     if (types.includes('restaurant') || types.includes('food')) return <Coffee size={18} className="text-orange-500" />;
@@ -1009,50 +1106,26 @@ export default function LocationPicker({
     }
   };
 
-  const handleDeliveryTypeChange = (type: 'delivery' | 'pickup') => {
-    setDeliveryType(type);
-    
-    // Clear the showAddPickupButton when switching modes
-    setShowAddPickupButton(false);
-    
-    if (type === 'delivery') {
-      // Determine the best center for delivery zone
-      let centerLocation = null;
-      
-      if (pickupLocations.length > 0) {
-        // Use first pickup location if available
-        centerLocation = pickupLocations[0];
-      } else if (selectedLocation) {
-        // Fall back to selected location
-        centerLocation = selectedLocation;
-      }
-      
-      if (centerLocation) {
-        changeDeliveryCenter(centerLocation);
-      }
-    } else if (type === 'pickup') {
-      // Hide delivery circle when in pickup mode
-      if (circleInstance.current) {
-        circleInstance.current.setMap(null);
-      }
-      
-      // Center map on selected location if available
-      if (mapInstance.current && selectedLocation) {
-        mapInstance.current.setCenter({ lat: selectedLocation.lat, lng: selectedLocation.lng });
-        mapInstance.current.setZoom(14);
-      }
-      
-      // Show add button if current location isn't already a pickup location
-      if (selectedLocation && !pickupLocations.some(loc => 
-        Math.abs(loc.lat - selectedLocation.lat) < 0.0001 && 
-        Math.abs(loc.lng - selectedLocation.lng) < 0.0001
-      )) {
-        setShowAddPickupButton(true);
-      }
+const handleDeliveryTypeChange = (type: 'delivery' | 'pickup') => {
+  setDeliveryType(type);
+  
+  // Clear the showAddPickupButton when switching modes
+  setShowAddPickupButton(false);
+  
+  // The useEffect above will handle the circle creation/removal based on the new deliveryType
+  
+  if (type === 'pickup') {
+    // Show add button if current location isn't already a pickup location
+    if (selectedLocation && !pickupLocations.some(loc => 
+      Math.abs(loc.lat - selectedLocation.lat) < 0.0001 && 
+      Math.abs(loc.lng - selectedLocation.lng) < 0.0001
+    )) {
+      setShowAddPickupButton(true);
     }
-    
-    updateLocationData();
-  };
+  }
+  
+  updateLocationData();
+};
 
   // =====================
   // RENDER COMPONENTS
@@ -1106,402 +1179,451 @@ export default function LocationPicker({
   // =====================
   // MAIN RENDER
   // =====================
-
-  return (
+return (
+  <div className="relative">
+    {/* Search Input */}
     <div className="relative">
-      {/* Search Input */}
-      <div className="relative">
-        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-          <Search size={20} className="text-gray-400" />
-        </div>
-        <input
-          ref={inputRef}
-          type="text"
-          value={searchQuery}
-          onChange={handleInputChange}
-          onFocus={() => searchQuery && setShowSuggestions(suggestions.length > 0)}
-          placeholder="Search restaurants, addresses, places..."
-          disabled={!!mapsError}
-          className="w-full pl-10 pr-10 py-4 border border-gray-300 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-transparent bg-white text-lg disabled:opacity-50 disabled:cursor-not-allowed"
-        />
-        {searchQuery && (
-          <button
-            onClick={clearSearch}
-            className="absolute inset-y-0 right-0 pr-3 flex items-center"
-          >
-            <X size={20} className="text-gray-400 hover:text-gray-600" />
-          </button>
-        )}
-        {isSearching && (
-          <div className="absolute inset-y-0 right-8 flex items-center">
-            <div className="animate-spin rounded-full h-5 w-5 border-2 border-orange-500 border-t-transparent"></div>
-          </div>
-        )}
+      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+        <Search size={20} className="text-gray-400" />
       </div>
-
-      {/* Error Messages */}
-      {mapsError && renderErrorMessage(mapsError)}
-      {locationError && renderErrorMessage(locationError)}
-
-      {/* Current Location Button */}
-      <button
-        type="button"
-        onClick={getCurrentLocation}
-        disabled={isGettingCurrentLocation || !!mapsError}
-        className="w-full mt-4 px-4 py-4 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl hover:from-blue-600 hover:to-blue-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3 shadow-lg"
-      >
-        {isGettingCurrentLocation ? (
-          <>
-            <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent"></div>
-            <span className="font-medium">Getting your location...</span>
-          </>
-        ) : (
-          <>
-            <Navigation size={20} />
-            <span className="font-medium">Use my current location</span>
-          </>
-        )}
-      </button>
-
-      {/* Selected Location Display */}
-      {selectedLocation && (
-        <div className="mt-4 p-4 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-xl">
-          <div className="flex items-start gap-3">
-            <MapPin size={20} className="text-green-600 mt-1 flex-shrink-0" />
-            <div className="flex-1">
-              <div className="flex items-center gap-2 mb-1">
-                <p className="font-semibold text-green-800">Selected Location</p>
-                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-              </div>
-              
-              {selectedLocation.placeName && (
-                <p className="font-medium text-gray-900 mb-1">{selectedLocation.placeName}</p>
-              )}
-              
-              <p className="text-sm text-gray-700 mb-2">{selectedLocation.address}</p>
-              
-              {/* Address Details */}
-              <div className="grid grid-cols-2 gap-2 text-xs text-gray-600 mb-3">
-                {selectedLocation.city && (
-                  <div><span className="font-medium">City:</span> {selectedLocation.city}</div>
-                )}
-                {selectedLocation.state && (
-                  <div><span className="font-medium">State:</span> {selectedLocation.state}</div>
-                )}
-                {selectedLocation.zipCode && (
-                  <div><span className="font-medium">ZIP:</span> {selectedLocation.zipCode}</div>
-                )}
-                {selectedLocation.route && (
-                  <div><span className="font-medium">Street:</span> {selectedLocation.streetNumber || ''} {selectedLocation.route}</div>
-                )}
-              </div>
-
-              {/* Delivery/Pickup Zone Controls */}
-              {showDeliveryOptions && !mapsError && (
-                <div className="border-t border-green-200 pt-3 mt-3">
-                  <div className="flex items-center justify-between mb-3">
-                    <p className="font-medium text-green-800">
-                      {mode === 'delivery' ? 'Delivery Zone' : 
-                       mode === 'pickup' ? 'Pickup Locations' : 
-                       'Delivery & Pickup Setup'}
-                    </p>
-                  </div>
-
-                  {/* Mode-specific controls */}
-                  {mode === 'delivery' && (
-                    <div className="space-y-3">
-                      <div className="text-xs text-gray-600">
-                        <p><span className="font-medium">Delivery Radius:</span> {(deliveryRadius / 1000).toFixed(1)} km</p>
-                        <p className="text-gray-500 mt-1">Drag the green circle on the map to adjust your delivery area</p>
-                        {pickupLocations.length > 0 && (
-                          <p className="text-green-600 font-medium mt-1">
-                            Click any pickup location to center delivery zone there
-                          </p>
-                        )}
-                      </div>
-                      
-                      {pickupLocations.length > 0 && (
-                        <div className="bg-green-50 border border-green-200 rounded-lg p-3">
-                          <p className="text-xs font-medium text-green-800 mb-2">
-                            Available Delivery Centers:
-                          </p>
-                          {pickupLocations.map((location, index) => (
-                            <div 
-                              key={index}
-                              className={`text-xs p-2 rounded mb-1 cursor-pointer transition-colors ${
-                                activeDeliveryCenter.lat === location.lat && 
-                                activeDeliveryCenter.lng === location.lng
-                                  ? 'bg-green-200 text-green-800 font-medium'
-                                  : 'text-gray-600 hover:bg-green-100'
-                              }`}
-                              onClick={() => changeDeliveryCenter(location)}
-                            >
-                              {location.placeName || `Location ${index + 1}`}
-                              {activeDeliveryCenter.lat === location.lat && 
-                               activeDeliveryCenter.lng === location.lng && (
-                                <span className="ml-2">← Active</span>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {mode === 'pickup' && (
-                    <div className="space-y-3">
-                      {pickupLocations.length > 0 && (
-                        <div className="space-y-2">
-                          <p className="text-xs font-medium text-gray-700">Pickup Locations ({pickupLocations.length}):</p>
-                          {pickupLocations.map((location, index) => (
-                            <div key={index} className="flex items-center justify-between bg-yellow-50 border border-yellow-200 rounded-lg p-2">
-                              <div className="flex-1 min-w-0">
-                                <p className="text-sm font-medium text-gray-900 truncate">
-                                  {location.placeName || `Location ${index + 1}`}
-                                </p>
-                                <p className="text-xs text-gray-600 truncate">{location.address}</p>
-                              </div>
-                              <button
-                                onClick={() => removePickupLocation(index)}
-                                className="ml-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center hover:bg-red-600 transition-colors"
-                              >
-                                <X size={12} />
-                              </button>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-
-                      {showAddPickupButton && (
-                        <button
-                          onClick={addCurrentLocationAsPickup}
-                          className="w-full px-3 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition-colors text-sm font-medium flex items-center justify-center gap-2"
-                        >
-                          <MapPin size={16} />
-                          Keep this location as pickup point
-                        </button>
-                      )}
-
-                      {pickupLocations.length === 0 && !showAddPickupButton && (
-                        <p className="text-xs text-gray-500 italic">
-                          Search for a location above to add your first pickup point
-                        </p>
-                      )}
-                    </div>
-                  )}
-
-                  {mode === 'both' && (
-                    <div className="space-y-3">
-                      <div className="flex gap-2 mb-3">
-                        <button
-                          onClick={() => handleDeliveryTypeChange('delivery')}
-                          className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                            deliveryType === 'delivery'
-                              ? 'bg-green-500 text-white'
-                              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                          }`}
-                        >
-                          <Truck size={16} className="inline mr-1" />
-                          Setup Delivery
-                        </button>
-                        <button
-                          onClick={() => handleDeliveryTypeChange('pickup')}
-                          className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                            deliveryType === 'pickup'
-                              ? 'bg-amber-500 text-white'
-                              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                          }`}
-                        >
-                          <Users size={16} className="inline mr-1" />
-                          Setup Pickup
-                        </button>
-                      </div>
-
-                      {deliveryType === 'delivery' && (
-                        <div className="space-y-2">
-                          <div className="text-xs text-gray-600">
-                            <p><span className="font-medium">Delivery Radius:</span> {(deliveryRadius / 1000).toFixed(1)} km</p>
-                            {pickupLocations.length > 0 && (
-                              <p className="text-green-600 font-medium mt-1">
-                                Click any pickup location (yellow pins) to center delivery zone there
-                              </p>
-                            )}
-                          </div>
-                          
-                          {pickupLocations.length > 0 && (
-                            <div className="bg-green-50 border border-green-200 rounded-lg p-3">
-                              <p className="text-xs font-medium text-green-800 mb-2">
-                                Active Delivery Center:
-                              </p>
-                              {pickupLocations.map((location, index) => (
-                                <div 
-                                  key={index}
-                                  className={`text-xs p-2 rounded mb-1 cursor-pointer transition-colors ${
-                                    activeDeliveryCenter.lat === location.lat && 
-                                    activeDeliveryCenter.lng === location.lng
-                                      ? 'bg-green-200 text-green-800 font-medium'
-                                      : 'text-gray-600 hover:bg-green-100'
-                                  }`}
-                                  onClick={() => changeDeliveryCenter(location)}
-                                >
-                                  {location.placeName || `Location ${index + 1}`}
-                                  {activeDeliveryCenter.lat === location.lat && 
-                                   activeDeliveryCenter.lng === location.lng && (
-                                    <span className="ml-2">← Active</span>
-                                  )}
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      )}
-
-                      {deliveryType === 'pickup' && (
-                        <div className="space-y-2">
-                          <div className="flex items-center justify-between mb-2">
-                            <p className="text-xs font-medium text-gray-700">
-                              Pickup Locations ({pickupLocations.length}):
-                            </p>
-                            <button
-                              onClick={() => setIsAddingPickupLocation(!isAddingPickupLocation)}
-                              className="text-xs bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-1 rounded-full transition-colors"
-                            >
-                              {isAddingPickupLocation ? 'Cancel' : '+ Add Location'}
-                            </button>
-                          </div>
-
-                          {/* Pickup Location Search */}
-                          {isAddingPickupLocation && (
-                            <div className="relative mb-3">
-                              <div className="relative">
-                                <Search size={14} className="absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-400" />
-                                <input
-                                  type="text"
-                                  value={pickupSearchQuery}
-                                  onChange={handlePickupLocationSearch}
-                                  onFocus={() => pickupSearchQuery && setShowPickupSuggestions(pickupSuggestions.length > 0)}
-                                  placeholder="Search for pickup location..."
-                                  className="w-full pl-8 pr-3 py-2 text-xs border border-gray-300 rounded-lg focus:ring-1 focus:ring-yellow-500 focus:border-transparent"
-                                />
-                              </div>
-
-                              {/* Pickup Suggestions Dropdown */}
-                              {showPickupSuggestions && pickupSuggestions.length > 0 && (
-                                <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-50 max-h-40 overflow-y-auto">
-                                  {pickupSuggestions.map((suggestion, index) => (
-                                    <button
-                                      key={`pickup-${suggestion.place_id}-${index}`}
-                                      onClick={() => selectPickupPlace(suggestion)}
-                                      className="w-full px-3 py-2 text-left hover:bg-gray-50 border-b border-gray-100 last:border-b-0 text-xs"
-                                    >
-                                      <div className="font-medium text-gray-900 truncate">
-                                        {suggestion.structured_formatting.main_text}
-                                      </div>
-                                      <div className="text-gray-600 truncate">
-                                        {suggestion.structured_formatting.secondary_text}
-                                      </div>
-                                    </button>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
-                          )}
-
-                          {/* Current Pickup Locations */}
-                          {pickupLocations.length > 0 && (
-                            <div className="space-y-1">
-                              {pickupLocations.map((location, index) => (
-                                <div key={index} className="flex items-center justify-between bg-yellow-50 border border-yellow-200 rounded-lg p-2">
-                                  <div className="flex-1 min-w-0">
-                                    <p className="text-xs font-medium text-gray-900 truncate">
-                                      {location.placeName || `Location ${index + 1}`}
-                                    </p>
-                                    <p className="text-xs text-gray-500 truncate">{location.address}</p>
-                                  </div>
-                                  <button
-                                    onClick={() => removePickupLocation(index)}
-                                    className="ml-2 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center hover:bg-red-600 transition-colors"
-                                  >
-                                    <X size={10} />
-                                  </button>
-                                </div>
-                              ))}
-                            </div>
-                          )}
-
-                          {/* Add current location button */}
-                          {showAddPickupButton && (
-                            <button
-                              onClick={addCurrentLocationAsPickup}
-                              className="w-full px-3 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition-colors text-xs font-medium flex items-center justify-center gap-1"
-                            >
-                              <MapPin size={14} />
-                              Add current location as pickup
-                            </button>
-                          )}
-
-                          {pickupLocations.length === 0 && !isAddingPickupLocation && !showAddPickupButton && (
-                            <p className="text-xs text-gray-500 italic text-center py-2">
-                              Click "Add Location" to add your first pickup point
-                            </p>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
+      <input
+        ref={inputRef}
+        type="text"
+        value={searchQuery}
+        onChange={handleInputChange}
+        onFocus={() => searchQuery && setShowSuggestions(suggestions.length > 0)}
+        placeholder="Search restaurants, addresses, places..."
+        disabled={!!mapsError}
+        className="w-full pl-10 pr-10 py-4 border border-gray-300 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-transparent bg-white text-lg disabled:opacity-50 disabled:cursor-not-allowed"
+      />
+      {searchQuery && (
+        <button
+          onClick={clearSearch}
+          className="absolute inset-y-0 right-0 pr-3 flex items-center"
+        >
+          <X size={20} className="text-gray-400 hover:text-gray-600" />
+        </button>
       )}
-
-      {/* Map Display - Auto-shows when location is selected */}
-      {showMap && selectedLocation && !mapsError && (
-        <div className="mt-4 h-64 rounded-xl overflow-hidden shadow-lg border border-gray-200">
-          <div ref={mapRef} className="w-full h-full" />
-        </div>
-      )}
-
-      {/* Suggestions Dropdown */}
-      {showSuggestions && suggestions.length > 0 && (
-        <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-200 rounded-xl shadow-2xl z-50 max-h-80 overflow-y-auto">
-          {suggestions.map((suggestion, index) => (
-            <button
-              key={`${suggestion.place_id}-${index}`}
-              onClick={() => selectPlace(suggestion)}
-              className={`w-full px-4 py-4 text-left hover:bg-gray-50 border-b border-gray-100 last:border-b-0 flex items-start gap-3 transition-colors ${
-                index === 0 ? 'rounded-t-xl' : ''
-              } ${index === suggestions.length - 1 ? 'rounded-b-xl' : ''}`}
-            >
-              <div className="mt-1 flex-shrink-0">
-                {getPlaceIcon(suggestion.types)}
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="font-medium text-gray-900 truncate">
-                  {suggestion.structured_formatting.main_text}
-                </p>
-                <p className="text-sm text-gray-600 mt-1 truncate">
-                  {suggestion.structured_formatting.secondary_text}
-                </p>
-              </div>
-            </button>
-          ))}
-        </div>
-      )}
-
-      {/* Popular Categories and Areas */}
-      {!searchQuery && !selectedLocation && renderPopularCategories()}
-
-      {/* Loading Status */}
-      {!isGoogleMapsReady && !mapsError && (
-        <div className="mt-3 text-center">
-          <div className="inline-flex items-center gap-2 px-3 py-1 bg-blue-50 text-blue-600 rounded-full text-xs">
-            {isGoogleMapsLoading && <div className="animate-spin rounded-full h-3 w-3 border border-blue-500 border-t-transparent"></div>}
-            {isGoogleMapsLoading ? 'Loading enhanced search...' : 'Basic search mode'}
-          </div>
+      {isSearching && (
+        <div className="absolute inset-y-0 right-8 flex items-center">
+          <div className="animate-spin rounded-full h-5 w-5 border-2 border-orange-500 border-t-transparent"></div>
         </div>
       )}
     </div>
-  );
+
+    {/* Error Messages */}
+    {mapsError && renderErrorMessage(mapsError)}
+    {locationError && renderErrorMessage(locationError)}
+
+    {/* Current Location Button */}
+    <button
+      type="button"
+      onClick={getCurrentLocation}
+      disabled={isGettingCurrentLocation || !!mapsError}
+      className="w-full mt-4 px-4 py-4 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl hover:from-blue-600 hover:to-blue-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3 shadow-lg"
+    >
+      {isGettingCurrentLocation ? (
+        <>
+          <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent"></div>
+          <span className="font-medium">Getting your location...</span>
+        </>
+      ) : (
+        <>
+          <Navigation size={20} />
+          <span className="font-medium">Use my current location</span>
+        </>
+      )}
+    </button>
+
+    {/* Selected Location Display */}
+    {selectedLocation && (
+      <div className="mt-4 p-4 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-xl">
+        <div className="flex items-start gap-3">
+          <MapPin size={20} className="text-green-600 mt-1 flex-shrink-0" />
+          <div className="flex-1">
+            <div className="flex items-center gap-2 mb-1">
+              <p className="font-semibold text-green-800">Selected Location</p>
+              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+            </div>
+            
+            {selectedLocation.placeName && (
+              <p className="font-medium text-gray-900 mb-1">{selectedLocation.placeName}</p>
+            )}
+            
+            <p className="text-sm text-gray-700 mb-2">{selectedLocation.address}</p>
+            
+            {/* Address Details */}
+            <div className="grid grid-cols-2 gap-2 text-xs text-gray-600 mb-3">
+              {selectedLocation.city && (
+                <div><span className="font-medium">City:</span> {selectedLocation.city}</div>
+              )}
+              {selectedLocation.state && (
+                <div><span className="font-medium">State:</span> {selectedLocation.state}</div>
+              )}
+              {selectedLocation.zipCode && (
+                <div><span className="font-medium">ZIP:</span> {selectedLocation.zipCode}</div>
+              )}
+              {selectedLocation.route && (
+                <div><span className="font-medium">Street:</span> {selectedLocation.streetNumber || ''} {selectedLocation.route}</div>
+              )}
+            </div>
+
+            {/* Delivery/Pickup Zone Controls */}
+            {showDeliveryOptions && !mapsError && (
+              <div className="border-t border-green-200 pt-3 mt-3">
+                <div className="flex items-center justify-between mb-3">
+                  <p className="font-medium text-green-800">
+                    {mode === 'delivery' ? 'Delivery Zone' : 
+                     mode === 'pickup' ? 'Pickup Locations' : 
+                     'Delivery & Pickup Setup'}
+                  </p>
+                </div>
+
+                {/* Mode-specific controls */}
+                {mode === 'delivery' && (
+                  <div className="space-y-3">
+                    <div className="text-xs text-gray-600">
+                      <p><span className="font-medium">Delivery Radius:</span> {(deliveryRadius / 1000).toFixed(1)} km</p>
+                      <p className="text-gray-500 mt-1">Drag the green circle on the map to adjust your delivery area</p>
+                      {pickupLocations.length > 0 && (
+                        <p className="text-green-600 font-medium mt-1">
+                          Click any pickup location to center delivery zone there
+                        </p>
+                      )}
+                    </div>
+                    
+                    {pickupLocations.length > 0 && (
+                      <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                        <p className="text-xs font-medium text-green-800 mb-2">
+                          Available Delivery Centers:
+                        </p>
+                        {pickupLocations.map((location, index) => (
+                          <div 
+                            key={index}
+                            className={`text-xs p-2 rounded mb-1 cursor-pointer transition-colors ${
+                              activeDeliveryCenter.lat === location.lat && 
+                              activeDeliveryCenter.lng === location.lng
+                                ? 'bg-green-200 text-green-800 font-medium'
+                                : 'text-gray-600 hover:bg-green-100'
+                            }`}
+                            onClick={() => changeDeliveryCenter(location)}
+                          >
+                            {location.placeName || `Location ${index + 1}`}
+                            {activeDeliveryCenter.lat === location.lat && 
+                             activeDeliveryCenter.lng === location.lng && (
+                              <span className="ml-2">← Active</span>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {mode === 'pickup' && (
+                  <div className="space-y-3">
+                    {/* Add current location button - Show FIRST when location is selected */}
+                    {showAddPickupButton && (
+                      <button
+                        onClick={addCurrentLocationAsPickup}
+                        className="w-full px-3 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition-colors text-sm font-medium flex items-center justify-center gap-2"
+                      >
+                        <MapPin size={16} />
+                        Add current location as pickup
+                      </button>
+                    )}
+
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-xs font-medium text-gray-700">
+                        Pickup Locations ({pickupLocations.length}):
+                      </p>
+                      <button
+                        onClick={() => setIsAddingPickupLocation(!isAddingPickupLocation)}
+                        className="text-xs bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-1 rounded-full transition-colors"
+                      >
+                        {isAddingPickupLocation ? 'Cancel' : '+ Add Location'}
+                      </button>
+                    </div>
+
+                    {/* Pickup Location Search */}
+                    {isAddingPickupLocation && (
+                      <div className="relative mb-3">
+                        <div className="relative">
+                          <Search size={14} className="absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                          <input
+                            type="text"
+                            value={pickupSearchQuery}
+                            onChange={handlePickupLocationSearch}
+                            onFocus={() => pickupSearchQuery && setShowPickupSuggestions(pickupSuggestions.length > 0)}
+                            placeholder="Search for pickup location..."
+                            className="w-full pl-8 pr-3 py-2 text-xs border border-gray-300 rounded-lg focus:ring-1 focus:ring-yellow-500 focus:border-transparent"
+                          />
+                        </div>
+
+                        {/* Pickup Suggestions Dropdown */}
+                        {showPickupSuggestions && pickupSuggestions.length > 0 && (
+                          <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-50 max-h-40 overflow-y-auto">
+                            {pickupSuggestions.map((suggestion, index) => (
+                              <button
+                                key={`pickup-${suggestion.place_id}-${index}`}
+                                onClick={() => selectPickupPlace(suggestion)}
+                                className="w-full px-3 py-2 text-left hover:bg-gray-50 border-b border-gray-100 last:border-b-0 text-xs"
+                              >
+                                <div className="font-medium text-gray-900 truncate">
+                                  {suggestion.structured_formatting.main_text}
+                                </div>
+                                <div className="text-gray-600 truncate">
+                                  {suggestion.structured_formatting.secondary_text}
+                                </div>
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Current Pickup Locations */}
+                    {pickupLocations.length > 0 && (
+                      <div className="space-y-1">
+                        {pickupLocations.map((location, index) => (
+                          <div key={index} className="flex items-center justify-between bg-yellow-50 border border-yellow-200 rounded-lg p-2">
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-medium text-gray-900 truncate">
+                                {location.placeName || `Location ${index + 1}`}
+                              </p>
+                              <p className="text-xs text-gray-500 truncate">{location.address}</p>
+                            </div>
+                            <button
+                              onClick={() => removePickupLocation(index)}
+                              className="ml-2 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center hover:bg-red-600 transition-colors"
+                            >
+                              <X size={10} />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {pickupLocations.length === 0 && !isAddingPickupLocation && !showAddPickupButton && !selectedLocation && (
+  <p className="text-xs text-gray-500 italic text-center py-2">
+    Search for a location above to add your first pickup point
+  </p>
+)}
+                  </div>
+                )}
+
+                {mode === 'both' && (
+                  <div className="space-y-3">
+                    <div className="flex gap-2 mb-3">
+                      <button
+                        onClick={() => handleDeliveryTypeChange('delivery')}
+                        className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                          deliveryType === 'delivery'
+                            ? 'bg-green-500 text-white'
+                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                        }`}
+                      >
+                        <Truck size={16} className="inline mr-1" />
+                        Setup Delivery
+                      </button>
+                      <button
+                        onClick={() => handleDeliveryTypeChange('pickup')}
+                        className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                          deliveryType === 'pickup'
+                            ? 'bg-amber-500 text-white'
+                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                        }`}
+                      >
+                        <Users size={16} className="inline mr-1" />
+                        Setup Pickup
+                      </button>
+                    </div>
+
+                    {deliveryType === 'delivery' && (
+                      <div className="space-y-2">
+                        <div className="text-xs text-gray-600">
+                          <p><span className="font-medium">Delivery Radius:</span> {(deliveryRadius / 1000).toFixed(1)} km</p>
+                          {pickupLocations.length > 0 && (
+                            <p className="text-green-600 font-medium mt-1">
+                              Click any pickup location (yellow pins) to center delivery zone there
+                            </p>
+                          )}
+                        </div>
+                        
+                        {pickupLocations.length > 0 && (
+                          <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                            <p className="text-xs font-medium text-green-800 mb-2">
+                              Active Delivery Center:
+                            </p>
+                            {pickupLocations.map((location, index) => (
+                              <div 
+                                key={index}
+                                className={`text-xs p-2 rounded mb-1 cursor-pointer transition-colors ${
+                                  activeDeliveryCenter.lat === location.lat && 
+                                  activeDeliveryCenter.lng === location.lng
+                                    ? 'bg-green-200 text-green-800 font-medium'
+                                    : 'text-gray-600 hover:bg-green-100'
+                                }`}
+                                onClick={() => changeDeliveryCenter(location)}
+                              >
+                                {location.placeName || `Location ${index + 1}`}
+                                {activeDeliveryCenter.lat === location.lat && 
+                                 activeDeliveryCenter.lng === location.lng && (
+                                  <span className="ml-2">← Active</span>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {deliveryType === 'pickup' && (
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between mb-2">
+                          <p className="text-xs font-medium text-gray-700">
+                            Pickup Locations ({pickupLocations.length}):
+                          </p>
+                          <button
+                            onClick={() => setIsAddingPickupLocation(!isAddingPickupLocation)}
+                            className="text-xs bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-1 rounded-full transition-colors"
+                          >
+                            {isAddingPickupLocation ? 'Cancel' : '+ Add Location'}
+                          </button>
+                        </div>
+
+                        {/* Add current location button for both mode pickup tab */}
+                        {showAddPickupButton && (
+                          <button
+                            onClick={addCurrentLocationAsPickup}
+                            className="w-full px-3 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition-colors text-sm font-medium flex items-center justify-center gap-2 mb-3"
+                          >
+                            <MapPin size={16} />
+                            Add current location as pickup
+                          </button>
+                        )}
+
+                        {/* Pickup Location Search */}
+                        {isAddingPickupLocation && (
+                          <div className="relative mb-3">
+                            <div className="relative">
+                              <Search size={14} className="absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                              <input
+                                type="text"
+                                value={pickupSearchQuery}
+                                onChange={handlePickupLocationSearch}
+                                onFocus={() => pickupSearchQuery && setShowPickupSuggestions(pickupSuggestions.length > 0)}
+                                placeholder="Search for pickup location..."
+                                className="w-full pl-8 pr-3 py-2 text-xs border border-gray-300 rounded-lg focus:ring-1 focus:ring-yellow-500 focus:border-transparent"
+                              />
+                            </div>
+
+                            {/* Pickup Suggestions Dropdown */}
+                            {showPickupSuggestions && pickupSuggestions.length > 0 && (
+                              <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-50 max-h-40 overflow-y-auto">
+                                {pickupSuggestions.map((suggestion, index) => (
+                                  <button
+                                    key={`pickup-${suggestion.place_id}-${index}`}
+                                    onClick={() => selectPickupPlace(suggestion)}
+                                    className="w-full px-3 py-2 text-left hover:bg-gray-50 border-b border-gray-100 last:border-b-0 text-xs"
+                                  >
+                                    <div className="font-medium text-gray-900 truncate">
+                                      {suggestion.structured_formatting.main_text}
+                                    </div>
+                                    <div className="text-gray-600 truncate">
+                                      {suggestion.structured_formatting.secondary_text}
+                                    </div>
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Current Pickup Locations */}
+                        {pickupLocations.length > 0 && (
+                          <div className="space-y-1">
+                            {pickupLocations.map((location, index) => (
+                              <div key={index} className="flex items-center justify-between bg-yellow-50 border border-yellow-200 rounded-lg p-2">
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-xs font-medium text-gray-900 truncate">
+                                    {location.placeName || `Location ${index + 1}`}
+                                  </p>
+                                  <p className="text-xs text-gray-500 truncate">{location.address}</p>
+                                </div>
+                                <button
+                                  onClick={() => removePickupLocation(index)}
+                                  className="ml-2 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center hover:bg-red-600 transition-colors"
+                                >
+                                  <X size={10} />
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {pickupLocations.length === 0 && !isAddingPickupLocation && !showAddPickupButton && (
+                          <p className="text-xs text-gray-500 italic text-center py-2">
+                            Click "Add Location" to add your first pickup point
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    )}
+
+    {/* Map Display - Auto-shows when location is selected */}
+    {showMap && selectedLocation && !mapsError && (
+      <div className="mt-4 h-64 rounded-xl overflow-hidden shadow-lg border border-gray-200">
+        <div ref={mapRef} className="w-full h-full" />
+      </div>
+    )}
+
+    {/* Suggestions Dropdown */}
+    {showSuggestions && suggestions.length > 0 && (
+      <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-200 rounded-xl shadow-2xl z-50 max-h-80 overflow-y-auto">
+        {suggestions.map((suggestion, index) => (
+          <button
+            key={`${suggestion.place_id}-${index}`}
+            onClick={() => selectPlace(suggestion)}
+            className={`w-full px-4 py-4 text-left hover:bg-gray-50 border-b border-gray-100 last:border-b-0 flex items-start gap-3 transition-colors ${
+              index === 0 ? 'rounded-t-xl' : ''
+            } ${index === suggestions.length - 1 ? 'rounded-b-xl' : ''}`}
+          >
+            <div className="mt-1 flex-shrink-0">
+              {getPlaceIcon(suggestion.types)}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="font-medium text-gray-900 truncate">
+                {suggestion.structured_formatting.main_text}
+              </p>
+              <p className="text-sm text-gray-600 mt-1 truncate">
+                {suggestion.structured_formatting.secondary_text}
+              </p>
+            </div>
+          </button>
+        ))}
+      </div>
+    )}
+
+    {/* Popular Categories and Areas */}
+    {!searchQuery && !selectedLocation && renderPopularCategories()}
+
+    {/* Loading Status */}
+    {!isGoogleMapsReady && !mapsError && (
+      <div className="mt-3 text-center">
+        <div className="inline-flex items-center gap-2 px-3 py-1 bg-blue-50 text-blue-600 rounded-full text-xs">
+          {isGoogleMapsLoading && <div className="animate-spin rounded-full h-3 w-3 border border-blue-500 border-t-transparent"></div>}
+          {isGoogleMapsLoading ? 'Loading enhanced search...' : 'Basic search mode'}
+        </div>
+      </div>
+    )}
+  </div>
+);
 }
