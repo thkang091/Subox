@@ -372,10 +372,10 @@ const SuboxHomepage = () => {
         initial={{ y: 0 }}
         animate={{ y: 0 }}
         transition={{ duration: 0.5, ease: "easeOut" }}
-        className="min-h-screen py-6 px-4 relative fixed"
+        className="pt-4 px-4 relative"
       >
         {/* Header Row with Logo + Menu Button */}
-        <div className="flex justify-between items-center mb-6">
+        <div className="flex justify-between items-center">
           {/* Logo */}
           <motion.div
             className="flex items-center space-x-3"
@@ -1181,7 +1181,7 @@ const SuboxHomepage = () => {
       </motion.section>
 
 
-    <section className="text-center py-24 px-6 mt-20 mb-10">
+    <section className="text-center px-6 mt-10 mb-10">
       <div className="max-w-4xl mx-auto">
         {/* Animated Heading */}
         <motion.h1
@@ -1211,9 +1211,9 @@ const SuboxHomepage = () => {
       </div>
     </section>
 
-      <UseCasesSection />
+    <UseCasesSection />
 
-    <section className="text-center py-24 px-6 bg-white mt-20 mb-30">
+    <section className="text-center px-6 bg-white mt-10 mb-40">
       <div className="max-w-4xl mx-auto">
         {/* Animated Heading */}
         <motion.h2
@@ -1243,8 +1243,8 @@ const SuboxHomepage = () => {
 
       <HowItWorksSection howY={howY} />
 
-      <footer className="bg-orange-600 text-white py-12 w-full">
-        <div className="max-w-7xl mx-auto px-4">
+      <footer className="bg-orange-300 text-white py-12 w-full">
+        <div className="hidden md:block max-w-7xl mx-auto px-4">
           {/* Upper Grid: 4 columns from original + 4 new columns in two rows */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-10">
             {/* Subox Brand */}
@@ -1252,87 +1252,87 @@ const SuboxHomepage = () => {
               <ul className="space-y-2">
                 <div className="flex items-center space-x-3 mt-3 px-5">
                   {/* Main Subox Logo */}
-                  <motion.div className="relative">
-                    {/* House Icon */}
-                    <motion.svg 
-                      className="w-12 h-12" 
-                      viewBox="0 0 100 100" 
-                      fill="none"
-                      whileHover={{ rotate: [0, -5, 5, 0] }}
-                      transition={{ duration: 0.5 }}
-                    >
-                      {/* House Base */}
-                      <motion.path
-                        d="M20 45L50 20L80 45V75C80 78 77 80 75 80H25C22 80 20 78 20 75V45Z"
-                        fill="#E97451"
-                        animate={{ 
-                          fill: ["#E97451", "#F59E0B", "#E97451"],
-                          scale: [1, 1.02, 1]
-                        }}
-                        transition={{ duration: 3, repeat: Infinity }}
-                      />
-                      {/* House Roof */}
-                      <motion.path
-                        d="M15 50L50 20L85 50L50 15L15 50Z"
-                        fill="#D97706"
-                        animate={{ rotate: [0, 1, 0] }}
-                        transition={{ duration: 4, repeat: Infinity }}
-                      />
-                      {/* Window */}
-                      <motion.rect
-                        x="40"
-                        y="50"
-                        width="20"
-                        height="15"
-                        fill="white"
-                        animate={{ 
-                          opacity: [1, 0.8, 1],
-                          scale: [1, 1.1, 1]
-                        }}
-                        transition={{ duration: 2, repeat: Infinity }}
-                      />
-                      {/* Door */}
-                      <motion.rect
-                        x="45"
-                        y="65"
-                        width="10"
-                        height="15"
-                        fill="white"
-                        animate={{ scaleY: [1, 1.05, 1] }}
-                        transition={{ duration: 2.5, repeat: Infinity }}
-                      />
-                    </motion.svg>
-    
-                    {/* Tag Icon */}
-                    <motion.svg 
-                      className="w-8 h-8 absolute -top-2 -right-2" 
-                      viewBox="0 0 60 60" 
-                      fill="none"
-                      whileHover={{ rotate: 360 }}
-                      transition={{ duration: 0.8 }}
-                    >
-                      <motion.path
-                        d="M5 25L25 5H50V25L30 45L5 25Z"
-                        fill="#E97451"
-                        animate={{ 
-                          rotate: [0, 5, -5, 0],
-                          scale: [1, 1.1, 1]
-                        }}
-                        transition={{ duration: 3, repeat: Infinity }}
-                      />
-                      <motion.circle
-                        cx="38"
-                        cy="17"
-                        r="4"
-                        fill="white"
-                        animate={{ 
-                          scale: [1, 1.3, 1],
-                          opacity: [1, 0.7, 1]
-                        }}
-                        transition={{ duration: 1.5, repeat: Infinity }}
-                      />
-                    </motion.svg>
-                  </motion.div>
+              <motion.div className="relative">
+                {/* House Icon */}
+                <motion.svg 
+                  className="w-12 h-12" 
+                  viewBox="0 0 100 100" 
+                  fill="none"
+                  whileHover={{ rotate: [0, -5, 5, 0] }}
+                  transition={{ duration: 0.5 }}
+                >
+                  {/* House Base */}
+                  <motion.path
+                    d="M20 45L50 20L80 45V75C80 78 77 80 75 80H25C22 80 20 78 20 75V45Z"
+                    fill="#E97451"
+                    animate={{ 
+                      fill: ["#E97451", "#F59E0B", "#E97451"],
+                      scale: [1, 1.02, 1]
+                    }}
+                    transition={{ duration: 3, repeat: Infinity }}
+                  />
+                  {/* House Roof */}
+                  <motion.path
+                    d="M15 50L50 20L85 50L50 15L15 50Z"
+                    fill="#D97706"
+                    animate={{ rotate: [0, 1, 0] }}
+                    transition={{ duration: 4, repeat: Infinity }}
+                  />
+                  {/* Window */}
+                  <motion.rect
+                    x="40"
+                    y="50"
+                    width="20"
+                    height="15"
+                    fill="white"
+                    animate={{ 
+                      opacity: [1, 0.8, 1],
+                      scale: [1, 1.1, 1]
+                    }}
+                    transition={{ duration: 2, repeat: Infinity }}
+                  />
+                  {/* Door */}
+                  <motion.rect
+                    x="45"
+                    y="65"
+                    width="10"
+                    height="15"
+                    fill="white"
+                    animate={{ scaleY: [1, 1.05, 1] }}
+                    transition={{ duration: 2.5, repeat: Infinity }}
+                  />
+                </motion.svg>
+ 
+                {/* Tag Icon */}
+                <motion.svg 
+                  className="w-8 h-8 absolute -top-2 -right-2" 
+                  viewBox="0 0 60 60" 
+                  fill="none"
+                  whileHover={{ rotate: 360 }}
+                  transition={{ duration: 0.8 }}
+                >
+                  <motion.path
+                    d="M5 25L25 5H50V25L30 45L5 25Z"
+                    fill="#E97451"
+                    animate={{ 
+                      rotate: [0, 5, -5, 0],
+                      scale: [1, 1.1, 1]
+                    }}
+                    transition={{ duration: 3, repeat: Infinity }}
+                  />
+                  <motion.circle
+                    cx="38"
+                    cy="17"
+                    r="4"
+                    fill="white"
+                    animate={{ 
+                      scale: [1, 1.3, 1],
+                      opacity: [1, 0.7, 1]
+                    }}
+                    transition={{ duration: 1.5, repeat: Infinity }}
+                  />
+                </motion.svg>
+              </motion.div>
     
                   {/* Subox Text */}
                   <motion.div className="flex flex-col text-3xl font-bold text-white">
@@ -1412,6 +1412,106 @@ const SuboxHomepage = () => {
             © {new Date().getFullYear()} Subox. All rights reserved.
           </div>
         </div>
+        <div className="md:hidden max-w-7xl mx-auto px-4">
+
+          {/* Upper Grid: stacked on mobile, grid on desktop */}
+          <div className="flex flex-col gap-10 md:grid md:grid-cols-4 md:gap-8 mb-10">
+
+            {/* Subox Brand */}
+            <div>
+              <div className="flex items-center space-x-3 mt-3 px-2 md:px-5">
+                {/* Logo */}
+                <motion.div className="relative">
+                  {/* House Icon */}
+                  <motion.svg 
+                    className="w-12 h-12" 
+                    viewBox="0 0 100 100" 
+                    fill="none"
+                    whileHover={{ rotate: [0, -5, 5, 0] }}
+                    transition={{ duration: 0.5 }}
+                  >
+                    <motion.path
+                      d="M20 45L50 20L80 45V75C80 78 77 80 75 80H25C22 80 20 78 20 75V45Z"
+                      fill="#E97451"
+                      animate={{ 
+                        fill: ["#E97451", "#F59E0B", "#E97451"],
+                        scale: [1, 1.02, 1]
+                      }}
+                      transition={{ duration: 3, repeat: Infinity }}
+                    />
+                    <motion.path
+                      d="M15 50L50 20L85 50L50 15L15 50Z"
+                      fill="#D97706"
+                    />
+                  </motion.svg>
+                </motion.div>
+
+                <div className="text-3xl font-bold">Subox</div>
+              </div>
+              <p className="text-white text-sm mt-4 px-2 md:px-3">
+                Find the perfect short-term housing solution near your campus and needed items.
+              </p>
+            </div>
+
+            {/* Sublease and Move out Sale*/}
+            <div className='flex justify-center gap-4'>
+              <div>              
+                <h4 className="font-bold text-lg md:text-xl mb-3 border-b border-white/30 pb-2">Sublease</h4>
+                <ul className="space-y-2 text-sm md:text-base">
+                  <li><a href="/sale/browse" className="hover:underline">Home</a></li>
+                  <li><a href="/search" className="hover:underline">Search</a></li>
+                  <li><a href="#" className="hover:underline">List Your Space</a></li>
+                  <li><a href="/help" className="hover:underline">Campus Map</a></li>
+                </ul>
+              </div>
+              <div>              
+                <h4 className="font-bold text-lg md:text-xl mb-3 border-b border-white/30 pb-2">Move Out Sale</h4>
+                <ul className="space-y-2 text-sm md:text-base">
+                  <li><a href="/sale/browse" className="hover:underline">Browse Items</a></li>
+                  <li><a href="#" className="hover:underline">Post Your Items</a></li>
+                  <li><a href="#" className="hover:underline">See Favorites</a></li>
+                  <li><a href="#" className="hover:underline">Blog</a></li>
+                </ul>
+              </div>
+            </div>
+            <div className='flex justify-center gap-4'>
+              <div>
+                <h3 className="text-xl font-bold mb-3 border-b border-white/30 pb-2">Get Started</h3>
+                <ul className="space-y-2 text-sm md:text-lg">
+                  <li><a href="auth" className="hover:underline">Log in</a></li>
+                  <li><a href="auth?mode=signup" className="hover:underline">Sign up</a></li>
+                </ul>
+              </div>
+              <div>
+                <h3 className="text-xl font-bold mb-3 border-b border-white/30 pb-2">Resources</h3>
+                <ul className="space-y-2 text-sm md:text-lg">
+                  <li><a href="#features" className="hover:underline">Features</a></li>
+                  <li><a href="#use-cases" className="hover:underline">Use Cases</a></li>
+                  <li><a href="#how-it-works" className="hover:underline">How it Works</a></li>
+                </ul>
+              </div>
+            </div>
+
+
+            {/* Support */}
+            <div className="text-center md:text-left">
+              <h3 className="text-xl font-bold mb-3 border-b border-white/30 pb-2">Support</h3>
+              <p className="text-sm md:text-lg">Need help?</p>
+              <a
+                href="/help"
+                id="help"
+                className="inline-block mt-3 px-5 py-2 bg-white text-orange-600 font-semibold rounded-full shadow hover:bg-orange-600 hover:text-white transition"
+              >
+                Visit Help Center
+              </a>
+            </div>
+          </div>
+
+          {/* Copyright */}
+          <div className="mt-10 pt-6 border-t border-white/30 text-center text-xs md:text-sm text-orange-100">
+            © {new Date().getFullYear()} Subox. All rights reserved.
+          </div>
+        </div>
       </footer>
 
     </div>
@@ -1478,7 +1578,7 @@ function UseCasesSection() {
       const scrollTop = window.scrollY + window.innerHeight / 2;
 
       for (let i = 0; i < sections.length; i++) {
-        const section = sections[i];
+        const section = sections[i] as HTMLElement;
         const offsetTop = section.offsetTop;
         const offsetBottom = offsetTop + section.offsetHeight;
 
@@ -1499,13 +1599,13 @@ function UseCasesSection() {
     <motion.section
       ref={containerRef}
       id="use-cases"
-      className='relative z-10 max-w-7x1 mx-auto px-6 py-20'
+      className="relative z-10 max-w-7xl mx-auto px-6 py-20"
     >
       <section
-        ref={containerRef}
         className="max-w-7xl mx-auto px-6 py-20 flex flex-col md:flex-row gap-10"
         style={{ minHeight: "600px" }}
       >
+        {/* Left side (desktop image) */}
         <div className="hidden md:block md:w-1/2 sticky top-20 h-[400px]">
           <AnimatePresence mode="wait">
             <motion.div
@@ -1516,7 +1616,7 @@ function UseCasesSection() {
               transition={{ duration: 0.5 }}
               className="w-full h-full"
             >
-            {Array.isArray(useCases[activeIndex].image) ? (
+              {Array.isArray(useCases[activeIndex].image) ? (
                 <Swiper
                   modules={[Navigation, Autoplay]}
                   spaceBetween={20}
@@ -1546,21 +1646,59 @@ function UseCasesSection() {
           </AnimatePresence>
         </div>
 
+        {/* Right side (titles + description + image for mobile) */}
         <div className="md:w-1/2 flex flex-col gap-20">
           {useCases.map((useCase, i) => (
             <div
               key={useCase.title}
-              className="use-case-explanation cursor-pointer"
+              className="use-case-explanation cursor-pointer flex flex-col gap-4"
               onClick={() => setActiveIndex(i)}
             >
-              <h3
-                className={`text-3xl font-bold mb-4 ${
-                  i === activeIndex ? "text-orange-500" : "text-gray-700"
-                }`}
-              >
-                {useCase.title}
-              </h3>
-              <p className="text-lg text-gray-600 max-w-xl">{useCase.description}</p>
+              {/* Title + Subtitle */}
+              <div>
+                <h3
+                  className={`text-3xl font-bold mb-2 ${
+                    i === activeIndex ? "text-orange-500" : "text-gray-700"
+                  }`}
+                >
+                  {useCase.title}
+                </h3>
+                <p className="text-lg text-gray-600 max-w-xl">
+                  {useCase.description}
+                </p>
+              </div>
+
+              {/* Show image under text on mobile only when clicked */}
+              {i === activeIndex && (
+                <div className="md:hidden mt-4">
+                  {Array.isArray(useCase.image) ? (
+                    <Swiper
+                      modules={[Navigation, Autoplay]}
+                      spaceBetween={20}
+                      slidesPerView={1}
+                      navigation
+                      autoplay={{ delay: 3000, disableOnInteraction: false }}
+                      loop
+                    >
+                      {useCase.image.map((imgSrc, idx) => (
+                        <SwiperSlide key={imgSrc}>
+                          <img
+                            src={imgSrc}
+                            alt={`Slide ${idx}`}
+                            className="w-full h-64 object-contain rounded-xl shadow-lg"
+                          />
+                        </SwiperSlide>
+                      ))}
+                    </Swiper>
+                  ) : (
+                    <img
+                      src={useCase.image}
+                      alt={useCase.title}
+                      className="w-full h-64 object-contain rounded-xl shadow-lg"
+                    />
+                  )}
+                </div>
+              )}
             </div>
           ))}
         </div>
@@ -1595,30 +1733,77 @@ const HowItWorksSection = ({ howY }) => {
             A quick look at how to post and rent subleases or sell and buy moving items on Subox.
           </p>
         </motion.div>
-        <div className="flex flex-col gap-16">
+        <div className="md:hidden flex flex-col gap-16">
           {[
             {
               title: <>Post a <span className="text-orange-500">Sublease</span></>,
-              image: "post.png",
-              hoverImage: "post-gif.gif",
+              image: "post-gif.gif",
               description: <>Easily post your sublease with a <span className="text-orange-500">few clicks</span> and <span className="text-orange-500">photos</span>.</>,
             },            
             {
               title: <><span className='text-orange-500'>Rent </span>a Place</>,
-              image: "rent.png",
-              hoverImage: "rent-gif.gif",
+              image: "rent-gif.gif",
               description: <>Browse local subleases from trusted <span className="text-orange-500">students</span>, <span className="text-orange-500">alumnis</span>, and <span className="text-orange-500">users in Minnesota</span> and contact directly.</>,
             },
             {
               title: <>Sell a <span className='text-orange-500'>Product</span></>,
-              image: "sell.png",
-              hoverImage: "sell-gif.gif",
+              image: "sell-gif.gif",
               description: <>Snap a photo and let <span className="text-orange-500">AI</span> handle the rest of your <span className="text-orange-500">item listing</span>.</>,
             },
             {
               title: <><span className='text-orange-500'>Buy </span>a Product</>,
-              image: "movebrowse.png",
-              hoverImage: "buy-gif.gif",
+              image: "buy-gif.gif",
+              description: <>Buy what you need <span className="text-orange-500">easily</span> and <span className="text-orange-500">quickly</span> by contacting directly.</>,
+            },
+          ].map((step, index) => {
+            const isImageLeft = index % 2 === 0;
+            return (
+              <motion.div
+                key={index}
+                initial={{ opacity: 0, y: 40 }}
+                animate={isInView ? { opacity: 1, y: 0 } : { opacity: 0, y: 40 }}
+                transition={{ duration: 0.6, delay: 0.1 * index }}
+                className={`flex flex-col md:flex-row items-center gap-10 ${
+                  isImageLeft ? '' : 'md:flex-row-reverse'
+                }`}
+              >                
+              {/* Text */}
+                <div className="md:w-1/2 text-center md:text-left">
+                  <h3 className="text-2xl font-bold text-gray-800 mb-2">{step.title}</h3>
+                  <p className="text-lg text-gray-600">{step.description}</p>
+                </div>
+
+              {/* Image */}
+                <div className="relative w-full md:w-1/2 h-64 overflow-hidden rounded-xl shadow-lg">
+                  <img
+                    src={step.image}
+                    className="w-full h-full object-cover transition-opacity duration-300 group-hover:opacity-0"
+                  />
+                </div>
+              </motion.div>
+            );
+          })}
+        </div>
+        <div className="hidden md:block flex flex-col gap-16">
+          {[
+            {
+              title: <>Post a <span className="text-orange-500">Sublease</span></>,
+              image: "post-gif.gif",
+              description: <>Easily post your sublease with a <span className="text-orange-500">few clicks</span> and <span className="text-orange-500">photos</span>.</>,
+            },            
+            {
+              title: <><span className='text-orange-500'>Rent </span>a Place</>,
+              image: "rent-gif.gif",
+              description: <>Browse local subleases from trusted <span className="text-orange-500">students</span>, <span className="text-orange-500">alumnis</span>, and <span className="text-orange-500">users in Minnesota</span> and contact directly.</>,
+            },
+            {
+              title: <>Sell a <span className='text-orange-500'>Product</span></>,
+              image: "sell-gif.gif",
+              description: <>Snap a photo and let <span className="text-orange-500">AI</span> handle the rest of your <span className="text-orange-500">item listing</span>.</>,
+            },
+            {
+              title: <><span className='text-orange-500'>Buy </span>a Product</>,
+              image: "buy-gif.gif",
               description: <>Buy what you need <span className="text-orange-500">easily</span> and <span className="text-orange-500">quickly</span> by contacting directly.</>,
             },
           ].map((step, index) => {

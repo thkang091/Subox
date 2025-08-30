@@ -567,9 +567,9 @@ const NotificationsButton = ({ notifications }: { notifications: Notification[] 
         whileHover={{ scale: 1.05 }}
         whileTap={{ scale: 0.95 }}
         onClick={() => setShowNotifications(!showNotifications)}
-        className="p-2 bg-orange-500 rounded-lg hover:bg-orange-600 transition-colors relative"
+        className="p-2 bg-gray-200 rounded-lg hover:bg-gray-300 transition-colors relative"
       >
-        <Bell className="w-5 h-5 text-white" />
+        <Bell className="w-5 h-5 text-gray-500" />
         {notifications.length > 0 && (
           <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center">
             {notifications.length}
@@ -2799,9 +2799,19 @@ const renderCommuteInfo = (listing) => {
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                   onClick={() => router.push("/find")}
-                  className="flex items-center px-3 py-2 rounded-lg hover:bg-orange-600 text-black hover:text-white transition-colors"
+                  className="hidden md:flex items-center px-3 py-2 rounded-lg hover:bg-orange-600 text-black hover:text-white transition-colors"
                 >
                   <ArrowLeft size={20} /> Back
+                </motion.button>
+
+                {/* Back */}
+                <motion.button 
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => router.push("/find")}
+                  className="flex md:hidden items-center py-2 rounded-lg hover:bg-orange-600 text-black hover:text-white transition-colors"
+                >
+                  <ArrowLeft size={20} />
                 </motion.button>
 
                 {/* Notifications */}
@@ -2812,9 +2822,9 @@ const renderCommuteInfo = (listing) => {
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                   onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-                  className="p-2 bg-orange-500 rounded-lg hover:bg-orange-600 transition-colors"
+                  className="p-2 bg-gray-200 rounded-lg hover:bg-gray-300 transition-colors"
                 >
-                  <MessagesSquare size={20} className = "w-5 h-5 text-white"/>
+                  <MessagesSquare size={20} className = "w-5 h-5 text-gray-500"/>
                 </motion.button>
                 
                 {/* Favorites Sidebar */}
@@ -2826,9 +2836,9 @@ const renderCommuteInfo = (listing) => {
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
                     onClick={() => setShowProfile(!showProfile)}
-                    className="p-2 bg-orange-500 rounded-lg hover:bg-orange-600 transition-colors"
+                    className="p-2 bg-gray-200 rounded-lg hover:bg-gray-300 transition-colors"
                 >
-                    <User className="w-5 h-5 text-white" />
+                    <User className="w-5 h-5 text-gray-500" />
                 </motion.button>
 
                 <AnimatePresence>
@@ -2860,9 +2870,9 @@ const renderCommuteInfo = (listing) => {
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
                     onClick={() => setShowMenu(!showMenu)}
-                    className="p-2 bg-orange-500 rounded-lg hover:bg-orange-600 transition-colors"
+                    className="p-2 bg-gray-200 rounded-lg hover:bg-gray-300 transition-colors"
                 >
-                    <Menu className="w-5 h-5 text-white" />
+                    <Menu className="w-5 h-5 text-gray-500" />
                 </motion.button>
 
                 <AnimatePresence>

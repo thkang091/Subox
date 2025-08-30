@@ -210,9 +210,9 @@ export default function EnhancedListingFormPage() {
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
           onClick={() => setShowNotifications(!showNotifications)}
-          className="p-2 bg-orange-500 rounded-lg hover:bg-orange-600 transition-colors relative"
+          className="p-2 bg-gray-200 rounded-lg hover:bg-gray-300 transition-colors relative"
         >
-          <Bell className="w-5 h-5 text-white" />
+          <Bell className="w-5 h-5 text-gray-500" />
           {notifications.length > 0 && (
             <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center">
               {notifications.length}
@@ -1804,9 +1804,9 @@ export default function EnhancedListingFormPage() {
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
       {/* Header */}
       <div className="bg-white shadow-sm border-b sticky top-0 z-50 backdrop-blur-sm bg-white/95">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between">
+        <div className="w-full flex items-center justify-between px-4 py-2 bg-white shadow">
           <motion.div 
-              className="flex items-center space-x-6 relative mt-1"
+              className="flex items-center space-x-5"
               whileHover={{ scale: 1.05 }}
               onClick={() => router.push("/find")}
           >
@@ -1920,8 +1920,8 @@ export default function EnhancedListingFormPage() {
           </motion.span>
           </motion.div>
           </motion.div>
-          <h1 className="text-lg font-semibold text-gray-800">Create Listing</h1>
-          <div className="flex w-16 space-x-2 mx-4">
+          <h1 className="text-lg font-semibold text-gray-800 pl-15">Create Listing</h1>
+          <div className="flex items-center space-x-2 ml-auto">
             <button
               onClick={() => router.back()}
               className="flex items-center gap-2 text-black hover:text-white transition-colors p-2 rounded-lg hover:bg-orange-600"
@@ -1930,16 +1930,16 @@ export default function EnhancedListingFormPage() {
               <span className="hidden sm:inline">Back</span>
             </button>
             <NotificationsButton notifications={notification}/>
-            <div className="p-2 bg-orange-500 rounded-lg hover:scale-105 hover:bg-orange-600 transition-colors relative"><MessagesSquare className = "w-5 h-5 text-white"/></div>
+            <div className="p-2 bg-gray-200 rounded-lg hover:scale-105 hover:bg-gray-300 transition-colors relative"><MessagesSquare className = "w-5 h-5 text-gray-500"/></div>
             {/* Profile */}
             <div className="relative">
             <motion.button
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
                 onClick={() => setShowProfile(!showProfile)}
-                className="p-2 bg-orange-500 rounded-lg hover:bg-orange-600 transition-colors"
+                className="p-2 bg-gray-200 rounded-lg hover:bg-gray-300 transition-colors"
             >
-                <User className="w-5 h-5 text-white" />
+                <User className="w-5 h-5 text-gray-500" />
             </motion.button>
 
             <AnimatePresence>
@@ -1971,9 +1971,9 @@ export default function EnhancedListingFormPage() {
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
                 onClick={() => setShowMenu(!showMenu)}
-                className="p-2 bg-orange-500 rounded-lg hover:bg-orange-600 transition-colors"
+                className="p-2 bg-gray-200 rounded-lg hover:bg-gray-300 transition-colors"
             >
-                <Menu className="w-5 h-5 text-white" />
+                <Menu className="w-5 h-5 text-gray-500" />
             </motion.button>
 
             <AnimatePresence>
