@@ -1,6 +1,20 @@
 import { useEffect, useRef, useState } from 'react';
 import { Search, MapPin, X, Navigation, Home, Building, Coffee, ShoppingBag, Map, Truck, Users, AlertCircle } from 'lucide-react';
 
+interface DeliveryZoneData {
+  center: { lat: number; lng: number };
+  radius: number;
+  type: 'delivery';
+}
+
+interface PickupLocationData {
+  lat: number;
+  lng: number;
+  address: string;
+  placeName?: string;
+}
+
+// Update your LocationPickerProps interface
 interface LocationPickerProps {
   onLocationSelect: (location: { 
     lat: number; 
@@ -13,22 +27,17 @@ interface LocationPickerProps {
     state?: string;
     zipCode?: string;
     country?: string;
-    deliveryZone?: {
-      center: { lat: number; lng: number };
-      radius: number;
-      type: 'delivery';
-    };
-    pickupLocations?: Array<{
-      lat: number;
-      lng: number;
-      address: string;
-      placeName?: string;
-    }>;
+    // Add these new fields
+    deliveryZone?: DeliveryZoneData;
+    pickupLocations?: PickupLocationData[];
+    deliveryAvailable?: boolean;
+    pickupAvailable?: boolean;
   }) => void;
   initialValue?: string;
   mode: 'delivery' | 'pickup' | 'both';
   showDeliveryOptions?: boolean;
 }
+
 
 interface PlaceSuggestion {
   place_id: string;
@@ -107,6 +116,13 @@ export default function LocationPicker({
     setShowAddPickupButton(true);
   }
 }, [mode, selectedLocation, pickupLocations.length]);
+
+useEffect(() => {
+  if (selectedLocation) {
+    updateLocationData();
+  }
+}, [mode, deliveryType, deliveryRadius, pickupLocations, activeDeliveryCenter]);
+
 
 
 
@@ -395,35 +411,100 @@ useEffect(() => {
     updateLocationData();
   };
 
-  // Update the location data sent to parent
-  const updateLocationData = () => {
-    if (!selectedLocation) return;
+// Update the location data sent to parent
+const updateLocationData = () => {
+  if (!selectedLocation) return;
 
-    const updatedLocation = {
-      ...selectedLocation
-    };
-
-    // Add delivery zone if in delivery mode
-    if ((mode === 'delivery' || (mode === 'both' && deliveryType === 'delivery'))) {
-      const center = (pickupLocations.length > 0 && 
-                    activeDeliveryCenter.lat && activeDeliveryCenter.lng)
-        ? activeDeliveryCenter
-        : { lat: selectedLocation.lat, lng: selectedLocation.lng };
-        
-      updatedLocation.deliveryZone = {
-        center: center,
-        radius: deliveryRadius,
-        type: 'delivery'
-      };
-    }
-
-    // Add pickup locations if in pickup mode or both mode with pickup locations
-    if ((mode === 'pickup' || mode === 'both') && pickupLocations.length > 0) {
-      updatedLocation.pickupLocations = pickupLocations;
-    }
-
-    onLocationSelect(updatedLocation);
+  const updatedLocation = {
+    ...selectedLocation,
+    deliveryAvailable: false,
+    pickupAvailable: false,
+    deliveryZone: undefined as DeliveryZoneData | undefined,
+    pickupLocations: undefined as PickupLocationData[] | undefined,
   };
+
+  // Handle different modes
+  if (mode === 'delivery') {
+    updatedLocation.deliveryAvailable = true;
+    updatedLocation.pickupAvailable = false; // Explicitly set to false
+    
+    const center = (pickupLocations.length > 0 && 
+                  activeDeliveryCenter.lat && activeDeliveryCenter.lng)
+      ? activeDeliveryCenter
+      : { lat: selectedLocation.lat, lng: selectedLocation.lng };
+      
+    updatedLocation.deliveryZone = {
+      center: center,
+      radius: deliveryRadius,
+      type: 'delivery'
+    };
+    
+    // DO NOT set pickupLocations for delivery-only mode
+    updatedLocation.pickupLocations = undefined;
+    
+  } else if (mode === 'pickup') {
+    updatedLocation.deliveryAvailable = false; // Explicitly set to false
+    updatedLocation.pickupAvailable = true;
+    
+    // DO NOT set deliveryZone for pickup-only mode
+    updatedLocation.deliveryZone = undefined;
+    
+    // Always provide pickup locations for pickup mode
+    if (pickupLocations.length > 0) {
+      updatedLocation.pickupLocations = pickupLocations.map(location => ({
+        lat: location.lat,
+        lng: location.lng,
+        address: location.address,
+        placeName: location.placeName
+      }));
+    } else {
+      // If no pickup locations added yet, use the selected location as default
+      updatedLocation.pickupLocations = [{
+        lat: selectedLocation.lat,
+        lng: selectedLocation.lng,
+        address: selectedLocation.address,
+        placeName: selectedLocation.placeName || 'Pickup Location'
+      }];
+    }
+  } else if (mode === 'both') {
+    updatedLocation.deliveryAvailable = true;
+    updatedLocation.pickupAvailable = true;
+    
+    // Add delivery zone
+    const center = (pickupLocations.length > 0 && 
+                  activeDeliveryCenter.lat && activeDeliveryCenter.lng)
+      ? activeDeliveryCenter
+      : { lat: selectedLocation.lat, lng: selectedLocation.lng };
+      
+    updatedLocation.deliveryZone = {
+      center: center,
+      radius: deliveryRadius,
+      type: 'delivery'
+    };
+    
+    // Add pickup locations
+    if (pickupLocations.length > 0) {
+      updatedLocation.pickupLocations = pickupLocations.map(location => ({
+        lat: location.lat,
+        lng: location.lng,
+        address: location.address,
+        placeName: location.placeName
+      }));
+    } else {
+      // If no pickup locations added yet, use the selected location as default
+      updatedLocation.pickupLocations = [{
+        lat: selectedLocation.lat,
+        lng: selectedLocation.lng,
+        address: selectedLocation.address,
+        placeName: selectedLocation.placeName || 'Pickup Location'
+      }];
+    }
+  }
+
+  onLocationSelect(updatedLocation);
+};
+
+
 
   // Function to handle delivery center changes with map sync
   const changeDeliveryCenter = (location) => {
@@ -757,7 +838,7 @@ const selectPlace = (suggestion: PlaceSuggestion) => {
       setSelectedLocation(locationData);
       setSuggestions([]);
       setShowSuggestions(false);
-      setShowMap(true); // AUTO-SHOW MAP
+      setShowMap(true);
       
       // Set active delivery center to new location if no existing center or if in delivery mode
       if (!activeDeliveryCenter.lat || !activeDeliveryCenter.lng || mode === 'delivery') {
@@ -772,11 +853,13 @@ const selectPlace = (suggestion: PlaceSuggestion) => {
         setShowAddPickupButton(true);
       }
       
-      onLocationSelect(locationData);
-
       // Initialize map immediately
       setTimeout(() => {
         initializeMap(locationData.lat, locationData.lng);
+        // Call updateLocationData after a short delay to ensure all state is set
+        setTimeout(() => {
+          updateLocationData();
+        }, 100);
       }, 100);
     } else {
       console.error('Place details request failed with status:', status);
@@ -791,9 +874,8 @@ const selectPlace = (suggestion: PlaceSuggestion) => {
       setSelectedLocation(fallbackData);
       setSuggestions([]);
       setShowSuggestions(false);
-      setShowMap(true); // AUTO-SHOW MAP
+      setShowMap(true);
       
-      // Show add pickup button immediately for pickup mode (fallback case)
       if (mode === 'pickup' && !pickupLocations.some(loc => 
         Math.abs(loc.lat - fallbackData.lat) < 0.0001 && 
         Math.abs(loc.lng - fallbackData.lng) < 0.0001
@@ -801,7 +883,10 @@ const selectPlace = (suggestion: PlaceSuggestion) => {
         setShowAddPickupButton(true);
       }
       
-      onLocationSelect(fallbackData);
+      // Call updateLocationData for fallback case too
+      setTimeout(() => {
+        updateLocationData();
+      }, 100);
     }
   });
 };
@@ -958,12 +1043,9 @@ const getCurrentLocation = () => {
 
               setSearchQuery(result.formatted_address);
               setSelectedLocation(locationData);
-              setShowMap(true); // AUTO-SHOW MAP
-              
-              // Set active delivery center to current location
+              setShowMap(true);
               setActiveDeliveryCenter({ lat: latitude, lng: longitude });
               
-              // Show add pickup button immediately for pickup mode
               if (mode === 'pickup' && !pickupLocations.some(loc => 
                 Math.abs(loc.lat - latitude) < 0.0001 && 
                 Math.abs(loc.lng - longitude) < 0.0001
@@ -971,11 +1053,12 @@ const getCurrentLocation = () => {
                 setShowAddPickupButton(true);
               }
               
-              onLocationSelect(locationData);
-
-              // Initialize map immediately
+              // Initialize map and call updateLocationData
               setTimeout(() => {
                 initializeMap(latitude, longitude);
+                setTimeout(() => {
+                  updateLocationData();
+                }, 100);
               }, 100);
             } else {
               setLocationError('Could not determine your address. Please search manually.');
@@ -994,10 +1077,9 @@ const getCurrentLocation = () => {
         
         setSearchQuery(fallbackAddress);
         setSelectedLocation(locationData);
-        setShowMap(true); // AUTO-SHOW MAP
+        setShowMap(true);
         setActiveDeliveryCenter({ lat: latitude, lng: longitude });
         
-        // Show add pickup button immediately for pickup mode (fallback case)
         if (mode === 'pickup' && !pickupLocations.some(loc => 
           Math.abs(loc.lat - latitude) < 0.0001 && 
           Math.abs(loc.lng - longitude) < 0.0001
@@ -1005,7 +1087,10 @@ const getCurrentLocation = () => {
           setShowAddPickupButton(true);
         }
         
-        onLocationSelect(locationData);
+        // Call updateLocationData for fallback case
+        setTimeout(() => {
+          updateLocationData();
+        }, 100);
       }
     },
     (error) => {

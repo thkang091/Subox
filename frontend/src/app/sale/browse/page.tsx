@@ -45,7 +45,7 @@ const MoveOutSalePage = () => {
 
   const [selectedCategory, setSelectedCategory] = useState("All Categories");
   const [selectedCondition, setSelectedCondition] = useState("All Conditions");
-  const [priceRange, setPriceRange] = useState([0, 500]);
+const [priceRange, setPriceRange] = useState([0, 50000]); // Much higher default max
   const [selectedLocation, setSelectedLocation] = useState("All Locations");
   const [viewMode, setViewMode] = useState("grid");
   const [showFilters, setShowFilters] = useState(false);
@@ -144,80 +144,108 @@ useEffect(() => {
 }, []);
 
   // Real-time products fetching with saleItems collection
-  useEffect(() => {
-    let q = collection(db, 'saleItems');
-    
-    // Apply filters
-    const constraints = [];
-    
-    if (selectedCategory !== "All Categories") {
-      constraints.push(where("category", "==", selectedCategory));
+useEffect(() => {
+  let q = collection(db, 'saleItems');
+  
+  // Apply filters - build constraints array
+  const constraints = [];
+  
+  // Only add filter constraints if they're not "All" values
+  if (selectedCategory !== "All Categories") {
+    constraints.push(where("category", "==", selectedCategory));
+  }
+  if (selectedLocation !== "All Locations") {
+    // Make sure location matching is consistent
+    const locationValue = selectedLocation.toLowerCase().replace(/\s+/g, '-');
+    constraints.push(where("location", "==", locationValue));
+  }
+  if (selectedCondition !== "All Conditions") {
+    constraints.push(where("condition", "==", selectedCondition));
+  }
+  if (selectedDelivery) {
+    constraints.push(where("deliveryAvailable", "==", true));
+  }
+  if (selectedPickup) {
+    constraints.push(where("pickupAvailable", "==", true));
+  }
+  
+  // Build query with proper error handling
+  try {
+    if (constraints.length === 0) {
+      // No filters - get all items with ordering
+      q = query(q, orderBy("createdAt", "desc"), limit(100));
+    } else {
+      // With filters - you may need composite indexes for some combinations
+      // For now, just apply constraints without orderBy to avoid index errors
+      q = query(q, ...constraints, limit(100));
     }
-    if (selectedLocation !== "All Locations") {
-      constraints.push(where("location", "==", selectedLocation.toLowerCase().replace(/\s+/g, '-')));
-    }
-    if (selectedCondition !== "All Conditions") {
-      constraints.push(where("condition", "==", selectedCondition));
-    }
-    if (selectedDelivery) {
-      constraints.push(where("deliveryAvailable", "==", true));
-    }
-    if (selectedPickup) {
-      constraints.push(where("pickupAvailable", "==", true));
-    }
-    
-    // Add orderBy - for simple queries without complex filtering
-    try {
-      if (constraints.length === 0) {
-        q = query(q, orderBy("createdAt", "desc"), limit(50));
-      } else {
-        // For filtered queries, you might need to create composite indexes
-        q = query(q, ...constraints, limit(50));
-      }
-    } catch (error) {
-      // If orderBy fails due to missing index, just use constraints
-      if (constraints.length > 0) {
-        q = query(q, ...constraints, limit(50));
-      } else {
-        q = query(q, limit(50));
-      }
-    }
-    
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const listingsData = snapshot.docs.map(doc => {
-        const data = doc.data();
-        return {
-          id: doc.id,
-          ...data,
-          // Safely handle timestamp conversion
-          createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : data.createdAt,
-          updatedAt: data.updatedAt?.toDate ? data.updatedAt.toDate() : data.updatedAt,
-          // Ensure required fields have defaults
-          views: data.views || 0,
-          sellerRating: data.sellerRating || 4.5,
-          originalPrice: data.originalPrice || data.price * 1.2,
-          availableUntil: data.availableUntil || "2025-12-31"
-        };
-      });
-      setProducts(listingsData);
-      setLoading(false);
-    }, (error) => {
-      console.error("Error fetching listings:", error);
-      setLoading(false);
+  } catch (error) {
+    console.warn('Query construction error, falling back to simple query:', error);
+    // Fallback to basic query if there are index issues
+    q = query(collection(db, 'saleItems'), limit(100));
+  }
+  
+  const unsubscribe = onSnapshot(q, (snapshot) => {
+    const listingsData = snapshot.docs.map(doc => {
+      const data = doc.data();
+      return {
+        id: doc.id,
+        ...data,
+        // Safely handle timestamp conversion
+        createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : data.createdAt,
+        updatedAt: data.updatedAt?.toDate ? data.updatedAt.toDate() : data.updatedAt,
+        // Ensure required fields have defaults
+        views: data.views || 0,
+        sellerRating: data.sellerRating || 4.5,
+        originalPrice: data.originalPrice || data.price * 1.2,
+        availableUntil: data.availableUntil || "2025-12-31",
+        // Ensure delivery/pickup flags are properly set
+        deliveryAvailable: data.deliveryAvailable || false,
+        pickupAvailable: data.pickupAvailable !== false // Default to true if not specified
+      };
     });
     
-    return () => unsubscribe();
-  }, [selectedCategory, selectedLocation, selectedCondition, selectedDelivery, selectedPickup]);
+    console.log('Fetched products:', listingsData.length); // Debug log
+    setProducts(listingsData);
+    setLoading(false);
+  }, (error) => {
+    console.error("Error fetching listings:", error);
+    // Set empty array on error instead of keeping old data
+    setProducts([]);
+    setLoading(false);
+  });
+  
+  return () => unsubscribe();
+}, [selectedCategory, selectedLocation, selectedCondition, selectedDelivery, selectedPickup]);
 
-  // Fetch recommended products
-  useEffect(() => {
-    if (products.length > 0) {
-      // Simple recommendation: just take the first 4 products
-      // You can make this more sophisticated later
-      setRecommended(products.slice(0, 4));
+useEffect(() => {
+  if (products.length > 0) {
+    // Create a proper recommended algorithm instead of just taking first 4
+    // This prevents overlap issues between main and recommended sections
+    
+    // Shuffle the products and take different items for recommendations
+    const shuffled = [...products]
+      .sort(() => Math.random() - 0.5) // Simple shuffle
+      .filter(product => {
+        // Add some logic to make recommendations more relevant
+        // For example, prioritize items with good ratings, reasonable prices, etc.
+        return product.sellerRating >= 4.0 && product.price <= 300;
+      })
+      .slice(0, 4); // Take first 4 after filtering and shuffling
+    
+    // If we don't have enough filtered items, fall back to random selection
+    if (shuffled.length < 4) {
+      const remaining = [...products]
+        .sort(() => Math.random() - 0.5)
+        .slice(0, 4);
+      setRecommended(remaining);
+    } else {
+      setRecommended(shuffled);
     }
-  }, [products]);
-
+  } else {
+    setRecommended([]);
+  }
+}, [products]);
   const categories = [
     "All Categories", "Furniture", "Electronics", "Books", "Textbooks", "Clothing", 
     "Kitchen", "Decor", "Sports", "Appliances", "General"
@@ -233,15 +261,166 @@ useEffect(() => {
   ];
 
   // Client-side filtering for additional filters not handled by Firestore
-  const filteredProducts = products.filter(product => {
-    const matchesSearch = product.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         product.description?.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesPrice = product.price >= priceRange[0] && product.price <= priceRange[1];
-    const matchesAvailableUntil = !showAvailableDate || 
-      (product.availableUntil && new Date(product.availableUntil) <= showAvailableDate);
+ 
+// Fixed useEffect for products fetching - replace the existing one
+useEffect(() => {
+  let q = collection(db, 'saleItems');
+  
+  // Apply filters - build constraints array
+  const constraints = [];
+  
+  // Only add filter constraints if they're not "All" values
+  if (selectedCategory !== "All Categories") {
+    constraints.push(where("category", "==", selectedCategory));
+  }
+  if (selectedLocation !== "All Locations") {
+    // Make sure location matching is consistent
+    const locationValue = selectedLocation.toLowerCase().replace(/\s+/g, '-');
+    constraints.push(where("location", "==", locationValue));
+  }
+  if (selectedCondition !== "All Conditions") {
+    constraints.push(where("condition", "==", selectedCondition));
+  }
+  if (selectedDelivery) {
+    constraints.push(where("deliveryAvailable", "==", true));
+  }
+  if (selectedPickup) {
+    constraints.push(where("pickupAvailable", "==", true));
+  }
+  
+  // Build query with proper error handling
+  try {
+    if (constraints.length === 0) {
+      // No filters - get all items with ordering
+      q = query(q, orderBy("createdAt", "desc"), limit(100));
+    } else {
+      // With filters - you may need composite indexes for some combinations
+      // For now, just apply constraints without orderBy to avoid index errors
+      q = query(q, ...constraints, limit(100));
+    }
+  } catch (error) {
+    console.warn('Query construction error, falling back to simple query:', error);
+    // Fallback to basic query if there are index issues
+    q = query(collection(db, 'saleItems'), limit(100));
+  }
+  
+  const unsubscribe = onSnapshot(q, (snapshot) => {
+    const listingsData = snapshot.docs.map(doc => {
+      const data = doc.data();
+      return {
+        id: doc.id,
+        ...data,
+        // Safely handle timestamp conversion
+        createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : data.createdAt,
+        updatedAt: data.updatedAt?.toDate ? data.updatedAt.toDate() : data.updatedAt,
+        // Ensure required fields have defaults
+        views: data.views || 0,
+        sellerRating: data.sellerRating || 4.5,
+        originalPrice: data.originalPrice || data.price * 1.2,
+        availableUntil: data.availableUntil || "2025-12-31",
+        // Ensure delivery/pickup flags are properly set
+        deliveryAvailable: data.deliveryAvailable || false,
+        pickupAvailable: data.pickupAvailable !== false // Default to true if not specified
+      };
+    });
     
-    return matchesSearch && matchesPrice && matchesAvailableUntil;
+    console.log('Fetched products:', listingsData.length); // Debug log
+    setProducts(listingsData);
+    setLoading(false);
+  }, (error) => {
+    console.error("Error fetching listings:", error);
+    // Set empty array on error instead of keeping old data
+    setProducts([]);
+    setLoading(false);
   });
+  
+  return () => unsubscribe();
+}, [selectedCategory, selectedLocation, selectedCondition, selectedDelivery, selectedPickup]);
+
+// Fixed useEffect for recommended products - replace the existing one
+useEffect(() => {
+  if (products.length > 0) {
+    // Create a proper recommended algorithm instead of just taking first 4
+    // This prevents overlap issues between main and recommended sections
+    
+    // Shuffle the products and take different items for recommendations
+    const shuffled = [...products]
+      .sort(() => Math.random() - 0.5) // Simple shuffle
+      .filter(product => {
+        // Add some logic to make recommendations more relevant
+        // For example, prioritize items with good ratings, reasonable prices, etc.
+        return product.sellerRating >= 4.0 && product.price <= 300;
+      })
+      .slice(0, 4); // Take first 4 after filtering and shuffling
+    
+    // If we don't have enough filtered items, fall back to random selection
+    if (shuffled.length < 4) {
+      const remaining = [...products]
+        .sort(() => Math.random() - 0.5)
+        .slice(0, 4);
+      setRecommended(remaining);
+    } else {
+      setRecommended(shuffled);
+    }
+  } else {
+    setRecommended([]);
+  }
+}, [products]);
+
+
+
+
+
+// Additional fix: Update the filteredProducts logic to be more inclusive
+const filteredProducts = products.filter(product => {
+  // Make search more flexible
+  const searchLower = searchQuery.toLowerCase();
+  const matchesSearch = !searchQuery || 
+                       product.name?.toLowerCase().includes(searchLower) ||
+                       product.description?.toLowerCase().includes(searchLower) ||
+                       product.category?.toLowerCase().includes(searchLower);
+  
+  // Make price filtering more inclusive - handle missing/invalid prices
+  const productPrice = typeof product.price === 'number' ? product.price : parseFloat(product.price) || 0;
+  const matchesPrice = productPrice >= priceRange[0] && productPrice <= priceRange[1];
+  
+  // Fix date filtering - be more permissive with date formats
+  const matchesAvailableUntil = !showAvailableDate || 
+    !product.availableUntil ||
+    (product.availableUntil && new Date(product.availableUntil) <= showAvailableDate);
+  
+  // Debug logging for filtered out items
+  if (!matchesSearch || !matchesPrice || !matchesAvailableUntil) {
+    console.log('Filtered out item:', {
+      name: product.name,
+      price: product.price,
+      priceType: typeof product.price,
+      availableUntil: product.availableUntil,
+      matchesSearch,
+      matchesPrice,
+      matchesAvailableUntil,
+      priceRange
+    });
+  }
+  
+  return matchesSearch && matchesPrice && matchesAvailableUntil;
+});
+
+
+useEffect(() => {
+  console.log('Filter state:', {
+    selectedCategory,
+    selectedLocation, 
+    selectedCondition,
+    selectedDelivery,
+    selectedPickup,
+    priceRange,
+    searchQuery
+  });
+  console.log('Products count:', products.length);
+  console.log('Filtered products count:', filteredProducts.length);
+  console.log('Sample products:', products.slice(0, 3));
+}, [products, filteredProducts, selectedCategory, selectedLocation, selectedCondition]);
 
   //favorites list
   const toggleFavorite = (product) => {
