@@ -314,19 +314,20 @@ const ProfileTourPage = () => {
         }
 
         // Create notification for the guest
-        const notification = {
-          recipientId: request.guestId,
-          senderId: user.uid,
-          senderName: user.displayName || user.email,
-          type: 'tour_response',
-          title: `Tour Request ${newStatus.charAt(0).toUpperCase() + newStatus.slice(1)}`,
-          message: `Your tour request for ${request.listingTitle} has been ${newStatus}`,
-          listingId: request.listingId,
-          tourRequestId: requestId,
-          tourDate: request.date,
-          read: false,
-          createdAt: serverTimestamp()
-        };
+       const notification = {
+  recipientId: request.guestId,
+  senderId: user.uid,
+  senderName: user.displayName || user.email || 'Anonymous',
+  type: 'tour_response',
+  title: `Tour Request ${newStatus.charAt(0).toUpperCase() + newStatus.slice(1)}`,
+  message: `Your tour request for ${request.listingTitle || 'a property'} has been ${newStatus}`,
+  listingId: request.listingId,
+  tourRequestId: requestId,
+  tourDate: request.date,
+  read: false,
+  createdAt: serverTimestamp()
+};
+
 
         await addDoc(collection(db, 'notifications'), notification);
       }

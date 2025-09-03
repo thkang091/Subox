@@ -43,6 +43,31 @@ export default function TourPage() {
   const [availabilityLoading, setAvailabilityLoading] = useState(true);
   const [isHost, setIsHost] = useState(false);
   const [existingTours, setExistingTours] = useState([]);
+
+  // Create notification for tour request
+const createTourRequestNotification = async (tourRequestData) => {
+  try {
+    const notification = {
+      recipientId: tourRequestData.hostId,
+      senderId: user.uid,
+      senderName: user.displayName || user.email || 'Anonymous',
+      type: 'tour_request',
+      title: 'New Tour Request',
+      message: `${user.displayName || user.email || 'Someone'} has requested a ${tourRequestData.tourType} tour for ${tourRequestData.listingTitle}`,
+      listingId: tourRequestData.listingId,
+      tourDate: tourRequestData.date,
+      tourTime: tourRequestData.time,
+      read: false,
+      createdAt: serverTimestamp()
+    };
+
+    await addDoc(collection(db, 'notifications'), notification);
+  } catch (error) {
+    console.error('Error creating tour request notification:', error);
+    // Don't fail the tour request if notification creation fails
+  }
+};
+
   
   // Check for existing bookings
   const checkExistingBookings = async () => {
@@ -259,100 +284,82 @@ export default function TourPage() {
     return availableSlots;
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!selectedDate || !selectedTime) return;
-    
-    // Check authentication
-    if (!user) {
-      setShowAuthModal(true);
-      return;
-    }
-    
-    // Prevent self-booking
-    if (user.uid === listing.hostId) {
-      setError("You cannot book a tour for your own listing!");
-      return;
-    }
-    
-    // Check for existing bookings
-    if (existingBooking) {
-      setError("You already have a pending or approved tour request for this property.");
-      return;
-    }
-    
-    setIsSubmitting(true);
-    setError('');
-    
-    try {
-      // Create tour request in Firestore
-      const tourRequest = {
-        listingId: listing.id,
-        listingTitle: listing.title,
-        listingLocation: listing.location,
-        listingPrice: listing.price,
-        listingImage: listing.image,
-        hostId: listing.hostId,
-        hostName: listing.hostName,
-        hostEmail: listing.hostEmail,
-        guestId: user.uid,
-        guestName: user.displayName || user.email,
-        guestEmail: user.email,
-        date: selectedTime, // This is the full datetime from the selected slot
-        time: new Date(selectedTime).toLocaleTimeString('en-US', {
-          hour: 'numeric',
-          minute: '2-digit',
-          hour12: true
-        }),
-        tourType: tourType,
-        status: 'pending',
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp()
-      };
-      
-      await addDoc(collection(db, 'tourRequests'), tourRequest);
-      
-      // Send email notification to host
-      await EmailService.sendTourRequestEmail(
-        listing.hostEmail,
-        user.displayName || user.email,
-        user.email,
-        {
-          ...tourRequest,
-          message: '', // Add message field if you want to include guest messages
-        }
-      );
-      
-      // Create notification for the host
-      const notification = {
-        recipientId: listing.hostId,
-        senderId: user.uid,
-        senderName: user.displayName || user.email,
-        type: 'tour_request',
-        title: 'New Tour Request',
-        message: `${user.displayName || user.email} has requested a ${tourType} tour for ${listing.title}`,
-        listingId: listing.id,
-        tourDate: selectedTime,
-        tourTime: new Date(selectedTime).toLocaleTimeString('en-US', {
-          hour: 'numeric',
-          minute: '2-digit',
-          hour12: true
-        }),
-        read: false,
-        createdAt: serverTimestamp()
-      };
-      
-      await addDoc(collection(db, 'notifications'), notification);
-      
-      setShowConfirmation(true);
-    } catch (error) {
-      console.error('Error creating tour request:', error);
-      setError('Failed to send tour request. Please try again.');
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
+const handleSubmit = async (e) => {
+  e.preventDefault();
+  if (!selectedDate || !selectedTime) return;
   
+  // Check authentication
+  if (!user) {
+    setShowAuthModal(true);
+    return;
+  }
+  
+  // Prevent self-booking
+  if (user.uid === listing.hostId) {
+    setError("You cannot book a tour for your own listing!");
+    return;
+  }
+  
+  // Check for existing bookings
+  if (existingBooking) {
+    setError("You already have a pending or approved tour request for this property.");
+    return;
+  }
+  
+  setIsSubmitting(true);
+  setError('');
+  
+  try {
+    // CREATE TOUR REQUEST OBJECT - ADD THIS
+    const tourRequest = {
+      listingId: listing.id,
+      listingTitle: listing.title,
+      listingLocation: listing.location,
+      listingPrice: listing.price,
+      listingImage: listing.image,
+      hostId: listing.hostId,
+      hostName: listing.hostName,
+      hostEmail: listing.hostEmail,
+      guestId: user.uid,
+      guestName: user.displayName || user.email,
+      guestEmail: user.email,
+      date: selectedTime, // This is the full datetime from the selected slot
+      time: new Date(selectedTime).toLocaleTimeString('en-US', {
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true
+      }),
+      tourType: tourType,
+      status: 'pending',
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
+    };
+    
+    // ADD TOUR REQUEST TO FIRESTORE - ADD THIS
+    await addDoc(collection(db, 'tourRequests'), tourRequest);
+    
+    // Create notification for the host
+    await createTourRequestNotification(tourRequest);
+    
+    // Send email notification to host
+    await EmailService.sendTourRequestEmail(
+      listing.hostEmail,
+      user.displayName || user.email,
+      user.email,
+      {
+        ...tourRequest,
+        message: '', // Add message field if you want to include guest messages
+      }
+    );
+    
+    setShowConfirmation(true);
+  } catch (error) {
+    console.error('Error creating tour request:', error);
+    setError('Failed to send tour request. Please try again.');
+  } finally {
+    setIsSubmitting(false);
+  }
+};
   // Calendar functions
   const getDaysInMonth = (year, month) => {
     return new Date(year, month + 1, 0).getDate();

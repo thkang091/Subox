@@ -3,12 +3,12 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Bell, MessageSquare, Calendar, Clock, CheckCircle, XCircle,
-  User, MapPin, ArrowLeft, Filter, Trash2,
+  User, MapPin, ArrowLeft, Filter, Trash2, Home,
   Video, Users, Mail, AlertCircle, RefreshCw, Eye, EyeOff
 } from 'lucide-react';
 import { 
   collection, query, where, orderBy, onSnapshot, doc, updateDoc,
-  deleteDoc, writeBatch
+  deleteDoc, writeBatch, or
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/app/contexts/AuthInfo';
@@ -23,6 +23,7 @@ export default function NotificationDashboard() {
   const [error, setError] = useState('');
   const [userRole, setUserRole] = useState(null); // 'host' or 'guest'
   const [userListings, setUserListings] = useState([]);
+  const [activeTab, setActiveTab] = useState('guest'); // 'guest' or 'host'
 
   // Determine user role by checking if they have any listings
   useEffect(() => {
@@ -36,7 +37,9 @@ export default function NotificationDashboard() {
         );
         
         const unsubscribe = onSnapshot(listingsQuery, (snapshot) => {
-          setUserRole(snapshot.docs.length > 0 ? 'host' : 'guest');
+          const listings = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+          setUserListings(listings);
+          setUserRole(listings.length > 0 ? 'host' : 'guest');
         });
 
         return () => unsubscribe();
@@ -53,7 +56,6 @@ export default function NotificationDashboard() {
   useEffect(() => {
     if (!user?.uid) return;
 
-    // Use simple query without orderBy to avoid index issues
     const q = query(
       collection(db, 'notifications'),
       where('recipientId', '==', user.uid)
@@ -62,29 +64,73 @@ export default function NotificationDashboard() {
     const unsubscribe = onSnapshot(
       q,
       (querySnapshot) => {
-        const notifs = querySnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data(),
-          createdAt: doc.data().createdAt?.toDate()
-        }))
-        .sort((a, b) => {
-          // Sort by createdAt descending (newest first)
-          if (!a.createdAt || !b.createdAt) return 0;
-          return b.createdAt - a.createdAt;
+        const allNotifications = new Map();
+        
+        querySnapshot.docs.forEach(doc => {
+          const notifData = {
+            id: doc.id,
+            ...doc.data(),
+            createdAt: doc.data().createdAt?.toDate()
+          };
+          allNotifications.set(doc.id, notifData);
         });
 
-        setNotifications(notifs);
+        const notificationsArray = Array.from(allNotifications.values())
+          .sort((a, b) => {
+            if (!a.createdAt || !b.createdAt) return 0;
+            return b.createdAt - a.createdAt;
+          });
+
+        setNotifications(notificationsArray);
         setLoading(false);
       },
       (error) => {
         console.error('Error loading notifications:', error);
-        setError('Failed to load notifications');
+        setError('Failed to load notifications: ' + error.message);
         setLoading(false);
       }
     );
 
     return () => unsubscribe();
   }, [user?.uid]);
+
+  const determineNotificationRole = (notification) => {
+    if (notification.type === 'tour_request') {
+      if (notification.listingId && userListings.some(listing => listing.id === notification.listingId)) {
+        return 'host';
+      }
+      if (notification.senderId === user?.uid) {
+        return 'guest';
+      }
+      return 'host';
+    } else if (notification.type === 'tour_response') {
+      if (notification.senderId === user?.uid) {
+        return 'host';
+      }
+      return 'guest';
+    } else if (notification.type === 'new_message') {
+      if (notification.senderId === user?.uid) {
+        return 'sent';
+      } else {
+        if (notification.listingId && userListings.some(listing => listing.id === notification.listingId)) {
+          return 'host';
+        } else {
+          return 'guest';
+        }
+      }
+    }
+    return 'guest';
+  };
+
+  const guestNotifications = notifications.filter(n => {
+    const role = determineNotificationRole(n);
+    return role === 'guest' || role === 'sent';
+  });
+
+  const hostNotifications = notifications.filter(n => {
+    const role = determineNotificationRole(n);
+    return role === 'host';
+  });
 
   const markAsRead = async (notificationId) => {
     setUpdating(notificationId);
@@ -100,11 +146,19 @@ export default function NotificationDashboard() {
     }
   };
 
-  const markAllAsRead = async () => {
-    const unreadNotifications = notifications.filter(n => !n.read);
+  const markAllAsRead = async (roleType = 'all') => {
+    let targetNotifications = notifications;
+    
+    if (roleType === 'guest') {
+      targetNotifications = guestNotifications;
+    } else if (roleType === 'host') {
+      targetNotifications = hostNotifications;
+    }
+
+    const unreadNotifications = targetNotifications.filter(n => !n.read);
     if (unreadNotifications.length === 0) return;
 
-    setUpdating('all');
+    setUpdating(`all-${roleType}`);
     try {
       const batch = writeBatch(db);
       unreadNotifications.forEach(notif => {
@@ -140,36 +194,6 @@ export default function NotificationDashboard() {
     }
   };
 
-  const getNotificationRoleLabel = (notification) => {
-    // Determine if this notification is for host or guest role
-    if (notification.type === 'tour_request') {
-      return { label: 'Host', color: 'bg-purple-100 text-purple-700' };
-    } else if (notification.type === 'tour_response') {
-      return { label: 'Guest', color: 'bg-blue-100 text-blue-700' };
-    } else if (notification.type === 'new_message') {
-      // For messages, determine context based on listing ownership
-      // If the message is about a listing you own, you're acting as host
-      // If it's about someone else's listing, you're acting as guest
-      
-      // We can infer from the message content or use additional context
-      // For now, let's check if the user is likely the host or guest based on available data
-      if (notification.senderId === user?.uid) {
-        return { label: 'Sent', color: 'bg-green-100 text-green-700' };
-      } else {
-        // Check if this is related to your listing (you're the host) or someone else's (you're the guest)
-        // We need to determine this from the context
-        if (userRole === 'host') {
-          // If user has listings, this could be either role
-          // We need more context to determine if this message is about their listing or someone else's
-          return { label: 'As Host', color: 'bg-purple-100 text-purple-700' };
-        } else {
-          return { label: 'As Guest', color: 'bg-blue-100 text-blue-700' };
-        }
-      }
-    }
-    return null;
-  };
-
   const getNotificationColor = (type, read) => {
     const baseColors = {
       'new_message': 'border-blue-200 bg-blue-50',
@@ -185,6 +209,7 @@ export default function NotificationDashboard() {
   };
 
   const getTimeAgo = (date) => {
+    if (!date) return 'Unknown time';
     const now = new Date();
     const diff = now - date;
     const minutes = Math.floor(diff / 60000);
@@ -198,14 +223,167 @@ export default function NotificationDashboard() {
     return date.toLocaleDateString();
   };
 
-  const filteredNotifications = notifications.filter(notification => {
-    if (filter === 'unread' && notification.read) return false;
-    if (filter === 'messages' && notification.type !== 'new_message') return false;
-    if (filter === 'tours' && !['tour_response', 'tour_request'].includes(notification.type)) return false;
-    return true;
-  });
+  const filterNotifications = (notificationsList) => {
+    return notificationsList.filter(notification => {
+      if (filter === 'unread' && notification.read) return false;
+      if (filter === 'messages' && notification.type !== 'new_message') return false;
+      if (filter === 'tours' && !['tour_response', 'tour_request'].includes(notification.type)) return false;
+      return true;
+    });
+  };
 
-  const unreadCount = notifications.filter(n => !n.read).length;
+  const filteredGuestNotifications = filterNotifications(guestNotifications);
+  const filteredHostNotifications = filterNotifications(hostNotifications);
+
+  const guestUnreadCount = guestNotifications.filter(n => !n.read).length;
+  const hostUnreadCount = hostNotifications.filter(n => !n.read).length;
+
+  const NotificationList = ({ notifications, roleType, unreadCount }) => (
+    <div className="space-y-3">
+      {/* Section Header */}
+      <div className="flex items-center justify-between p-4 bg-white rounded-xl shadow-sm border">
+        <div className="flex items-center">
+          <div className={`p-2 rounded-full mr-3 ${
+            roleType === 'guest' ? 'bg-blue-100' : 'bg-purple-100'
+          }`}>
+            {roleType === 'guest' ? (
+              <User className={`w-5 h-5 ${roleType === 'guest' ? 'text-blue-600' : 'text-purple-600'}`} />
+            ) : (
+              <Home className={`w-5 h-5 ${roleType === 'guest' ? 'text-blue-600' : 'text-purple-600'}`} />
+            )}
+          </div>
+          <div>
+            <h2 className="text-lg font-semibold text-gray-800 capitalize">
+              {roleType} Notifications
+            </h2>
+            <p className="text-sm text-gray-600">
+              {unreadCount > 0 ? `${unreadCount} unread` : 'All caught up!'}
+            </p>
+          </div>
+        </div>
+        
+        {unreadCount > 0 && (
+          <button
+            onClick={() => markAllAsRead(roleType)}
+            disabled={updating === `all-${roleType}`}
+            className={`flex items-center px-3 py-2 rounded-lg text-white text-sm font-medium transition-colors ${
+              roleType === 'guest' 
+                ? 'bg-blue-500 hover:bg-blue-600' 
+                : 'bg-purple-500 hover:bg-purple-600'
+            } disabled:opacity-50`}
+          >
+            {updating === `all-${roleType}` ? (
+              <RefreshCw className="w-4 h-4 animate-spin mr-2" />
+            ) : (
+              <CheckCircle className="w-4 h-4 mr-2" />
+            )}
+            Mark All Read
+          </button>
+        )}
+      </div>
+
+      {/* Notifications */}
+      {notifications.length === 0 ? (
+        <div className="bg-white p-8 rounded-xl shadow-sm text-center">
+          <Bell className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+          <h3 className="text-lg font-medium text-gray-600 mb-2">
+            No {roleType} notifications yet
+          </h3>
+          <p className="text-gray-500 text-sm">
+            {roleType === 'guest' 
+              ? 'Notifications about your bookings and messages will appear here.'
+              : 'Notifications about your property listings will appear here.'
+            }
+          </p>
+        </div>
+      ) : (
+        notifications.map((notification) => (
+          <div 
+            key={notification.id} 
+            className={`p-4 rounded-xl border-2 transition-all hover:shadow-md cursor-pointer ${
+              getNotificationColor(notification.type, notification.read)
+            } ${!notification.read ? 'border-l-4 border-l-orange-400' : ''}`}
+            onClick={() => setSelectedNotification(notification)}
+          >
+            <div className="flex items-start justify-between">
+              <div className="flex items-start space-x-3 flex-1">
+                <div className={`p-2 rounded-full ${
+                  notification.type === 'new_message' ? 'bg-blue-100 text-blue-600' :
+                  notification.type === 'tour_response' ? 'bg-green-100 text-green-600' :
+                  'bg-orange-100 text-orange-600'
+                }`}>
+                  {getNotificationIcon(notification.type)}
+                </div>
+
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between mb-1">
+                    <h3 className="font-semibold text-gray-800 text-sm">
+                      {notification.title}
+                    </h3>
+                    {!notification.read && (
+                      <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
+                    )}
+                  </div>
+                  
+                  <p className="text-gray-600 text-sm mb-2 line-clamp-2">
+                    {notification.message}
+                  </p>
+
+                  {notification.type === 'new_message' && notification.messagePreview && (
+                    <div className="bg-gray-100 p-2 rounded text-xs text-gray-700 mb-2">
+                      "{notification.messagePreview}"
+                    </div>
+                  )}
+
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center text-xs text-gray-500">
+                      <User className="w-3 h-3 mr-1" />
+                      {notification.senderName}
+                      <span className="mx-2">•</span>
+                      <Clock className="w-3 h-3 mr-1" />
+                      {getTimeAgo(notification.createdAt)}
+                    </div>
+
+                    <div className="flex items-center space-x-2">
+                      {!notification.read && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            markAsRead(notification.id);
+                          }}
+                          disabled={updating === notification.id}
+                          className="p-1 text-orange-600 hover:bg-orange-100 rounded transition-colors"
+                          title="Mark as read"
+                        >
+                          {updating === notification.id ? (
+                            <RefreshCw className="w-3 h-3 animate-spin" />
+                          ) : (
+                            <Eye className="w-3 h-3" />
+                          )}
+                        </button>
+                      )}
+                      
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          deleteNotification(notification.id);
+                        }}
+                        disabled={updating === notification.id}
+                        className="p-1 text-red-600 hover:bg-red-100 rounded transition-colors"
+                        title="Delete notification"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        ))
+      )}
+    </div>
+  );
 
   if (authLoading || loading) {
     return (
@@ -220,80 +398,105 @@ export default function NotificationDashboard() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="container mx-auto px-4 py-8 max-w-4xl">
+      <div className="container mx-auto px-4 py-8 max-w-5xl">
         {/* Header */}
         <div className="mb-8">
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center justify-between mb-6">
             <div className="flex items-center">
               <Bell className="w-8 h-8 text-orange-500 mr-3" />
               <div>
                 <h1 className="text-3xl font-bold text-gray-800">Notifications</h1>
                 <p className="text-gray-600">
-                  {unreadCount > 0 ? `${unreadCount} unread notification${unreadCount > 1 ? 's' : ''}` : 'All caught up!'}
+                  {(guestUnreadCount + hostUnreadCount) > 0 
+                    ? `${guestUnreadCount + hostUnreadCount} unread notification${(guestUnreadCount + hostUnreadCount) > 1 ? 's' : ''}` 
+                    : 'All caught up!'}
                 </p>
               </div>
             </div>
+          </div>
+
+          {/* Tab Navigation */}
+          <div className="bg-white p-1 rounded-xl shadow-sm mb-6 inline-flex">
+            <button
+              onClick={() => setActiveTab('guest')}
+              className={`flex items-center px-6 py-3 rounded-lg font-medium transition-all duration-200 ${
+                activeTab === 'guest'
+                  ? 'bg-blue-500 text-white shadow-md'
+                  : 'text-gray-600 hover:text-blue-600 hover:bg-blue-50'
+              }`}
+            >
+              <User className="w-5 h-5 mr-2" />
+              Guest
+              {guestUnreadCount > 0 && (
+                <span className={`ml-2 px-2 py-0.5 text-xs rounded-full ${
+                  activeTab === 'guest' ? 'bg-blue-400 text-white' : 'bg-blue-500 text-white'
+                }`}>
+                  {guestUnreadCount}
+                </span>
+              )}
+            </button>
             
-            {unreadCount > 0 && (
+            {userRole === 'host' && (
               <button
-                onClick={markAllAsRead}
-                disabled={updating === 'all'}
-                className="flex items-center px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors text-sm font-medium disabled:opacity-50"
+                onClick={() => setActiveTab('host')}
+                className={`flex items-center px-6 py-3 rounded-lg font-medium transition-all duration-200 ${
+                  activeTab === 'host'
+                    ? 'bg-purple-500 text-white shadow-md'
+                    : 'text-gray-600 hover:text-purple-600 hover:bg-purple-50'
+                }`}
               >
-                {updating === 'all' ? (
-                  <RefreshCw className="w-4 h-4 animate-spin mr-2" />
-                ) : (
-                  <CheckCircle className="w-4 h-4 mr-2" />
+                <Home className="w-5 h-5 mr-2" />
+                Host
+                {hostUnreadCount > 0 && (
+                  <span className={`ml-2 px-2 py-0.5 text-xs rounded-full ${
+                    activeTab === 'host' ? 'bg-purple-400 text-white' : 'bg-purple-500 text-white'
+                  }`}>
+                    {hostUnreadCount}
+                  </span>
                 )}
-                Mark All Read
               </button>
             )}
           </div>
 
-          {/* Role Badge - Updated for dual role users */}
-          <div className="flex items-center mb-4">
-            <div className="flex items-center gap-2">
-              {userRole === 'host' && (
-                <div className="flex items-center px-3 py-1 rounded-full text-sm font-medium bg-purple-100 text-purple-700">
-                  <Users className="w-4 h-4 mr-1" />
-                  Host Account
-                </div>
-              )}
-              <div className="flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-700">
-                <User className="w-4 h-4 mr-1" />
-                Guest Account
-              </div>
-              {notifications.some(n => getNotificationRoleLabel(n)) && (
-                <span className="text-xs text-gray-500">
-                  Notifications are labeled by role
-                </span>
-              )}
+          {/* Filters */}
+          <div className="bg-white p-4 rounded-xl shadow-sm mb-6">
+            <div className="flex flex-wrap gap-2">
+              {[
+                { 
+                  key: 'all', 
+                  label: 'All', 
+                  count: activeTab === 'guest' ? guestNotifications.length : hostNotifications.length 
+                },
+                { 
+                  key: 'unread', 
+                  label: 'Unread', 
+                  count: activeTab === 'guest' ? guestUnreadCount : hostUnreadCount 
+                },
+                { 
+                  key: 'messages', 
+                  label: 'Messages', 
+                  count: (activeTab === 'guest' ? guestNotifications : hostNotifications).filter(n => n.type === 'new_message').length 
+                },
+                { 
+                  key: 'tours', 
+                  label: 'Tours', 
+                  count: (activeTab === 'guest' ? guestNotifications : hostNotifications).filter(n => ['tour_response', 'tour_request'].includes(n.type)).length 
+                }
+              ].map((filterOption) => (
+                <button
+                  key={filterOption.key}
+                  onClick={() => setFilter(filterOption.key)}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    filter === filterOption.key
+                      ? (activeTab === 'guest' ? 'bg-blue-500 text-white' : 'bg-purple-500 text-white')
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                >
+                  {filterOption.label}
+                  <span className="ml-2 text-xs">({filterOption.count})</span>
+                </button>
+              ))}
             </div>
-          </div>
-        </div>
-
-        {/* Filters */}
-        <div className="bg-white p-4 rounded-xl shadow-sm mb-6">
-          <div className="flex flex-wrap gap-2">
-            {[
-              { key: 'all', label: 'All', count: notifications.length },
-              { key: 'unread', label: 'Unread', count: unreadCount },
-              { key: 'messages', label: 'Messages', count: notifications.filter(n => n.type === 'new_message').length },
-              { key: 'tours', label: 'Tours', count: notifications.filter(n => ['tour_response', 'tour_request'].includes(n.type)).length }
-            ].map((filterOption) => (
-              <button
-                key={filterOption.key}
-                onClick={() => setFilter(filterOption.key)}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  filter === filterOption.key
-                    ? 'bg-orange-500 text-white'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
-              >
-                {filterOption.label}
-                <span className="ml-2 text-xs">({filterOption.count})</span>
-              </button>
-            ))}
           </div>
         </div>
 
@@ -307,124 +510,27 @@ export default function NotificationDashboard() {
           </div>
         )}
 
-        {/* Notifications List */}
-        {filteredNotifications.length === 0 ? (
-          <div className="bg-white p-12 rounded-xl shadow-sm text-center">
-            <Bell className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-            <h3 className="text-xl font-semibold text-gray-600 mb-2">
-              {filter === 'all' ? 'No notifications yet' : `No ${filter} notifications`}
-            </h3>
-            <p className="text-gray-500">
-              {filter === 'all' 
-                ? 'Notifications will appear here when you receive messages or tour updates.'
-                : `You don't have any ${filter} notifications at the moment.`
-              }
-            </p>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {filteredNotifications.map((notification) => (
-              <div 
-                key={notification.id} 
-                className={`p-4 rounded-xl border-2 transition-all hover:shadow-md cursor-pointer ${
-                  getNotificationColor(notification.type, notification.read)
-                } ${!notification.read ? 'border-l-4 border-l-orange-400' : ''}`}
-                onClick={() => setSelectedNotification(notification)}
-              >
-                <div className="flex items-start justify-between">
-                  <div className="flex items-start space-x-3 flex-1">
-                    {/* Icon */}
-                    <div className={`p-2 rounded-full ${
-                      notification.type === 'new_message' ? 'bg-blue-100 text-blue-600' :
-                      notification.type === 'tour_response' ? 'bg-green-100 text-green-600' :
-                      'bg-orange-100 text-orange-600'
-                    }`}>
-                      {getNotificationIcon(notification.type)}
-                    </div>
+        {/* Notifications Content */}
+        {activeTab === 'guest' && (
+          <NotificationList 
+            notifications={filteredGuestNotifications}
+            roleType="guest"
+            unreadCount={guestUnreadCount}
+          />
+        )}
 
-                    {/* Content */}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between mb-1">
-                        <div className="flex items-center gap-2">
-                          <h3 className="font-semibold text-gray-800 text-sm">
-                            {notification.title}
-                          </h3>
-                          {/* Role Label */}
-                          {getNotificationRoleLabel(notification) && (
-                            <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${getNotificationRoleLabel(notification).color}`}>
-                              {getNotificationRoleLabel(notification).label}
-                            </span>
-                          )}
-                        </div>
-                        {!notification.read && (
-                          <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
-                        )}
-                      </div>
-                      
-                      <p className="text-gray-600 text-sm mb-2 line-clamp-2">
-                        {notification.message}
-                      </p>
-
-                      {/* Message Preview for new messages */}
-                      {notification.type === 'new_message' && notification.messagePreview && (
-                        <div className="bg-gray-100 p-2 rounded text-xs text-gray-700 mb-2">
-                          "{notification.messagePreview}"
-                        </div>
-                      )}
-
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center text-xs text-gray-500">
-                          <User className="w-3 h-3 mr-1" />
-                          {notification.senderName}
-                          <span className="mx-2">•</span>
-                          <Clock className="w-3 h-3 mr-1" />
-                          {getTimeAgo(notification.createdAt)}
-                        </div>
-
-                        <div className="flex items-center space-x-2">
-                          {!notification.read && (
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                markAsRead(notification.id);
-                              }}
-                              disabled={updating === notification.id}
-                              className="p-1 text-orange-600 hover:bg-orange-100 rounded transition-colors"
-                              title="Mark as read"
-                            >
-                              {updating === notification.id ? (
-                                <RefreshCw className="w-3 h-3 animate-spin" />
-                              ) : (
-                                <Eye className="w-3 h-3" />
-                              )}
-                            </button>
-                          )}
-                          
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              deleteNotification(notification.id);
-                            }}
-                            disabled={updating === notification.id}
-                            className="p-1 text-red-600 hover:bg-red-100 rounded transition-colors"
-                            title="Delete notification"
-                          >
-                            <Trash2 className="w-3 h-3" />
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
+        {activeTab === 'host' && userRole === 'host' && (
+          <NotificationList 
+            notifications={filteredHostNotifications}
+            roleType="host"
+            unreadCount={hostUnreadCount}
+          />
         )}
 
         {/* Notification Detail Modal */}
         {selectedNotification && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <div className="bg-white rounded-2xl max-w-lg w-full max-h-90vh overflow-y-auto">
+            <div className="bg-white rounded-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
               <div className="p-6">
                 <div className="flex items-center justify-between mb-6">
                   <h2 className="text-xl font-bold text-gray-800">
@@ -439,7 +545,6 @@ export default function NotificationDashboard() {
                 </div>
 
                 <div className="space-y-4">
-                  {/* Notification Type Badge */}
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <div className={`px-3 py-1 rounded-full text-sm font-medium ${
@@ -454,13 +559,6 @@ export default function NotificationDashboard() {
                           </span>
                         </div>
                       </div>
-                      
-                      {/* Role Label in Modal */}
-                      {getNotificationRoleLabel(selectedNotification) && (
-                        <div className={`px-2 py-1 rounded-full text-xs font-medium ${getNotificationRoleLabel(selectedNotification).color}`}>
-                          {getNotificationRoleLabel(selectedNotification).label}
-                        </div>
-                      )}
                     </div>
                     
                     <div className={`px-2 py-1 rounded text-xs font-medium ${
@@ -470,7 +568,6 @@ export default function NotificationDashboard() {
                     </div>
                   </div>
 
-                  {/* Sender Info */}
                   <div className="p-3 bg-gray-50 rounded-lg">
                     <div className="flex items-center">
                       <User className="w-4 h-4 text-gray-500 mr-2" />
@@ -478,7 +575,6 @@ export default function NotificationDashboard() {
                     </div>
                   </div>
 
-                  {/* Message */}
                   <div>
                     <h3 className="font-medium text-gray-800 mb-2">Message:</h3>
                     <p className="text-gray-600 text-sm leading-relaxed">
@@ -486,7 +582,6 @@ export default function NotificationDashboard() {
                     </p>
                   </div>
 
-                  {/* Message Preview for new messages */}
                   {selectedNotification.type === 'new_message' && selectedNotification.messagePreview && (
                     <div>
                       <h3 className="font-medium text-gray-800 mb-2">Message Preview:</h3>
@@ -496,29 +591,12 @@ export default function NotificationDashboard() {
                     </div>
                   )}
 
-                  {/* Tour Details for tour notifications */}
-                  {(['tour_response', 'tour_request'].includes(selectedNotification.type)) && (
-                    <div>
-                      <h3 className="font-medium text-gray-800 mb-2">Tour Details:</h3>
-                      <div className="space-y-2 text-sm">
-                        {selectedNotification.listingId && (
-                          <p><span className="font-medium">Property ID:</span> {selectedNotification.listingId}</p>
-                        )}
-                        {selectedNotification.tourDate && (
-                          <p><span className="font-medium">Tour Date:</span> {new Date(selectedNotification.tourDate).toLocaleDateString()}</p>
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Timestamp */}
                   <div className="pt-4 border-t border-gray-200">
                     <p className="text-xs text-gray-500">
                       Received: {selectedNotification.createdAt?.toLocaleString()}
                     </p>
                   </div>
 
-                  {/* Actions */}
                   <div className="flex gap-3 pt-4">
                     {!selectedNotification.read && (
                       <button

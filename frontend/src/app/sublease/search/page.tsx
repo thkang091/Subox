@@ -19,6 +19,12 @@ import { db } from '@/lib/firebase'; // Adjust path to your firebase config
 import CommuteLocationPicker from '../../../components/CommuteLocationPicker'
 import EnhancedCommuteResultsMap from '../../../components/CommuteMap' // Update path as needed
 import SearchLocationPicker from '../../../components/SearchLocationPicker';
+import { 
+   where, onSnapshot
+} from 'firebase/firestore';
+
+import { useAuth } from '@/app/contexts/AuthInfo'; // Adjust path as needed
+
 
 
 const NeighborhoodDetectorWrapper = ({ listing, onNeighborhoodDetected }: { 
@@ -540,8 +546,12 @@ const [isMounted, setIsMounted] = useState(false);
   const [expandedSearchActive, setExpandedSearchActive] = useState(false);
 const [expandedAreaInfo, setExpandedAreaInfo] = useState(null); // Add this line
 
+const [notifications, setNotifications] = useState([]);
+const [notificationsLoading, setNotificationsLoading] = useState(true);
 
- 
+
+const { user } = useAuth();
+
   // =========================
   // Helper Functions
   // =========================
@@ -572,7 +582,73 @@ const getTransportIcon = (mode) => {
       return <Route size={14} className="text-gray-500" title="Transit" />;
   }
 };
+
+
+
+
+
+
+
+// Add this useEffect to fetch real notifications
+useEffect(() => {
+  if (!user?.uid) {
+    setNotifications([]);
+    setNotificationsLoading(false);
+    return;
+  }
+
+  const q = query(
+    collection(db, 'notifications'),
+    where('recipientId', '==', user.uid),
+    where('read', '==', false) // Only show unread for header
+  );
+
+  const unsubscribe = onSnapshot(
+    q,
+    (querySnapshot) => {
+      const notifs = querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+        time: getTimeAgo(doc.data().createdAt?.toDate())
+      }))
+      .sort((a, b) => {
+        const dateA = a.createdAt?.toDate();
+        const dateB = b.createdAt?.toDate();
+        if (!dateA || !dateB) return 0;
+        return dateB - dateA;
+      })
+      .slice(0, 5); // Show only recent 5 in header
+
+      setNotifications(notifs);
+      setNotificationsLoading(false);
+    },
+    (error) => {
+      console.error('Error loading notifications:', error);
+      setNotifications([]);
+      setNotificationsLoading(false);
+    }
+  );
+
+  return () => unsubscribe();
+}, [user?.uid]);
+
+// Add the getTimeAgo helper function
+const getTimeAgo = (date) => {
+  if (!date) return 'Unknown';
   
+  const now = new Date();
+  const diff = now - date;
+  const minutes = Math.floor(diff / 60000);
+  const hours = Math.floor(diff / 3600000);
+  const days = Math.floor(diff / 86400000);
+
+  if (minutes < 1) return 'Just now';
+  if (minutes < 60) return `${minutes}m ago`;
+  if (hours < 24) return `${hours}h ago`;
+  if (days < 7) return `${days}d ago`;
+  return date.toLocaleDateString();
+};
+
 useEffect(() => {
   const urlParams = new URLSearchParams(window.location.search);
   let hasUrlParams = false;
@@ -1126,15 +1202,12 @@ useEffect(() => {
   loadGoogleMaps();
 }, []);
 
-  // Notification data
-  const notifications: Notification[] = [
-    { id: 1, type: "price-drop", message: "MacBook Pro price dropped by $50!", time: "2h ago" },
-    { id: 2, type: "new-item", message: "New furniture items in Dinkytown", time: "4h ago" },
-    { id: 3, type: "favorite", message: "Your favorited item is ending soon", time: "1d ago" }
-  ];
 
-// Notifications dropdown component
-const NotificationsButton = ({ notifications }: { notifications: Notification[] }) => {
+
+const NotificationsButton = ({ notifications, loading }: { 
+  notifications: any[], 
+  loading: boolean 
+}) => {
   const [showNotifications, setShowNotifications] = useState(false);
   const router = useRouter();
 
@@ -1145,11 +1218,12 @@ const NotificationsButton = ({ notifications }: { notifications: Notification[] 
         whileTap={{ scale: 0.95 }}
         onClick={() => setShowNotifications(!showNotifications)}
         className="p-2 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors relative"
+        disabled={loading}
       >
         <Bell className="w-5 h-5 text-gray-600" />
         {notifications.length > 0 && (
           <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center">
-            {notifications.length}
+            {notifications.length > 9 ? '9+' : notifications.length}
           </span>
         )}
       </motion.button>
@@ -1163,29 +1237,54 @@ const NotificationsButton = ({ notifications }: { notifications: Notification[] 
             className="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-lg border border-gray-200 z-50"
           >
             <div className="p-4">
-              <h3 className="font-semibold text-gray-900 mb-3">Notifications</h3>
-              <div className="space-y-3 max-h-64 overflow-y-auto">
-                {notifications.map(notif => (
-                  <button
-                    key={notif.id}
-                    onClick={() => router.push(`browse/notificationDetail/${notif.id}`)}
-                    className="w-full flex items-start space-x-3 p-2 rounded-lg hover:bg-gray-50 text-left"
-                  >
-                    <div className="w-2 h-2 bg-orange-500 rounded-full mt-2"></div>
-                    <div className="flex-1">
-                      <p className="text-sm text-gray-900">{notif.message}</p>
-                      <p className="text-xs text-gray-500">{notif.time}</p>
-                    </div>
-                  </button>
-                ))}
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="font-semibold text-gray-900">Notifications</h3>
+                <button
+                  onClick={() => router.push('/notifications/')}
+                  className="text-xs text-orange-600 hover:underline"
+                >
+                  View All
+                </button>
               </div>
-
-              <button
-                onClick={() => router.push(`/sale/browse/notification/`)}
-                className="mt-3 text-sm text-blue-600 hover:underline"
-              >
-                See all notifications
-              </button>
+              
+              <div className="space-y-3 max-h-64 overflow-y-auto">
+                {loading ? (
+                  <div className="text-center py-4">
+                    <div className="animate-spin rounded-full h-6 w-6 border-2 border-orange-500 border-t-transparent mx-auto"></div>
+                    <p className="text-sm text-gray-500 mt-2">Loading...</p>
+                  </div>
+                ) : notifications.length === 0 ? (
+                  <div className="text-center py-4">
+                    <Bell className="w-8 h-8 text-gray-300 mx-auto mb-2" />
+                    <p className="text-sm text-gray-500">No new notifications</p>
+                  </div>
+                ) : (
+                  notifications.map(notif => (
+                    <button
+                      key={notif.id}
+                      onClick={() => {
+                        // Mark as read and navigate
+                        router.push('/notifications');
+                        setShowNotifications(false);
+                      }}
+                      className="w-full flex items-start space-x-3 p-2 rounded-lg hover:bg-gray-50 text-left"
+                    >
+                      <div className="w-2 h-2 bg-orange-500 rounded-full mt-2 flex-shrink-0"></div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm text-gray-900 font-medium line-clamp-2">
+                          {notif.title || notif.message}
+                        </p>
+                        {notif.message && notif.title && (
+                          <p className="text-xs text-gray-600 line-clamp-1 mt-1">
+                            {notif.message}
+                          </p>
+                        )}
+                        <p className="text-xs text-gray-500 mt-1">{notif.time}</p>
+                      </div>
+                    </button>
+                  ))
+                )}
+              </div>
             </div>
           </motion.div>
         )}
@@ -3464,9 +3563,10 @@ const renderCommuteInfo = (listing) => {
               <div className="flex items-center space-x-4">
                 
 
-                {/* Notifications */}
-                <NotificationsButton notifications={notifications} />
-  
+<NotificationsButton 
+  notifications={notifications} 
+  loading={notificationsLoading} 
+/>  
                 {/* messages */}
                 <motion.button 
                   whileHover={{ scale: 1.05 }}

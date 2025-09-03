@@ -120,6 +120,34 @@ const ConversationDetailPage = () => {
     return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
   }, []);
 
+
+  // Create notification for new message
+const createMessageNotification = async (messageData, conversation) => {
+  try {
+    const recipientId = conversation.isUserHost ? conversation.guestId : conversation.hostId;
+    const recipientName = conversation.isUserHost ? conversation.guestName : conversation.hostName;
+    
+    const notification = {
+      recipientId: recipientId,
+      senderId: user.uid,
+      senderName: user.displayName || user.email || 'Anonymous',
+      type: 'new_message',
+      title: 'New Message',
+      message: `${user.displayName || user.email || 'Someone'} sent you a message about ${conversation.listingTitle || 'a listing'}`,
+      messagePreview: messageData.text?.slice(0, 100) || (messageData.type === 'image' ? 'Image' : 'File'),
+      listingId: conversation.listingId,
+      conversationId: conversationId,
+      read: false,
+      createdAt: serverTimestamp()
+    };
+
+    await addDoc(collection(db, 'notifications'), notification);
+  } catch (error) {
+    console.error('Error creating message notification:', error);
+    // Don't fail the message send if notification creation fails
+  }
+};
+
   // Check if image exists and is valid
   const checkImageExists = useCallback((url) => {
     return new Promise((resolve) => {
@@ -519,55 +547,57 @@ const ConversationDetailPage = () => {
   }, []);
 
   // Send message
-  const sendMessage = useCallback(async (e, messageData = null) => {
-    if (e) e.preventDefault();
-    
-    const finalMessageData = messageData || {
-      text: newMessage.trim(),
-      type: 'text'
+const sendMessage = useCallback(async (e, messageData = null) => {
+  if (e) e.preventDefault();
+  
+  const finalMessageData = messageData || {
+    text: newMessage.trim(),
+    type: 'text'
+  };
+  
+  if (!finalMessageData.text && !finalMessageData.imageUrl && !finalMessageData.fileUrl) return;
+  if (sending || !conversation) return;
+
+  setSending(true);
+  
+  try {
+    const messageDoc = {
+      ...finalMessageData,
+      senderId: user.uid,
+      senderName: user.displayName || user.email || 'Anonymous',
+      createdAt: serverTimestamp(),
+      listingId: conversation.listingId
     };
+
+    await addDoc(
+      collection(db, 'conversations', conversationId, 'messages'), 
+      messageDoc
+    );
+
+    const otherUserUnreadField = conversation.isUserHost ? 'guestUnreadCount' : 'hostUnreadCount';
     
-    if (!finalMessageData.text && !finalMessageData.imageUrl && !finalMessageData.fileUrl) return;
-    if (sending || !conversation) return;
+    await updateDoc(doc(db, 'conversations', conversationId), {
+      lastMessage: finalMessageData.text || (finalMessageData.type === 'image' ? 'Image' : 'File'),
+      lastMessageTime: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+      [otherUserUnreadField]: increment(1)
+    });
 
-    setSending(true);
-    
-    try {
-      const messageDoc = {
-        ...finalMessageData,
-        senderId: user.uid,
-        senderName: user.displayName || user.email || 'Anonymous',
-        createdAt: serverTimestamp(),
-        listingId: conversation.listingId
-      };
+    // CREATE NOTIFICATION - ADD THIS PART
+    await createMessageNotification(finalMessageData, conversation);
 
-      await addDoc(
-        collection(db, 'conversations', conversationId, 'messages'), 
-        messageDoc
-      );
-
-      const otherUserUnreadField = conversation.isUserHost ? 'guestUnreadCount' : 'hostUnreadCount';
-      
-      await updateDoc(doc(db, 'conversations', conversationId), {
-        lastMessage: finalMessageData.text || (finalMessageData.type === 'image' ? 'Image' : 'File'),
-        lastMessageTime: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-        [otherUserUnreadField]: increment(1)
-      });
-
-      if (!messageData) {
-        setNewMessage('');
-        inputRef.current?.focus();
-      }
-      
-    } catch (error) {
-      handleError(error, 'Sending message');
-      alert('Failed to send message. Please try again.');
-    } finally {
-      setSending(false);
+    if (!messageData) {
+      setNewMessage('');
+      inputRef.current?.focus();
     }
-  }, [newMessage, sending, conversation, user, conversationId, handleError]);
-
+    
+  } catch (error) {
+    handleError(error, 'Sending message');
+    alert('Failed to send message. Please try again.');
+  } finally {
+    setSending(false);
+  }
+}, [newMessage, sending, conversation, user, conversationId, handleError]);
   // File upload
   const handleFileUpload = useCallback(async (file, type = 'file') => {
     if (!file || !conversation) return;
