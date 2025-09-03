@@ -635,7 +635,7 @@ const submitListings = async () => {
         category: item.category,
         
         // Location and delivery info
-        location: item.location,
+        location: item.location.toLowerCase().replace(/\s+/g, '-'),
         deliveryAvailable: item.deliveryAvailable || false,
         pickupAvailable: item.pickupAvailable || true,
         

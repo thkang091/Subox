@@ -11,7 +11,7 @@ interface SearchLocationPickerProps {
     state?: string;
     zipCode?: string;
     country?: string;
-    areaType?: 'neighborhood' | 'city' | 'specific';
+    areaType?: 'state' | 'city' | 'neighborhood' | 'specific'; // Add 'state'
     searchRadius?: number;
   }) => void;
   initialValue?: string;
@@ -38,8 +38,10 @@ interface PlaceSuggestion {
     secondary_text: string;
   };
   types: string[];
-  areaType?: 'neighborhood' | 'city' | 'specific';
+  areaType?: 'state' | 'city' | 'neighborhood' | 'specific'; // Add 'state'
 }
+
+
 
 // Helper function to extract city from address
 const extractCityFromAddress = (address) => {
@@ -200,25 +202,30 @@ export default function SearchLocationPicker({
     );
   };
 
-  const determineAreaType = (types: string[], description: string): 'neighborhood' | 'city' | 'specific' => {
-    // Check if it's a specific address (has street number)
-    if (description.match(/^\d+/) || types.includes('establishment') || types.includes('premise')) {
-      return 'specific';
-    }
-    
-    // Check if it's a neighborhood
-    if (types.includes('sublocality') || types.includes('neighborhood')) {
-      return 'neighborhood';
-    }
-    
-    // Check if it's a city
-    if (types.includes('locality') || types.includes('administrative_area_level_3')) {
-      return 'city';
-    }
-    
-    // Default to specific
+const determineAreaType = (types: string[], description: string): 'state' | 'city' | 'neighborhood' | 'specific' => {
+  // Check for state-level searches first
+  if (types.includes('administrative_area_level_1') || types.includes('country')) {
+    return 'state';
+  }
+  
+  // Check for city-level searches
+  if (types.includes('locality') || types.includes('administrative_area_level_2') || types.includes('administrative_area_level_3')) {
+    return 'city';
+  }
+  
+  // Check for neighborhood-level searches
+  if (types.includes('sublocality') || types.includes('neighborhood')) {
+    return 'neighborhood';
+  }
+  
+  // Check for specific addresses
+  if (description.match(/^\d+/) || types.includes('establishment') || types.includes('premise')) {
     return 'specific';
-  };
+  }
+  
+  // Default to city for unknown types (safer than 'specific')
+  return 'city';
+};
 
 const selectPlace = (suggestion: PlaceSuggestion) => {
   if (!placesService.current || !isGoogleMapsReady) {
@@ -243,17 +250,35 @@ const selectPlace = (suggestion: PlaceSuggestion) => {
     if (status === 'OK' && place) {
       const addressComponents = parseAddressComponents(place.address_components || []);
       
-      // Check if user wants city-wide search (city/locality types) vs specific location
-      const isLocalitySearch = place.types?.includes('locality') || 
-                             place.types?.includes('administrative_area_level_3') ||
-                             place.types?.includes('administrative_area_level_2');
+      // Check for state-level search
+      const isStateSearch = place.types?.includes('administrative_area_level_1') || place.types?.includes('country');
       
-      // Only expand to city if it's explicitly a city/locality search
+      // Check for city-level search  
+      const isCitySearch = place.types?.includes('locality') || 
+                          place.types?.includes('administrative_area_level_2') ||
+                          place.types?.includes('administrative_area_level_3');
+      
       let locationData;
       let displayName;
       
-      if (isLocalitySearch) {
-        // This is a city/locality search - expand to city area
+      if (isStateSearch) {
+        // State-level search
+        const stateName = place.name || addressComponents.state || suggestion.structured_formatting.main_text;
+        displayName = stateName;
+        locationData = {
+          lat: place.geometry?.location?.lat() || 0,
+          lng: place.geometry?.location?.lng() || 0,
+          address: place.formatted_address || suggestion.description,
+          placeName: stateName,
+          city: addressComponents.city,
+          state: stateName,
+          areaType: 'state' as const,
+          searchRadius: 200000, // 200km for state searches
+          originalAddress: place.formatted_address,
+          ...addressComponents
+        };
+      } else if (isCitySearch) {
+        // City-level search
         const cityName = place.name || addressComponents.city || suggestion.structured_formatting.main_text;
         displayName = cityName;
         locationData = {
@@ -269,7 +294,7 @@ const selectPlace = (suggestion: PlaceSuggestion) => {
           ...addressComponents
         };
       } else {
-        // This is a specific location - keep as specific
+        // Specific location search
         displayName = place.name || suggestion.structured_formatting.main_text;
         locationData = {
           lat: place.geometry?.location?.lat() || 0,
@@ -279,7 +304,7 @@ const selectPlace = (suggestion: PlaceSuggestion) => {
           city: addressComponents.city,
           state: addressComponents.state,
           areaType: 'specific' as const,
-          searchRadius: 3000, // 3km for specific locations
+          searchRadius: 3000, // 3km for specific searches
           ...addressComponents
         };
       }
@@ -287,7 +312,7 @@ const selectPlace = (suggestion: PlaceSuggestion) => {
       handleLocationSelection(displayName, locationData);
     }
   });
-};
+};;
 
   const isSpecificAddress = (types: string[], formattedAddress: string): boolean => {
     // Check if it's a specific address
@@ -478,13 +503,14 @@ const selectPlace = (suggestion: PlaceSuggestion) => {
     inputRef.current?.focus();
   };
 
-  const getPlaceIcon = (areaType?: string) => {
-    switch (areaType) {
-      case 'city': return <Building size={18} className="text-blue-500" />;
-      case 'neighborhood': return <Home size={18} className="text-green-500" />;
-      default: return <MapPin size={18} className="text-gray-400" />;
-    }
-  };
+const getPlaceIcon = (areaType?: string) => {
+  switch (areaType) {
+    case 'state': return <Map size={18} className="text-purple-500" />;
+    case 'city': return <Building size={18} className="text-blue-500" />;
+    case 'neighborhood': return <Home size={18} className="text-green-500" />;
+    default: return <MapPin size={18} className="text-gray-400" />;
+  }
+};
 
   const toggleMap = () => {
     setShowMap(!showMap);
@@ -610,9 +636,10 @@ const selectPlace = (suggestion: PlaceSuggestion) => {
               </p>
               <div className="flex items-center gap-2 mt-2">
                 <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full">
-                  {selectedLocation.areaType === 'city' ? 'City Area' : 
-                   selectedLocation.areaType === 'neighborhood' ? 'Neighborhood' : 'Specific Location'}
-                </span>
+  {selectedLocation.areaType === 'state' ? 'State Area' :
+   selectedLocation.areaType === 'city' ? 'City Area' : 
+   selectedLocation.areaType === 'neighborhood' ? 'Neighborhood' : 'Specific Location'}
+</span>
                 {selectedLocation.searchRadius && (
                   <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full">
                     {(selectedLocation.searchRadius / 1000).toFixed(1)}km radius

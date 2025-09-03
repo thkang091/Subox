@@ -47,20 +47,7 @@ const ConversationListPage = () => {
   };
 
   // Load notifications
-  useEffect(() => {
-    setNotifications([
-      {
-        id: 1,
-        message: "New message from John about your sublease listing",
-        time: "2 minutes ago"
-      },
-      {
-        id: 2,
-        message: "Your move out sale item was purchased",
-        time: "1 hour ago"
-      }
-    ]);
-  }, []);
+
 
   // Real-time conversation listener
   useEffect(() => {

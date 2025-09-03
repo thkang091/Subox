@@ -53,20 +53,20 @@ export default function DeliveryZoneMap({
   const [suggestions, setSuggestions] = useState<PlaceSuggestion[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
-const [selectedMode, setSelectedMode] = useState<'delivery' | 'pickup'>(() => {
-  // Initialize selectedMode based on available data and mode
-  if (mode === 'both') {
-    // For 'both' mode, prioritize delivery if available, otherwise pickup
-    if (deliveryZone && deliveryZone.center) return 'delivery';
-    if (pickupLocations && pickupLocations.length > 0) return 'pickup';
-    return 'delivery'; // default
-  } else if (mode === 'delivery') {
-    return 'delivery';
-  } else if (mode === 'pickup') {
-    return 'pickup';
-  }
-  return mode; // fallback
-});
+  const [selectedMode, setSelectedMode] = useState<'delivery' | 'pickup'>(() => {
+    // Initialize selectedMode based on available data and mode
+    if (mode === 'both') {
+      // For 'both' mode, prioritize delivery if available, otherwise pickup
+      if (deliveryZone && deliveryZone.center) return 'delivery';
+      if (pickupLocations && pickupLocations.length > 0) return 'pickup';
+      return 'delivery'; // default
+    } else if (mode === 'delivery') {
+      return 'delivery';
+    } else if (mode === 'pickup') {
+      return 'pickup';
+    }
+    return mode; // fallback
+  });
 
   const [checkResult, setCheckResult] = useState<{
     inZone: boolean;
@@ -100,7 +100,7 @@ const [selectedMode, setSelectedMode] = useState<'delivery' | 'pickup'>(() => {
       return;
     }
 
-    if (window.google && window.google.maps && window.google.maps.places) {
+    if (isGoogleMapsLoaded()) {
       initializeServices();
       return;
     }
@@ -124,8 +124,16 @@ const [selectedMode, setSelectedMode] = useState<'delivery' | 'pickup'>(() => {
       
       script.onload = () => {
         isGoogleMapsLoading = false;
-        initializeServices();
-        resolve();
+        // Wait a bit for all libraries to be fully loaded
+        setTimeout(() => {
+          if (isGoogleMapsLoaded()) {
+            initializeServices();
+            resolve();
+          } else {
+            setMapsError('Google Maps geometry library failed to load');
+            reject(new Error('Google Maps geometry library failed to load'));
+          }
+        }, 100);
       };
       
       script.onerror = () => {
@@ -144,8 +152,17 @@ const [selectedMode, setSelectedMode] = useState<'delivery' | 'pickup'>(() => {
     }
   };
 
+  // Helper function to check if Google Maps is fully loaded
+  const isGoogleMapsLoaded = () => {
+    return window.google && 
+           window.google.maps && 
+           window.google.maps.places && 
+           window.google.maps.geometry &&
+           window.google.maps.geometry.spherical;
+  };
+
   const initializeServices = () => {
-    if (window.google && window.google.maps && window.google.maps.places) {
+    if (isGoogleMapsLoaded()) {
       try {
         autocompleteService.current = new window.google.maps.places.AutocompleteService();
         const div = document.createElement('div');
@@ -156,12 +173,14 @@ const [selectedMode, setSelectedMode] = useState<'delivery' | 'pickup'>(() => {
         setMapsError('Error initializing Google Maps services');
         setIsGoogleMapsReady(true);
       }
+    } else {
+      setMapsError('Google Maps libraries not fully loaded');
     }
   };
 
   // Initialize map when Google Maps is ready
   useEffect(() => {
-    if (isGoogleMapsReady && mapRef.current) {
+    if (isGoogleMapsReady && mapRef.current && isGoogleMapsLoaded()) {
       initializeMap();
     }
   }, [isGoogleMapsReady, deliveryZone, pickupLocations, selectedMode]);
@@ -174,7 +193,7 @@ const [selectedMode, setSelectedMode] = useState<'delivery' | 'pickup'>(() => {
   }, [mode]);
 
   const initializeMap = () => {
-    if (!mapRef.current || !window.google) return;
+    if (!mapRef.current || !isGoogleMapsLoaded()) return;
 
     // Determine map center
     let center = { lat: 44.9778, lng: -93.2650 }; // Minneapolis default
@@ -221,11 +240,11 @@ const [selectedMode, setSelectedMode] = useState<'delivery' | 'pickup'>(() => {
     console.log('createDeliveryZone called:', { 
       hasMapInstance: !!mapInstance.current, 
       hasDeliveryZone: !!deliveryZone,
-      hasGoogleMaps: !!window.google,
+      hasGoogleMaps: isGoogleMapsLoaded(),
       deliveryZone 
     });
     
-    if (!mapInstance.current || !deliveryZone || !window.google) {
+    if (!mapInstance.current || !deliveryZone || !isGoogleMapsLoaded()) {
       console.log('Missing requirements for delivery zone creation');
       return;
     }
@@ -281,7 +300,7 @@ const [selectedMode, setSelectedMode] = useState<'delivery' | 'pickup'>(() => {
   };
 
   const createPickupMarkers = () => {
-    if (!mapInstance.current || pickupLocations.length === 0 || !window.google) return;
+    if (!mapInstance.current || pickupLocations.length === 0 || !isGoogleMapsLoaded()) return;
 
     const map = mapInstance.current;
     
@@ -340,6 +359,18 @@ const [selectedMode, setSelectedMode] = useState<'delivery' | 'pickup'>(() => {
       userMarkerRef.current.setMap(null);
       userMarkerRef.current = null;
     }
+  };
+
+  // Haversine formula fallback for distance calculation
+  const calculateDistance = (lat1: number, lng1: number, lat2: number, lng2: number): number => {
+    const R = 6371000; // Earth's radius in meters
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLng = (lng2 - lng1) * Math.PI / 180;
+    const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+              Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+              Math.sin(dLng/2) * Math.sin(dLng/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    return R * c;
   };
 
   // Search functions
@@ -413,13 +444,23 @@ const [selectedMode, setSelectedMode] = useState<'delivery' | 'pickup'>(() => {
   };
 
   const checkLocationInZone = (location: { lat: number; lng: number }) => {
-    if (!window.google) return;
-
     if (selectedMode === 'delivery' && deliveryZone) {
-      const distance = window.google.maps.geometry.spherical.computeDistanceBetween(
-        new window.google.maps.LatLng(location.lat, location.lng),
-        new window.google.maps.LatLng(deliveryZone.center.lat, deliveryZone.center.lng)
-      );
+      let distance: number;
+      
+      // Try to use Google Maps geometry library, fallback to Haversine formula
+      if (isGoogleMapsLoaded() && window.google.maps.geometry?.spherical) {
+        distance = window.google.maps.geometry.spherical.computeDistanceBetween(
+          new window.google.maps.LatLng(location.lat, location.lng),
+          new window.google.maps.LatLng(deliveryZone.center.lat, deliveryZone.center.lng)
+        );
+      } else {
+        distance = calculateDistance(
+          location.lat, 
+          location.lng, 
+          deliveryZone.center.lat, 
+          deliveryZone.center.lng
+        );
+      }
       
       const inZone = distance <= deliveryZone.radius;
       const distanceKm = Math.round(distance / 1000 * 100) / 100;
@@ -440,10 +481,22 @@ const [selectedMode, setSelectedMode] = useState<'delivery' | 'pickup'>(() => {
       let nearestLocationIndex = -1;
       
       pickupLocations.forEach((pickupLocation, index) => {
-        const distance = window.google.maps.geometry.spherical.computeDistanceBetween(
-          new window.google.maps.LatLng(location.lat, location.lng),
-          new window.google.maps.LatLng(pickupLocation.lat, pickupLocation.lng)
-        );
+        let distance: number;
+        
+        // Try to use Google Maps geometry library, fallback to Haversine formula
+        if (isGoogleMapsLoaded() && window.google.maps.geometry?.spherical) {
+          distance = window.google.maps.geometry.spherical.computeDistanceBetween(
+            new window.google.maps.LatLng(location.lat, location.lng),
+            new window.google.maps.LatLng(pickupLocation.lat, pickupLocation.lng)
+          );
+        } else {
+          distance = calculateDistance(
+            location.lat,
+            location.lng,
+            pickupLocation.lat,
+            pickupLocation.lng
+          );
+        }
         
         if (distance < nearestDistance) {
           nearestDistance = distance;
@@ -482,7 +535,7 @@ const [selectedMode, setSelectedMode] = useState<'delivery' | 'pickup'>(() => {
   };
 
   const addUserMarker = (location: { lat: number; lng: number }) => {
-    if (!mapInstance.current || !window.google) return;
+    if (!mapInstance.current || !isGoogleMapsLoaded()) return;
 
     if (userMarkerRef.current) {
       userMarkerRef.current.setMap(null);
@@ -523,7 +576,7 @@ const [selectedMode, setSelectedMode] = useState<'delivery' | 'pickup'>(() => {
         
         setUserLocation(location);
         
-        if (window.google && window.google.maps) {
+        if (isGoogleMapsLoaded()) {
           const geocoder = new window.google.maps.Geocoder();
           geocoder.geocode({ location }, (results, status) => {
             if (status === 'OK' && results?.[0]) {
