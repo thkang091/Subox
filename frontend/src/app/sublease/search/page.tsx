@@ -537,6 +537,10 @@ const [isMounted, setIsMounted] = useState(false);
     'Other': { lat: 44.9778, lng: -93.2358 }
   };
 
+  const [expandedSearchActive, setExpandedSearchActive] = useState(false);
+const [expandedAreaInfo, setExpandedAreaInfo] = useState(null); // Add this line
+
+
  
   // =========================
   // Helper Functions
@@ -571,11 +575,31 @@ const getTransportIcon = (mode) => {
   
 useEffect(() => {
   const urlParams = new URLSearchParams(window.location.search);
+  let hasUrlParams = false;
   
-  // Location parameter
+  // Location parameters - Enhanced handling
   const locationParam = urlParams.get('location');
   if (locationParam) {
     setLocation(locationParam.split(','));
+    hasUrlParams = true;
+  }
+  
+  // Handle enhanced location data from FirstSearchPage
+  const selectedLocationDataParam = urlParams.get('selectedLocationData');
+  if (selectedLocationDataParam) {
+    try {
+      const locationData = JSON.parse(selectedLocationDataParam);
+      setSelectedLocationData(locationData);
+      
+      // Set expanded search states if applicable
+      if (locationData.areaType === 'expanded_region') {
+        setExpandedSearchActive(true);
+        setExpandedAreaInfo(locationData.expandedArea);
+      }
+      hasUrlParams = true;
+    } catch (error) {
+      console.error('Error parsing selectedLocationData from URL:', error);
+    }
   }
   
   // Date parameters
@@ -586,71 +610,91 @@ useEffect(() => {
       checkIn: checkInParam ? new Date(checkInParam) : null,
       checkOut: checkOutParam ? new Date(checkOutParam) : null
     });
+    hasUrlParams = true;
   }
   
-  // Room parameters - properly handle 'any' values
+  // Room parameters - FIXED: Handle 'any' values properly
   const bedroomsParam = urlParams.get('bedrooms');
   const bathroomsParam = urlParams.get('bathrooms');
+  
   if (bedroomsParam !== null) {
-    setBedrooms(bedroomsParam === 'any' ? 'any' : parseInt(bedroomsParam));
+    const bedroomValue = bedroomsParam === 'any' ? 'any' : parseInt(bedroomsParam);
+    setBedrooms(bedroomValue);
+    hasUrlParams = true;
   }
+  
   if (bathroomsParam !== null) {
-    setBathrooms(bathroomsParam === 'any' ? 'any' : parseInt(bathroomsParam));
-  }
-  
-  // Other parameters...
-  const amenitiesParam = urlParams.get('amenities');
-  if (amenitiesParam) {
-    setSelectedAmenities(amenitiesParam.split(','));
-  }
-  
-  const accommodationTypeParam = urlParams.get('accommodationType');
-  if (accommodationTypeParam) {
-    setAccommodationType(accommodationTypeParam);
-  }
-  
-  const preferredGenderParam = urlParams.get('preferredGender');
-  if (preferredGenderParam) {
-    setPreferredGender(preferredGenderParam);
-  }
-  
-  const smokingPreferenceParam = urlParams.get('smokingPreference');
-  if (smokingPreferenceParam) {
-    setSmokingPreference(smokingPreferenceParam);
+    const bathroomValue = bathroomsParam === 'any' ? 'any' : parseInt(bathroomsParam);
+    setBathrooms(bathroomValue);
+    hasUrlParams = true;
   }
   
   // Price parameters
   const minPriceParam = urlParams.get('minPrice');
   const maxPriceParam = urlParams.get('maxPrice');
   const priceTypeParam = urlParams.get('priceType');
+  
   if (minPriceParam || maxPriceParam) {
     setPriceRange({
       min: minPriceParam ? parseInt(minPriceParam) : 500,
       max: maxPriceParam ? parseInt(maxPriceParam) : 2000
     });
+    hasUrlParams = true;
   }
+  
   if (priceTypeParam) {
     setPriceType(priceTypeParam);
+    hasUrlParams = true;
   }
   
-  // Restore selectedLocationData if available
-  const selectedLocationDataParam = urlParams.get('selectedLocationData');
-  if (selectedLocationDataParam) {
-    try {
-      const locationData = JSON.parse(selectedLocationDataParam);
-      setSelectedLocationData(locationData);
-    } catch (error) {
-      console.error('Error parsing selectedLocationData from URL:', error);
-    }
+  // Accommodation type parameter
+  const accommodationTypeParam = urlParams.get('accommodationType');
+  if (accommodationTypeParam) {
+    setAccommodationType(accommodationTypeParam);
+    hasUrlParams = true;
   }
   
-  // Auto-run search if URL has parameters
-  if (urlParams.toString()) {
+  // Amenities parameter
+  const amenitiesParam = urlParams.get('amenities');
+  if (amenitiesParam) {
+    setSelectedAmenities(amenitiesParam.split(','));
+    hasUrlParams = true;
+  }
+  
+  // Gender preference parameter
+  const preferredGenderParam = urlParams.get('preferredGender');
+  if (preferredGenderParam) {
+    setPreferredGender(preferredGenderParam);
+    hasUrlParams = true;
+  }
+  
+  // Smoking preference parameter
+  const smokingPreferenceParam = urlParams.get('smokingPreference');
+  if (smokingPreferenceParam) {
+    setSmokingPreference(smokingPreferenceParam);
+    hasUrlParams = true;
+  }
+  
+  console.log('SearchPage: URL parameters restored:', {
+    location,
+    dateRange,
+    bedrooms,
+    bathrooms,
+    priceRange,
+    accommodationType,
+    amenities: selectedAmenities,
+    preferredGender,
+    smokingPreference
+  });
+  
+  // FIXED: Only run search when we have both URL params AND listings data
+  if (hasUrlParams && allListings.length > 0) {
+    console.log('SearchPage: Auto-running search with restored parameters and', allListings.length, 'listings');
     setTimeout(() => {
       handleSearch();
-    }, 500); 
+    }, 500); // Reduced delay since data is already loaded
   }
-}, []);
+}, [allListings]); // ADD allListings as dependency
 
 
 
@@ -1355,12 +1399,10 @@ const handleSearch = () => {
   if (dateRange.checkOut) {
     searchParams.set('checkOut', dateRange.checkOut);
   }
-  if (bedrooms !== 'any') {
-    searchParams.set('bedrooms', bedrooms);
-  }
-  if (bathrooms !== 'any') {
-    searchParams.set('bathrooms', bathrooms);
-  }
+// Room parameters - ALWAYS send both, even if 'any'
+  searchParams.append('bedrooms', bedrooms.toString());
+  searchParams.append('bathrooms', bathrooms.toString());
+
   if (selectedAmenities.length > 0) {
     searchParams.set('amenities', selectedAmenities.join(','));
   }

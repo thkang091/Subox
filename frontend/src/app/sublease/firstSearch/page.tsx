@@ -817,6 +817,9 @@ const handleSearch = () => {
     if (selectedLocationData.boundingBox) {
       searchParams.append('bounds', JSON.stringify(selectedLocationData.boundingBox));
     }
+    
+    // CRITICAL: Pass the entire selectedLocationData object
+    searchParams.append('selectedLocationData', JSON.stringify(selectedLocationData));
   } else if (location.length > 0) {
     location.forEach(loc => {
       searchParams.append('location', loc);
@@ -831,13 +834,9 @@ const handleSearch = () => {
     searchParams.append('checkOut', dateRange.checkOut.toISOString());
   }
   
-  // Room parameters - handle 'any' values properly
-  if (bedrooms !== 'any') {
-    searchParams.append('bedrooms', bedrooms.toString());
-  }
-  if (bathrooms !== 'any') {
-    searchParams.append('bathrooms', bathrooms.toString());
-  }
+  // Room parameters - ALWAYS send both, even if 'any'
+  searchParams.append('bedrooms', bedrooms.toString());
+  searchParams.append('bathrooms', bathrooms.toString());
   
   // Price parameters
   searchParams.append('minPrice', priceRange.min.toString());
@@ -861,14 +860,9 @@ const handleSearch = () => {
     searchParams.append('smokingPreference', smokingPreference);
   }
 
-  // Store selectedLocationData for the search page
-  if (selectedLocationData) {
-    searchParams.append('selectedLocationData', JSON.stringify(selectedLocationData));
-  }
-
   setTimeout(() => {
     const searchUrl = `/sublease/search?${searchParams.toString()}`;
-    console.log('Enhanced search URL with preserved parameters:', searchUrl);
+    console.log('🔄 FirstSearchPage: Navigating with URL:', searchUrl);
     window.location.href = searchUrl;
     setIsSearching(false);
   }, 1500);
