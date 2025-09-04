@@ -208,4 +208,35 @@ npm run emu
 
 * **Hosting**  Vercel or Firebase Hosting
 * **Functions**  Deployed via Firebase CLI
-* \*\*Se
+* **Search indexing**  Trigger Cloud Function on `listings` create/update/delete
+* **Analytics**  Export Firestore events to BigQuery for insights
+
+---
+
+## Security and Privacy
+
+* Email/SSO sign‑in with optional .edu verification
+* Abuse prevention  IP throttling, image moderation, and fraud rules
+* Firestore rules enforce per‑field access and listing ownership
+
+---
+
+## Roadmap
+
+* Payments and deposits with Stripe escrow
+* Calendar availability and roommate finder
+* Campus ambassador program and verified landlords
+* Saved‑search alerts and digest emails
+* iOS/Android wrappers for PWA
+
+---
+
+## Contributing
+
+Pull requests are welcome. For larger changes, open an issue describing the problem and proposed approach. Please run tests and linting before submitting.
+
+---
+
+## License
+
+MIT
