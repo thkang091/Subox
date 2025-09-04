@@ -2665,7 +2665,7 @@ const renderCommuteInfo = (listing) => {
        {/* Header */}
         <div className="bg-white border-b border-gray-200 sticky top-0 z-50">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex items-center justify-between h-16">
+            <div className="flex items-center justify-between h-16 hidden md:flex">
               {/* Logo */}
                 <motion.div 
                     className="flex items-center space-x-6 relative mt-3"
@@ -2775,6 +2775,325 @@ const renderCommuteInfo = (listing) => {
                 </motion.span>
                 <motion.span 
                     className="text-xs text-gray-500 font-medium tracking-wider"
+                    animate={{ opacity: [0.7, 1, 0.7] }}
+                    transition={{ duration: 2, repeat: Infinity }}
+                >
+                    SUBLEASE
+                    {badgeList.map((badge, i) => (
+                      <span key={i} className="inline-flex items-center translate-y-1">
+                        {React.cloneElement(badge as React.ReactElement, {
+                          className: "w-4 h-4 ml-1"
+                        })}
+                      </span>
+                    ))}
+                </motion.span>
+                </motion.div>
+                </motion.div>
+  
+  
+              {/* Header Actions */}
+              <div className="flex items-center space-x-4">
+                
+                {/* Back */}
+                <motion.button 
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => router.push("/find")}
+                  className="hidden md:flex items-center px-3 py-2 rounded-lg hover:bg-orange-600 text-black hover:text-white transition-colors"
+                >
+                  <ArrowLeft size={20} /> Back
+                </motion.button>
+
+                {/* Back */}
+                <motion.button 
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => router.push("/find")}
+                  className="flex md:hidden items-center py-2 rounded-lg hover:bg-orange-600 text-black hover:text-white transition-colors"
+                >
+                  <ArrowLeft size={20} />
+                </motion.button>
+
+                {/* Notifications */}
+                <NotificationsButton notifications={notifications} />
+  
+                {/* Favorites */}
+                <motion.button 
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+                  className="p-2 bg-gray-200 rounded-lg hover:bg-gray-300 transition-colors"
+                >
+                  <MessagesSquare size={20} className = "w-5 h-5 text-gray-500"/>
+                </motion.button>
+                
+                {/* Favorites Sidebar */}
+                {renderFavoritesSidebar()}
+  
+                {/* Profile */}
+                <div className="relative">
+                <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => setShowProfile(!showProfile)}
+                    className="p-2 bg-gray-200 rounded-lg hover:bg-gray-300 transition-colors"
+                >
+                    <User className="w-5 h-5 text-gray-500" />
+                </motion.button>
+
+                <AnimatePresence>
+                    {showProfile && (
+                    <motion.div
+                        initial={{ opacity: 0, y: -10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -10 }}
+                        className="absolute right-0 mt-2 w-64 bg-white rounded-lg shadow-lg border border-gray-200 z-50"
+                    >
+                        <div className="p-4 space-y-2">
+                        <button onClick={() => handleTabClick("purchased")} className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-orange-50 transition-colors">What I Purchased</button>
+                        <button onClick={() => handleTabClick("returned")} className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-orange-50 transition-colors">What I Returned</button>
+                        <button onClick={() => handleTabClick("cancelled")} className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-orange-50 transition-colors">What I Cancelled</button>
+                        <button onClick={() => handleTabClick("sold")} className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-orange-50 transition-colors">What I Sold</button>
+                        <button onClick={() => handleTabClick("sublease")} className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-orange-50 transition-colors">Sublease</button>
+                        <button onClick={() => handleTabClick("reviews")} className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-orange-50 transition-colors">Reviews</button>
+                        <hr className="my-2" />
+                        <button onClick={() => handleTabClick("history")} className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-orange-50 transition-colors">History</button>
+                        </div>
+                    </motion.div>
+                    )}
+                </AnimatePresence>
+                </div>
+
+                {/* menu */}
+                <div className="relative">
+                <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => setShowMenu(!showMenu)}
+                    className="p-2 bg-gray-200 rounded-lg hover:bg-gray-300 transition-colors"
+                >
+                    <Menu className="w-5 h-5 text-gray-500" />
+                </motion.button>
+
+                <AnimatePresence>
+                    {showMenu && (
+                    <motion.div
+                        initial={{ opacity: 0, y: -10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -10 }}
+                        className="absolute right-0 mt-2 w-64 bg-white rounded-lg shadow-lg border border-gray-200 z-50"
+                    >
+                        <div className="p-4 space-y-2">
+                        <p className="text-medium font-semibold max-w-2xl mb-4 text-orange-700">
+                        Move Out Sale
+                        </p>
+                        <button 
+                            onClick={() => {
+                            router.push('../browse');
+                            setShowMenu(false);
+                            }} 
+                            className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-orange-50 transition-colors"
+                        >
+                            Browse Items
+                        </button>                        
+                        <button 
+                            onClick={() => {
+                            router.push('/sale/create');
+                            setShowMenu(false);
+                            }} 
+                            className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-orange-50 transition-colors"
+                        >
+                            Sell Items
+                        </button> 
+                        <button 
+                            onClick={() => {
+                            router.push('/sale/create');
+                            setShowMenu(false);
+                            }} 
+                            className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-orange-50 transition-colors"
+                        >
+                            My Items
+                        </button>   
+                        
+                        <p className="text-medium font-semibold max-w-2xl mb-4 text-orange-700">
+                            Sublease
+                        </p>
+                        <button 
+                            onClick={() => {
+                            router.push('../search');
+                            setShowMenu(false);
+                            }} 
+                            className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-orange-50 transition-colors"
+                        >
+                            Find Sublease
+                        </button>   
+                        <button 
+                            onClick={() => {
+                            router.push('../search');
+                            setShowMenu(false);
+                            }} 
+                            className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-orange-50 transition-colors"
+                        >
+                            Post Sublease
+                        </button>   
+                        <button 
+                            onClick={() => {
+                            router.push('../search');
+                            setShowMenu(false);
+                            }} 
+                            className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-orange-50 transition-colors"
+                        >
+                            My Sublease Listing
+                        </button>
+                        <hr className="my-2" />
+                        <button 
+                            onClick={() => {
+                            router.push('../sale/browse');
+                            setShowMenu(false);
+                            }} 
+                            className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-orange-50 transition-colors"
+                        >
+                            Messages
+                        </button>   
+                        <button 
+                            onClick={() => {
+                            router.push('../help');
+                            setShowMenu(false);
+                            }} 
+                            className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-orange-50 transition-colors"
+                        >
+                            Help & Support
+                        </button>
+
+                        {/* need change (when user didn't log in -> show log in button) */}
+                        <hr className="my-2" />
+                            {/* log in/ out */}
+                            {isLoggedIn ? (
+                            <button className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-orange-50 transition-colors">
+                                Logout
+                            </button>
+                            ) : (
+                            <button className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-orange-50 transition-colors">
+                                Login
+                            </button>
+                            )}
+                        </div>
+                    </motion.div>
+                    )}
+                </AnimatePresence>
+                </div>
+              </div>
+          </div>
+            <div className="flex items-center justify-between h-16 flex md:hidden">
+              {/* Logo */}
+                <motion.div 
+                    className="flex items-center space-x-6 relative mt-3"
+                    whileHover={{ scale: 1.05 }}
+                    onClick={() => {isLoggedIn ? (router.push("/find")) : router.push("/")}}
+                >
+                {/* Main Subox Logo */}
+                <motion.div className="relative">
+                {/* House Icon */}
+                <motion.svg 
+                    className="w-10 h-10" 
+                    viewBox="0 0 100 100" 
+                    fill="none"
+                    whileHover={{ rotate: [0, -5, 5, 0] }}
+                    transition={{ duration: 0.5 }}
+                >
+                    {/* House Base */}
+                    <motion.path
+                    d="M20 45L50 20L80 45V75C80 78 77 80 75 80H25C22 80 20 78 20 75V45Z"
+                    fill="#E97451"
+                    animate={{ 
+                        fill: ["#E97451", "#F59E0B", "#E97451"],
+                        scale: [1, 1.02, 1]
+                    }}
+                    transition={{ duration: 3, repeat: Infinity }}
+                    />
+                    {/* House Roof */}
+                    <motion.path
+                    d="M15 50L50 20L85 50L50 15L15 50Z"
+                    fill="#D97706"
+                    animate={{ rotate: [0, 1, 0] }}
+                    transition={{ duration: 4, repeat: Infinity }}
+                    />
+                    {/* Window */}
+                    <motion.rect
+                    x="40"
+                    y="50"
+                    width="20"
+                    height="15"
+                    fill="white"
+                    animate={{ 
+                        opacity: [1, 0.8, 1],
+                        scale: [1, 1.1, 1]
+                    }}
+                    transition={{ duration: 2, repeat: Infinity }}
+                    />
+                    {/* Door */}
+                    <motion.rect
+                    x="45"
+                    y="65"
+                    width="10"
+                    height="15"
+                    fill="white"
+                    animate={{ scaleY: [1, 1.05, 1] }}
+                    transition={{ duration: 2.5, repeat: Infinity }}
+                    />
+                </motion.svg>
+
+                {/* Tag Icon */}
+                <motion.svg 
+                    className="w-6 h-6 absolute -top-1 -right-1" 
+                    viewBox="0 0 60 60" 
+                    fill="none"
+                    whileHover={{ rotate: 360 }}
+                    transition={{ duration: 0.8 }}
+                >
+                    <motion.path
+                    d="M5 25L25 5H50V25L30 45L5 25Z"
+                    fill="#E97451"
+                    animate={{ 
+                        rotate: [0, 5, -5, 0],
+                        scale: [1, 1.1, 1]
+                    }}
+                    transition={{ duration: 3, repeat: Infinity }}
+                    />
+                    <motion.circle
+                    cx="38"
+                    cy="17"
+                    r="4"
+                    fill="white"
+                    animate={{ 
+                        scale: [1, 1.3, 1],
+                        opacity: [1, 0.7, 1]
+                    }}
+                    transition={{ duration: 1.5, repeat: Infinity }}
+                    />
+                </motion.svg>
+                </motion.div>
+
+                {/* Subox Text */}
+                <motion.div className="flex flex-col -mx-4">
+                <motion.span 
+                    className="text-2xl font-bold text-gray-900"
+                    animate={{
+                    background: [
+                        "linear-gradient(45deg, #1F2937, #374151)",
+                        "linear-gradient(45deg, #E97451, #F59E0B)",
+                        "linear-gradient(45deg, #1F2937, #374151)"
+                    ],
+                    backgroundClip: "text",
+                    WebkitBackgroundClip: "text",
+                    color: "transparent"
+                    }}
+                    transition={{ duration: 4, repeat: Infinity }}
+                >
+                    Subox
+                </motion.span>
+                <motion.span 
+                    className="text-[10px] text-gray-500 font-medium tracking-wider"
                     animate={{ opacity: [0.7, 1, 0.7] }}
                     transition={{ duration: 2, repeat: Infinity }}
                 >

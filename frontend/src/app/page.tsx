@@ -375,47 +375,155 @@ const SuboxHomepage = () => {
         className="pt-4 px-4 relative"
       >
         {/* Header Row with Logo + Menu Button */}
-        <div className="flex justify-between items-center">
-          {/* Logo */}
-          <motion.div
-            className="flex items-center space-x-3"
-            whileHover={{ scale: 1.05 }}
-          >
-            {/* Your Logo SVGs here (kept same as your original) */}
-            <span className="text-2xl font-bold">Subox</span>
-          </motion.div>
+        <div className='fixed inset-x-0 top-0 z-50 bg-white/30 backdrop-blur-2xl border-b border-gray-200/1'>
+          <div className="max-w-7xl mx-auto flex justify-between items-center px-4 py-2">
+            {/* Logo */}
+            <motion.div 
+              className="flex items-center space-x-2 -mx-1 mt-1"
+            >              
+            {/* Main Subox Logo */}
+              <motion.div className="relative">
+                {/* House Icon */}
+                <motion.svg 
+                  className="w-10 h-10" 
+                  viewBox="0 0 100 100" 
+                  fill="none"
+                  whileHover={{ rotate: [0, -5, 5, 0] }}
+                  transition={{ duration: 0.5 }}
+                >
+                  {/* House Base */}
+                  <motion.path
+                    d="M20 45L50 20L80 45V75C80 78 77 80 75 80H25C22 80 20 78 20 75V45Z"
+                    fill="#E97451"
+                    animate={{ 
+                      fill: ["#E97451", "#F59E0B", "#E97451"],
+                      scale: [1, 1.02, 1]
+                    }}
+                    transition={{ duration: 3, repeat: Infinity }}
+                  />
+                  {/* House Roof */}
+                  <motion.path
+                    d="M15 50L50 20L85 50L50 15L15 50Z"
+                    fill="#D97706"
+                    animate={{ rotate: [0, 1, 0] }}
+                    transition={{ duration: 4, repeat: Infinity }}
+                  />
+                  {/* Window */}
+                  <motion.rect
+                    x="40"
+                    y="50"
+                    width="20"
+                    height="15"
+                    fill="white"
+                    animate={{ 
+                      opacity: [1, 0.8, 1],
+                      scale: [1, 1.1, 1]
+                    }}
+                    transition={{ duration: 2, repeat: Infinity }}
+                  />
+                  {/* Door */}
+                  <motion.rect
+                    x="45"
+                    y="65"
+                    width="10"
+                    height="15"
+                    fill="white"
+                    animate={{ scaleY: [1, 1.05, 1] }}
+                    transition={{ duration: 2.5, repeat: Infinity }}
+                  />
+                </motion.svg>
 
-          {/* Menu Button */}
-          <button
-            onClick={() => setShowMenu(!showMenu)}
-            className="p-2 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 fixed top-4 right-4 z-50"
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-7 w-7 text-gray-700"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
+                {/* Tag Icon */}
+                <motion.svg 
+                  className="w-6 h-6 absolute -top-1 -right-1" 
+                  viewBox="0 0 60 60" 
+                  fill="none"
+                  whileHover={{ rotate: 360 }}
+                  transition={{ duration: 0.8 }}
+                >
+                  <motion.path
+                    d="M5 25L25 5H50V25L30 45L5 25Z"
+                    fill="#E97451"
+                    animate={{ 
+                      rotate: [0, 5, -5, 0],
+                      scale: [1, 1.1, 1]
+                    }}
+                    transition={{ duration: 3, repeat: Infinity }}
+                  />
+                  <motion.circle
+                    cx="38"
+                    cy="17"
+                    r="4"
+                    fill="white"
+                    animate={{ 
+                      scale: [1, 1.3, 1],
+                      opacity: [1, 0.7, 1]
+                    }}
+                    transition={{ duration: 1.5, repeat: Infinity }}
+                  />
+                </motion.svg>
+              </motion.div>
+
+              {/* Subox Text */}
+              <motion.div className="flex flex-col">
+                <motion.span 
+                  className="text-xl font-bold text-gray-900"
+                  animate={{
+                    background: [
+                      "linear-gradient(45deg, #1F2937, #374151)",
+                      "linear-gradient(45deg, #E97451, #F59E0B)",
+                      "linear-gradient(45deg, #1F2937, #374151)"
+                    ],
+                    backgroundClip: "text",
+                    WebkitBackgroundClip: "text",
+                    color: "transparent"
+                  }}
+                  transition={{ duration: 4, repeat: Infinity }}
+                >
+                  Subox
+                </motion.span>
+                <motion.span 
+                  className="text-[10px] text-gray-500 font-medium tracking-wider"
+                  animate={{ opacity: [0.7, 1, 0.7] }}
+                  transition={{ duration: 2, repeat: Infinity }}
+                >
+                  SUBLETS & MOVING SALES
+                </motion.span>
+              </motion.div>
+            </motion.div>
+
+            {/* Menu Button */}
+            <button
+              onClick={() => setShowMenu(!showMenu)}
+              className="p-2 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 -mt-2 -mx-4"
             >
-              {showMenu ? (
-                // X icon
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M6 18L18 6M6 6l12 12"
-                />
-              ) : (
-                // Hamburger icon
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M4 6h16M4 12h16M4 18h16"
-                />
-              )}
-            </svg>
-          </button>
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-7 w-7 text-gray-700"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                {showMenu ? (
+                  // X icon
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                ) : (
+                  // Hamburger icon
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M4 6h16M4 12h16M4 18h16"
+                  />
+                )}
+              </svg>
+            </button>
+          </div>
         </div>
 
         {/* Dropdown Menu */}
@@ -426,6 +534,12 @@ const SuboxHomepage = () => {
             transition={{ duration: 0.3 }}
             className="fixed top-0 right-0 w-64 flex flex-col gap-4 mt-4 bg-white z-50 p-4"
           >
+            <button
+              className='ml-auto'
+              onClick={() => setShowMenu(false)}
+            >
+              <X/>
+            </button>
             {["Use Cases", "How it works", "Pricing", "Help"].map((item) => {
               const help = item === "Help";
               const link = help
@@ -583,6 +697,7 @@ const SuboxHomepage = () => {
                 className="w-full sm:w-auto px-8 py-4 bg-gradient-to-r from-orange-500 to-orange-600 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all group"
                 whileHover={{ scale: 1.05, y: -2 }}
                 whileTap={{ scale: 0.95 }}
+                onClick={() => router.push("auth?mode=signup")}
               >
                 <span className="flex items-center justify-center gap-2">
                   Get Started Free
@@ -604,235 +719,237 @@ const SuboxHomepage = () => {
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 1, delay: 0.3 }}
           >
-            {/* L-shaped Sofa - Top Left Position */}
-            <motion.div
-              className="absolute z-10"
-              initial={{ 
-                x: -400,
-                y: -100,
-                scale: 1.4,
-                rotate: 0,
-                opacity: 0
-              }}
-              animate={{
-                x: 20,
-                y: 5,
-                scale: 1.8,
-                rotate: 0,
-                opacity: 1,
-              }}
-              transition={{ 
-                duration: 1.5, 
-                ease: [0.25, 0.46, 0.45, 0.94],
-                delay: 0.5
-              }}
-            >
-              <motion.img
-                src="Sofa_Left.png"
-                alt="L-shaped sofa"
-                className="w-80 h-80 object-contain drop-shadow-2xl"
-                whileHover={{ 
-                  scale: 1.05, 
-                  transition: { duration: 0.3 }
+            <div className='hidden md:block'>
+              {/* L-shaped Sofa - Top Left Position */}
+              <motion.div
+                className="absolute z-10"
+                initial={{ 
+                  x: -400,
+                  y: 600,
+                  scale: 1.4,
+                  rotate: 0,
+                  opacity: 0
                 }}
                 animate={{
-                  y: [0, -5, 0],
+                  x: 20,
+                  y: 5,
+                  scale: 1.8,
+                  rotate: 0,
+                  opacity: 1,
                 }}
-                transition={{
-                  y: { 
-                    duration: 3, 
-                    repeat: Infinity, 
-                    ease: "easeInOut",
-                    delay: 2
-                  }
+                transition={{ 
+                  duration: 1.5, 
+                  ease: [0.25, 0.46, 0.45, 0.94],
+                  delay: 0.5
                 }}
-              />
-              
-              {/* Sofa assembly particles */}
-              <motion.div
-                className="absolute inset-0 pointer-events-none"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 1.0, duration: 0.5 }}
               >
-                {[...Array(12)].map((_, i) => (
-                  <motion.div
-                    key={i}
-                    className="absolute w-3 h-3 bg-orange-400 rounded-full"
-                    style={{
-                      top: `${15 + i * 6}%`,
-                      left: `${10 + i * 7}%`,
-                    }}
-                    animate={{
-                      scale: [0, 1, 0],
-                      opacity: [0, 0.8, 0],
-                      y: [0, -30, -60],
-                      x: [0, Math.random() * 20 - 10],
-                    }}
-                    transition={{
-                      duration: 2,
-                      delay: 1.3 + i * 0.1,
-                      repeat: Infinity,
-                      repeatDelay: 4
-                    }}
-                  />
-                ))}
+                <motion.img
+                  src="Sofa_Left.png"
+                  alt="L-shaped sofa"
+                  className="w-80 h-80 object-contain drop-shadow-2xl"
+                  whileHover={{ 
+                    scale: 1.05, 
+                    transition: { duration: 0.3 }
+                  }}
+                  animate={{
+                    y: [0, -5, 0],
+                  }}
+                  transition={{
+                    y: { 
+                      duration: 3, 
+                      repeat: Infinity, 
+                      ease: "easeInOut",
+                      delay: 2
+                    }
+                  }}
+                />
+                
+                {/* Sofa assembly particles */}
+                <motion.div
+                  className="absolute inset-0 pointer-events-none"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: 1.0, duration: 0.5 }}
+                >
+                  {[...Array(12)].map((_, i) => (
+                    <motion.div
+                      key={i}
+                      className="absolute w-3 h-3 bg-orange-400 rounded-full"
+                      style={{
+                        top: `${15 + i * 6}%`,
+                        left: `${10 + i * 7}%`,
+                      }}
+                      animate={{
+                        scale: [0, 1, 0],
+                        opacity: [0, 0.8, 0],
+                        y: [0, -30, -60],
+                        x: [0, Math.random() * 20 - 10],
+                      }}
+                      transition={{
+                        duration: 2,
+                        delay: 1.3 + i * 0.1,
+                        repeat: Infinity,
+                        repeatDelay: 4
+                      }}
+                    />
+                  ))}
+                </motion.div>
               </motion.div>
-            </motion.div>
 
-            {/* Coffee Table - Center Bottom Position */}
-            <motion.div
-              className="absolute z-5"
-              initial={{ 
-                x: 0,
-                y: -400,
-                scale: 1.0,
-                rotate: 0,
-                opacity: 0
-              }}
-              animate={{
-                x: 120,
-                y: 200,
-                scale: 1.2,
-                rotate: 0,
-                opacity: 1,
-              }}
-              transition={{ 
-                duration: 1.2, 
-                ease: [0.25, 0.46, 0.45, 0.94],
-                delay: 1.5
-              }}
-            >
-              <motion.img
-                src="Table.png"
-                alt="Coffee table"
-                className="w-48 h-48 object-contain drop-shadow-xl"
-                whileHover={{ 
-                  scale: 1.05, 
-                  y: -10,
-                  transition: { duration: 0.3 }
+              {/* Coffee Table - Center Bottom Position */}
+              <motion.div
+                className="absolute z-5"
+                initial={{ 
+                  x: 0,
+                  y: 400,
+                  scale: 1.0,
+                  rotate: 0,
+                  opacity: 0
                 }}
                 animate={{
-                  x: [0, 3, 0, -3, 0],
+                  x: 120,
+                  y: 200,
+                  scale: 1.2,
+                  rotate: 0,
+                  opacity: 1,
                 }}
-                transition={{
-                  x: { 
-                    duration: 5, 
-                    repeat: Infinity, 
-                    ease: "easeInOut",
-                    delay: 3
-                  }
+                transition={{ 
+                  duration: 1.2, 
+                  ease: [0.25, 0.46, 0.45, 0.94],
+                  delay: 1.5
                 }}
-              />
-              
-              {/* Table assembly particles */}
-              <motion.div
-                className="absolute inset-0 pointer-events-none"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 1.8, duration: 0.5 }}
               >
-                {[...Array(15)].map((_, i) => (
-                  <motion.div
-                    key={i}
-                    className="absolute w-2 h-2 rounded-full"
-                    style={{
-                      background: `linear-gradient(45deg, #f97316, #8b5cf6)`,
-                      top: `${5 + i * 6}%`,
-                      left: `${5 + i * 6}%`,
-                    }}
-                    animate={{
-                      scale: [0, 1.5, 0],
-                      opacity: [0, 1, 0],
-                      y: [0, -40],
-                      rotate: [0, 360],
-                    }}
-                    transition={{
-                      duration: 2.2,
-                      delay: 2.1 + i * 0.1,
-                      repeat: Infinity,
-                      repeatDelay: 4
-                    }}
-                  />
-                ))}
+                <motion.img
+                  src="Table.png"
+                  alt="Coffee table"
+                  className="w-48 h-48 object-contain drop-shadow-xl"
+                  whileHover={{ 
+                    scale: 1.05, 
+                    y: -10,
+                    transition: { duration: 0.3 }
+                  }}
+                  animate={{
+                    x: [0, 3, 0, -3, 0],
+                  }}
+                  transition={{
+                    x: { 
+                      duration: 5, 
+                      repeat: Infinity, 
+                      ease: "easeInOut",
+                      delay: 3
+                    }
+                  }}
+                />
+                
+                {/* Table assembly particles */}
+                <motion.div
+                  className="absolute inset-0 pointer-events-none"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: 1.8, duration: 0.5 }}
+                >
+                  {[...Array(15)].map((_, i) => (
+                    <motion.div
+                      key={i}
+                      className="absolute w-2 h-2 rounded-full"
+                      style={{
+                        background: `linear-gradient(45deg, #f97316, #8b5cf6)`,
+                        top: `${5 + i * 6}%`,
+                        left: `${5 + i * 6}%`,
+                      }}
+                      animate={{
+                        scale: [0, 1.5, 0],
+                        opacity: [0, 1, 0],
+                        y: [0, -40],
+                        rotate: [0, 360],
+                      }}
+                      transition={{
+                        duration: 2.2,
+                        delay: 2.1 + i * 0.1,
+                        repeat: Infinity,
+                        repeatDelay: 4
+                      }}
+                    />
+                  ))}
+                </motion.div>
               </motion.div>
-            </motion.div>
 
-            {/* Single Chair - Right Center Position */}
-            <motion.div
-              className="absolute z-10"
-              initial={{ 
-                x: 600,
-                y: 100,
-                scale: 1.4,
-                rotate: 0,
-                opacity: 0
-              }}
-              animate={{
-                x: 320,
-                y: 260,
-                scale: 1.3,
-                rotate: -1,
-                opacity: 1,
-              }}
-              transition={{ 
-                duration: 1.5, 
-                ease: [0.25, 0.46, 0.45, 0.94],
-                delay: 0.8
-              }}
-            >
-              <motion.img
-                src="Sofa_Right.png"
-                alt="Single chair"
-                className="w-64 h-64 object-contain drop-shadow-2xl"
-                whileHover={{ 
-                  scale: 1.05, 
-                  transition: { duration: 0.3 }
+              {/* Single Chair - Right Center Position */}
+              <motion.div
+                className="absolute z-10"
+                initial={{ 
+                  x: 600,
+                  y: 600,
+                  scale: 1.4,
+                  rotate: 0,
+                  opacity: 0
                 }}
                 animate={{
-                  y: [0, -3, 0],
+                  x: 320,
+                  y: 260,
+                  scale: 1.3,
+                  rotate: -1,
+                  opacity: 1,
                 }}
-                transition={{
-                  y: { 
-                    duration: 3.5, 
-                    repeat: Infinity, 
-                    ease: "easeInOut",
-                    delay: 2.5
-                  }
+                transition={{ 
+                  duration: 1.5, 
+                  ease: [0.25, 0.46, 0.45, 0.94],
+                  delay: 0.8
                 }}
-              />
-              
-              {/* Chair assembly particles */}
-              <motion.div
-                className="absolute inset-0 pointer-events-none"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 1.3, duration: 0.5 }}
               >
-                {[...Array(8)].map((_, i) => (
-                  <motion.div
-                    key={i}
-                    className="absolute w-2 h-2 bg-purple-400 rounded-full"
-                    style={{
-                      top: `${25 + i * 8}%`,
-                      left: `${20 + i * 8}%`,
-                    }}
-                    animate={{
-                      scale: [0, 1.2, 0],
-                      opacity: [0, 0.9, 0],
-                      y: [0, -25, -50],
-                      rotate: [0, 180, 360],
-                    }}
-                    transition={{
-                      duration: 1.8,
-                      delay: 1.6 + i * 0.15,
-                      repeat: Infinity,
-                      repeatDelay: 3
-                    }}
-                  />
-                ))}
+                <motion.img
+                  src="Sofa_Right.png"
+                  alt="Single chair"
+                  className="w-64 h-64 object-contain drop-shadow-2xl"
+                  whileHover={{ 
+                    scale: 1.05, 
+                    transition: { duration: 0.3 }
+                  }}
+                  animate={{
+                    y: [0, -3, 0],
+                  }}
+                  transition={{
+                    y: { 
+                      duration: 3.5, 
+                      repeat: Infinity, 
+                      ease: "easeInOut",
+                      delay: 2.5
+                    }
+                  }}
+                />
+                
+                {/* Chair assembly particles */}
+                <motion.div
+                  className="absolute inset-0 pointer-events-none"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: 1.3, duration: 0.5 }}
+                >
+                  {[...Array(8)].map((_, i) => (
+                    <motion.div
+                      key={i}
+                      className="absolute w-2 h-2 bg-purple-400 rounded-full"
+                      style={{
+                        top: `${25 + i * 8}%`,
+                        left: `${20 + i * 8}%`,
+                      }}
+                      animate={{
+                        scale: [0, 1.2, 0],
+                        opacity: [0, 0.9, 0],
+                        y: [0, -25, -50],
+                        rotate: [0, 180, 360],
+                      }}
+                      transition={{
+                        duration: 1.8,
+                        delay: 1.6 + i * 0.15,
+                        repeat: Infinity,
+                        repeatDelay: 3
+                      }}
+                    />
+                  ))}
+                </motion.div>
               </motion.div>
-            </motion.div>
+            </div>
 
           <motion.section 
             className="relative z-10 max-w-7xl mx-auto px-4 py-12 sm:px-6 sm:py-20 block md:hidden"
@@ -862,7 +979,10 @@ const SuboxHomepage = () => {
                 </motion.p>
 
                 <motion.div className="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-3 sm:gap-4">
-                  <button className="w-full sm:w-auto px-6 py-3 bg-gradient-to-r from-orange-500 to-orange-600 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all">
+                  <button 
+                    className="w-full sm:w-auto px-6 py-3 bg-gradient-to-r from-orange-500 to-orange-600 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all"
+                    onClick={() => router.push("auth?mode=signup")}
+                  >
                     Get Started Free
                   </button>
                 </motion.div>
@@ -1092,7 +1212,10 @@ const SuboxHomepage = () => {
                   Learn More
                 </button>
                 
-                <button className="flex-1 bg-orange-500 text-white px-6 py-3 rounded-lg hover:bg-orange-600 transition border flex items-center justify-center cursor-pointer">
+                <button 
+                  className="flex-1 bg-orange-500 text-white px-6 py-3 rounded-lg hover:bg-orange-600 transition border flex items-center justify-center cursor-pointer"
+                  onClick={() => router.push("auth?mode=signup")}
+                >
                   Get Started
                 </button>
               </div>
@@ -1413,7 +1536,6 @@ const SuboxHomepage = () => {
           </div>
         </div>
         <div className="md:hidden max-w-7xl mx-auto px-4">
-
           {/* Upper Grid: stacked on mobile, grid on desktop */}
           <div className="flex flex-col gap-10 md:grid md:grid-cols-4 md:gap-8 mb-10">
 
@@ -1421,30 +1543,87 @@ const SuboxHomepage = () => {
             <div>
               <div className="flex items-center space-x-3 mt-3 px-2 md:px-5">
                 {/* Logo */}
-                <motion.div className="relative">
-                  {/* House Icon */}
-                  <motion.svg 
-                    className="w-12 h-12" 
-                    viewBox="0 0 100 100" 
-                    fill="none"
-                    whileHover={{ rotate: [0, -5, 5, 0] }}
-                    transition={{ duration: 0.5 }}
-                  >
-                    <motion.path
-                      d="M20 45L50 20L80 45V75C80 78 77 80 75 80H25C22 80 20 78 20 75V45Z"
-                      fill="#E97451"
-                      animate={{ 
-                        fill: ["#E97451", "#F59E0B", "#E97451"],
-                        scale: [1, 1.02, 1]
-                      }}
-                      transition={{ duration: 3, repeat: Infinity }}
-                    />
-                    <motion.path
-                      d="M15 50L50 20L85 50L50 15L15 50Z"
-                      fill="#D97706"
-                    />
-                  </motion.svg>
-                </motion.div>
+              <motion.div className="relative">
+                {/* House Icon */}
+                <motion.svg 
+                  className="w-12 h-12" 
+                  viewBox="0 0 100 100" 
+                  fill="none"
+                  whileHover={{ rotate: [0, -5, 5, 0] }}
+                  transition={{ duration: 0.5 }}
+                >
+                  {/* House Base */}
+                  <motion.path
+                    d="M20 45L50 20L80 45V75C80 78 77 80 75 80H25C22 80 20 78 20 75V45Z"
+                    fill="#E97451"
+                    animate={{ 
+                      fill: ["#E97451", "#F59E0B", "#E97451"],
+                      scale: [1, 1.02, 1]
+                    }}
+                    transition={{ duration: 3, repeat: Infinity }}
+                  />
+                  {/* House Roof */}
+                  <motion.path
+                    d="M15 50L50 20L85 50L50 15L15 50Z"
+                    fill="#D97706"
+                    animate={{ rotate: [0, 1, 0] }}
+                    transition={{ duration: 4, repeat: Infinity }}
+                  />
+                  {/* Window */}
+                  <motion.rect
+                    x="40"
+                    y="50"
+                    width="20"
+                    height="15"
+                    fill="white"
+                    animate={{ 
+                      opacity: [1, 0.8, 1],
+                      scale: [1, 1.1, 1]
+                    }}
+                    transition={{ duration: 2, repeat: Infinity }}
+                  />
+                  {/* Door */}
+                  <motion.rect
+                    x="45"
+                    y="65"
+                    width="10"
+                    height="15"
+                    fill="white"
+                    animate={{ scaleY: [1, 1.05, 1] }}
+                    transition={{ duration: 2.5, repeat: Infinity }}
+                  />
+                </motion.svg>
+ 
+                {/* Tag Icon */}
+                <motion.svg 
+                  className="w-8 h-8 absolute -top-2 -right-2" 
+                  viewBox="0 0 60 60" 
+                  fill="none"
+                  whileHover={{ rotate: 360 }}
+                  transition={{ duration: 0.8 }}
+                >
+                  <motion.path
+                    d="M5 25L25 5H50V25L30 45L5 25Z"
+                    fill="#E97451"
+                    animate={{ 
+                      rotate: [0, 5, -5, 0],
+                      scale: [1, 1.1, 1]
+                    }}
+                    transition={{ duration: 3, repeat: Infinity }}
+                  />
+                  <motion.circle
+                    cx="38"
+                    cy="17"
+                    r="4"
+                    fill="white"
+                    animate={{ 
+                      scale: [1, 1.3, 1],
+                      opacity: [1, 0.7, 1]
+                    }}
+                    transition={{ duration: 1.5, repeat: Infinity }}
+                  />
+                </motion.svg>
+              </motion.div>
 
                 <div className="text-3xl font-bold">Subox</div>
               </div>
