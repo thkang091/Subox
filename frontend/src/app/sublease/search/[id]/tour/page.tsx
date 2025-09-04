@@ -521,7 +521,7 @@ const handleSubmit = async (e) => {
           <h2 className="text-xl font-semibold text-gray-800 mb-2">Error</h2>
           <p className="text-gray-600 mb-4">{error}</p>
           <button 
-            onClick={() => router.push('/search')}
+            onClick={() => router.push('/sublease/search')}
             className="px-6 py-3 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors"
           >
             Back to Search
@@ -538,7 +538,7 @@ const handleSubmit = async (e) => {
           <div className="text-6xl mb-4">🏠</div>
           <p className="text-xl text-gray-600 mb-4">Listing not found</p>
           <button 
-            onClick={() => router.push('/search')}
+            onClick={() => router.push('/sublease/search')}
             className="px-6 py-3 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors"
           >
             Back to Search
@@ -580,7 +580,7 @@ const handleSubmit = async (e) => {
       <div className="min-h-screen bg-gray-50 py-8">
         <div className="container mx-auto px-4">
           <button 
-            onClick={() => router.push(`/search/${id}`)}
+            onClick={() => router.push(`/sublease/search/${id}`)}
             className="flex items-center text-orange-600 hover:text-orange-800 mb-6 font-medium transition-colors"
           >
             <ChevronLeft className="w-5 h-5 mr-1" />
@@ -649,13 +649,13 @@ const handleSubmit = async (e) => {
               View My Tour Requests
             </button>
             <button 
-              onClick={() => router.push(`/search/${id}`)}
+              onClick={() => router.push(`/sublease/search/${id}`)}
               className="w-full bg-orange-500 text-white py-3 rounded-lg hover:bg-orange-600 transition-colors font-medium"
             >
               Back to Listing
             </button>
             <button 
-              onClick={() => router.push('/search')}
+              onClick={() => router.push('/sublease/search')}
               className="w-full border border-gray-300 text-gray-700 py-3 rounded-lg hover:bg-gray-50 transition-colors"
             >
               Continue Searching
@@ -674,7 +674,7 @@ const handleSubmit = async (e) => {
       {/* Mobile Header */}
       <div className="lg:hidden bg-white shadow-sm p-4">
         <button 
-          onClick={() => router.push(`/search/${id}`)}
+          onClick={() => router.push(`/sublease/search/${id}`)}
           className="flex items-center text-orange-600 hover:text-orange-800 font-medium"
         >
           <ChevronLeft className="w-5 h-5 mr-1" />
@@ -685,7 +685,7 @@ const handleSubmit = async (e) => {
       <div className="container mx-auto px-4 py-6 lg:py-8 max-w-4xl">
         {/* Desktop Back Button */}
         <button 
-          onClick={() => router.push(`/search/${id}`)}
+          onClick={() => router.push(`/sublease/search/${id}`)}
           className="hidden lg:flex items-center text-orange-600 hover:text-orange-800 mb-6 font-medium transition-colors"
         >
           <ChevronLeft className="w-5 h-5 mr-1" />
