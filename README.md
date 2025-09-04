@@ -23,13 +23,11 @@ Students already use dozens of fragmented groups and spreadsheets to find a shor
 
 ### Smart discovery
 
-1. Airbnb‑style SearchLocationPicker that expands campus queries
-
+1. Airbnb‑style that expands campus queries
    * e.g., search for “University of Minnesota” and see broader Minneapolis listings
 2. **Commute Map**  users can search not just by address, but by commute time to a specific classroom, lab, or landmark. Select a destination and instantly see colored travel‑time zones overlayed on the map.
-3. Algolia‑powered search with typo‑tolerance and synonyms
-4. Commute filters by walking, biking, transit, or driving time to selected campus buildings
-5. Interactive map with clustering, price overlays, and saved‑search alerts
+3. Commute filters by walking, biking, transit, or driving time to selected campus buildings
+4. Interactive map with clustering, price overlays, and saved‑search alerts
 
 ### Trust and safety
 
@@ -41,14 +39,11 @@ Students already use dozens of fragmented groups and spreadsheets to find a shor
 
 1. Camera‑first item posting with AI category + price suggestions
 2. Bulk‑upload from camera roll and quick‑list templates
-3. Bundle deals and pickup windows
-
+   
 ### Creator‑friendly details
 
 1. Polished UI with Framer Motion micro‑interactions
 2. Mobile‑first PWA that installs from the browser
-3. Shareable listing cards that render well on Instagram, TikTok, and Messenger
-
 ---
 
 ## Architecture
@@ -61,7 +56,6 @@ Students already use dozens of fragmented groups and spreadsheets to find a shor
 
 **AI**
 
-* Image understanding via Google Cloud Vision or YOLO/Roboflow for object detection
 * Text generation and normalization for listing titles, descriptions, and tags
 
 **Maps**  Google Maps JavaScript API with custom campus overlays and travel time matrix
@@ -129,31 +123,6 @@ yarn dev
 # or
 npm run dev
 ```
-
-### Environment variables
-
-Create a `.env.local` in the app root.
-
-```bash
-# Firebase
-NEXT_PUBLIC_FIREBASE_API_KEY=...
-NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=...
-NEXT_PUBLIC_FIREBASE_PROJECT_ID=...
-NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=...
-NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=...
-NEXT_PUBLIC_FIREBASE_APP_ID=...
-
-# Algolia
-NEXT_PUBLIC_ALGOLIA_APP_ID=...
-NEXT_PUBLIC_ALGOLIA_SEARCH_KEY=...
-ALGOLIA_ADMIN_KEY=...
-
-# Google Maps
-NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=...
-```
-
-> Tip  never expose admin keys to the client bundle. Use Cloud Functions for privileged operations such as indexing or moderation.
-
 ---
 
 ## Development
@@ -218,16 +187,6 @@ npm run emu
 * Email/SSO sign‑in with optional .edu verification
 * Abuse prevention  IP throttling, image moderation, and fraud rules
 * Firestore rules enforce per‑field access and listing ownership
-
----
-
-## Roadmap
-
-* Payments and deposits with Stripe escrow
-* Calendar availability and roommate finder
-* Campus ambassador program and verified landlords
-* Saved‑search alerts and digest emails
-* iOS/Android wrappers for PWA
 
 ---
 
