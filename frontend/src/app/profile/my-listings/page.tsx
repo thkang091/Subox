@@ -16,6 +16,19 @@ import {
 import { db } from '@/lib/firebase';
 import Image from 'next/image';
 import Link from 'next/link';
+import { 
+  Home, 
+  Lock, 
+  Plus, 
+  MapPin, 
+  Calendar, 
+  Bed, 
+  Bath, 
+  Edit, 
+  ArrowLeft,
+  AlertTriangle,
+  RotateCcw
+} from 'lucide-react';
 
 // Types
 interface Listing {
@@ -65,7 +78,7 @@ const LoadingSpinner = () => (
 const AuthRequired = () => (
   <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-gray-50 flex items-center justify-center">
     <div className="text-center">
-      <div className="text-6xl mb-4">🔒</div>
+      <Lock className="mx-auto h-16 w-16 text-gray-400 mb-4" />
       <h1 className="text-2xl font-bold text-gray-900 mb-2">Authentication Required</h1>
       <p className="text-lg text-gray-600 mb-6">Please log in to view your listings.</p>
       <Link 
@@ -80,13 +93,14 @@ const AuthRequired = () => (
 
 const EmptyState = () => (
   <div className="text-center py-16">
-    <div className="text-6xl mb-4">🏠</div>
+    <Home className="mx-auto h-16 w-16 text-gray-400 mb-4" />
     <h2 className="text-2xl font-bold text-gray-900 mb-2">No Listings Yet</h2>
     <p className="text-gray-600 mb-6">You haven't created any sublease listings. Start listing your space today!</p>
     <Link 
       href="/create-listing" 
-      className="px-6 py-3 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors"
+      className="inline-flex items-center px-6 py-3 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors"
     >
+      <Plus className="mr-2 h-4 w-4" />
       Create Listing
     </Link>
   </div>
@@ -141,7 +155,7 @@ const ListingCard = ({ listing, onStatusUpdate }: { listing: Listing; onStatusUp
         ) : (
           <div className="w-full h-full flex items-center justify-center text-gray-400">
             <div className="text-center">
-              <div className="text-4xl mb-2">🏠</div>
+              <Home className="mx-auto h-12 w-12 mb-2" />
               <p className="text-sm text-gray-500">No Image</p>
             </div>
           </div>
@@ -171,8 +185,9 @@ const ListingCard = ({ listing, onStatusUpdate }: { listing: Listing; onStatusUp
           </span>
         </div>
 
-        <p className="text-sm text-gray-600 mb-2">
-          📍 {listing.address || listing.location || 'Location not specified'}
+        <p className="text-sm text-gray-600 mb-2 flex items-center">
+          <MapPin className="mr-1 h-3 w-3" />
+          {listing.address || listing.location || 'Location not specified'}
         </p>
 
         {(listing.description || listing.additionalDetails) && (
@@ -184,26 +199,47 @@ const ListingCard = ({ listing, onStatusUpdate }: { listing: Listing; onStatusUp
         <div className="space-y-2 text-sm text-gray-500 mb-4">
           {(listing.bedrooms || listing.bathrooms) && (
             <div className="flex items-center space-x-4">
-              {listing.bedrooms && <span>🛏️ {listing.bedrooms} bed{listing.bedrooms > 1 ? 's' : ''}</span>}
-              {listing.bathrooms && <span>🚿 {listing.bathrooms} bath{listing.bathrooms > 1 ? 's' : ''}</span>}
+              {listing.bedrooms && (
+                <span className="flex items-center">
+                  <Bed className="mr-1 h-3 w-3" />
+                  {listing.bedrooms} bed{listing.bedrooms > 1 ? 's' : ''}
+                </span>
+              )}
+              {listing.bathrooms && (
+                <span className="flex items-center">
+                  <Bath className="mr-1 h-3 w-3" />
+                  {listing.bathrooms} bath{listing.bathrooms > 1 ? 's' : ''}
+                </span>
+              )}
             </div>
           )}
           
-          <div className="flex items-center space-x-4">
-            <span>📅 Created: {formatDate(listing.createdAt)}</span>
+          <div className="flex items-center">
+            <Calendar className="mr-1 h-3 w-3" />
+            <span>Created: {formatDate(listing.createdAt)}</span>
           </div>
 
           {(listing.availableFrom || listing.availableTo) && (
             <div className="flex items-center space-x-4">
-              {listing.availableFrom && <span>📅 From: {formatDate(listing.availableFrom)}</span>}
-              {listing.availableTo && <span>📅 To: {formatDate(listing.availableTo)}</span>}
+              {listing.availableFrom && (
+                <span className="flex items-center">
+                  <Calendar className="mr-1 h-3 w-3" />
+                  From: {formatDate(listing.availableFrom)}
+                </span>
+              )}
+              {listing.availableTo && (
+                <span className="flex items-center">
+                  <Calendar className="mr-1 h-3 w-3" />
+                  To: {formatDate(listing.availableTo)}
+                </span>
+              )}
             </div>
           )}
           
           <div className="flex items-center space-x-4">
-            {listing.deliveryAvailable && <span className="text-green-600">✅ Tours Available</span>}
-            {listing.pickupAvailable && <span className="text-blue-600">🏠 Immediate Move-in</span>}
-            {listing.accommodationType && <span className="text-blue-600">🏠 {listing.accommodationType}</span>}
+            {listing.deliveryAvailable && <span className="text-green-600">✓ Tours Available</span>}
+            {listing.pickupAvailable && <span className="text-blue-600">✓ Immediate Move-in</span>}
+            {listing.accommodationType && <span className="text-blue-600">{listing.accommodationType}</span>}
           </div>
 
           {listing.amenities && listing.amenities.length > 0 && (
@@ -226,8 +262,9 @@ const ListingCard = ({ listing, onStatusUpdate }: { listing: Listing; onStatusUp
         <div className="flex flex-col sm:flex-row gap-2">
           <Link
             href={`/edit-listing/${listing.id}`}
-            className="flex-1 px-3 py-2 text-sm bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors text-center"
+            className="flex-1 px-3 py-2 text-sm bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors text-center flex items-center justify-center"
           >
+            <Edit className="mr-1 h-3 w-3" />
             Edit
           </Link>
           
@@ -255,8 +292,9 @@ const ListingCard = ({ listing, onStatusUpdate }: { listing: Listing; onStatusUp
             <button
               onClick={() => handleStatusChange('active')}
               disabled={updating}
-              className="flex-1 px-3 py-2 text-sm bg-orange-100 text-orange-700 rounded-lg hover:bg-orange-200 transition-colors disabled:opacity-50"
+              className="flex-1 px-3 py-2 text-sm bg-orange-100 text-orange-700 rounded-lg hover:bg-orange-200 transition-colors disabled:opacity-50 flex items-center justify-center"
             >
+              <RotateCcw className="mr-1 h-3 w-3" />
               {updating ? 'Updating...' : 'Reactivate'}
             </button>
           )}
@@ -360,7 +398,7 @@ const MyListings = () => {
     return (
       <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="text-6xl mb-4">⚠️</div>
+          <AlertTriangle className="mx-auto h-16 w-16 text-red-500 mb-4" />
           <h1 className="text-2xl font-bold text-gray-900 mb-2">Error Loading Listings</h1>
           <p className="text-red-600 text-lg mb-4">{error}</p>
           <button 
@@ -384,7 +422,7 @@ const MyListings = () => {
           <div className="flex items-center justify-between mb-4">
             <div>
               <h1 className="text-3xl font-bold text-gray-900 flex items-center">
-                <span className="mr-3">🏠</span>
+                <Home className="mr-3 h-8 w-8 text-orange-500" />
                 My Sublease Listings
               </h1>
               <p className="text-gray-600 mt-1">
@@ -393,9 +431,10 @@ const MyListings = () => {
             </div>
             <Link
               href="/sublease/write/options/chat"
-              className="px-6 py-3 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors"
+              className="inline-flex items-center px-6 py-3 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors"
             >
-              + Create New Listing
+              <Plus className="mr-2 h-4 w-4" />
+              Create New Listing
             </Link>
           </div>
 
@@ -444,9 +483,10 @@ const MyListings = () => {
         <div className="mt-12 text-center">
           <Link
             href="/profile"
-            className="text-orange-600 hover:text-orange-700 hover:underline"
+            className="inline-flex items-center text-orange-600 hover:text-orange-700 hover:underline"
           >
-            ← Back to Profile
+            <ArrowLeft className="mr-1 h-4 w-4" />
+            Back to Profile
           </Link>
         </div>
       </div>

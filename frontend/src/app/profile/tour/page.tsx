@@ -178,6 +178,8 @@ const ProfileTourPage = () => {
     };
   };
 
+
+  
   // Load guest-specific data
   const loadGuestData = () => {
     if (!user?.uid) return;
