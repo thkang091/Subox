@@ -653,20 +653,23 @@ const HostActivity = ({
   hostListings, 
   hostSaleItems, 
   hostTourRequests, 
-  
   hostAvailabilities,
-  onOpenCalendarModal  // ADD THIS PROP
+  onOpenCalendarModal
 }: { 
   hostListings: Listing[]; 
   hostSaleItems: SaleItem[];
   hostTourRequests: TourRequest[];
   hostAvailabilities: HostAvailability[];
-  onOpenCalendarModal: (listing: Listing) => void;  // ADD THIS TYPE
+  onOpenCalendarModal: (listing: Listing) => void;
 }) => {
-    const pendingTours = hostTourRequests.filter(tour => tour.status === 'pending');
+  const pendingTours = hostTourRequests.filter(tour => tour.status === 'pending');
   const upcomingTours = hostTourRequests.filter(tour => 
     tour.status === 'approved' && isUpcoming(tour.date)
   );
+  
+  // Add this line to define listing
+  const listing = hostListings.length > 0 ? hostListings[0] : null
+
 
   return (
     <div className="space-y-6">
@@ -737,11 +740,11 @@ const HostActivity = ({
         <div className="flex items-center justify-between mb-6">
           <h3 className="text-xl font-semibold text-gray-900">Tour Management</h3>
           <Link 
-            href="/sublease/search/${listing.id}/tour" 
-            className="text-blue-600 hover:text-blue-700 font-medium text-sm transition-colors"
-          >
-            View All Tours
-          </Link>
+  href={`/sublease/search/${listing.id}/tour`}
+  className="text-blue-600 hover:text-blue-700 font-medium text-sm transition-colors"
+>
+  View All Tours
+</Link>
         </div>
 
         {/* Recent Tour Requests */}
@@ -900,7 +903,7 @@ const HostActivity = ({
                       </Link>
                       {!availabilitySet && (
                         <Link 
-                          href={`/sublease/search/${listing.id}/tour`}
+                          href={`/sublease/search/${id}/tour`}
                           className="px-3 py-1 bg-orange-100 text-orange-700 rounded text-xs hover:bg-orange-200 transition-colors text-center"
                         >
                           Setup Tours

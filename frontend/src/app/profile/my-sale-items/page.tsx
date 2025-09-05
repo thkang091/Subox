@@ -16,6 +16,24 @@ import {
 import { db } from '@/lib/firebase';
 import Image from 'next/image';
 import Link from 'next/link';
+import { 
+  DollarSign, 
+  Lock, 
+  Plus, 
+  MapPin, 
+  Calendar, 
+  Edit, 
+  ArrowLeft,
+  AlertTriangle,
+  RotateCcw,
+  Package,
+  Truck,
+  User,
+  Eye,
+  Clock,
+  Trash2,
+  Search
+} from 'lucide-react';
 
 // Types
 interface SaleItem {
@@ -84,7 +102,7 @@ const LoadingSpinner = () => (
 const AuthRequired = () => (
   <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-gray-50 flex items-center justify-center">
     <div className="text-center">
-      <div className="text-6xl mb-4">🔒</div>
+      <Lock className="mx-auto h-16 w-16 text-gray-400 mb-4" />
       <h1 className="text-2xl font-bold text-gray-900 mb-2">Authentication Required</h1>
       <p className="text-lg text-gray-600 mb-6">Please log in to view your sale items.</p>
       <Link 
@@ -99,13 +117,14 @@ const AuthRequired = () => (
 
 const EmptyState = () => (
   <div className="text-center py-16">
-    <div className="text-6xl mb-4">💰</div>
+    <DollarSign className="mx-auto h-16 w-16 text-gray-400 mb-4" />
     <h2 className="text-2xl font-bold text-gray-900 mb-2">No Sale Items Yet</h2>
     <p className="text-gray-600 mb-6">You haven't created any sale items. Start selling your items today!</p>
     <Link 
       href="/create-sale-item" 
-      className="px-6 py-3 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors"
+      className="inline-flex items-center px-6 py-3 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors"
     >
+      <Plus className="mr-2 h-4 w-4" />
       Create Sale Item
     </Link>
   </div>
@@ -114,7 +133,7 @@ const EmptyState = () => (
 const ErrorState = ({ error, onRetry }: { error: string; onRetry: () => void }) => (
   <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-gray-50 flex items-center justify-center">
     <div className="text-center">
-      <div className="text-6xl mb-4">⚠️</div>
+      <AlertTriangle className="mx-auto h-16 w-16 text-red-500 mb-4" />
       <h1 className="text-2xl font-bold text-gray-900 mb-2">Error Loading Sale Items</h1>
       <p className="text-red-600 text-lg mb-4">{error}</p>
       <button 
@@ -218,7 +237,7 @@ const SaleItemCard = ({
         ) : (
           <div className="w-full h-full flex items-center justify-center text-gray-400">
             <div className="text-center">
-              <div className="text-4xl mb-2">📦</div>
+              <Package className="mx-auto h-12 w-12 mb-2" />
               <p className="text-sm text-gray-500">No Image</p>
             </div>
           </div>
@@ -235,12 +254,14 @@ const SaleItemCard = ({
         {item.status === 'unavailable' && item.deactivatedAt && (
           <div className="absolute top-3 left-3">
             {canReactivateItem ? (
-              <span className="px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
-                ⏰ {daysRemaining} days to reactivate
+              <span className="px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 flex items-center">
+                <Clock className="mr-1 h-3 w-3" />
+                {daysRemaining} days to reactivate
               </span>
             ) : (
-              <span className="px-2 py-1 rounded-full text-xs font-medium bg-red-200 text-red-900">
-                ⚠️ Grace period expired
+              <span className="px-2 py-1 rounded-full text-xs font-medium bg-red-200 text-red-900 flex items-center">
+                <AlertTriangle className="mr-1 h-3 w-3" />
+                Grace period expired
               </span>
             )}
           </div>
@@ -280,44 +301,60 @@ const SaleItemCard = ({
         )}
 
         <div className="space-y-2 text-sm text-gray-500 mb-4">
-          <div className="flex items-center space-x-4">
-            <span>📍 {item.location || 'Location not specified'}</span>
+          <div className="flex items-center">
+            <MapPin className="mr-1 h-3 w-3" />
+            <span>{item.location || 'Location not specified'}</span>
           </div>
-          <div className="flex items-center space-x-4">
-            <span>📅 Created: {formatDate(item.createdAt)}</span>
+          <div className="flex items-center">
+            <Calendar className="mr-1 h-3 w-3" />
+            <span>Created: {formatDate(item.createdAt)}</span>
           </div>
           
           {/* NEW: Show deactivation date and grace period info */}
           {item.status === 'unavailable' && item.deactivatedAt && (
-            <div className="flex items-center space-x-4">
+            <div className="flex items-center">
+              <Calendar className="mr-1 h-3 w-3" />
               <span className="text-red-600">
-                🚫 Deactivated: {formatDate(item.deactivatedAt)}
+                Deactivated: {formatDate(item.deactivatedAt)}
               </span>
             </div>
           )}
 
           {item.availableUntil && (
-            <div className="flex items-center space-x-4">
-              <span>⏰ Available until: {new Date(item.availableUntil).toLocaleDateString()}</span>
+            <div className="flex items-center">
+              <Clock className="mr-1 h-3 w-3" />
+              <span>Available until: {new Date(item.availableUntil).toLocaleDateString()}</span>
             </div>
           )}
           <div className="flex items-center space-x-4">
-            {item.pickupAvailable && <span className="text-green-600">🚶 Pickup Available</span>}
-            {item.deliveryAvailable && <span className="text-blue-600">🚚 Delivery Available</span>}
+            {item.pickupAvailable && (
+              <span className="text-green-600 flex items-center">
+                <User className="mr-1 h-3 w-3" />
+                Pickup Available
+              </span>
+            )}
+            {item.deliveryAvailable && (
+              <span className="text-blue-600 flex items-center">
+                <Truck className="mr-1 h-3 w-3" />
+                Delivery Available
+              </span>
+            )}
           </div>
           {item.condition && (
-            <div className="flex items-center space-x-4">
+            <div className="flex items-center">
               <span>✨ Condition: {item.condition}</span>
             </div>
           )}
           {item.priceType && item.priceType !== 'fixed' && (
-            <div className="flex items-center space-x-4">
-              <span className="text-blue-600">💰 {item.priceType}</span>
+            <div className="flex items-center">
+              <DollarSign className="mr-1 h-3 w-3" />
+              <span className="text-blue-600">{item.priceType}</span>
             </div>
           )}
           {item.views && item.views > 0 && (
-            <div className="flex items-center space-x-4">
-              <span>👁️ {item.views} views</span>
+            <div className="flex items-center">
+              <Eye className="mr-1 h-3 w-3" />
+              <span>{item.views} views</span>
             </div>
           )}
         </div>
@@ -326,8 +363,9 @@ const SaleItemCard = ({
         <div className="flex flex-col sm:flex-row gap-2">
           <Link
             href={`/edit-sale-item/${item.id}`}
-            className="flex-1 px-3 py-2 text-sm bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors text-center"
+            className="flex-1 px-3 py-2 text-sm bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors text-center flex items-center justify-center"
           >
+            <Edit className="mr-1 h-3 w-3" />
             Edit
           </Link>
           
@@ -359,18 +397,20 @@ const SaleItemCard = ({
                 <button
                   onClick={() => handleStatusChange('active')}
                   disabled={updating}
-                  className="flex-1 px-3 py-2 text-sm bg-orange-100 text-orange-700 rounded-lg hover:bg-orange-200 transition-colors disabled:opacity-50"
+                  className="flex-1 px-3 py-2 text-sm bg-orange-100 text-orange-700 rounded-lg hover:bg-orange-200 transition-colors disabled:opacity-50 flex items-center justify-center"
                   title={`You have ${daysRemaining} days left to reactivate this item`}
                 >
+                  <RotateCcw className="mr-1 h-3 w-3" />
                   {updating ? 'Updating...' : `Reactivate (${daysRemaining}d left)`}
                 </button>
               ) : (
                 <button
                   onClick={handlePermanentDelete}
                   disabled={updating}
-                  className="flex-1 px-3 py-2 text-sm bg-red-200 text-red-800 rounded-lg hover:bg-red-300 transition-colors disabled:opacity-50"
+                  className="flex-1 px-3 py-2 text-sm bg-red-200 text-red-800 rounded-lg hover:bg-red-300 transition-colors disabled:opacity-50 flex items-center justify-center"
                   title="Grace period expired. Item will be permanently deleted."
                 >
+                  <Trash2 className="mr-1 h-3 w-3" />
                   {updating ? 'Deleting...' : 'Delete Permanently'}
                 </button>
               )}
@@ -381,8 +421,9 @@ const SaleItemCard = ({
             <button
               onClick={() => handleStatusChange('active')}
               disabled={updating}
-              className="flex-1 px-3 py-2 text-sm bg-orange-100 text-orange-700 rounded-lg hover:bg-orange-200 transition-colors disabled:opacity-50"
+              className="flex-1 px-3 py-2 text-sm bg-orange-100 text-orange-700 rounded-lg hover:bg-orange-200 transition-colors disabled:opacity-50 flex items-center justify-center"
             >
+              <RotateCcw className="mr-1 h-3 w-3" />
               {updating ? 'Updating...' : 'Mark Available'}
             </button>
           )}
@@ -580,12 +621,13 @@ const MySaleItems = () => {
           <div className="flex items-center justify-between mb-4">
             <div>
               <h1 className="text-3xl font-bold text-gray-900 flex items-center">
-                <span className="mr-3">💰</span>
+                <DollarSign className="mr-3 h-8 w-8 text-orange-500" />
                 My Sale Items
                 {/* NEW: Attention indicator */}
                 {itemsNeedingAttention > 0 && (
-                  <span className="ml-3 px-2 py-1 bg-yellow-100 text-yellow-800 text-sm rounded-full">
-                    ⚠️ {itemsNeedingAttention} need attention
+                  <span className="ml-3 px-2 py-1 bg-yellow-100 text-yellow-800 text-sm rounded-full flex items-center">
+                    <AlertTriangle className="mr-1 h-3 w-3" />
+                    {itemsNeedingAttention} need attention
                   </span>
                 )}
               </h1>
@@ -595,9 +637,10 @@ const MySaleItems = () => {
             </div>
             <Link
               href="/create-sale-item"
-              className="px-6 py-3 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors"
+              className="inline-flex items-center px-6 py-3 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors"
             >
-              + Create New Item
+              <Plus className="mr-2 h-4 w-4" />
+              Create New Item
             </Link>
           </div>
 
@@ -605,7 +648,7 @@ const MySaleItems = () => {
           {itemsNeedingAttention > 0 && (
             <div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
               <div className="flex items-start">
-                <div className="text-yellow-600 mr-3 mt-1">⚠️</div>
+                <AlertTriangle className="text-yellow-600 mr-3 mt-1 h-5 w-5" />
                 <div>
                   <h3 className="font-medium text-yellow-800">Items Need Attention</h3>
                   <p className="text-sm text-yellow-700 mt-1">
@@ -647,7 +690,7 @@ const MySaleItems = () => {
         {filteredItems.length === 0 ? (
           filter === 'all' ? <EmptyState /> : (
             <div className="text-center py-16">
-              <div className="text-4xl mb-4">🔍</div>
+              <Search className="mx-auto h-16 w-16 text-gray-400 mb-4" />
               <h2 className="text-xl font-bold text-gray-900 mb-2">
                 No {filter} items found
               </h2>
@@ -679,9 +722,10 @@ const MySaleItems = () => {
         <div className="mt-12 text-center">
           <Link
             href="/profile"
-            className="text-orange-600 hover:text-orange-700 hover:underline"
+            className="inline-flex items-center text-orange-600 hover:text-orange-700 hover:underline"
           >
-            ← Back to Profile
+            <ArrowLeft className="mr-1 h-4 w-4" />
+            Back to Profile
           </Link>
         </div>
       </div>
