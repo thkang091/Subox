@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Search, MapPin, X, Navigation, Home, Building, Coffee, ShoppingBag, Map, Users, AlertCircle, ChevronRight } from 'lucide-react';
 
-interface SearchLocationPickerProps {
+interface LocationDetectorProps {
   onLocationSelect: (location: { 
     lat: number; 
     lng: number; 
@@ -11,7 +11,7 @@ interface SearchLocationPickerProps {
     state?: string;
     zipCode?: string;
     country?: string;
-    areaType?: 'state' | 'city' | 'neighborhood' | 'specific'; // Add 'state'
+    areaType?: 'neighborhood' | 'city' | 'specific';
     searchRadius?: number;
   }) => void;
   initialValue?: string;
@@ -38,10 +38,8 @@ interface PlaceSuggestion {
     secondary_text: string;
   };
   types: string[];
-  areaType?: 'state' | 'city' | 'neighborhood' | 'specific'; // Add 'state'
+  areaType?: 'neighborhood' | 'city' | 'specific';
 }
-
-
 
 // Helper function to extract city from address
 const extractCityFromAddress = (address) => {
@@ -62,18 +60,18 @@ const extractCityFromAddress = (address) => {
   return null;
 };
 
-export default function SearchLocationPicker({ 
+export default function LocationDetector({ 
   onLocationSelect, 
   initialValue,
   customLocationsData = []
-}: SearchLocationPickerProps) {
+}: LocationDetectorProps) {
   // State management
   const [searchQuery, setSearchQuery] = useState(initialValue || '');
   const [suggestions, setSuggestions] = useState<PlaceSuggestion[]>([]);
-  const [isSearching, setIsSearching] = useState(false);
+  const [isDetecting, setIsDetecting] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
-  const [isGettingCurrentLocation, setIsGettingCurrentLocation] = useState(false);
-  const [selectedLocation, setSelectedLocation] = useState<any>(null);
+  const [isLocatingUser, setIsLocatingUser] = useState(false);
+  const [detectedLocation, setDetectedLocation] = useState<any>(null);
   const [locationError, setLocationError] = useState<string | null>(null);
   const [isGoogleMapsReady, setIsGoogleMapsReady] = useState(false);
   const [mapsError, setMapsError] = useState<string | null>(null);
@@ -103,35 +101,43 @@ export default function SearchLocationPicker({
     }
 
     if (window.google && window.google.maps && window.google.maps.places) {
-      initializeServices();
+      initializeDetectionServices();
       return;
     }
 
     const existingScript = document.querySelector('script[src*="maps.googleapis.com"]');
     if (existingScript) {
-      existingScript.addEventListener('load', initializeServices);
+      existingScript.addEventListener('load', initializeDetectionServices);
       return;
     }
 
     const script = document.createElement('script');
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places&v=beta`;
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places&loading=async&v=weekly`;
     script.async = true;
     script.defer = true;
     
-    script.onload = initializeServices;
+    script.onload = initializeDetectionServices;
     script.onerror = () => setMapsError('Failed to load Google Maps');
     
     document.head.appendChild(script);
   };
 
-  const initializeServices = () => {
+  const initializeDetectionServices = () => {
     if (window.google && window.google.maps && window.google.maps.places) {
       try {
-        autocompleteService.current = new window.google.maps.places.AutocompleteService();
-        const div = document.createElement('div');
-        placesService.current = new window.google.maps.places.PlacesService(div);
-        setIsGoogleMapsReady(true);
-        setMapsError(null);
+        // Use newer AutocompleteSuggestion if available, fallback to AutocompleteService
+        if (window.google.maps.places.AutocompleteSuggestion) {
+          // Use the newer API when available
+          setIsGoogleMapsReady(true);
+          setMapsError(null);
+        } else {
+          // Fallback to legacy APIs
+          autocompleteService.current = new window.google.maps.places.AutocompleteService();
+          const div = document.createElement('div');
+          placesService.current = new window.google.maps.places.PlacesService(div);
+          setIsGoogleMapsReady(true);
+          setMapsError(null);
+        }
       } catch (error) {
         console.error('Error initializing Google Maps services:', error);
         setMapsError('Error initializing Google Maps');
@@ -143,7 +149,7 @@ export default function SearchLocationPicker({
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     setSearchQuery(value);
-    setSelectedLocation(null);
+    setDetectedLocation(null);
     setShowMap(false);
     setLocationError(null);
 
@@ -153,24 +159,24 @@ export default function SearchLocationPicker({
 
     searchTimeout.current = setTimeout(() => {
       if (isGoogleMapsReady && !mapsError) {
-        searchPlaces(value);
+        detectPlaces(value);
       }
     }, 300);
   };
 
-  const searchPlaces = (query: string) => {
+  const detectPlaces = (query: string) => {
     if (!query.trim()) {
       setSuggestions([]);
       setShowSuggestions(false);
       return;
     }
 
-    setIsSearching(true);
+    setIsDetecting(true);
 
     if (!autocompleteService.current || !isGoogleMapsReady) {
       setSuggestions([]);
       setShowSuggestions(false);
-      setIsSearching(false);
+      setIsDetecting(false);
       return;
     }
 
@@ -183,7 +189,7 @@ export default function SearchLocationPicker({
     autocompleteService.current.getPlacePredictions(
       request,
       (predictions, status) => {
-        setIsSearching(false);
+        setIsDetecting(false);
         
         if (status === 'OK' && predictions) {
           // Process predictions to determine area types
@@ -202,117 +208,88 @@ export default function SearchLocationPicker({
     );
   };
 
-const determineAreaType = (types: string[], description: string): 'state' | 'city' | 'neighborhood' | 'specific' => {
-  // Check for state-level searches first
-  if (types.includes('administrative_area_level_1') || types.includes('country')) {
-    return 'state';
-  }
-  
-  // Check for city-level searches
-  if (types.includes('locality') || types.includes('administrative_area_level_2') || types.includes('administrative_area_level_3')) {
-    return 'city';
-  }
-  
-  // Check for neighborhood-level searches
-  if (types.includes('sublocality') || types.includes('neighborhood')) {
-    return 'neighborhood';
-  }
-  
-  // Check for specific addresses
-  if (description.match(/^\d+/) || types.includes('establishment') || types.includes('premise')) {
-    return 'specific';
-  }
-  
-  // Default to city for unknown types (safer than 'specific')
-  return 'city';
-};
-
-const selectPlace = (suggestion: PlaceSuggestion) => {
-  if (!placesService.current || !isGoogleMapsReady) {
-    const fallbackData = {
-      lat: 0,
-      lng: 0,
-      address: suggestion.description,
-      placeName: suggestion.structured_formatting.main_text,
-      areaType: suggestion.areaType || 'specific' as const
-    };
+  const determineAreaType = (types: string[], description: string): 'neighborhood' | 'city' | 'specific' => {
+    // Check if it's a specific address (has street number)
+    if (description.match(/^\d+/) || types.includes('establishment') || types.includes('premise')) {
+      return 'specific';
+    }
     
-    handleLocationSelection(suggestion.structured_formatting.main_text, fallbackData);
-    return;
-  }
-
-  const request = {
-    placeId: suggestion.place_id,
-    fields: ['formatted_address', 'geometry.location', 'name', 'address_components', 'types']
+    // Check if it's a neighborhood
+    if (types.includes('sublocality') || types.includes('neighborhood')) {
+      return 'neighborhood';
+    }
+    
+    // Check if it's a city
+    if (types.includes('locality') || types.includes('administrative_area_level_3')) {
+      return 'city';
+    }
+    
+    // Default to specific
+    return 'specific';
   };
 
-  placesService.current.getDetails(request, (place, status) => {
-    if (status === 'OK' && place) {
-      const addressComponents = parseAddressComponents(place.address_components || []);
+  const detectPlace = (suggestion: PlaceSuggestion) => {
+    if (!placesService.current || !isGoogleMapsReady) {
+      const fallbackData = {
+        lat: 0,
+        lng: 0,
+        address: suggestion.description,
+        placeName: suggestion.structured_formatting.main_text,
+        areaType: suggestion.areaType || 'specific' as const
+      };
       
-      // Check for state-level search
-      const isStateSearch = place.types?.includes('administrative_area_level_1') || place.types?.includes('country');
-      
-      // Check for city-level search  
-      const isCitySearch = place.types?.includes('locality') || 
-                          place.types?.includes('administrative_area_level_2') ||
-                          place.types?.includes('administrative_area_level_3');
-      
-      let locationData;
-      let displayName;
-      
-      if (isStateSearch) {
-        // State-level search
-        const stateName = place.name || addressComponents.state || suggestion.structured_formatting.main_text;
-        displayName = stateName;
-        locationData = {
-          lat: place.geometry?.location?.lat() || 0,
-          lng: place.geometry?.location?.lng() || 0,
-          address: place.formatted_address || suggestion.description,
-          placeName: stateName,
-          city: addressComponents.city,
-          state: stateName,
-          areaType: 'state' as const,
-          searchRadius: 200000, // 200km for state searches
-          originalAddress: place.formatted_address,
-          ...addressComponents
-        };
-      } else if (isCitySearch) {
-        // City-level search
-        const cityName = place.name || addressComponents.city || suggestion.structured_formatting.main_text;
-        displayName = cityName;
-        locationData = {
-          lat: place.geometry?.location?.lat() || 0,
-          lng: place.geometry?.location?.lng() || 0,
-          address: place.formatted_address || suggestion.description,
-          placeName: cityName,
-          city: cityName,
-          state: addressComponents.state,
-          areaType: 'city' as const,
-          searchRadius: 12000, // 12km for city searches
-          originalAddress: place.formatted_address,
-          ...addressComponents
-        };
-      } else {
-        // Specific location search
-        displayName = place.name || suggestion.structured_formatting.main_text;
-        locationData = {
-          lat: place.geometry?.location?.lat() || 0,
-          lng: place.geometry?.location?.lng() || 0,
-          address: place.formatted_address || suggestion.description,
-          placeName: place.name || suggestion.structured_formatting.main_text,
-          city: addressComponents.city,
-          state: addressComponents.state,
-          areaType: 'specific' as const,
-          searchRadius: 3000, // 3km for specific searches
-          ...addressComponents
-        };
-      }
-
-      handleLocationSelection(displayName, locationData);
+      handleLocationDetection(suggestion.structured_formatting.main_text, fallbackData);
+      return;
     }
-  });
-};;
+
+    const request = {
+      placeId: suggestion.place_id,
+      fields: ['formatted_address', 'geometry.location', 'name', 'address_components', 'types']
+    };
+
+    placesService.current.getDetails(request, (place, status) => {
+      if (status === 'OK' && place) {
+        const addressComponents = parseAddressComponents(place.address_components || []);
+        
+        // Extract city for area expansion
+        const extractedCity = extractCityFromAddress(place.formatted_address || '');
+        const shouldExpandToCity = isSpecificAddress(place.types || [], place.formatted_address || '');
+        
+        let locationData;
+        let displayName;
+        
+        if (shouldExpandToCity && extractedCity) {
+          // Expand to city level
+          displayName = extractedCity;
+          locationData = {
+            lat: place.geometry?.location?.lat() || 0,
+            lng: place.geometry?.location?.lng() || 0,
+            address: place.formatted_address || suggestion.description,
+            placeName: extractedCity,
+            city: extractedCity,
+            state: addressComponents.state,
+            areaType: 'city' as const,
+            searchRadius: 15000, // 15km default for city search
+            originalAddress: place.formatted_address,
+            ...addressComponents
+          };
+        } else {
+          // Keep as specific location
+          displayName = place.name || suggestion.structured_formatting.main_text;
+          locationData = {
+            lat: place.geometry?.location?.lat() || 0,
+            lng: place.geometry?.location?.lng() || 0,
+            address: place.formatted_address || suggestion.description,
+            placeName: place.name || suggestion.structured_formatting.main_text,
+            areaType: suggestion.areaType || 'specific' as const,
+            ...addressComponents
+          };
+        }
+
+        handleLocationDetection(displayName, locationData);
+      }
+    });
+  };
 
   const isSpecificAddress = (types: string[], formattedAddress: string): boolean => {
     // Check if it's a specific address
@@ -344,9 +321,9 @@ const selectPlace = (suggestion: PlaceSuggestion) => {
     return addressInfo;
   };
 
-  const handleLocationSelection = (displayAddress: string, locationData: any) => {
+  const handleLocationDetection = (displayAddress: string, locationData: any) => {
     setSearchQuery(displayAddress);
-    setSelectedLocation(locationData);
+    setDetectedLocation(locationData);
     setSuggestions([]);
     setShowSuggestions(false);
     
@@ -362,84 +339,96 @@ const selectPlace = (suggestion: PlaceSuggestion) => {
 
     if (locationData.lat && locationData.lng) {
       setTimeout(() => {
-        initializeMap(locationData.lat, locationData.lng);
+        initializeDetectionMap(locationData.lat, locationData.lng);
       }, 100);
     }
   };
 
   // Current location
- const getCurrentLocation = () => {
-  if (!navigator.geolocation) {
-    setLocationError('Geolocation is not supported by this browser');
-    return;
-  }
-
-  setIsGettingCurrentLocation(true);
-  setLocationError(null);
-
-  navigator.geolocation.getCurrentPosition(
-    (position) => {
-      const { latitude, longitude } = position.coords;
-      
-      if (isGoogleMapsReady && window.google) {
-        const geocoder = new window.google.maps.Geocoder();
-        geocoder.geocode(
-          { location: { lat: latitude, lng: longitude } },
-          (results, status) => {
-            setIsGettingCurrentLocation(false);
-            if (status === 'OK' && results?.[0]) {
-              const result = results[0];
-              const addressComponents = parseAddressComponents(result.address_components || []);
-              
-              // For current location, provide option to search city or keep specific
-              const extractedCity = extractCityFromAddress(result.formatted_address);
-              
-              // Default to specific location for current position
-              const locationData = {
-                lat: latitude,
-                lng: longitude,
-                address: result.formatted_address,
-                placeName: 'Current Location',
-                city: extractedCity,
-                areaType: 'specific' as const,
-                searchRadius: 5000, // 5km for current location
-                ...addressComponents
-              };
-
-              handleLocationSelection('Current Location', locationData);
-            } else {
-              setLocationError('Could not determine your address');
-            }
-          }
-        );
-      } else {
-        setIsGettingCurrentLocation(false);
-        const fallbackAddress = `Current Location (${latitude.toFixed(4)}, ${longitude.toFixed(4)})`;
-        const locationData = {
-          lat: latitude,
-          lng: longitude,
-          address: fallbackAddress,
-          placeName: 'Current Location',
-          areaType: 'specific' as const,
-          searchRadius: 5000
-        };
-        handleLocationSelection(fallbackAddress, locationData);
-      }
-    },
-    (error) => {
-      setIsGettingCurrentLocation(false);
-      setLocationError('Could not get your current location');
+  const detectCurrentLocation = () => {
+    if (!navigator.geolocation) {
+      setLocationError('Geolocation is not supported by this browser');
+      return;
     }
-  );
-};
+
+    setIsLocatingUser(true);
+    setLocationError(null);
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const { latitude, longitude } = position.coords;
+        
+        if (isGoogleMapsReady && window.google) {
+          const geocoder = new window.google.maps.Geocoder();
+          geocoder.geocode(
+            { location: { lat: latitude, lng: longitude } },
+            (results, status) => {
+              setIsLocatingUser(false);
+              if (status === 'OK' && results?.[0]) {
+                const result = results[0];
+                const addressComponents = parseAddressComponents(result.address_components || []);
+                
+                // Extract city and expand to city-wide search
+                const extractedCity = extractCityFromAddress(result.formatted_address);
+                const shouldExpand = isSpecificAddress(result.types || [], result.formatted_address);
+                
+                let locationData;
+                if (shouldExpand && extractedCity) {
+                  locationData = {
+                    lat: latitude,
+                    lng: longitude,
+                    address: result.formatted_address,
+                    placeName: extractedCity,
+                    city: extractedCity,
+                    areaType: 'city' as const,
+                    searchRadius: 15000,
+                    originalAddress: result.formatted_address,
+                    ...addressComponents
+                  };
+                } else {
+                  locationData = {
+                    lat: latitude,
+                    lng: longitude,
+                    address: result.formatted_address,
+                    placeName: 'Current Location',
+                    areaType: 'specific' as const,
+                    ...addressComponents
+                  };
+                }
+
+                handleLocationDetection(locationData.address, locationData);
+              } else {
+                setLocationError('Could not determine your address');
+              }
+            }
+          );
+        } else {
+          setIsLocatingUser(false);
+          const fallbackAddress = `Current Location (${latitude.toFixed(4)}, ${longitude.toFixed(4)})`;
+          const locationData = {
+            lat: latitude,
+            lng: longitude,
+            address: fallbackAddress,
+            placeName: 'Current Location',
+            areaType: 'specific' as const
+          };
+          handleLocationDetection(fallbackAddress, locationData);
+        }
+      },
+      (error) => {
+        setIsLocatingUser(false);
+        setLocationError('Could not get your current location');
+      }
+    );
+  };
 
   // Map functions
-  const initializeMap = (lat: number, lng: number) => {
+  const initializeDetectionMap = (lat: number, lng: number) => {
     if (!mapRef.current || !window.google) return;
 
-    clearMapInstances();
+    clearDetectionMapInstances();
 
-    const zoomLevel = selectedLocation?.areaType === 'city' ? 11 : 14;
+    const zoomLevel = detectedLocation?.areaType === 'city' ? 11 : 14;
 
     const map = new window.google.maps.Map(mapRef.current, {
       center: { lat, lng },
@@ -455,13 +444,13 @@ const selectPlace = (suggestion: PlaceSuggestion) => {
     const marker = new window.google.maps.Marker({
       position: { lat, lng },
       map: map,
-      title: selectedLocation?.placeName || 'Selected Location'
+      title: detectedLocation?.placeName || 'Detected Location'
     });
 
     markerInstance.current = marker;
 
     // Add circle for area
-    const radius = selectedLocation?.searchRadius || 5000;
+    const radius = detectedLocation?.searchRadius || 5000;
     const circle = new window.google.maps.Circle({
       strokeColor: '#10B981',
       strokeOpacity: 0.8,
@@ -482,7 +471,7 @@ const selectPlace = (suggestion: PlaceSuggestion) => {
     }
   };
 
-  const clearMapInstances = () => {
+  const clearDetectionMapInstances = () => {
     if (circleInstance.current) {
       circleInstance.current.setMap(null);
       circleInstance.current = null;
@@ -493,9 +482,9 @@ const selectPlace = (suggestion: PlaceSuggestion) => {
     }
   };
 
-  const clearSearch = () => {
+  const clearDetection = () => {
     setSearchQuery('');
-    setSelectedLocation(null);
+    setDetectedLocation(null);
     setSuggestions([]);
     setShowSuggestions(false);
     setShowMap(false);
@@ -503,16 +492,15 @@ const selectPlace = (suggestion: PlaceSuggestion) => {
     inputRef.current?.focus();
   };
 
-const getPlaceIcon = (areaType?: string) => {
-  switch (areaType) {
-    case 'state': return <Map size={18} className="text-purple-500" />;
-    case 'city': return <Building size={18} className="text-blue-500" />;
-    case 'neighborhood': return <Home size={18} className="text-green-500" />;
-    default: return <MapPin size={18} className="text-gray-400" />;
-  }
-};
+  const getPlaceIcon = (areaType?: string) => {
+    switch (areaType) {
+      case 'city': return <Building size={18} className="text-blue-500" />;
+      case 'neighborhood': return <Home size={18} className="text-green-500" />;
+      default: return <MapPin size={18} className="text-gray-400" />;
+    }
+  };
 
-  const toggleMap = () => {
+  const toggleDetectionMap = () => {
     setShowMap(!showMap);
   };
 
@@ -522,7 +510,7 @@ const getPlaceIcon = (areaType?: string) => {
       <div className="mb-4">
         <h3 className="text-lg font-semibold text-gray-900 mb-1 flex items-center gap-2">
           <Search size={20} className="text-orange-500" />
-          Choose Location
+          Detect Location
         </h3>
         <p className="text-sm text-gray-600">
           Search for any place. Specific addresses will expand to show the entire city area.
@@ -546,13 +534,13 @@ const getPlaceIcon = (areaType?: string) => {
         />
         {searchQuery && (
           <button
-            onClick={clearSearch}
+            onClick={clearDetection}
             className="absolute inset-y-0 right-0 pr-3 flex items-center"
           >
             <X size={20} className="text-gray-400 hover:text-gray-600" />
           </button>
         )}
-        {isSearching && (
+        {isDetecting && (
           <div className="absolute inset-y-0 right-8 flex items-center">
             <div className="animate-spin rounded-full h-5 w-5 border-2 border-orange-500 border-t-transparent"></div>
           </div>
@@ -564,7 +552,7 @@ const getPlaceIcon = (areaType?: string) => {
             {suggestions.map((suggestion, index) => (
               <button
                 key={`${suggestion.place_id}-${index}`}
-                onClick={() => selectPlace(suggestion)}
+                onClick={() => detectPlace(suggestion)}
                 className="w-full px-4 py-3 text-left hover:bg-gray-50 border-b border-gray-100 last:border-b-0 flex items-center gap-3"
               >
                 {getPlaceIcon(suggestion.areaType)}
@@ -605,49 +593,48 @@ const getPlaceIcon = (areaType?: string) => {
       {/* Current Location Button */}
       <button
         type="button"
-        onClick={getCurrentLocation}
-        disabled={isGettingCurrentLocation || !!mapsError}
+        onClick={detectCurrentLocation}
+        disabled={isLocatingUser || !!mapsError}
         className="w-full mt-4 px-4 py-4 bg-gradient-to-r from-orange-400 to-orange-500 text-white rounded-xl hover:from-orange-500 hover:to-orange-600 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3 shadow-lg"
       >
-        {isGettingCurrentLocation ? (
+        {isLocatingUser ? (
           <>
             <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent"></div>
-            <span className="font-medium">Getting your location...</span>
+            <span className="font-medium">Detecting your location...</span>
           </>
         ) : (
           <>
             <Navigation size={20} />
-            <span className="font-medium">Use my current location</span>
+            <span className="font-medium">Detect my current location</span>
           </>
         )}
       </button>
 
-      {/* Selected Location Info */}
-      {selectedLocation && (
+      {/* Detected Location Info */}
+      {detectedLocation && (
         <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
           <div className="flex items-start gap-3">
-            {getPlaceIcon(selectedLocation.areaType)}
+            {getPlaceIcon(detectedLocation.areaType)}
             <div className="flex-1">
               <h3 className="font-semibold text-gray-900">
-                {selectedLocation.placeName || selectedLocation.city || 'Selected Location'}
+                {detectedLocation.placeName || detectedLocation.city || 'Detected Location'}
               </h3>
               <p className="text-sm text-gray-600 mt-1">
-                {selectedLocation.originalAddress || selectedLocation.address}
+                {detectedLocation.originalAddress || detectedLocation.address}
               </p>
               <div className="flex items-center gap-2 mt-2">
                 <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full">
-  {selectedLocation.areaType === 'state' ? 'State Area' :
-   selectedLocation.areaType === 'city' ? 'City Area' : 
-   selectedLocation.areaType === 'neighborhood' ? 'Neighborhood' : 'Specific Location'}
-</span>
-                {selectedLocation.searchRadius && (
+                  {detectedLocation.areaType === 'city' ? 'City Area' : 
+                   detectedLocation.areaType === 'neighborhood' ? 'Neighborhood' : 'Specific Location'}
+                </span>
+                {detectedLocation.searchRadius && (
                   <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full">
-                    {(selectedLocation.searchRadius / 1000).toFixed(1)}km radius
+                    {(detectedLocation.searchRadius / 1000).toFixed(1)}km radius
                   </span>
                 )}
-                {selectedLocation.state && (
+                {detectedLocation.state && (
                   <span className="text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded-full">
-                    {selectedLocation.state}
+                    {detectedLocation.state}
                   </span>
                 )}
               </div>
@@ -655,26 +642,26 @@ const getPlaceIcon = (areaType?: string) => {
           </div>
           
           <button
-            onClick={toggleMap}
+            onClick={toggleDetectionMap}
             className="mt-3 w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
           >
             <Map size={16} />
-            {showMap ? 'Hide Map' : 'Show Area'}
+            {showMap ? 'Hide Map' : 'Show Detection Area'}
           </button>
         </div>
       )}
 
       {/* Map */}
-      {showMap && selectedLocation && (
+      {showMap && detectedLocation && (
         <div className="mt-4">
           <div 
             ref={mapRef} 
             className="w-full h-64 rounded-lg border border-gray-200 bg-gray-100"
           />
           <div className="mt-2 text-center text-sm text-gray-600">
-            {selectedLocation.areaType === 'city' 
-              ? `Showing ${selectedLocation.placeName} city area` 
-              : `Search area: ${(selectedLocation.searchRadius || 5000) / 1000}km radius`}
+            {detectedLocation.areaType === 'city' 
+              ? `Showing ${detectedLocation.placeName} city area` 
+              : `Detection area: ${(detectedLocation.searchRadius || 5000) / 1000}km radius`}
           </div>
         </div>
       )}

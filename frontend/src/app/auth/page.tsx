@@ -10,7 +10,10 @@ import {
   storage
  } from "@/lib/firebase";
 import { fetchSignInMethodsForEmail } from "firebase/auth";
+import AuthLocationPicker from '../../components/AuthLocationPicker'; // Adjust path as needed
 import { motion, AnimatePresence } from "framer-motion";
+import { MapPin, X } from 'lucide-react';
+
 import { updateProfile } from "firebase/auth";
 import { 
   createUserWithEmailAndPassword, 
@@ -25,18 +28,25 @@ import {
 import { useRouter } from "next/navigation";
 import { 
   doc,
-  setDoc
+  setDoc,
+  getDoc,
+  updateDoc
 } from "firebase/firestore"
 import { 
   uploadBytes, 
   ref, 
   getDownloadURL 
 } from "firebase/storage";
-import { IntegerSchema } from "firebase/ai";
-import { getDisplayName } from "next/dist/shared/lib/utils";
+
 
 export default function AuthPage() {
   const router = useRouter();
+  
+  // Location for campus/residence
+  const [userLocation, setUserLocation] = useState(null);
+  const [showLocationPicker, setShowLocationPicker] = useState(false);
+  const [showPostAuthLocationPicker, setShowPostAuthLocationPicker] = useState(false);
+  const [currentUser, setCurrentUser] = useState(null); // Store user for post-auth location update
   
   // Auth state
   const [isLogin, setIsLogin] = useState(true);
@@ -69,14 +79,13 @@ export default function AuthPage() {
   const [showPhoneVerification, setShowPhoneVerification] = useState(false);
 
   // Rate for caculation
-
   const [rated, setRated] = useState<number[]>([]);
   const [averageRate, setAverageRate] = useState<number[]>([]);
   const [rateError, setRateError] = useState(0);
 
   // Steps
   const [step, setStep] = useState(0);
-  const steps = 3;
+  const steps = 4; // Change from 3 to 4
 
   const calculateRateError = (userRatings: number[], averageRatings: number[]) => {
     if (
@@ -127,10 +136,10 @@ export default function AuthPage() {
       setRememberMe(true);
 
       signInWithEmailAndPassword(auth, savedEmail, savedPassword)
-        .then((userCredential) => {
+        .then(async (userCredential) => {
           const user = userCredential.user;
           if (user.emailVerified) {
-            router.push("/find");
+            await checkUserLocationAndRedirect(user);
           }
         })
         .catch((error) => {
@@ -140,6 +149,110 @@ export default function AuthPage() {
         });
     }
   }, [router]);
+
+  // Check if user has location and redirect or show location picker
+  const checkUserLocationAndRedirect = async (user: any) => {
+    try {
+      const userDoc = await getDoc(doc(db, "users", user.uid));
+      
+      if (!userDoc.exists()) {
+        // Document doesn't exist, create it first
+        console.log("User document doesn't exist, creating basic document");
+        await setDoc(doc(db, "users", user.uid), {
+          fullName: user.displayName || "",
+          email: user.email || "",
+          photoURL: user.photoURL || "",
+          userLocation: null,
+          createdAt: new Date(),
+          isStudentVerified: false,
+          badges: {},
+          history: {
+            purchased: [],
+            sold: [],
+            rented: [],
+            subleased: [],
+            rated: [],
+            reviewed: [],
+            averageRate: [],
+            rateError: 0,
+            cancelled: [],
+            returned: [],
+          }
+        });
+        
+        // Show location picker for new document
+        setCurrentUser(user);
+        setShowPostAuthLocationPicker(true);
+        return;
+      }
+      
+      const userData = userDoc.data();
+      
+      if (!userData?.userLocation) {
+        // User doesn't have location, show location picker
+        setCurrentUser(user);
+        setShowPostAuthLocationPicker(true);
+      } else {
+        // User has location, proceed to app
+        router.push("/find");
+      }
+    } catch (error) {
+      console.error("Error checking user location:", error);
+      // If there's an error, still proceed to app
+      router.push("/find");
+    }
+  };
+
+  // Handle location selection for already authenticated user
+  const handlePostAuthLocationSelect = async (location: any) => {
+    if (!currentUser) return;
+    
+    try {
+      const userDocRef = doc(db, "users", currentUser.uid);
+      const userDoc = await getDoc(userDocRef);
+      
+      if (!userDoc.exists()) {
+        // Create document if it doesn't exist
+        await setDoc(userDocRef, {
+          fullName: currentUser.displayName || "",
+          email: currentUser.email || "",
+          photoURL: currentUser.photoURL || "",
+          userLocation: location,
+          createdAt: new Date(),
+          isStudentVerified: false,
+          badges: {},
+          history: {
+            purchased: [],
+            sold: [],
+            rented: [],
+            subleased: [],
+            rated: [],
+            reviewed: [],
+            averageRate: [],
+            rateError: 0,
+            cancelled: [],
+            returned: [],
+          }
+        });
+      } else {
+        // Update existing document
+        await updateDoc(userDocRef, {
+          userLocation: location,
+          updatedAt: new Date()
+        });
+      }
+      
+      setShowPostAuthLocationPicker(false);
+      setCurrentUser(null);
+      router.push("/find");
+    } catch (error) {
+      console.error("Error updating user location:", error);
+      alert("Failed to save location. You can update it later in your profile.");
+      setShowPostAuthLocationPicker(false);
+      setCurrentUser(null);
+      router.push("/find");
+    }
+  };
 
   // Helper functions
   const isSchoolEmail = (email: string) => {
@@ -157,6 +270,8 @@ export default function AuthPage() {
     setSelectedImageFile(null);
     setPreviewUrl(null);
     setIsPhoneVerified(false);
+    setUserLocation(null);
+    setShowLocationPicker(false);
     setPhoneVerificationCode("");
     setShowPhoneVerification(false);
     setIsAlumni(false);
@@ -188,13 +303,20 @@ export default function AuthPage() {
 
   const handleNext = () => {
     setError("");
+    
     // Validate step 0 (required)
     if (step === 0) {
       if (!fullName.trim() || !dob) {
         setError("Please enter your full name and date of birth to continue.");
         return;
       }
+      if (!email || !password) {
+        setError("Please enter both email and password to continue.");
+        return;
+      }
     }
+    
+    // Move to next step
     setStep((s) => Math.min(s + 1, steps - 1));
   };
 
@@ -322,6 +444,7 @@ export default function AuthPage() {
       socialLink: socialLink || null,
       quickBio: quickBio || null,
       address: address || null,
+      userLocation: userLocation || null,
       isStudentVerified: schoolEmail && isSchoolEmail(schoolEmail),
       history: {
         purchased: history.purchased,
@@ -353,7 +476,6 @@ export default function AuthPage() {
 
   // Main authentication handler
   const handleAuth = async () => {
-
     if (forgotMode) {
       sendPasswordReset();
       return;
@@ -389,7 +511,8 @@ export default function AuthPage() {
           localStorage.removeItem("savedPassword");
         }
         
-        router.push("/find");
+        // Check if user has location before redirecting
+        await checkUserLocationAndRedirect(user);
       } else {
         // Signup flow
         if (!validateSignupForm()) {
@@ -401,6 +524,18 @@ export default function AuthPage() {
           alert("Please enter a valid .edu email to receive a student badge.");
           setLoading(false);
           return;
+        }
+
+        // Check if email already exists before creating account
+        try {
+          const signInMethods = await fetchSignInMethodsForEmail(auth, email);
+          if (signInMethods.length > 0) {
+            alert("An account with this email already exists. Please try logging in instead.");
+            setLoading(false);
+            return;
+          }
+        } catch (emailCheckError) {
+          console.log("Could not check email existence, proceeding with signup");
         }
         
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
@@ -433,13 +568,19 @@ export default function AuthPage() {
         "auth/invalid-email": "Invalid email address",
         "auth/missing-password": "Password is required",
         "auth/invalid-credential": "Wrong email or password",
-        "auth/email-already-in-use": "Email is already registered",
+        "auth/email-already-in-use": "This email is already registered. Please try logging in instead, or use a different email.",
         "auth/weak-password": "Password must be at least 6 characters",
-        "auth/network-request-failed": "Network error. Check your connection"
+        "auth/network-request-failed": "Network error. Check your connection",
+        "auth/too-many-requests": "Too many failed attempts. Please try again later."
       };
       
       const message = errorMessages[error.code] || "Authentication failed";
       alert(message);
+      
+      // If email already in use, switch to login mode
+      if (error.code === "auth/email-already-in-use") {
+        setIsLogin(true);
+      }
     } finally {
       setLoading(false);
     }
@@ -466,18 +607,34 @@ export default function AuthPage() {
 
       const additionalInfo = getAdditionalUserInfo(result);
       if (additionalInfo?.isNewUser) {
+        // Create document for new users
         await setDoc(doc(db, "users", user.uid), {
           fullName: user.displayName || "",
           dob: "",
           email: user.email || "",
           photoURL: user.photoURL || "",
           socialLink: "Google Account",
+          userLocation: null, // New users won't have location
+          isStudentVerified: false,
           badges: { socialLinked: true },
+          history: {
+            purchased: [],
+            sold: [],
+            rented: [],
+            subleased: [],
+            rated: [],
+            reviewed: [],
+            averageRate: [],
+            rateError: 0,
+            cancelled: [],
+            returned: [],
+          },
           createdAt: new Date(),
         });
       }
 
-      router.push("/find");
+      // Check if user has location before redirecting
+      await checkUserLocationAndRedirect(user);
     } catch (error) {
       console.error("Google login error:", error);
       alert("Google login failed");
@@ -498,12 +655,14 @@ export default function AuthPage() {
           email: user.email || "",
           photoURL: user.photoURL || "",
           socialLink: "Facebook Account",
+          userLocation: null, // New users won't have location
           badges: { socialLinked: true },
           createdAt: new Date(),
         });
       } 
 
-      router.push("/find");
+      // Check if user has location before redirecting
+      await checkUserLocationAndRedirect(user);
     } catch (error: any) {
       if (error.code === "auth/account-exists-with-different-credential") {
         const pendingCred = FacebookAuthProvider.credentialFromError(error);
@@ -515,11 +674,11 @@ export default function AuthPage() {
         } else {
           alert("Account exists with different sign-in method.");
         }
+      }
       console.error("Facebook login error:", error);
       alert("Facebook login failed");
-      }
-    };
-  }
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-gray-50 flex items-center justify-center p-4">
@@ -528,53 +687,53 @@ export default function AuthPage() {
         <div className="text-center mb-8">
           <div className="flex items-center justify-center -mb-4 mr-17">
             {/* Logo */}
-                <motion.div 
-                    className="flex items-center space-x-6 relative mt-3"
-                    whileHover={{ scale: 1.05 }}
-                    onClick={() => {isLoggedIn ? (router.push("/find")) : router.push("/")}}
-                >
-                {/* Main Subox Logo */}
-                <motion.div className="relative">
+            <motion.div 
+              className="flex items-center space-x-6 relative mt-3"
+              whileHover={{ scale: 1.05 }}
+              onClick={() => router.push("/")}                
+            >
+              {/* Main Subox Logo */}
+              <motion.div className="relative">
                 {/* House Icon */}
                 <motion.svg 
-                    className="w-12 h-12" 
-                    viewBox="0 0 100 100" 
-                    fill="none"
-                    whileHover={{ rotate: [0, -5, 5, 0] }}
-                    transition={{ duration: 0.5 }}
+                  className="w-12 h-12" 
+                  viewBox="0 0 100 100" 
+                  fill="none"
+                  whileHover={{ rotate: [0, -5, 5, 0] }}
+                  transition={{ duration: 0.5 }}
                 >
-                    {/* House Base */}
-                    <motion.path
+                  {/* House Base */}
+                  <motion.path
                     d="M20 45L50 20L80 45V75C80 78 77 80 75 80H25C22 80 20 78 20 75V45Z"
                     fill="#E97451"
                     animate={{ 
-                        fill: ["#E97451", "#F59E0B", "#E97451"],
-                        scale: [1, 1.02, 1]
+                      fill: ["#E97451", "#F59E0B", "#E97451"],
+                      scale: [1, 1.02, 1]
                     }}
                     transition={{ duration: 3, repeat: Infinity }}
-                    />
-                    {/* House Roof */}
-                    <motion.path
+                  />
+                  {/* House Roof */}
+                  <motion.path
                     d="M15 50L50 20L85 50L50 15L15 50Z"
                     fill="#D97706"
                     animate={{ rotate: [0, 1, 0] }}
                     transition={{ duration: 4, repeat: Infinity }}
-                    />
-                    {/* Window */}
-                    <motion.rect
+                  />
+                  {/* Window */}
+                  <motion.rect
                     x="40"
                     y="50"
                     width="20"
                     height="15"
                     fill="white"
                     animate={{ 
-                        opacity: [1, 0.8, 1],
-                        scale: [1, 1.1, 1]
+                      opacity: [1, 0.8, 1],
+                      scale: [1, 1.1, 1]
                     }}
                     transition={{ duration: 2, repeat: Infinity }}
-                    />
-                    {/* Door */}
-                    <motion.rect
+                  />
+                  {/* Door */}
+                  <motion.rect
                     x="45"
                     y="65"
                     width="10"
@@ -582,67 +741,67 @@ export default function AuthPage() {
                     fill="white"
                     animate={{ scaleY: [1, 1.05, 1] }}
                     transition={{ duration: 2.5, repeat: Infinity }}
-                    />
+                  />
                 </motion.svg>
 
                 {/* Tag Icon */}
                 <motion.svg 
-                    className="w-8 h-8 absolute -top-2 -right-2" 
-                    viewBox="0 0 60 60" 
-                    fill="none"
-                    whileHover={{ rotate: 360 }}
-                    transition={{ duration: 0.8 }}
+                  className="w-8 h-8 absolute -top-2 -right-2" 
+                  viewBox="0 0 60 60" 
+                  fill="none"
+                  whileHover={{ rotate: 360 }}
+                  transition={{ duration: 0.8 }}
                 >
-                    <motion.path
+                  <motion.path
                     d="M5 25L25 5H50V25L30 45L5 25Z"
                     fill="#E97451"
                     animate={{ 
-                        rotate: [0, 5, -5, 0],
-                        scale: [1, 1.1, 1]
+                      rotate: [0, 5, -5, 0],
+                      scale: [1, 1.1, 1]
                     }}
                     transition={{ duration: 3, repeat: Infinity }}
-                    />
-                    <motion.circle
+                  />
+                  <motion.circle
                     cx="38"
                     cy="17"
                     r="4"
                     fill="white"
                     animate={{ 
-                        scale: [1, 1.3, 1],
-                        opacity: [1, 0.7, 1]
+                      scale: [1, 1.3, 1],
+                      opacity: [1, 0.7, 1]
                     }}
                     transition={{ duration: 1.5, repeat: Infinity }}
-                    />
+                  />
                 </motion.svg>
-                </motion.div>
+              </motion.div>
 
-                {/* Subox Text */}
-                <motion.div className="flex flex-col -mx-4">
+              {/* Subox Text */}
+              <motion.div className="flex flex-col -mx-4">
                 <motion.span 
-                    className="text-3xl font-bold text-gray-900"
-                    animate={{
+                  className="text-3xl font-bold text-gray-900"
+                  animate={{
                     background: [
-                        "linear-gradient(45deg, #1F2937, #374151)",
-                        "linear-gradient(45deg, #E97451, #F59E0B)",
-                        "linear-gradient(45deg, #1F2937, #374151)"
+                      "linear-gradient(45deg, #1F2937, #374151)",
+                      "linear-gradient(45deg, #E97451, #F59E0B)",
+                      "linear-gradient(45deg, #1F2937, #374151)"
                     ],
                     backgroundClip: "text",
                     WebkitBackgroundClip: "text",
                     color: "transparent"
-                    }}
-                    transition={{ duration: 4, repeat: Infinity }}
+                  }}
+                  transition={{ duration: 4, repeat: Infinity }}
                 >
-                    Subox
+                  Subox
                 </motion.span>
                 <motion.span 
-                    className="text-xs text-gray-500 font-medium tracking-wider"
-                    animate={{ opacity: [0.7, 1, 0.7] }}
-                    transition={{ duration: 2, repeat: Infinity }}
+                  className="text-xs text-gray-500 font-medium tracking-wider"
+                  animate={{ opacity: [0.7, 1, 0.7] }}
+                  transition={{ duration: 2, repeat: Infinity }}
                 >
-                    SUBLETS & MOVING SALES
+                  SUBLETS & MOVING SALES
                 </motion.span>
-                </motion.div>
-                </motion.div>
+              </motion.div>
+            </motion.div>
           </div>
         </div>
 
@@ -902,6 +1061,63 @@ export default function AuthPage() {
                             </div>
                           </>
                         )}
+
+                        {/* === STEP 3: Location === */}
+                        {step === 3 && (
+                          <>
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Where is your school campus or where do you live?
+                              </label>
+                              <p className="text-xs text-gray-500 mb-4">
+                                This will help you find nearby sublets and move-out items. We'll provide more interaction even if you're not familiar with the location.
+                              </p>
+                              
+                              {!userLocation ? (
+                                <button
+                                  type="button"
+                                  onClick={() => setShowLocationPicker(true)}
+                                  className="w-full px-4 py-3 border-2 border-dashed border-gray-300 rounded-lg hover:border-orange-400 transition-colors flex items-center justify-center gap-2 text-gray-600 hover:text-orange-600"
+                                >
+                                  <MapPin size={20} />
+                                  <span>Select Your Location</span>
+                                </button>
+                              ) : (
+                                <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
+                                  <div className="flex items-start justify-between">
+                                    <div className="flex items-start gap-2">
+                                      <MapPin size={16} className="text-green-600 mt-0.5" />
+                                      <div className="min-w-0 flex-1">
+                                        <h4 className="font-medium text-green-900 text-sm truncate">
+                                          {userLocation.placeName || userLocation.city || 'Selected Location'}
+                                        </h4>
+                                        <p className="text-xs text-green-700 mt-1 truncate">
+                                          {userLocation.address}
+                                        </p>
+                                        {userLocation.areaType && (
+                                          <span className="inline-block mt-1 text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">
+                                            {userLocation.areaType === 'city' ? 'City Area' : 
+                                             userLocation.areaType === 'neighborhood' ? 'Neighborhood' : 'Specific Location'}
+                                          </span>
+                                        )}
+                                      </div>
+                                    </div>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setUserLocation(null);
+                                        setShowLocationPicker(true);
+                                      }}
+                                      className="text-green-600 hover:text-green-800 text-xs font-medium flex-shrink-0 ml-2"
+                                    >
+                                      Change
+                                    </button>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          </>
+                        )}
                       </motion.div>
                     </AnimatePresence>
 
@@ -979,43 +1195,44 @@ export default function AuthPage() {
                 />
               </div>
             )}
-              {/* Login Options */}
-              {isLogin && !forgotMode && (
-                <div className="flex items-center justify-between">
-                  <label className="flex items-center space-x-2">
-                    <input
-                      type="checkbox"
-                      checked={rememberMe}
-                      onChange={() => setRememberMe(!rememberMe)}
-                      className="w-4 h-4 text-orange-500 rounded focus:ring-orange-500"
-                    />
-                    <span className="text-sm text-gray-600">Remember me</span>
-                  </label>
-                  <button
-                    type="button"
-                    onClick={forgotPassword}
-                    className="text-sm text-orange-500 hover:text-orange-600 font-medium"
-                  >
-                    Forgot password?
-                  </button>
-                </div>
-              )}
-            </div>
-
-            {isLogin && forgotMode && (
+            
+            {/* Login Options */}
+            {isLogin && !forgotMode && (
               <div className="flex items-center justify-between">
+                <label className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    checked={rememberMe}
+                    onChange={() => setRememberMe(!rememberMe)}
+                    className="w-4 h-4 text-orange-500 rounded focus:ring-orange-500"
+                  />
+                  <span className="text-sm text-gray-600">Remember me</span>
+                </label>
                 <button
                   type="button"
-                  onClick={()=> setForgotMode(false)}
+                  onClick={forgotPassword}
                   className="text-sm text-orange-500 hover:text-orange-600 font-medium"
                 >
-                  Go Back?
+                  Forgot password?
                 </button>
               </div>
             )}
+          </div>
 
-            {/* Submit Button */}
-            {isLogin && (
+          {isLogin && forgotMode && (
+            <div className="flex items-center justify-between">
+              <button
+                type="button"
+                onClick={() => setForgotMode(false)}
+                className="text-sm text-orange-500 hover:text-orange-600 font-medium"
+              >
+                Go Back?
+              </button>
+            </div>
+          )}
+
+          {/* Submit Button */}
+          {isLogin && (
             <button
               onClick={handleAuth}
               disabled={loading}
@@ -1031,7 +1248,7 @@ export default function AuthPage() {
                 forgotMode ? "Send Reset Email" : "Sign In"
               )}
             </button>
-            )}
+          )}
 
           {/* Divider */}
           <div className="relative my-6">
@@ -1082,6 +1299,105 @@ export default function AuthPage() {
               {isLogin ? "Sign up" : "Sign in"}
             </button>
           </p>
+
+          {/* Signup Location Picker Modal */}
+          {showLocationPicker && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+              <div className="bg-white rounded-lg w-full max-w-md max-h-[80vh] overflow-hidden">
+                <div className="p-4 border-b border-gray-200 flex items-center justify-between">
+                  <h3 className="text-lg font-semibold">Select Location</h3>
+                  <button
+                    onClick={() => setShowLocationPicker(false)}
+                    className="text-gray-400 hover:text-gray-600 p-1"
+                  >
+                    <X size={20} />
+                  </button>
+                </div>
+                <div className="p-4 overflow-y-auto max-h-[calc(80vh-80px)]">
+                  <AuthLocationPicker
+                    onLocationSelect={(location) => {
+                      setUserLocation(location);
+                      setShowLocationPicker(false);
+                    }}
+                    initialValue=""
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Post-Auth Location Picker Modal */}
+          {showPostAuthLocationPicker && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+              <div className="bg-white rounded-lg w-full max-w-lg max-h-[90vh] flex flex-col">
+                {/* Fixed Header */}
+                <div className="p-4 border-b border-gray-200 flex-shrink-0">
+                  <h3 className="text-lg font-semibold text-center">Welcome! Let's set your location</h3>
+                  <p className="text-sm text-gray-600 text-center mt-2">
+                    Help us show you nearby sublets and moving sales by selecting your location.
+                  </p>
+                </div>
+                
+                {/* Scrollable Content */}
+                <div className="flex-1 overflow-y-auto p-4">
+                  <AuthLocationPicker
+                    onLocationSelect={(location) => {
+                      // Just store the selected location, don't save to Firebase yet
+                      setUserLocation(location);
+                    }}
+                    initialValue=""
+                  />
+                </div>
+                
+                {/* Fixed Footer with Buttons */}
+                <div className="p-4 border-t border-gray-200 space-y-3 flex-shrink-0 bg-white">
+                  {userLocation && (
+                    <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                      <div className="flex items-start gap-2">
+                        <MapPin size={16} className="text-blue-600 mt-0.5 flex-shrink-0" />
+                        <div className="min-w-0 flex-1">
+                          <h4 className="font-medium text-blue-900 text-sm">
+                            {userLocation.placeName || userLocation.city || 'Selected Location'}
+                          </h4>
+                          <p className="text-xs text-blue-700 mt-1 break-words">
+                            {userLocation.address}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => {
+                        setShowPostAuthLocationPicker(false);
+                        setCurrentUser(null);
+                        setUserLocation(null);
+                        router.push("/find");
+                      }}
+                      className="flex-1 px-4 py-3 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors font-medium"
+                    >
+                      Skip for now
+                    </button>
+                    
+                    <button
+                      onClick={() => {
+                        if (userLocation) {
+                          handlePostAuthLocationSelect(userLocation);
+                        } else {
+                          alert("Please select a location first");
+                        }
+                      }}
+                      disabled={!userLocation}
+                      className="flex-1 px-4 py-3 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+                    >
+                      Confirm Location
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

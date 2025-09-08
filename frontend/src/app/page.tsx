@@ -1508,12 +1508,12 @@ const SuboxHomepage = () => {
           <div className="border-t border-white/30 my-10"></div>
 
           {/* Bottom Grid: 4 more sections */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-8 text-center md:text-left">
+          <div className="grid grid-cols-1 ml-75 md:grid-cols-4 gap-8 text-center md:text-left">
 
             {/* Get Started */}
             <div>
-              <h3 className="text-2xl font-bold mb-4">Get Started</h3>
-              <ul className="space-y-2 text-lg">
+              <h3 className="font-bold mb-4">Get Started</h3>
+              <ul className="space-y-2">
                 <li><a href="auth" className="hover:underline">Log in</a></li>
                 <li><a href="auth?mode=signup" className="hover:underline">Sign up</a></li>
               </ul>
@@ -1521,8 +1521,8 @@ const SuboxHomepage = () => {
 
             {/* Resources */}
             <div>
-              <h3 className="text-2xl font-bold mb-4">Resources</h3>
-              <ul className="space-y-2 text-lg">
+              <h3 className="font-bold mb-4">Resources</h3>
+              <ul className="space-y-2">
                 <li><a href="#features" className="hover:underline">Features</a></li>
                 <li><a href="#use-cases" className="hover:underline">Use Cases</a></li>
                 <li><a href="#how-it-works" className="hover:underline">How it Works</a></li>

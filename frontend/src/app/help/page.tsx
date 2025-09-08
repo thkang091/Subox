@@ -97,9 +97,9 @@ const NotificationsButton = ({ notifications }: { notifications: Notification[] 
         whileHover={{ scale: 1.05 }}
         whileTap={{ scale: 0.95 }}
         onClick={() => setShowNotifications(!showNotifications)}
-        className="p-2 bg-gray-200 rounded-lg hover:bg-gray-300 transition-colors relative"
+        className="p-2 bg-orange-500 rounded-lg hover:bg-orange-600 transition-colors relative"
       >
-        <Bell className="w-5 h-5 text-gray-500" />
+        <Bell className="w-5 h-5 text-white" />
         {notifications.length > 0 && (
           <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center">
             {notifications.length}
@@ -639,7 +639,7 @@ const HelpPage = () => {
         {/* Header */}
               <div className="bg-gradient-to-b from-orange-200 to-white pb-20">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                  <div className="hidden md:flex flex items-center justify-between h-16">
+                  <div className="flex items-center justify-between h-16">
                     {/* Logo */}
                     <ul className="space-y-2 ">
                     <div className="flex items-center space-x-3">
@@ -784,9 +784,9 @@ const HelpPage = () => {
                           whileHover={{ scale: 1.05 }}
                           whileTap={{ scale: 0.95 }}
                           onClick={() => setShowProfile(!showProfile)}
-                          className="p-2 bg-gray-200 rounded-lg hover:bg-gray-300 transition-colors"
+                          className="p-2 bg-orange-500 rounded-lg hover:bg-orange-600 transition-colors"
                         >
-                          <User className="w-5 h-5 text-gray-500" />
+                          <User className="w-5 h-5 text-white" />
                         </motion.button>
         
                         <AnimatePresence>
@@ -818,9 +818,9 @@ const HelpPage = () => {
                           whileHover={{ scale: 1.05 }}
                           whileTap={{ scale: 0.95 }}
                           onClick={() => setShowMenu(!showMenu)}
-                          className="p-2 bg-gray-200 rounded-lg hover:bg-gray-300 transition-colors"
+                          className="p-2 bg-orange-500 rounded-lg hover:bg-orange-600 transition-colors"
                         >
-                          <Menu className="w-5 h-5 text-gray-500" />
+                          <Menu className="w-5 h-5 text-white" />
                         </motion.button>
         
                         <AnimatePresence>
@@ -932,395 +932,22 @@ const HelpPage = () => {
                       </div>
                     </div>
                 </div>
-                <div className="block md:hidden ">
-                  <motion.div
-                    initial={{ y: 0 }}
-                    animate={{ y: 0 }}
-                    transition={{ duration: 0.5, ease: "easeOut" }}
-                    className="pt-4 px-4 relative"
-                  >
-                    {/* Header Row with Logo + Menu Button */}
-                    <div className='fixed inset-x-0 top-0 z-50 bg-white/30 backdrop-blur-2xl border-b border-gray-200/1'>
-                      <div className="max-w-7xl mx-auto flex justify-between items-center px-4 py-2">
-                        {/* Logo */}
-                        <motion.div 
-                          className="flex items-center space-x-2 -mx-1 mt-1"
-                        >              
-                        {/* Main Subox Logo */}
-                          <motion.div className="relative">
-                            {/* House Icon */}
-                            <motion.svg 
-                              className="w-10 h-10" 
-                              viewBox="0 0 100 100" 
-                              fill="none"
-                              whileHover={{ rotate: [0, -5, 5, 0] }}
-                              transition={{ duration: 0.5 }}
-                            >
-                              {/* House Base */}
-                              <motion.path
-                                d="M20 45L50 20L80 45V75C80 78 77 80 75 80H25C22 80 20 78 20 75V45Z"
-                                fill="#E97451"
-                                animate={{ 
-                                  fill: ["#E97451", "#F59E0B", "#E97451"],
-                                  scale: [1, 1.02, 1]
-                                }}
-                                transition={{ duration: 3, repeat: Infinity }}
-                              />
-                              {/* House Roof */}
-                              <motion.path
-                                d="M15 50L50 20L85 50L50 15L15 50Z"
-                                fill="#D97706"
-                                animate={{ rotate: [0, 1, 0] }}
-                                transition={{ duration: 4, repeat: Infinity }}
-                              />
-                              {/* Window */}
-                              <motion.rect
-                                x="40"
-                                y="50"
-                                width="20"
-                                height="15"
-                                fill="white"
-                                animate={{ 
-                                  opacity: [1, 0.8, 1],
-                                  scale: [1, 1.1, 1]
-                                }}
-                                transition={{ duration: 2, repeat: Infinity }}
-                              />
-                              {/* Door */}
-                              <motion.rect
-                                x="45"
-                                y="65"
-                                width="10"
-                                height="15"
-                                fill="white"
-                                animate={{ scaleY: [1, 1.05, 1] }}
-                                transition={{ duration: 2.5, repeat: Infinity }}
-                              />
-                            </motion.svg>
-
-                            {/* Tag Icon */}
-                            <motion.svg 
-                              className="w-6 h-6 absolute -top-1 -right-1" 
-                              viewBox="0 0 60 60" 
-                              fill="none"
-                              whileHover={{ rotate: 360 }}
-                              transition={{ duration: 0.8 }}
-                            >
-                              <motion.path
-                                d="M5 25L25 5H50V25L30 45L5 25Z"
-                                fill="#E97451"
-                                animate={{ 
-                                  rotate: [0, 5, -5, 0],
-                                  scale: [1, 1.1, 1]
-                                }}
-                                transition={{ duration: 3, repeat: Infinity }}
-                              />
-                              <motion.circle
-                                cx="38"
-                                cy="17"
-                                r="4"
-                                fill="white"
-                                animate={{ 
-                                  scale: [1, 1.3, 1],
-                                  opacity: [1, 0.7, 1]
-                                }}
-                                transition={{ duration: 1.5, repeat: Infinity }}
-                              />
-                            </motion.svg>
-                          </motion.div>
-
-                          {/* Subox Text */}
-                          <motion.div className="flex flex-col">
-                            <motion.span 
-                              className="text-xl font-bold text-gray-900"
-                              animate={{
-                                background: [
-                                  "linear-gradient(45deg, #1F2937, #374151)",
-                                  "linear-gradient(45deg, #E97451, #F59E0B)",
-                                  "linear-gradient(45deg, #1F2937, #374151)"
-                                ],
-                                backgroundClip: "text",
-                                WebkitBackgroundClip: "text",
-                                color: "transparent"
-                              }}
-                              transition={{ duration: 4, repeat: Infinity }}
-                            >
-                              Subox
-                            </motion.span>
-                            <motion.span 
-                              className="text-[10px] text-gray-500 font-medium tracking-wider"
-                              animate={{ opacity: [0.7, 1, 0.7] }}
-                              transition={{ duration: 2, repeat: Infinity }}
-                            >
-                              SUBLETS & MOVING SALES
-                            </motion.span>
-                          </motion.div>
-                        </motion.div>
-
-                        <div className="flex items-center space-x-2">
-                          {/* Back */}
-                          <motion.button 
-                            whileHover={{ scale: 1.05 }}
-                            whileTap={{ scale: 0.95 }}
-                            onClick={() => router.push("/")}
-                            className="flex items-center px-1 py-2 rounded-lg hover:bg-orange-600 text-black hover:text-white transition-colors"
-                          >
-                            <ArrowLeft size={20} /> Back
-                          </motion.button>
-
-                          {/* Notifications */}
-                          <NotificationsButton notifications={notifications} />
-            
-                          {/* Profile */}
-                          <div className="relative">
-                            <motion.button
-                              whileHover={{ scale: 1.05 }}
-                              whileTap={{ scale: 0.95 }}
-                              onClick={() => setShowProfile(!showProfile)}
-                              className="p-2 bg-gray-200 rounded-lg hover:bg-gray-300 transition-colors"
-                            >
-                              <User className="w-5 h-5 text-gray-500" />
-                            </motion.button>
-            
-                            <AnimatePresence>
-                              {showProfile && (
-                                <motion.div
-                                  initial={{ opacity: 0, y: -10 }}
-                                  animate={{ opacity: 1, y: 0 }}
-                                  exit={{ opacity: 0, y: -10 }}
-                                  className="absolute right-0 mt-2 w-64 bg-white rounded-lg shadow-lg border border-gray-200 z-50"
-                                >
-                                  <div className="p-4 space-y-2">
-                                    <button onClick={() => handleTabClick("purchased")} className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-orange-50 transition-colors">What I Purchased</button>
-                                    <button onClick={() => handleTabClick("returned")} className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-orange-50 transition-colors">What I Returned</button>
-                                    <button onClick={() => handleTabClick("cancelled")} className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-orange-50 transition-colors">What I Cancelled</button>
-                                    <button onClick={() => handleTabClick("sold")} className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-orange-50 transition-colors">What I Sold</button>
-                                    <button onClick={() => handleTabClick("sublease")} className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-orange-50 transition-colors">Sublease</button>
-                                    <button onClick={() => handleTabClick("reviews")} className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-orange-50 transition-colors">Reviews</button>
-                                    <hr className="my-2" />
-                                    <button onClick={() => handleTabClick("history")} className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-orange-50 transition-colors">History</button>
-                                  </div>
-                                </motion.div>
-                              )}
-                            </AnimatePresence>
-                          </div>
-            
-                          {/* menu */}
-                          <div className="relative">
-                            <motion.button
-                              whileHover={{ scale: 1.05 }}
-                              whileTap={{ scale: 0.95 }}
-                              onClick={() => setShowMenu(!showMenu)}
-                              className="p-2 bg-gray-200 rounded-lg hover:bg-gray-300 transition-colors"
-                            >
-                              <Menu className="w-5 h-5 text-gray-500" />
-                            </motion.button>
-            
-                            <AnimatePresence>
-                              {showMenu && (
-                                <motion.div
-                                  initial={{ opacity: 0, y: -10 }}
-                                  animate={{ opacity: 1, y: 0 }}
-                                  exit={{ opacity: 0, y: -10 }}
-                                  className="absolute right-0 mt-2 w-64 bg-white rounded-lg shadow-lg border border-gray-200 z-50"
-                                >
-                                  <div className="p-4 space-y-2">
-                                    <p className="text-medium font-semibold max-w-2xl mb-4 text-orange-700">
-                                    Move Out Sale
-                                    </p>
-                                    <button 
-                                      onClick={() => {
-                                        router.push('../browse');
-                                        setShowMenu(false);
-                                      }} 
-                                      className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-orange-50 transition-colors"
-                                    >
-                                      Browse Items
-                                    </button>                        
-                                    <button 
-                                      onClick={() => {
-                                        router.push('/sale/create');
-                                        setShowMenu(false);
-                                      }} 
-                                      className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-orange-50 transition-colors"
-                                    >
-                                      Sell Items
-                                    </button> 
-                                    <button 
-                                      onClick={() => {
-                                        router.push('/sale/create');
-                                        setShowMenu(false);
-                                      }} 
-                                      className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-orange-50 transition-colors"
-                                    >
-                                      My Items
-                                    </button>   
-                                    
-                                    <p className="text-medium font-semibold max-w-2xl mb-4 text-orange-700">
-                                      Sublease
-                                    </p>
-                                    <button 
-                                      onClick={() => {
-                                        router.push('../search');
-                                        setShowMenu(false);
-                                      }} 
-                                      className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-orange-50 transition-colors"
-                                    >
-                                      Find Sublease
-                                    </button>   
-                                    <button 
-                                      onClick={() => {
-                                        router.push('../search');
-                                        setShowMenu(false);
-                                      }} 
-                                      className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-orange-50 transition-colors"
-                                    >
-                                      Post Sublease
-                                    </button>   
-                                    <button 
-                                      onClick={() => {
-                                        router.push('../search');
-                                        setShowMenu(false);
-                                      }} 
-                                      className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-orange-50 transition-colors"
-                                    >
-                                      My Sublease Listing
-                                    </button>
-                                    <hr className="my-2" />
-                                    <button 
-                                      onClick={() => {
-                                        router.push('../sale/browse');
-                                        setShowMenu(false);
-                                      }} 
-                                      className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-orange-50 transition-colors"
-                                    >
-                                      Messages
-                                    </button>   
-                                    <button 
-                                      onClick={() => {
-                                        router.push('../help');
-                                        setShowMenu(false);
-                                      }} 
-                                      className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-orange-50 transition-colors"
-                                    >
-                                      Help & Support
-                                    </button>
-            
-                                    {/* need change (when user didn't log in -> show log in button) */}
-                                    <hr className="my-2" />
-                                    {/* log in/ out */}
-                                      {isLoggedIn ? (
-                                        <button className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-orange-50 transition-colors">
-                                          Logout
-                                        </button>
-                                      ) : (
-                                        <button className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-orange-50 transition-colors">
-                                          Login
-                                        </button>
-                                      )}
-                                  </div>
-                                </motion.div>
-                              )}
-                            </AnimatePresence>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </motion.div>
-                </div>
                 {firstPage ? (
                 <div className="flex flex-col items-center justify-center px-4 py-20">
-                  <div className='hidden md:block'>
-                    {/* Label */}
-                    <label htmlFor="search" className="text-3xl font-bold mb-7 text-orange-600">
-                      Helpful information for better use
-                    </label>
-                    <form
-                      onSubmit={(e) => {
-                        e.preventDefault();
-                        handleSearch();
-                        setFirstPage(false);
-                        setFourthPage(true);
-                      }}
-                      className="w-lg mt-5"
-                      >
-                        {/* Search Input */}
-                        <div className="w-full max-w-3xl">
-                          <div className="relative w-full max-w-3xl">
-                            {/* Search input with space for the button */}
-                            <input
-                              id="search"
-                              type="text"
-                              value={query}
-                              onChange={(e) => setQuery(e.target.value)}
-                              placeholder="Search for information..."
-                              className="w-full rounded-3xl border border-gray-300 px-10 py-4 pr-24 text-base shadow-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
-                            />
-
-                            {/* "Go" button inside input, positioned to the right */}
-                            <button
-                              type="submit"
-                              className="absolute top-1/2 right-2 -translate-y-1/2 rounded-full bg-orange-400 px-4 py-2 text-white font-semibold hover:bg-orange-500"
-                            >
-                              Go
-                            </button>
-                          </div>
-                        </div>
-                      </form>
-                  </div>
-                  <div className='block md:hidden'>
-                    {/* Label */}
-                    <label htmlFor="search" className="text-2xl font-bold mb-7 text-orange-600">
-                      Helpful information for better use
-                    </label>
-                    <form
-                      onSubmit={(e) => {
-                        e.preventDefault();
-                        handleSearch();
-                        setFirstPage(false);
-                        setFourthPage(true);
-                      }}
-                      className="w-auto mt-5"
-                      >
-                        {/* Search Input */}
-                        <div className="w-full max-w-3xl">
-                          <div className="relative w-full max-w-3xl">
-                            {/* Search input with space for the button */}
-                            <input
-                              id="search"
-                              type="text"
-                              value={query}
-                              onChange={(e) => setQuery(e.target.value)}
-                              placeholder="Search for information..."
-                              className="w-full rounded-3xl border border-gray-300 px-10 py-4 pr-24 text-base shadow-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
-                            />
-
-                            {/* "Go" button inside input, positioned to the right */}
-                            <button
-                              type="submit"
-                              className="absolute top-1/2 right-2 -translate-y-1/2 rounded-full bg-orange-400 px-4 py-2 text-white font-semibold hover:bg-orange-500"
-                            >
-                              Go
-                            </button>
-                          </div>
-                        </div>
-                      </form>
-                  </div>
-                </div>
-                
-                ) : (
-                <div className="flex flex-col items-center justify-center">
-                  <div className='px-4 py-20 hidden md:block'>
-                    {/* Search Input */}
-                    <form
-                      onSubmit={(e) => {
-                        e.preventDefault();
-                        handleSearch();
-                        setSecondPage(false);
-                        setFourthPage(true);
-                      }}
-                      className="w-2xl"
-                      >
+                  {/* Label */}
+                  <label htmlFor="search" className="text-3xl font-bold mb-7 text-orange-600">
+                    Helpful information for better use
+                  </label>
+                  <form
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      handleSearch();
+                      setFirstPage(false);
+                      setFourthPage(true);
+                    }}
+                    className="w-lg"
+                    >
+                      {/* Search Input */}
                       <div className="w-full max-w-3xl">
                         <div className="relative w-full max-w-3xl">
                           {/* Search input with space for the button */}
@@ -1343,42 +970,41 @@ const HelpPage = () => {
                         </div>
                       </div>
                     </form>
-                  </div>
+                </div>
+                ) : (
+                <div className="flex flex-col items-center justify-center px-4 py-20">
+                  {/* Search Input */}
+                  <form
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      handleSearch();
+                      setSecondPage(false);
+                      setFourthPage(true);
+                    }}
+                    className="w-2xl"
+                    >
+                    <div className="w-full max-w-3xl">
+                      <div className="relative w-full max-w-3xl">
+                        {/* Search input with space for the button */}
+                        <input
+                          id="search"
+                          type="text"
+                          value={query}
+                          onChange={(e) => setQuery(e.target.value)}
+                          placeholder="Search for information..."
+                          className="w-full rounded-3xl border border-gray-300 px-10 py-4 pr-24 text-base shadow-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
+                        />
 
-                  <div className='px-4 py-10 block md:hidden'>
-                    <form
-                      onSubmit={(e) => {
-                        e.preventDefault();
-                        handleSearch();
-                        setFirstPage(false);
-                        setFourthPage(true);
-                      }}
-                      className="w-auto mt-5"
-                      >
-                        {/* Search Input */}
-                        <div className="w-full max-w-3xl">
-                          <div className="relative w-full max-w-3xl">
-                            {/* Search input with space for the button */}
-                            <input
-                              id="search"
-                              type="text"
-                              value={query}
-                              onChange={(e) => setQuery(e.target.value)}
-                              placeholder="Search for information..."
-                              className="w-full rounded-3xl border border-gray-300 px-10 py-4 pr-24 text-base shadow-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
-                            />
-
-                            {/* "Go" button inside input, positioned to the right */}
-                            <button
-                              type="submit"
-                              className="absolute top-1/2 right-2 -translate-y-1/2 rounded-full bg-orange-400 px-4 py-2 text-white font-semibold hover:bg-orange-500"
-                            >
-                              Go
-                            </button>
-                          </div>
-                        </div>
-                      </form>
-                  </div>
+                        {/* "Go" button inside input, positioned to the right */}
+                        <button
+                          type="submit"
+                          className="absolute top-1/2 right-2 -translate-y-1/2 rounded-full bg-orange-400 px-4 py-2 text-white font-semibold hover:bg-orange-500"
+                        >
+                          Go
+                        </button>
+                      </div>
+                    </div>
+                  </form>
                 </div>
                 )}
                 {firstPage && (
@@ -1678,109 +1304,21 @@ const HelpPage = () => {
                 </div>
               )}
 
-      <footer className="bg-orange-300 text-white py-12 w-full">
-        <div className="hidden md:block max-w-7xl mx-auto px-4">
-          {/* Upper Grid: 4 columns from original + 4 new columns in two rows */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-10">
-            {/* Subox Brand */}
+        <footer className="bg-orange-400 text-white py-12 w-full ">
+        <div className="max-w-7xl mx-auto px-4 ">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-8 ">
             <div>
-              <ul className="space-y-2">
-                <div className="flex items-center space-x-3 mt-3 px-5">
-                  {/* Main Subox Logo */}
-              <motion.div className="relative">
-                {/* House Icon */}
-                <motion.svg 
-                  className="w-12 h-12" 
-                  viewBox="0 0 100 100" 
-                  fill="none"
-                  whileHover={{ rotate: [0, -5, 5, 0] }}
-                  transition={{ duration: 0.5 }}
-                >
-                  {/* House Base */}
-                  <motion.path
-                    d="M20 45L50 20L80 45V75C80 78 77 80 75 80H25C22 80 20 78 20 75V45Z"
-                    fill="#E97451"
-                    animate={{ 
-                      fill: ["#E97451", "#F59E0B", "#E97451"],
-                      scale: [1, 1.02, 1]
-                    }}
-                    transition={{ duration: 3, repeat: Infinity }}
-                  />
-                  {/* House Roof */}
-                  <motion.path
-                    d="M15 50L50 20L85 50L50 15L15 50Z"
-                    fill="#D97706"
-                    animate={{ rotate: [0, 1, 0] }}
-                    transition={{ duration: 4, repeat: Infinity }}
-                  />
-                  {/* Window */}
-                  <motion.rect
-                    x="40"
-                    y="50"
-                    width="20"
-                    height="15"
-                    fill="white"
-                    animate={{ 
-                      opacity: [1, 0.8, 1],
-                      scale: [1, 1.1, 1]
-                    }}
-                    transition={{ duration: 2, repeat: Infinity }}
-                  />
-                  {/* Door */}
-                  <motion.rect
-                    x="45"
-                    y="65"
-                    width="10"
-                    height="15"
-                    fill="white"
-                    animate={{ scaleY: [1, 1.05, 1] }}
-                    transition={{ duration: 2.5, repeat: Infinity }}
-                  />
-                </motion.svg>
- 
-                {/* Tag Icon */}
-                <motion.svg 
-                  className="w-8 h-8 absolute -top-2 -right-2" 
-                  viewBox="0 0 60 60" 
-                  fill="none"
-                  whileHover={{ rotate: 360 }}
-                  transition={{ duration: 0.8 }}
-                >
-                  <motion.path
-                    d="M5 25L25 5H50V25L30 45L5 25Z"
-                    fill="#E97451"
-                    animate={{ 
-                      rotate: [0, 5, -5, 0],
-                      scale: [1, 1.1, 1]
-                    }}
-                    transition={{ duration: 3, repeat: Infinity }}
-                  />
-                  <motion.circle
-                    cx="38"
-                    cy="17"
-                    r="4"
-                    fill="white"
-                    animate={{ 
-                      scale: [1, 1.3, 1],
-                      opacity: [1, 0.7, 1]
-                    }}
-                    transition={{ duration: 1.5, repeat: Infinity }}
-                  />
-                </motion.svg>
-              </motion.div>
-    
-                  {/* Subox Text */}
-                  <motion.div className="flex flex-col text-3xl font-bold text-white">
-                      Subox
-                  </motion.div>
+              <ul className="space-y-2 ">
+              <div className="flex items-center space-x-3 mt-3 px-5">
+                <div className="w-8 h-8 bg-gradient-to-br from-orange-500 to-red-600 rounded-lg flex items-center justify-center">
+                  <Package className="w-5 h-5 text-white" />
                 </div>
-                <p className="text-white text-sm mt-4 px-3">
-                  Find the perfect short-term housing solution near your campus and needed items.
-                </p>
+                <li><a href="/sale/browse" className="text-xl font-bold text-white">Subox</a></li>
+              </div>
+              <p className="text-gray-500 text-sm text-white mt-4 px-3">Find the perfect short-term housing solution near your campus and needed items.</p>
               </ul>
             </div>
-
-            {/* Sublease */}
+            
             <div className="px-4">
               <h4 className="font-bold mb-4">Sublease</h4>
               <ul className="space-y-2">
@@ -1790,163 +1328,20 @@ const HelpPage = () => {
                 <li><a href="/help" className="hover:underline">Campus Map</a></li>
               </ul>
             </div>
-
-            {/* Move out sale */}
+            
             <div>
-              <h4 className="font-bold mb-4">Move Out Sale</h4>
+              <h4 className="font-bold mb-4">Move out sale</h4>
               <ul className="space-y-2">
                 <li><a href="/sale/browse" className="hover:underline">Browse Items</a></li>
                 <li><a href="#" className="hover:underline">Post Your Items</a></li>
-                <li><a href="#" className="hover:underline">See Favorites</a></li>
+                <li><a href="#" className="hover:underline">See favorites</a></li>
                 <li><a href="#" className="hover:underline">Blog</a></li>
               </ul>
             </div>
-            
-            {/* Get Started */}
-            <div>
-              <h3 className="font-bold mb-4">Get Started</h3>
-              <ul className="space-y-2 text-lg">
-                <li><a href="auth" className="hover:underline">Log in</a></li>
-                <li><a href="auth?mode=signup" className="hover:underline">Sign up</a></li>
-              </ul>
-            </div>
           </div>
-
-          {/* Copyright */}
-          <div className="mt-10 pt-10 border-t border-white/30 text-center text-sm text-orange-100">
-            © {new Date().getFullYear()} Subox. All rights reserved.
-          </div>
-        </div>
-        <div className="md:hidden max-w-7xl mx-auto px-4">
-          {/* Upper Grid: stacked on mobile, grid on desktop */}
-          <div className="flex flex-col gap-10 md:grid md:grid-cols-4 md:gap-8 mb-10">
-
-            {/* Subox Brand */}
-            <div>
-              <div className="flex items-center space-x-3 mt-3 px-2 md:px-5">
-                {/* Logo */}
-              <motion.div className="relative">
-                {/* House Icon */}
-                <motion.svg 
-                  className="w-12 h-12" 
-                  viewBox="0 0 100 100" 
-                  fill="none"
-                  whileHover={{ rotate: [0, -5, 5, 0] }}
-                  transition={{ duration: 0.5 }}
-                >
-                  {/* House Base */}
-                  <motion.path
-                    d="M20 45L50 20L80 45V75C80 78 77 80 75 80H25C22 80 20 78 20 75V45Z"
-                    fill="#E97451"
-                    animate={{ 
-                      fill: ["#E97451", "#F59E0B", "#E97451"],
-                      scale: [1, 1.02, 1]
-                    }}
-                    transition={{ duration: 3, repeat: Infinity }}
-                  />
-                  {/* House Roof */}
-                  <motion.path
-                    d="M15 50L50 20L85 50L50 15L15 50Z"
-                    fill="#D97706"
-                    animate={{ rotate: [0, 1, 0] }}
-                    transition={{ duration: 4, repeat: Infinity }}
-                  />
-                  {/* Window */}
-                  <motion.rect
-                    x="40"
-                    y="50"
-                    width="20"
-                    height="15"
-                    fill="white"
-                    animate={{ 
-                      opacity: [1, 0.8, 1],
-                      scale: [1, 1.1, 1]
-                    }}
-                    transition={{ duration: 2, repeat: Infinity }}
-                  />
-                  {/* Door */}
-                  <motion.rect
-                    x="45"
-                    y="65"
-                    width="10"
-                    height="15"
-                    fill="white"
-                    animate={{ scaleY: [1, 1.05, 1] }}
-                    transition={{ duration: 2.5, repeat: Infinity }}
-                  />
-                </motion.svg>
- 
-                {/* Tag Icon */}
-                <motion.svg 
-                  className="w-8 h-8 absolute -top-2 -right-2" 
-                  viewBox="0 0 60 60" 
-                  fill="none"
-                  whileHover={{ rotate: 360 }}
-                  transition={{ duration: 0.8 }}
-                >
-                  <motion.path
-                    d="M5 25L25 5H50V25L30 45L5 25Z"
-                    fill="#E97451"
-                    animate={{ 
-                      rotate: [0, 5, -5, 0],
-                      scale: [1, 1.1, 1]
-                    }}
-                    transition={{ duration: 3, repeat: Infinity }}
-                  />
-                  <motion.circle
-                    cx="38"
-                    cy="17"
-                    r="4"
-                    fill="white"
-                    animate={{ 
-                      scale: [1, 1.3, 1],
-                      opacity: [1, 0.7, 1]
-                    }}
-                    transition={{ duration: 1.5, repeat: Infinity }}
-                  />
-                </motion.svg>
-              </motion.div>
-
-                <div className="text-3xl font-bold">Subox</div>
-              </div>
-              <p className="text-white text-sm mt-4 px-2 md:px-3">
-                Find the perfect short-term housing solution near your campus and needed items.
-              </p>
-            </div>
-
-            {/* Sublease and Move out Sale*/}
-            <div className='flex justify-center gap-4'>
-              <div>              
-                <h4 className="font-bold text-lg md:text-xl mb-3 border-b border-white/30 pb-2">Sublease</h4>
-                <ul className="space-y-2 text-sm md:text-base">
-                  <li><a href="/sale/browse" className="hover:underline">Home</a></li>
-                  <li><a href="/search" className="hover:underline">Search</a></li>
-                  <li><a href="#" className="hover:underline">List Your Space</a></li>
-                  <li><a href="/help" className="hover:underline">Campus Map</a></li>
-                </ul>
-              </div>
-              <div>              
-                <h4 className="font-bold text-lg md:text-xl mb-3 border-b border-white/30 pb-2">Move Out Sale</h4>
-                <ul className="space-y-2 text-sm md:text-base">
-                  <li><a href="/sale/browse" className="hover:underline">Browse Items</a></li>
-                  <li><a href="#" className="hover:underline">Post Your Items</a></li>
-                  <li><a href="#" className="hover:underline">See Favorites</a></li>
-                  <li><a href="#" className="hover:underline">Blog</a></li>
-                </ul>
-              </div>
-              <div>
-                <h3 className="text-xl font-bold mb-3 border-b border-white/30 pb-2">Get Started</h3>
-                <ul className="space-y-2 text-sm md:text-lg">
-                  <li><a href="auth" className="hover:underline">Log in</a></li>
-                  <li><a href="auth?mode=signup" className="hover:underline">Sign up</a></li>
-                </ul>
-              </div>
-            </div>
-          </div>
-
-          {/* Copyright */}
-          <div className="mt-10 pt-6 border-t border-white/30 text-center text-xs md:text-sm text-orange-100">
-            © {new Date().getFullYear()} Subox. All rights reserved.
+          
+          <div className="mt-8 pt-8 border-t border-gray-700 text-white text-sm text-center">
+            <p>&copy; 2025 CampusSubleases. All rights reserved.</p>
           </div>
         </div>
       </footer>

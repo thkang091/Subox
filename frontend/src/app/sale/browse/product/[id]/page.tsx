@@ -1,18 +1,22 @@
 'use client'
 
 import { useEffect, useState } from 'react';
-import { onAuthStateChanged } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
 import { useParams } from 'next/navigation';
 import { motion, AnimatePresence } from "framer-motion";
-import { db, auth } from '@/lib/firebase';
-import { doc, getDoc, updateDoc, increment, collection, query, where, getDocs, limit, orderBy, addDoc, serverTimestamp } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+import { doc, getDoc, updateDoc, increment, collection, query, where, 
+  getDocs, limit, orderBy, addDoc, serverTimestamp } from 'firebase/firestore';
 import { useAuth } from '@/app/contexts/AuthInfo';
-import { MapPin, Heart, User, Package, Bell, X, ArrowLeft, ArrowRight,
-        ChevronLeft, Plus, Flag, MessageCircle
-} from 'lucide-react';
-import React from 'react';
-import Badges from '@/data/badge';
+import { MapPin, Heart, User, Package, Bell, X,
+        ChevronLeft, Plus, Flag, MessagesSquare, Menu,  ArrowLeft, ArrowRight,Video, 
+        MessageCircle, AlertCircle, Info, DollarSign, BedDouble, Calendar, Users, 
+        Expand, Eye, EyeOff, Navigation, Check, Volume2,CalendarCheck,Zap,Cigarette, BookOpen
+      } from 'lucide-react';
+
+    import DeliveryZoneMap from '@/components/DeliveryZoneMap';
+
+
 
 // Interfaces
 interface PageParams {
@@ -36,6 +40,18 @@ interface ProductData {
   location: string;
   deliveryAvailable?: boolean;
   pickupAvailable?: boolean;
+  // Add these new fields
+  deliveryZone?: {
+    center: { lat: number; lng: number };
+    radius: number;
+    type: 'delivery';
+  };
+  pickupLocations?: Array<{
+    lat: number;
+    lng: number;
+    address: string;
+    placeName?: string;
+  }>;
   image?: string;
   images?: string[];
   additionalImages?: string[];
@@ -51,6 +67,7 @@ interface ProductData {
   availableUntil?: string;
   similarity?: number;
 }
+
 
 interface SellerInfo {
   ID: string;
@@ -97,6 +114,12 @@ const ProductDetailPage = () => {
   const [similarProducts, setSimilarProducts] = useState<ProductData[]>([]);
   const [loadingRecommendations, setLoadingRecommendations] = useState(false);
   const [creatingConversation, setCreatingConversation] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [showMenu, setShowMenu] = useState(false);
+  const [locationCheckResult, setLocationCheckResult] = useState<{
+  inZone: boolean;
+  distance?: number;
+} | null>(null);
   const [seller, setSeller] = useState<SellerInfo>({
     ID: "none",
     name: "seller",
@@ -104,6 +127,29 @@ const ProductDetailPage = () => {
     photoURL: null
   });
 
+
+const getDeliveryMode = (product: ProductData): 'delivery' | 'pickup' | 'both' => {
+  console.log('getDeliveryMode called with:', {
+    deliveryAvailable: product.deliveryAvailable,
+    hasDeliveryZone: !!product.deliveryZone,
+    pickupAvailable: product.pickupAvailable,
+    hasPickupLocations: !!product.pickupLocations?.length,
+    product // Log the entire product to see what's there
+  });
+  
+  const hasDelivery = product.deliveryAvailable && product.deliveryZone;
+  const hasPickup = product.pickupAvailable && product.pickupLocations?.length;
+  
+  if (hasDelivery && hasPickup) return 'both';
+  if (hasDelivery) return 'delivery';
+  if (hasPickup) return 'pickup';
+  
+  // Fallback: if deliveryAvailable is true but no deliveryZone, still show delivery mode
+  if (product.deliveryAvailable) return 'delivery';
+  return 'pickup';
+};
+
+// Ad
   const notifications = [
     { id: 1, type: "price-drop", message: "MacBook Pro price dropped by $50!", time: "2h ago" },
     { id: 2, type: "new-item", message: "New furniture items in Dinkytown", time: "4h ago" },
@@ -161,7 +207,7 @@ const ProductDetailPage = () => {
       setFavoriteListings([favoriteItem, ...favoriteListings]);
     }
     
-    setIsSidebarOpen(true);
+    // setIsSidebarOpen(true);
   };
 
   // Enhanced messaging function
@@ -245,22 +291,6 @@ const ProductDetailPage = () => {
     }
   };
 
-  const [userId, setUserId] = useState(null);
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      if (user) {
-        setUserId(user.uid);
-        setIsLoggedIn(true);
-      } else {
-        setUserId(null);
-      }
-    });
-
-    return () => unsubscribe();
-  }, []);
-
   // Fetch other items by the same seller
   const fetchOtherSellerItems = async (hostId: string, currentProductId: string) => {
     try {
@@ -291,21 +321,6 @@ const ProductDetailPage = () => {
       console.error('Error fetching other seller items:', error);
     }
   };
-
-  // Badge function
-  const [badgeList, setBadgeList] = useState([]);
-  
-  useEffect(() => {
-    const list = [];
-
-    if (isLoggedIn) {
-      list.push(Badges.schoolBadge());
-    }
-    else {
-      list.push(Badges.alumniBadge());
-    }
-    setBadgeList(list);
-  }, []);
 
   // Enhanced algorithm for finding similar products
   const fetchSimilarProducts = async (currentProduct: ProductData) => {
@@ -492,11 +507,17 @@ const ProductDetailPage = () => {
   const isCurrentListingFavorited = favoriteListings.some(item => item.id === product?.id);
   
   // All images array
-  const allImages = product ? [
+  // const allImages = product ? [
+  //   product.image,
+  //   ...(product.additionalImages || []),
+  //   ...(product.images || [])
+  // ].filter(Boolean) : [];
+
+  const allImages = product ? [...new Set([
     product.image,
     ...(product.additionalImages || []),
     ...(product.images || [])
-  ].filter(Boolean) : [];
+  ])].filter(Boolean) : [];
 
   // Image navigation
   const goToPrevImage = () => {
@@ -647,217 +668,35 @@ const ProductDetailPage = () => {
       </div>
     );
   }
-  return (
+ return (
     <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-gray-50">
       {/* Header */}
       <div className="bg-white border-b border-gray-200 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             {/* Logo */}
-            <motion.div 
-                className="flex items-center space-x-6 relative mt-1"
-                whileHover={{ scale: 1.05 }}
-                onClick={() => {isLoggedIn ? (router.push("/find")) : router.push("/")}}
-            >
-            {/* Main Subox Logo */}
-            <motion.div className="relative">
-            {/* House Icon */}
-            <motion.svg 
-                className="w-12 h-12" 
-                viewBox="0 0 100 100" 
-                fill="none"
-                whileHover={{ rotate: [0, -5, 5, 0] }}
-                transition={{ duration: 0.5 }}
-            >
-                {/* House Base */}
-                <motion.path
-                d="M20 45L50 20L80 45V75C80 78 77 80 75 80H25C22 80 20 78 20 75V45Z"
-                fill="#E97451"
-                animate={{ 
-                    fill: ["#E97451", "#F59E0B", "#E97451"],
-                    scale: [1, 1.02, 1]
-                }}
-                transition={{ duration: 3, repeat: Infinity }}
-                />
-                {/* House Roof */}
-                <motion.path
-                d="M15 50L50 20L85 50L50 15L15 50Z"
-                fill="#D97706"
-                animate={{ rotate: [0, 1, 0] }}
-                transition={{ duration: 4, repeat: Infinity }}
-                />
-                {/* Window */}
-                <motion.rect
-                x="40"
-                y="50"
-                width="20"
-                height="15"
-                fill="white"
-                animate={{ 
-                    opacity: [1, 0.8, 1],
-                    scale: [1, 1.1, 1]
-                }}
-                transition={{ duration: 2, repeat: Infinity }}
-                />
-                {/* Door */}
-                <motion.rect
-                x="45"
-                y="65"
-                width="10"
-                height="15"
-                fill="white"
-                animate={{ scaleY: [1, 1.05, 1] }}
-                transition={{ duration: 2.5, repeat: Infinity }}
-                />
-            </motion.svg>
-
-            {/* Tag Icon */}
-            <motion.svg 
-                className="w-8 h-8 absolute -top-2 -right-2" 
-                viewBox="0 0 60 60" 
-                fill="none"
-                whileHover={{ rotate: 360 }}
-                transition={{ duration: 0.8 }}
-            >
-                <motion.path
-                d="M5 25L25 5H50V25L30 45L5 25Z"
-                fill="#E97451"
-                animate={{ 
-                    rotate: [0, 5, -5, 0],
-                    scale: [1, 1.1, 1]
-                }}
-                transition={{ duration: 3, repeat: Infinity }}
-                />
-                <motion.circle
-                cx="38"
-                cy="17"
-                r="4"
-                fill="white"
-                animate={{ 
-                    scale: [1, 1.3, 1],
-                    opacity: [1, 0.7, 1]
-                }}
-                transition={{ duration: 1.5, repeat: Infinity }}
-                />
-            </motion.svg>
-            </motion.div>
-
-            {/* Subox Text */}
-            <motion.div className="flex flex-col -mx-4">
-            <motion.span 
-                className="text-3xl font-bold text-gray-900"
-                animate={{
-                background: [
-                    "linear-gradient(45deg, #1F2937, #374151)",
-                    "linear-gradient(45deg, #E97451, #F59E0B)",
-                    "linear-gradient(45deg, #1F2937, #374151)"
-                ],
-                backgroundClip: "text",
-                WebkitBackgroundClip: "text",
-                color: "transparent"
-                }}
-                transition={{ duration: 4, repeat: Infinity }}
-            >
-                Subox
-            </motion.span>
-            <motion.span 
-                className="text-xs text-gray-500 font-medium tracking-wider"
-                animate={{ opacity: [0.7, 1, 0.7] }}
-                transition={{ duration: 2, repeat: Infinity }}
-            >
-                SUBLEASE
-                {badgeList.map((badge, i) => (
-                  <span key={i} className="inline-flex items-center translate-y-1">
-                    {React.cloneElement(badge as React.ReactElement, {
-                      className: "w-4 h-4 ml-1"
-                    })}
-                  </span>
-                ))}
-            </motion.span>
-            </motion.div>
-            </motion.div>
-
+            <div className="flex items-center space-x-3">
+              <div className="w-8 h-8 bg-gradient-to-br from-orange-500 to-red-600 rounded-lg flex items-center justify-center">
+                <Package className="w-5 h-5 text-white" />
+              </div>
+              <span className="text-2xl font-bold text-gray-900">Subox</span>
+              <span className="text-sm text-gray-500 hidden sm:block">Move Out Sales</span>
+            </div>
+ 
             {/* Header Actions */}
             <div className="flex items-center space-x-4">
               {/* Notifications */}
               <NotificationsButton notifications={notifications} />
  
-              {/* Favorites */}
-              <div className="relative">
-                <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={() => setIsSidebarOpen(!isSidebarOpen)} 
-                  className="p-2 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors relative"
-                >
-                  <Heart size={20} className="w-5 h-5 text-gray-600"/>
-                </motion.button>
- 
-                {/* Favorites Sidebar */}
-                <div className={`fixed left-0 top-16 h-[calc(100vh-4rem)] w-72 bg-white shadow-xl z-40 transform transition-transform duration-300 ease-in-out ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} overflow-auto`}>                
-                  <div className="p-4 border-b">
-                    <div className="flex justify-between items-center">
-                      <h2 className="font-bold text-lg text-orange-500">Favorites</h2>
-                      <button 
-                        onClick={() => setIsSidebarOpen(false)}
-                        className="p-2 rounded-full hover:bg-gray-100"
-                      >
-                        <X size={20} />
-                      </button>
-                    </div>
-                  </div>
-                  
-                  <div className="p-4">
-                    {isMounted && (
-                      <>
-                        {favoriteListings.length === 0 ? (
-                          <div className="text-center py-8 text-gray-500">
-                            <Heart size={40} className="mx-auto mb-2 opacity-50" />
-                            <p>No favorite listings yet</p>
-                            <p className="text-sm mt-2">Click the heart icon on listings to save them here</p>
-                          </div>
-                        ) : (
-                          <div className="space-y-4">
-                            {favoriteListings.map(favProduct => (
-                              <div 
-                                key={favProduct.id} 
-                                className="border rounded-lg overflow-hidden hover:shadow-md transition cursor-pointer"
-                                onClick={() => {
-                                  setIsSidebarOpen(false);
-                                  router.push(`/sale/browse/product/${favProduct.id}`);
-                                }}
-                              >
-                                <div className="flex">
-                                  <div 
-                                    className="w-20 h-20 bg-gray-200 flex-shrink-0" 
-                                    style={{backgroundImage: `url(${favProduct.image})`, backgroundSize: 'cover', backgroundPosition: 'center'}}
-                                  ></div>
-                                  <div className="p-3 flex-1">
-                                    <div className="font-medium text-gray-700">{favProduct.name}</div>
-                                    <div className="text-sm text-gray-500">{favProduct.location}</div>
-                                    <div className="text-sm font-bold text-[#15361F] mt-1">
-                                      ${favProduct.price}
-                                    </div>
-                                  </div>
-                                  <button 
-                                    className="p-2 text-gray-400 hover:text-red-500 self-start"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setFavoriteListings(favoriteListings.filter(item => item.id !== favProduct.id));
-                                    }}
-                                  >
-                                    <X size={16} />
-                                  </button>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </>
-                    )}
-                  </div>
-                </div>
-              </div>
+              {/* messages */}
+              <motion.button 
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => window.location.href = '/sublease/search/list'}
+                className="p-2 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+              >
+                <MessagesSquare size={20} className = "w-5 h-5 text-gray-600"/>
+              </motion.button>              
  
               {/* Profile */}
               <div className="relative">
@@ -884,6 +723,136 @@ const ProductDetailPage = () => {
                         <button onClick={() => handleTabClick("reviews")} className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors">Reviews</button>
                         <hr className="my-2" />
                         <button onClick={() => handleTabClick("history")} className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors">History</button>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+
+              {/* menu */}
+              <div className="relative">
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => setShowMenu(!showMenu)}
+                  className="p-2 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                >
+                  <Menu className="w-5 h-5 text-gray-600" />
+                </motion.button>
+
+                <AnimatePresence>
+                  {showMenu && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -10 }}
+                      className="absolute right-0 mt-2 w-64 bg-white rounded-lg shadow-lg border border-gray-200 z-50"
+                    >
+                      <div className="p-4 space-y-2">
+                        <p className="text-medium font-semibold max-w-2xl mb-4 text-orange-700">
+                        Move Out Sale
+                        </p>
+                        <button 
+                          onClick={() => {
+                            router.push('/sale/browse');
+                            setShowMenu(false);
+                          }} 
+                          className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors"
+                        >
+                          Browse Items
+                        </button>                        
+                        <button 
+                          onClick={() => {
+                            router.push('/sale/create/options/nonai');
+                            setShowMenu(false);
+                          }} 
+                          className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors"
+                        >
+                          Sell Items
+                        </button> 
+                        <button 
+                          onClick={() => {
+                            router.push('/sale/browse');
+                            setShowMenu(false);
+                          }} 
+                          className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors"
+                        >
+                          My Items
+                        </button>   
+                        
+                        <p className="text-medium font-semibold max-w-2xl mb-4 text-orange-700">
+                          Sublease
+                        </p>
+                        <button 
+                          onClick={() => {
+                            router.push('/sublease/search');
+                            setShowMenu(false);
+                          }} 
+                          className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors"
+                        >
+                          Find Sublease
+                        </button>   
+                        <button 
+                          onClick={() => {
+                            router.push('/sublease/write/options/chat');
+                            setShowMenu(false);
+                          }} 
+                          className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors"
+                        >
+                          Post Sublease
+                        </button>   
+                        <button 
+                          onClick={() => {
+                            router.push('../search');
+                            setShowMenu(false);
+                          }} 
+                          className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors"
+                        >
+                          My Sublease Listing
+                        </button>
+                        <hr className="my-2" />
+                        <button                              
+                          onClick={() => {                               
+                            router.push('/favorite');                               
+                            setShowMenu(false);                             
+                          }}                              
+                          className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors flex items-center gap-2"
+                          >                             
+                          <Heart className="w-4 h-4 text-gray-600" />                             
+                          Favorites                           
+                        </button>
+                        <button 
+                          onClick={() => {
+                            router.push('/sublease/search/list');
+                            setShowMenu(false);
+                          }} 
+                          className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors flex items-center gap-2"
+                        >
+                          <MessagesSquare className="w-4 h-4 text-gray-600" />                             
+                          Messages
+                        </button>   
+                        <button 
+                          onClick={() => {
+                            router.push('../help');
+                            setShowMenu(false);
+                          }} 
+                          className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors"
+                        >
+                          Help & Support
+                        </button>
+
+                        {/* need change (when user didn't log in -> show log in button) */}
+                        <hr className="my-2" />
+                          {/* log in/ out */}
+                          {isLoggedIn ? (
+                            <button className="w-full text-left px-3 py-2 rounded-md text-sm text-red-600 hover:bg-red-50 hover:text-red-700 transition-colors">
+                              Logout
+                            </button>
+                          ) : (
+                            <button className="w-full text-left px-3 py-2 rounded-md text-sm text-blue-600 hover:bg-blue-50 hover:text-blue-700 transition-colors">
+                              Login
+                            </button>
+                          )}
                       </div>
                     </motion.div>
                   )}
@@ -1023,7 +992,7 @@ const ProductDetailPage = () => {
                       onClick={() => setShowAllImages(true)}
                     >
                       <Plus className="text-gray-500" />
-                      <span className="text-xs text-gray-500 ml-1">+{allImages.length - 3}</span>
+                      <span className="text-xs text-gray-500 ml-1">{allImages.length - 3}</span>
                     </div>
                   )}
                 </div>
@@ -1069,12 +1038,12 @@ const ProductDetailPage = () => {
  
             <div className="flex items-center space-x-4 mb-4">
               <div className="text-xl font-bold text-green-600">${product.price}</div>
-              {product.originalPrice && product.originalPrice !== product.price && (
+              {/* {product.originalPrice && product.originalPrice !== product.price && (
                 <div className="text-sm text-gray-500 line-through">${product.originalPrice}</div>
-              )}
+              )} */}
               <div className="flex items-center space-x-1 text-gray-500">
                 <MapPin className="w-4 h-4" />
-                <span className="capitalize">{product.location?.replace("-", " ")}</span>
+                <span className="capitalize">{product.location?.replace(/-/g, " ").toUpperCase()}</span>
               </div>
             </div>
  
@@ -1137,83 +1106,145 @@ const ProductDetailPage = () => {
               )}
             </div>
           </div>
-        
-          {/* Details Section */}
-          <div className="bg-white rounded-lg shadow p-6">
-            <h3 className="font-semibold text-gray-600 mb-4">Details</h3>
-            <div className="space-y-3">
-              <p className="text-gray-600">{product.description}</p>
-              
-              {/* Additional Product Details */}
-              <div className="grid grid-cols-2 gap-4 mt-4 pt-4 border-t border-gray-200">
-                <div>
-                  <span className="font-medium text-gray-700">Condition:</span>
-                  <span className="ml-2 text-gray-600">{product.condition || 'Not specified'}</span>
+ 
+          {/* Key Information */}
+          <div className="bg-white rounded-lg border border-gray-200 mb-6">
+            {/* Header */}
+            <div className="p-6 border-b border-gray-100">
+              <h2 className="text-lg font-semibold text-gray-900">Key Information</h2>
+            </div>
+
+            <div className="p-6">
+              {/* Main Information */}
+              <div className="space-y-4 mb-6">
+                <div className="flex items-center gap-3">
+                  <MapPin size={18} className="text-orange-500" />
+                  <span className="text-gray-700">Location: {product.location?.replace(/-/g, " ").toUpperCase()}</span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <DollarSign size={18} className="text-orange-500" />
+                  <span className="text-gray-700">${product.price}</span>
+                  {product.priceType && (
+                    <span className={`text-sm px-2 py-1 rounded-full ${
+                      product.priceType === 'fixed' 
+                        ? 'bg-red-100 text-red-700' 
+                        : 'bg-green-100 text-green-700'
+                    }`}>
+                      {product.priceType === 'fixed' ? 'Fixed Price' : 'Negotiable'}
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-3">
+                  <Calendar size={18} className="text-orange-500" />
+                  <span className="text-gray-700">Available Until: {product.availableUntil || 'Not specified'}</span>
                 </div>
                 
-                {product.category && (
-                  <div>
-                    <span className="font-medium text-gray-700">Category:</span>
-                    <span className="ml-2 text-gray-600">{product.category}</span>
-                  </div>
-                )}
-                
-                {product.views !== undefined && (
-                  <div>
-                    <span className="font-medium text-gray-700">Views:</span>
-                    <span className="ml-2 text-gray-600">{product.views}</span>
-                  </div>
-                )}
-                
-                {product.availableUntil && (
-                  <div>
-                    <span className="font-medium text-gray-700">Available Until:</span>
-                    <span className="ml-2 text-gray-600">{product.availableUntil}</span>
-                  </div>
-                )}
-                
-                <div>
-                  <span className="font-medium text-gray-700">Delivery:</span>
-                  <span className="ml-2 text-gray-600">
-                    {product.deliveryAvailable ? 'Available' : 'Not Available'}
-                  </span>
+                <div className="flex items-center gap-3">
+                  <Package size={18} className="text-orange-500" />
+                  <span className="text-gray-700">{product.category}</span>
                 </div>
-                
-                <div>
-                  <span className="font-medium text-gray-700">Pickup:</span>
-                  <span className="ml-2 text-gray-600">
-                    {product.pickupAvailable ? 'Available' : 'Not Available'}
-                  </span>
-                </div>
-                
-                {product.priceType && (
-                  <div>
-                    <span className="font-medium text-gray-700">Price Type:</span>
-                    <span className="ml-2 text-gray-600 capitalize">{product.priceType}</span>
+              </div>
+
+              {/* Delivery and Pickup Options */}
+              <div className="pt-6 border-t border-gray-100">
+                <div className="space-y-3">
+                  <div className="flex items-center gap-3">
+                    {product.deliveryAvailable ? 
+                      <Check size={16} className="text-green-500" /> : 
+                      <X size={16} className="text-red-500" />
+                    }
+                    <span className="text-sm text-gray-700">
+                      {product.deliveryAvailable ? "Delivery Available" : "No Delivery"}
+                    </span>
+                    {product.deliveryAvailable && product.deliveryZone && (
+                      <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full">
+                        {Math.round(product.deliveryZone.radius / 1000 * 100) / 100}km radius
+                      </span>
+                    )}
                   </div>
-                )}
+
+                  <div className="flex items-center gap-3">
+                    {product.pickupAvailable ? 
+                      <Check size={16} className="text-green-500" /> : 
+                      <X size={16} className="text-red-500" />
+                    }
+                    <span className="text-sm text-gray-700">
+                      {product.pickupAvailable ? "Pickup Available" : "No Pickup"}
+                    </span>
+                    {product.pickupAvailable && product.pickupLocations && (
+                      <span className="text-xs bg-orange-100 text-orange-700 px-2 py-1 rounded-full">
+                        {product.pickupLocations.length} location{product.pickupLocations.length !== 1 ? 's' : ''}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Delivery/Pickup Zone Map */}
+          {(product.deliveryAvailable || product.pickupAvailable) && (
+            <div className="bg-white rounded-lg border border-gray-200 mb-6">
+              {/* Header */}
+              <div className="p-6 border-b border-gray-100">
+                <h2 className="text-lg font-semibold text-gray-900 flex items-center">
+                  <MapPin size={20} className="mr-2 text-orange-500" />
+                  {getDeliveryMode(product) === 'both' ? 'Delivery & Pickup Options' :
+                   getDeliveryMode(product) === 'delivery' ? 'Delivery Zone' : 'Pickup Locations'}
+                </h2>
+                <p className="text-sm text-gray-600 mt-1">
+                  {getDeliveryMode(product) === 'both' ? 'Check delivery availability or view pickup locations' :
+                   getDeliveryMode(product) === 'delivery' ? 'Check if delivery is available to your address' : 
+                   'View available pickup locations'}
+                </p>
+              </div>
+
+              <div className="p-6">
+                <DeliveryZoneMap
+                  deliveryZone={product.deliveryZone}
+                  pickupLocations={product.pickupLocations || []}
+                  mode={getDeliveryMode(product)}
+                  onLocationCheck={(inZone, distance) => {
+                    setLocationCheckResult({ inZone, distance });
+                  }}
+                />
                 
-                {product.priceType === 'negotiable' && product.minPrice && product.maxPrice && (
-                  <div>
-                    <span className="font-medium text-gray-700">Price Range:</span>
-                    <span className="ml-2 text-gray-600">${product.minPrice} - ${product.maxPrice}</span>
+                {/* Location Check Result Display */}
+                {locationCheckResult && getDeliveryMode(product) === 'delivery' && (
+                  <div className={`mt-4 p-4 rounded-lg border ${
+                    locationCheckResult.inZone
+                      ? 'bg-green-50 border-green-200'
+                      : 'bg-red-50 border-red-200'
+                  }`}>
+                    <div className={`flex items-center space-x-2 ${
+                      locationCheckResult.inZone ? 'text-green-700' : 'text-red-700'
+                    }`}>
+                      {locationCheckResult.inZone ? 
+                        <Check size={16} /> : 
+                        <X size={16} />
+                      }
+                      <span className="font-medium">
+                        {locationCheckResult.inZone 
+                          ? `Delivery available! (${locationCheckResult.distance}km from center)`
+                          : `Outside delivery zone (${locationCheckResult.distance}km from center)`
+                        }
+                      </span>
+                    </div>
                   </div>
                 )}
               </div>
-              
-              {/* Listing Timestamp */}
-              {product.createdAt && (
-                <div className="pt-4 border-t border-gray-200">
-                  <span className="font-medium text-gray-700">Listed:</span>
-                  <span className="ml-2 text-gray-600">
-                    {product.createdAt instanceof Date 
-                      ? product.createdAt.toLocaleDateString() + ' at ' + product.createdAt.toLocaleTimeString()
-                      : new Date(product.createdAt).toLocaleDateString() + ' at ' + new Date(product.createdAt).toLocaleTimeString()
-                    }
-                  </span>
-                </div>
-              )}
             </div>
+          )}
+                
+          {/* Details Section */}
+          <div className="bg-white rounded-lg shadow p-6">
+              <div className="flex items-center gap-2 mb-3">
+                <Info size={20} className="text-orange-600" />
+                <h3 className="text-lg font-semibold text-gray-900">Details</h3>
+              </div>
+              <div className="space-y-3">
+                <p className="text-gray-600">{product.description}</p>
+              </div>
           </div>
         </div>
  
@@ -1245,7 +1276,7 @@ const ProductDetailPage = () => {
                       <p className="text-gray-500 text-xs capitalize">{item.location?.replace("-", " ")}</p>
                       {item.condition && (
                         <p className="text-gray-400 text-xs mt-1">{item.condition}</p>
-                      )}
+                        )}
                     </div>
                   </div>
                 ))}
@@ -1286,7 +1317,7 @@ const ProductDetailPage = () => {
                     <div className="p-3">
                       <h4 className="font-medium text-sm truncate text-gray-700">{item.name}</h4>
                       <p className="text-orange-600 font-bold text-sm">${item.price}</p>
-                      <p className="text-gray-500 text-xs capitalize">{item.location?.replace("-", " ")}</p>
+                      <p className="text-gray-500 text-xs capitalize">{item.location?.replace(/-/g, " ").toUpperCase()}</p>
                       
                       {/* Show Why It's Similar */}
                       <div className="mt-2 flex flex-wrap gap-1">
@@ -1332,7 +1363,6 @@ const ProductDetailPage = () => {
             </div>
           </div>
         )}
- 
       </div>
     </div>
   );

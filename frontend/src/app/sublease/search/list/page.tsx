@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { 
   MessageCircle, Search, User, ChevronLeft, Clock, 
   Star, MapPin, Calendar, Bell, Filter, X, Home,
-  Heart, Plus, Package, Menu, MessagesSquare
+  Heart, Plus, Package, Menu, MessagesSquare, ArrowLeft
 } from 'lucide-react';
 import { 
   collection, query, where, orderBy, onSnapshot, 
@@ -13,20 +13,41 @@ import {
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/app/contexts/AuthInfo';
-import { motion, AnimatePresence } from "framer-motion";
 
 const ConversationListPage = () => {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   
   const [conversations, setConversations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterType, setFilterType] = useState('all'); // 'all', 'unread', 'hosting', 'guest'
-  const [showFilters, setShowFilters] = useState(false);
-  const [activeTab, setActiveTab] = useState('sublease'); // 'sublease' or 'moveout'
+  const [filterType, setFilterType] = useState('all');
+  const [activeTab, setActiveTab] = useState('sublease');
   const [showProfile, setShowProfile] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
+  const [notifications, setNotifications] = useState([]);
+  const [showNotifications, setShowNotifications] = useState(false);
+
+  // Handle profile dropdown navigation
+  const handleTabClick = (tab) => {
+    const routes = {
+      purchased: '/profile/purchased',
+      returned: '/profile/returned',
+      cancelled: '/profile/cancelled',
+      sold: '/profile/sold',
+      sublease: '/sublease/search',
+      reviews: '/profile/reviews',
+      history: '/profile/history'
+    };
+    
+    if (routes[tab]) {
+      router.push(routes[tab]);
+    }
+    setShowProfile(false);
+  };
+
+  // Load notifications
+
 
   // Real-time conversation listener
   useEffect(() => {
@@ -35,9 +56,6 @@ const ConversationListPage = () => {
       return;
     }
 
-    console.log('Setting up conversation listener for user:', user.uid);
-
-    // Query conversations where user is a participant
     const conversationsQuery = query(
       collection(db, 'conversations'),
       where('participants', 'array-contains', user.uid),
@@ -50,7 +68,6 @@ const ConversationListPage = () => {
         const conversationPromises = snapshot.docs.map(async (docSnap) => {
           const data = docSnap.data();
           
-          // Determine if user is host or guest for this conversation
           const isUserHost = data.hostId === user.uid;
           const otherParticipant = isUserHost ? {
             id: data.guestId,
@@ -64,7 +81,7 @@ const ConversationListPage = () => {
             image: data.hostImage || '/api/placeholder/40/40'
           };
 
-          // Get the latest message from the messages subcollection
+          // Get the latest message
           let latestMessage = null;
           try {
             const messagesQuery = query(
@@ -92,19 +109,15 @@ const ConversationListPage = () => {
             isUserHost,
             otherParticipant,
             latestMessage,
-            // Convert Firestore timestamps
             createdAt: data.createdAt?.toDate() || new Date(),
             updatedAt: data.updatedAt?.toDate() || new Date(),
             lastMessageTime: data.lastMessageTime?.toDate() || new Date(),
-            // Calculate unread count for current user
             unreadCount: isUserHost ? (data.hostUnreadCount || 0) : (data.guestUnreadCount || 0),
-            // Determine conversation type based on listing type or collection
             conversationType: data.conversationType || (data.listingType === 'moveout' ? 'moveout' : 'sublease')
           };
         });
 
         const conversationData = await Promise.all(conversationPromises);
-        console.log('Loaded conversations:', conversationData);
         setConversations(conversationData);
         setLoading(false);
       },
@@ -117,20 +130,17 @@ const ConversationListPage = () => {
     return () => unsubscribe();
   }, [user?.uid]);
 
-  // Filter conversations based on tab, search and filter type
+  // Filter conversations
   const filteredConversations = conversations.filter(conversation => {
-    // Tab filter - separate sublease and moveout conversations
     const matchesTab = activeTab === 'sublease' 
       ? conversation.conversationType !== 'moveout'
       : conversation.conversationType === 'moveout';
 
-    // Search filter
     const matchesSearch = !searchTerm || 
       conversation.listingTitle?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       conversation.otherParticipant.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       conversation.listingLocation?.toLowerCase().includes(searchTerm.toLowerCase());
 
-    // Type filter
     let matchesType = true;
     switch (filterType) {
       case 'unread':
@@ -149,14 +159,15 @@ const ConversationListPage = () => {
     return matchesTab && matchesSearch && matchesType;
   });
 
-  // Get counts for each tab
+  // Get counts for tabs
   const subleaseConversations = conversations.filter(conv => conv.conversationType !== 'moveout');
   const moveoutConversations = conversations.filter(conv => conv.conversationType === 'moveout');
   const subleaseUnreadCount = subleaseConversations.reduce((total, conv) => total + conv.unreadCount, 0);
   const moveoutUnreadCount = moveoutConversations.reduce((total, conv) => total + conv.unreadCount, 0);
+  const totalUnreadCount = conversations.reduce((total, conv) => total + conv.unreadCount, 0);
 
   // Navigate to conversation
-  const openConversation = async (conversationId) => {
+  const openConversation = (conversationId) => {
     router.push(`/sublease/search/${conversationId}/message`);
   };
 
@@ -186,87 +197,29 @@ const ConversationListPage = () => {
     }
   };
 
-   // Notification data
-    const notifications: Notification[] = [
-      { id: 1, type: "price-drop", message: "MacBook Pro price dropped by $50!", time: "2h ago" },
-      { id: 2, type: "new-item", message: "New furniture items in Dinkytown", time: "4h ago" },
-      { id: 3, type: "favorite", message: "Your favorited item is ending soon", time: "1d ago" }
-    ];
-  
-  // Notifications dropdown component
-  const NotificationsButton = ({ notifications }: { notifications: Notification[] }) => {
-    const [showNotifications, setShowNotifications] = useState(false);
-    const router = useRouter();
-  
+  // Loading state
+  if (authLoading) {
     return (
-      <div className="relative">
-        <motion.button
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-          onClick={() => setShowNotifications(!showNotifications)}
-          className="p-2 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors relative"
-        >
-          <Bell className="w-5 h-5 text-gray-600" />
-          {notifications.length > 0 && (
-            <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center">
-              {notifications.length}
-            </span>
-          )}
-        </motion.button>
-  
-        <AnimatePresence>
-          {showNotifications && (
-            <motion.div
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              className="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-lg border border-gray-200 z-50"
-            >
-              <div className="p-4">
-                <h3 className="font-semibold text-gray-900 mb-3">Notifications</h3>
-                <div className="space-y-3 max-h-64 overflow-y-auto">
-                  {notifications.map(notif => (
-                    <button
-                      key={notif.id}
-                      onClick={() => router.push(`browse/notificationDetail/${notif.id}`)}
-                      className="w-full flex items-start space-x-3 p-2 rounded-lg hover:bg-gray-50 text-left"
-                    >
-                      <div className="w-2 h-2 bg-orange-500 rounded-full mt-2"></div>
-                      <div className="flex-1">
-                        <p className="text-sm text-gray-900">{notif.message}</p>
-                        <p className="text-xs text-gray-500">{notif.time}</p>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-  
-                <button
-                  onClick={() => router.push(`browse/notification/`)}
-                  className="mt-3 text-sm text-blue-600 hover:underline"
-                >
-                  See all notifications
-                </button>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading...</p>
+        </div>
       </div>
     );
-  };
+  }
 
-  // Get total unread count
-  const totalUnreadCount = conversations.reduce((total, conv) => total + conv.unreadCount, 0);
-
+  // Not authenticated
   if (!user) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center ">
+        <div className="text-center max-w-md mx-auto p-6">
           <MessageCircle className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-          <h2 className="text-xl font-semibold text-gray-600 mb-2">Sign In Required</h2>
-          <p className="text-gray-500 mb-4">Please sign in to view your messages</p>
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">Sign In Required</h2>
+          <p className="text-gray-600 mb-6">Please sign in to view your messages</p>
           <button 
             onClick={() => router.push('/auth/')}
-            className="px-6 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition"
+            className="px-6 py-3 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors font-medium"
           >
             Sign In
           </button>
@@ -278,247 +231,212 @@ const ConversationListPage = () => {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-              <div className="bg-white border-b border-gray-200 sticky top-0 z-50 ">
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                  <div className="flex items-center justify-between h-16">
-                    {/* Logo */}
-                    <ul className="space-y-2 ">
-                    <div className="flex items-center space-x-3">
-                      <div className="w-8 h-8 bg-gradient-to-br from-orange-500 to-red-600 rounded-lg flex items-center justify-center">
-                        <Package className="w-5 h-5 text-white" />
-                      </div>
-                      <li><a href="/sale/browse" className="text-2xl font-bold text-gray-900">Subox</a></li>
-                      <span className="text-sm text-gray-500 hidden sm:block">Move Out Sales</span> 
-                    </div>
-                    </ul>
-        
-        
-                    {/* Header Actions */}
-                    <div className="flex items-center space-x-4">
-                      
-
-                      {/* Notifications */}
-                      <NotificationsButton notifications={notifications} />
-        
-                      {/* Favorites */}
-                      <motion.button 
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
-                        onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-                        className="p-2 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
-                      >
-                        <MessagesSquare size={20} className = "w-5 h-5 text-gray-600"/>
-                      </motion.button>
-                    
-        
-                      {/* Profile */}
-                      <div className="relative">
-                        <motion.button
-                          whileHover={{ scale: 1.05 }}
-                          whileTap={{ scale: 0.95 }}
-                          onClick={() => setShowProfile(!showProfile)}
-                          className="p-2 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
-                        >
-                          <User className="w-5 h-5 text-gray-600" />
-                        </motion.button>
-        
-                        <AnimatePresence>
-                          {showProfile && (
-                            <motion.div
-                              initial={{ opacity: 0, y: -10 }}
-                              animate={{ opacity: 1, y: 0 }}
-                              exit={{ opacity: 0, y: -10 }}
-                              className="absolute right-0 mt-2 w-64 bg-white rounded-lg shadow-lg border border-gray-200 z-50"
-                            >
-                              <div className="p-4 space-y-2">
-                                <button onClick={() => handleTabClick("purchased")} className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors">What I Purchased</button>
-                                <button onClick={() => handleTabClick("returned")} className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors">What I Returned</button>
-                                <button onClick={() => handleTabClick("cancelled")} className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors">What I Cancelled</button>
-                                <button onClick={() => handleTabClick("sold")} className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors">What I Sold</button>
-                                <button onClick={() => handleTabClick("sublease")} className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors">Sublease</button>
-                                <button onClick={() => handleTabClick("reviews")} className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors">Reviews</button>
-                                <hr className="my-2" />
-                                <button onClick={() => handleTabClick("history")} className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors">History</button>
-                              </div>
-                            </motion.div>
-                          )}
-                        </AnimatePresence>
-                      </div>
-        
-                      {/* menu */}
-                      <div className="relative">
-                        <motion.button
-                          whileHover={{ scale: 1.05 }}
-                          whileTap={{ scale: 0.95 }}
-                          onClick={() => setShowMenu(!showMenu)}
-                          className="p-2 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
-                        >
-                          <Menu className="w-5 h-5 text-gray-600" />
-                        </motion.button>
-        
-                        <AnimatePresence>
-                          {showMenu && (
-                            <motion.div
-                              initial={{ opacity: 0, y: -10 }}
-                              animate={{ opacity: 1, y: 0 }}
-                              exit={{ opacity: 0, y: -10 }}
-                              className="absolute right-0 mt-2 w-64 bg-white rounded-lg shadow-lg border border-gray-200 z-50"
-                            >
-                              <div className="p-4 space-y-2">
-                                <p className="text-medium font-semibold max-w-2xl mb-4 text-orange-700">
-                                Move Out Sale
-                                </p>
-                                <button 
-                                  onClick={() => {
-                                    router.push('../browse');
-                                    setShowMenu(false);
-                                  }} 
-                                  className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors"
-                                >
-                                  Browse Items
-                                </button>                        
-                                <button 
-                                  onClick={() => {
-                                    router.push('/sale/create');
-                                    setShowMenu(false);
-                                  }} 
-                                  className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors"
-                                >
-                                  Sell Items
-                                </button> 
-                                <button 
-                                  onClick={() => {
-                                    router.push('/sale/create');
-                                    setShowMenu(false);
-                                  }} 
-                                  className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors"
-                                >
-                                  My Items
-                                </button>   
-                                
-                                <p className="text-medium font-semibold max-w-2xl mb-4 text-orange-700">
-                                  Sublease
-                                </p>
-                                <button 
-                                  onClick={() => {
-                                    router.push('../search');
-                                    setShowMenu(false);
-                                  }} 
-                                  className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors"
-                                >
-                                  Find Sublease
-                                </button>   
-                                <button 
-                                  onClick={() => {
-                                    router.push('../search');
-                                    setShowMenu(false);
-                                  }} 
-                                  className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors"
-                                >
-                                  Post Sublease
-                                </button>   
-                                <button 
-                                  onClick={() => {
-                                    router.push('../search');
-                                    setShowMenu(false);
-                                  }} 
-                                  className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors"
-                                >
-                                  My Sublease Listing
-                                </button>
-                                <hr className="my-2" />
-                                <button 
-                                  onClick={() => {
-                                    router.push('../sale/browse');
-                                    setShowMenu(false);
-                                  }} 
-                                  className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors"
-                                >
-                                  Messages
-                                </button>   
-                                <button 
-                                  onClick={() => {
-                                    router.push('../help');
-                                    setShowMenu(false);
-                                  }} 
-                                  className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors"
-                                >
-                                  Help & Support
-                                </button>
-        
-                                {/* need change (when user didn't log in -> show log in button) */}
-                                <hr className="my-2" />
-                                 {/* log in/ out */}
-                                  {isLoggedIn ? (
-                                    <button className="w-full text-left px-3 py-2 rounded-md text-sm text-red-600 hover:bg-red-50 hover:text-red-700 transition-colors">
-                                      Logout
-                                    </button>
-                                  ) : (
-                                    <button className="w-full text-left px-3 py-2 rounded-md text-sm text-blue-600 hover:bg-blue-50 hover:text-blue-700 transition-colors">
-                                      Login
-                                    </button>
-                                  )}
-                              </div>
-                            </motion.div>
-                          )}
-                        </AnimatePresence>
-                      </div>
-                    </div>
-                </div>
-                </div>
+      <header className="bg-white border-b border-gray-200 sticky top-0 z-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-16">
+            {/* Logo */}
+            <div className="flex items-center space-x-3">
+              <div className="w-8 h-8 bg-gradient-to-br from-orange-500 to-red-600 rounded-lg flex items-center justify-center">
+                <Package className="w-5 h-5 text-white" />
+              </div>
+              <button 
+                onClick={() => router.push('/sale/browse')}
+                className="text-2xl font-bold text-gray-900 hover:text-orange-600 transition-colors"
+              >
+                Subox
+              </button>
+              <span className="text-sm text-gray-500 hidden sm:block">Messages</span>
             </div>
-        
+
+            {/* Header Actions */}
+            <div className="flex items-center space-x-3">
+              {/* Notifications */}
+              <div className="relative">
+                <button
+                  onClick={() => setShowNotifications(!showNotifications)}
+                  className="p-2 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors relative"
+                >
+                  <Bell className="w-5 h-5 text-gray-600" />
+                  {notifications.length > 0 && (
+                    <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center">
+                      {notifications.length}
+                    </span>
+                  )}
+                </button>
+
+                {showNotifications && (
+                  <div className="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-lg border border-gray-200 z-50">
+                    <div className="p-4">
+                      <h3 className="font-semibold text-gray-900 mb-3">Notifications</h3>
+                      <div className="space-y-3 max-h-64 overflow-y-auto">
+                        {notifications.map(notif => (
+                          <button
+                            key={notif.id}
+                            onClick={() => router.push(`browse/notificationDetail/${notif.id}`)}
+                            className="w-full flex items-start space-x-3 p-2 rounded-lg hover:bg-gray-50 text-left transition-colors"
+                          >
+                            <div className="w-2 h-2 bg-orange-500 rounded-full mt-2 flex-shrink-0"></div>
+                            <div className="flex-1">
+                              <p className="text-sm text-gray-900">{notif.message}</p>
+                              <p className="text-xs text-gray-500">{notif.time}</p>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                      <button
+                        onClick={() => router.push('browse/notification/')}
+                        className="mt-3 text-sm text-orange-600 hover:text-orange-700 transition-colors"
+                      >
+                        See all notifications
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Profile */}
+              <div className="relative">
+                <button
+                  onClick={() => setShowProfile(!showProfile)}
+                  className="p-2 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                >
+                  <User className="w-5 h-5 text-gray-600" />
+                </button>
+
+                {showProfile && (
+                  <div className="absolute right-0 mt-2 w-64 bg-white rounded-lg shadow-lg border border-gray-200 z-50">
+                    <div className="p-4 space-y-1">
+                      {[
+                        { key: "purchased", label: "What I Purchased" },
+                        { key: "returned", label: "What I Returned" },
+                        { key: "cancelled", label: "What I Cancelled" },
+                        { key: "sold", label: "What I Sold" },
+                        { key: "sublease", label: "Sublease" },
+                        { key: "reviews", label: "Reviews" }
+                      ].map(item => (
+                        <button 
+                          key={item.key}
+                          onClick={() => handleTabClick(item.key)} 
+                          className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-orange-600 transition-colors"
+                        >
+                          {item.label}
+                        </button>
+                      ))}
+                      <hr className="my-2" />
+                      <button 
+                        onClick={() => handleTabClick("history")} 
+                        className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-orange-600 transition-colors"
+                      >
+                        History
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Menu */}
+              <div className="relative">
+                <button
+                  onClick={() => setShowMenu(!showMenu)}
+                  className="p-2 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                >
+                  <Menu className="w-5 h-5 text-gray-600" />
+                </button>
+
+                {showMenu && (
+                  <div className="absolute right-0 mt-2 w-64 bg-white rounded-lg shadow-lg border border-gray-200 z-50">
+                    <div className="p-4 space-y-2">
+                      <p className="text-sm font-semibold text-orange-700 mb-2">Move Out Sale</p>
+                      <button 
+                        onClick={() => { router.push('../browse'); setShowMenu(false); }} 
+                        className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-orange-600 transition-colors"
+                      >
+                        Browse Items
+                      </button>                        
+                      <button 
+                        onClick={() => { router.push('/sale/create'); setShowMenu(false); }} 
+                        className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-orange-600 transition-colors"
+                      >
+                        Sell Items
+                      </button>
+                      
+                      <p className="text-sm font-semibold text-orange-700 mb-2 mt-4">Sublease</p>
+                      <button 
+                        onClick={() => { router.push('../search'); setShowMenu(false); }} 
+                        className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-orange-600 transition-colors"
+                      >
+                        Find Sublease
+                      </button>
+                      <button 
+                        onClick={() => { router.push('../search'); setShowMenu(false); }} 
+                        className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-orange-600 transition-colors"
+                      >
+                        Post Sublease
+                      </button>
+                      
+                      <hr className="my-2" />
+                      <button 
+                        onClick={() => { router.push('../help'); setShowMenu(false); }} 
+                        className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-orange-600 transition-colors"
+                      >
+                        Help & Support
+                      </button>
+                      <button 
+                        className="w-full text-left px-3 py-2 rounded-md text-sm text-red-600 hover:bg-red-50 hover:text-red-700 transition-colors"
+                      >
+                        Logout
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      </header>
       
       {/* Main Content */}
-      <div className=" mt-6 pt-16 md:pt-0 max-w-4xl mx-auto p-6">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center">
+      <main className="max-w-4xl mx-auto p-6">
+        {/* Page Header */}
+        <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center space-x-4">
             <button 
               onClick={() => router.push('/sublease/search')}
-              className="flex items-center text-orange-600 hover:text-orange-800 mr-4 font-medium cursor-pointer"
+              className="flex items-center text-gray-600 hover:text-orange-600 transition-colors"
             >
-              <ChevronLeft className="w-5 h-5 mr-1" />
+              <ArrowLeft className="w-5 h-5 mr-1" />
               Back
             </button>
             <div>
-              <h1 className="text-2xl font-bold text-orange-900 flex items-center">
-                <MessageCircle className="w-6 h-6 mr-2" />
+              <h1 className="text-3xl font-bold text-gray-900 flex items-center">
+                <MessageCircle className="w-8 h-8 mr-3 text-orange-500" />
                 Messages
                 {totalUnreadCount > 0 && (
-                  <span className="ml-2 bg-red-500 text-white text-xs px-2 py-1 rounded-full">
+                  <span className="ml-3 bg-red-500 text-white text-sm px-3 py-1 rounded-full">
                     {totalUnreadCount}
                   </span>
                 )}
               </h1>
-              <p className="text-gray-600">Your conversations about listings</p>
+              <p className="text-gray-600 mt-1">Your conversations about listings</p>
             </div>
           </div>
-          
-          <button
-            onClick={() => setShowFilters(!showFilters)}
-            className="p-2 bg-white rounded-lg shadow hover:shadow-md transition flex items-center"
-          >
-            <Filter className="w-4 h-4 mr-2" />
-            Filter
-          </button>
         </div>
 
         {/* Tab Navigation */}
-        <div className="bg-white rounded-lg shadow-sm mb-6 p-1">
-          <div className="flex space-x-1">
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-1 mb-6">
+          <div className="grid grid-cols-2 gap-1">
             <button
               onClick={() => setActiveTab('sublease')}
-              className={`flex-1 flex items-center justify-center px-4 py-3 rounded-md transition ${
+              className={`flex items-center justify-center px-6 py-4 rounded-md transition-all font-medium ${
                 activeTab === 'sublease'
-                  ? 'bg-orange-500 text-white'
+                  ? 'bg-orange-500 text-white shadow-sm'
                   : 'text-gray-600 hover:text-gray-800 hover:bg-gray-50'
               }`}
             >
-              <Home className="w-4 h-4 mr-2" />
-              <span className="font-medium">Sublease</span>
+              <Home className="w-5 h-5 mr-2" />
+              <span>Sublease</span>
               {subleaseUnreadCount > 0 && (
-                <span className={`ml-2 px-2 py-1 rounded-full text-xs ${
+                <span className={`ml-2 px-2 py-1 rounded-full text-xs font-medium ${
                   activeTab === 'sublease' 
                     ? 'bg-orange-600 text-white' 
                     : 'bg-red-500 text-white'
@@ -529,16 +447,16 @@ const ConversationListPage = () => {
             </button>
             <button
               onClick={() => setActiveTab('moveout')}
-              className={`flex-1 flex items-center justify-center px-4 py-3 rounded-md transition ${
+              className={`flex items-center justify-center px-6 py-4 rounded-md transition-all font-medium ${
                 activeTab === 'moveout'
-                  ? 'bg-orange-500 text-white'
+                  ? 'bg-orange-500 text-white shadow-sm'
                   : 'text-gray-600 hover:text-gray-800 hover:bg-gray-50'
               }`}
             >
-              <Package className="w-4 h-4 mr-2" />
-              <span className="font-medium">Move Out Sale</span>
+              <Package className="w-5 h-5 mr-2" />
+              <span>Move Out Sale</span>
               {moveoutUnreadCount > 0 && (
-                <span className={`ml-2 px-2 py-1 rounded-full text-xs ${
+                <span className={`ml-2 px-2 py-1 rounded-full text-xs font-medium ${
                   activeTab === 'moveout' 
                     ? 'bg-orange-600 text-white' 
                     : 'bg-red-500 text-white'
@@ -551,7 +469,7 @@ const ConversationListPage = () => {
         </div>
 
         {/* Search and Filters */}
-        <div className="bg-white rounded-lg shadow-sm p-4 mb-6">
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
           {/* Search Bar */}
           <div className="relative mb-4">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
@@ -560,55 +478,53 @@ const ConversationListPage = () => {
               placeholder={`Search ${activeTab === 'sublease' ? 'sublease' : 'move out sale'} conversations...`}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+              className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all"
             />
           </div>
 
-          {/* Filter Options */}
-          {showFilters && (
-            <div className="flex flex-wrap gap-2">
-              {[
-                { key: 'all', label: 'All Conversations' },
-                { key: 'unread', label: 'Unread' },
-                { key: 'hosting', label: activeTab === 'sublease' ? 'As Host' : 'As Seller' },
-                { key: 'guest', label: activeTab === 'sublease' ? 'As Guest' : 'As Buyer' }
-              ].map(filter => (
-                <button
-                  key={filter.key}
-                  onClick={() => setFilterType(filter.key)}
-                  className={`px-3 py-1 rounded-full text-sm transition ${
-                    filterType === filter.key
-                      ? 'bg-orange-500 text-white'
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                  }`}
-                >
-                  {filter.label}
-                </button>
-              ))}
-            </div>
-          )}
+          {/* Filter Buttons */}
+          <div className="flex flex-wrap gap-2">
+            {[
+              { key: 'all', label: 'All Conversations' },
+              { key: 'unread', label: 'Unread Only' },
+              { key: 'hosting', label: activeTab === 'sublease' ? 'As Host' : 'As Seller' },
+              { key: 'guest', label: activeTab === 'sublease' ? 'As Guest' : 'As Buyer' }
+            ].map(filter => (
+              <button
+                key={filter.key}
+                onClick={() => setFilterType(filter.key)}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  filterType === filter.key
+                    ? 'bg-orange-500 text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                {filter.label}
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Conversations List */}
-        <div className="bg-white rounded-lg shadow-sm">
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200">
           {loading ? (
-            <div className="p-8 text-center">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500 mx-auto mb-4"></div>
+            <div className="p-12 text-center">
+              <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-orange-500 mx-auto mb-4"></div>
               <p className="text-gray-600">Loading conversations...</p>
             </div>
           ) : filteredConversations.length === 0 ? (
-            <div className="p-8 text-center">
+            <div className="p-12 text-center">
               {activeTab === 'sublease' ? (
                 <Home className="w-16 h-16 text-gray-300 mx-auto mb-4" />
               ) : (
                 <Package className="w-16 h-16 text-gray-300 mx-auto mb-4" />
               )}
-              <h3 className="text-lg font-medium text-gray-600 mb-2">
+              <h3 className="text-xl font-semibold text-gray-600 mb-2">
                 {searchTerm || filterType !== 'all' ? 'No conversations found' : `No ${activeTab === 'sublease' ? 'sublease' : 'move out sale'} messages yet`}
               </h3>
-              <p className="text-gray-500 mb-4">
+              <p className="text-gray-500 mb-6 max-w-md mx-auto">
                 {searchTerm || filterType !== 'all' 
-                  ? 'Try adjusting your search or filters'
+                  ? 'Try adjusting your search or filters to find what you\'re looking for'
                   : activeTab === 'sublease'
                     ? 'Start browsing sublease listings to connect with hosts'
                     : 'Start browsing move out sale items to connect with sellers'
@@ -617,7 +533,7 @@ const ConversationListPage = () => {
               {!searchTerm && filterType === 'all' && (
                 <button
                   onClick={() => router.push(activeTab === 'sublease' ? '/sublease/search' : '/sale/browse')}
-                  className="px-6 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition"
+                  className="px-6 py-3 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors font-medium"
                 >
                   Browse {activeTab === 'sublease' ? 'Sublease Listings' : 'Move Out Sale Items'}
                 </button>
@@ -629,7 +545,7 @@ const ConversationListPage = () => {
                 <div
                   key={conversation.id}
                   onClick={() => openConversation(conversation.id)}
-                  className="p-4 hover:bg-gray-50 cursor-pointer transition"
+                  className="p-6 hover:bg-gray-50 cursor-pointer transition-colors"
                 >
                   <div className="flex items-start space-x-4">
                     {/* Listing Image */}
@@ -639,7 +555,6 @@ const ConversationListPage = () => {
                         alt={conversation.listingTitle || 'Listing'}
                         className="w-full h-full object-cover"
                       />
-                      {/* Type indicator */}
                       <div className="absolute top-1 right-1">
                         {conversation.conversationType === 'moveout' ? (
                           <Package className="w-3 h-3 text-orange-600 bg-white rounded-full p-0.5" />
@@ -651,16 +566,16 @@ const ConversationListPage = () => {
 
                     {/* Conversation Info */}
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-start justify-between">
+                      <div className="flex items-start justify-between mb-2">
                         <div className="flex-1">
-                          <h3 className="font-medium text-gray-900 truncate">
+                          <h3 className="font-semibold text-gray-900 text-lg truncate mb-1">
                             {conversation.listingTitle || (activeTab === 'sublease' ? 'Untitled Listing' : 'Untitled Item')}
                           </h3>
-                          <div className="flex items-center text-sm text-gray-500 mt-1">
-                            <span className={`px-2 py-1 rounded-full text-xs mr-2 ${
+                          <div className="flex items-center text-sm text-gray-500 mb-1">
+                            <span className={`px-3 py-1 rounded-full text-xs font-medium mr-3 ${
                               conversation.isUserHost 
-                                ? 'bg-green-100 text-green-800' 
-                                : 'bg-blue-100 text-blue-800'
+                                ? 'bg-green-100 text-green-700' 
+                                : 'bg-blue-100 text-blue-700'
                             }`}>
                               {conversation.isUserHost 
                                 ? (activeTab === 'sublease' ? 'Hosting' : 'Selling')
@@ -669,20 +584,19 @@ const ConversationListPage = () => {
                             </span>
                             <span>with {conversation.otherParticipant.name}</span>
                           </div>
-                          <div className="flex items-center text-sm text-gray-500 mt-1">
-                            <MapPin className="w-3 h-3 mr-1" />
-                            {conversation.listingLocation}
-                            <span className="mx-2">•</span>
-                            <span>${conversation.listingPrice}{activeTab === 'sublease' ? '/mo' : ''}</span>
+                          <div className="flex items-center text-sm text-gray-500">
+                            <MapPin className="w-4 h-4 mr-1" />
+                            <span className="mr-3">{conversation.listingLocation}</span>
+                            <span className="font-medium">${conversation.listingPrice}{activeTab === 'sublease' ? '/mo' : ''}</span>
                           </div>
                         </div>
 
                         <div className="flex flex-col items-end ml-4">
-                          <span className="text-xs text-gray-500">
+                          <span className="text-xs text-gray-500 mb-1">
                             {formatTime(conversation.lastMessageTime)}
                           </span>
                           {conversation.unreadCount > 0 && (
-                            <span className="bg-red-500 text-white text-xs px-2 py-1 rounded-full mt-1">
+                            <span className="bg-red-500 text-white text-xs px-2 py-1 rounded-full font-medium">
                               {conversation.unreadCount}
                             </span>
                           )}
@@ -691,8 +605,8 @@ const ConversationListPage = () => {
 
                       {/* Latest Message Preview */}
                       {conversation.latestMessage && (
-                        <div className="mt-2 text-sm text-gray-600">
-                          <span className={conversation.latestMessage.senderId === user.uid ? 'font-medium' : ''}>
+                        <div className="mt-3 text-sm text-gray-600 bg-gray-50 p-3 rounded-lg">
+                          <span className={conversation.latestMessage.senderId === user.uid ? 'font-medium text-gray-800' : ''}>
                             {conversation.latestMessage.senderId === user.uid ? 'You: ' : ''}
                           </span>
                           <span className="truncate">
@@ -707,7 +621,7 @@ const ConversationListPage = () => {
             </div>
           )}
         </div>
-      </div>
+      </main>
     </div>
   );
 };

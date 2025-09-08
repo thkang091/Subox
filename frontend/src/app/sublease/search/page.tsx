@@ -4,34 +4,487 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from "framer-motion";
-import Badges from '@/data/badge';
 import { 
   Calendar, ChevronLeft, ChevronRight, MapPin, Users, Home, 
   Search, X, Bookmark, Star, Wifi, Droplets, Tv, Sparkles, 
   Filter, BedDouble, DollarSign, LogIn, Heart, User, CircleUser,
   Clock, TrendingUp, TrendingDown, ChevronDown, Package, Bell, MessagesSquare, AlertCircle, Menu,
-  Utensils, ArrowUp, Shield, BookOpen, Waves, Flame, ArrowLeft // Add these new ones
+  ArrowUp, Waves, Flame, Info, Thermoneter, Utensils, Dumbbell, Shield, Bookopen, Sofa, Trash2,
+   Accessibility, ChefHat, BookOpen,Settings, Bed, Minus, CigaretteOff, Check, Cigarette
 } from 'lucide-react';
 import { Route, Car, Users as TransitIcon } from 'lucide-react';
 import { collection, getDocs, query, orderBy } from 'firebase/firestore';
-import { auth, db } from '@/lib/firebase'; // Adjust path to your firebase config
-import { onAuthStateChanged } from 'firebase/auth';
+import { db } from '@/lib/firebase'; // Adjust path to your firebase config
 
 import CommuteLocationPicker from '../../../components/CommuteLocationPicker'
-import CommuteResultsMap from '../../../components/CommuteMap' // Adjust path as needed
 import EnhancedCommuteResultsMap from '../../../components/CommuteMap' // Update path as needed
-import { address } from 'framer-motion/client';
-// Component imports - This should use the actual LocationPicker component
 import SearchLocationPicker from '../../../components/SearchLocationPicker';
+import { 
+   where, onSnapshot
+} from 'firebase/firestore';
 
-// Component for the sublease search interface
-const SearchPage = () => {
+import { useAuth } from '@/app/contexts/AuthInfo'; // Adjust path as needed
+
+
+
+const NeighborhoodDetectorWrapper = ({ listing, onNeighborhoodDetected }: { 
+  listing: any, 
+  onNeighborhoodDetected: (neighborhood: string, coordinates?: {lat: number, lng: number}) => void 
+}) => {
+  const [coordinates, setCoordinates] = useState<{lat: number, lng: number} | null>(null);
+  const [locationType, setLocationType] = useState<'specific' | 'neighborhood' | 'none'>('none');
+  const [locationName, setLocationName] = useState<string>('');
+  const [isSearching, setIsSearching] = useState(false);
+  const [googleMapsLoaded, setGoogleMapsLoaded] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [distanceFromSearch, setDistanceFromSearch] = useState<number | null>(null);
+  const mapRef = useRef<HTMLDivElement>(null);
+  const [mapInstance, setMapInstance] = useState<google.maps.Map | null>(null);
+
+  // Helper function to calculate distance between two points
+  const calculateDistance = (lat1: number, lng1: number, lat2: number, lng2: number) => {
+    const R = 6371; // Earth's radius in kilometers
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLng = (lng2 - lng1) * Math.PI / 180;
+    const a = 
+      Math.sin(dLat/2) * Math.sin(dLat/2) +
+      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
+      Math.sin(dLng/2) * Math.sin(dLng/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    return R * c; // Distance in kilometers
+  };
+
+  // Load Google Maps API
+  useEffect(() => {
+    const loadGoogleMaps = () => {
+      // Check if already loaded
+      if (window.google?.maps?.places) {
+        setGoogleMapsLoaded(true);
+        return;
+      }
+
+      // Check if script is already added
+      if (document.querySelector('script[src*="maps.googleapis.com"]')) {
+        // Wait for it to load
+        const checkInterval = setInterval(() => {
+          if (window.google?.maps?.places) {
+            setGoogleMapsLoaded(true);
+            clearInterval(checkInterval);
+          }
+        }, 500);
+        return;
+      }
+
+      const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+      if (!apiKey) {
+        setLoadError('Google Maps API key not found');
+        return;
+      }
+
+      // Create and load the script
+      const script = document.createElement('script');
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places&v=weekly`;
+      script.async = true;
+      script.defer = true;
+      
+      script.onload = () => {
+        setGoogleMapsLoaded(true);
+        setLoadError(null);
+      };
+      
+      script.onerror = () => {
+        setLoadError('Failed to load Google Maps');
+      };
+      
+      document.head.appendChild(script);
+    };
+
+    loadGoogleMaps();
+  }, []);
+
+  useEffect(() => {
+    const processListingLocation = () => {
+      if (!listing) return;
+      
+      // ✅ CASE 1: Has specific coordinates in customLocation
+      if (listing?.customLocation?.lat && listing?.customLocation?.lng) {
+        const coords = {
+          lat: Number(listing.customLocation.lat),
+          lng: Number(listing.customLocation.lng)
+        };
+        setCoordinates(coords);
+        setLocationType('specific');
+        
+        const locationDisplayName = listing.customLocation.placeName || 
+                                   listing.customLocation.address || 
+                                   'Specific Location';
+        setLocationName(locationDisplayName);
+        
+        // Pass coordinates along with neighborhood detection
+        if (listing.customLocation.placeName) {
+          onNeighborhoodDetected(listing.customLocation.placeName, coords);
+        } else {
+          onNeighborhoodDetected(locationDisplayName, coords);
+        }
+        return;
+      }
+      
+      // ✅ CASE 2: Has direct lat/lng coordinates
+      if (listing?.lat && listing?.lng) {
+        const coords = {
+          lat: Number(listing.lat),
+          lng: Number(listing.lng)
+        };
+        setCoordinates(coords);
+        setLocationType('specific');
+        
+        const locationDisplayName = listing.address || listing.location || 'Specific Location';
+        setLocationName(locationDisplayName);
+        onNeighborhoodDetected(locationDisplayName, coords);
+        return;
+      }
+      
+      // ✅ CASE 3: Has neighborhood name (but not "Other")
+      if (listing?.location && listing.location !== 'Other') {
+        setLocationName(listing.location);
+        setLocationType('neighborhood');
+        
+        // Default coordinates for Minneapolis
+        const defaultCoords = { lat: 44.9778, lng: -93.2650 };
+        setCoordinates(defaultCoords);
+        onNeighborhoodDetected(listing.location, defaultCoords);
+
+        // Search for the neighborhood if Google Maps is loaded
+        if (googleMapsLoaded) {
+          searchForNeighborhood(listing.location);
+        }
+        return;
+      }
+      
+      // ✅ CASE 4: Location is "Other" but no customLocation
+      if (listing?.location === 'Other' && !listing?.customLocation) {
+        setLocationName('Location not specified');
+        setLocationType('none');
+        return;
+      }
+      
+      // ✅ CASE 5: No location data at all
+      setLocationName('No location');
+      setLocationType('none');
+    };
+
+    processListingLocation();
+  }, [listing, googleMapsLoaded]);
+
+  // Enhanced geocoding for neighborhoods and addresses
+  const searchForNeighborhood = async (neighborhood: string) => {
+    if (!googleMapsLoaded || !window.google?.maps?.places?.PlacesService) {
+      return;
+    }
+
+    setIsSearching(true);
+    
+    try {
+      // Try multiple search strategies for better accuracy
+      const searchQueries = [
+        `${neighborhood}, Minneapolis, MN`,
+        `${neighborhood} neighborhood, Minneapolis, Minnesota`,
+        `${neighborhood}, University of Minnesota area`
+      ];
+
+      for (const query of searchQueries) {
+        const result = await performPlacesSearch(query);
+        if (result) {
+          const coords = {
+            lat: result.lat,
+            lng: result.lng
+          };
+          setCoordinates(coords);
+          // Update the parent with more accurate coordinates
+          onNeighborhoodDetected(neighborhood, coords);
+          setIsSearching(false);
+          return;
+        }
+      }
+      
+      setIsSearching(false);
+    } catch (error) {
+      console.error('Error searching for neighborhood:', error);
+      setIsSearching(false);
+    }
+  };
+
+  const performPlacesSearch = (query: string): Promise<{lat: number, lng: number} | null> => {
+    return new Promise((resolve) => {
+      try {
+        const mapDiv = document.createElement('div');
+        const map = new window.google.maps.Map(mapDiv, {
+          center: { lat: 44.9778, lng: -93.2650 },
+          zoom: 13
+        });
+
+        const service = new window.google.maps.places.PlacesService(map);
+        
+        const request = {
+          query: query,
+          fields: ['name', 'geometry', 'place_id', 'formatted_address', 'types'],
+          locationBias: {
+            center: { lat: 44.9778, lng: -93.2650 },
+            radius: 100000 // 50km radius around Minneapolis
+          }
+        };
+
+        service.textSearch(request, (results, status) => {
+          if (status === window.google.maps.places.PlacesServiceStatus.OK && results && results[0]) {
+            const place = results[0];
+            const location = place.geometry?.location;
+            
+            if (location) {
+              resolve({
+                lat: location.lat(),
+                lng: location.lng()
+              });
+              return;
+            }
+          }
+          resolve(null);
+        });
+      } catch (error) {
+        resolve(null);
+      }
+    });
+  };
+
+  // Calculate distance from current search location (if available)
+  useEffect(() => {
+    if (coordinates && window.searchLocationData?.lat && window.searchLocationData?.lng) {
+      const distance = calculateDistance(
+        window.searchLocationData.lat,
+        window.searchLocationData.lng,
+        coordinates.lat,
+        coordinates.lng
+      );
+      setDistanceFromSearch(distance);
+    }
+  }, [coordinates]);
+
+  // Create map when coordinates are available and Google Maps is loaded
+  useEffect(() => {
+    if (!mapRef.current || !googleMapsLoaded || !window.google?.maps || !coordinates || mapInstance) return;
+
+    try {
+      const map = new window.google.maps.Map(mapRef.current, {
+        center: { lat: coordinates.lat, lng: coordinates.lng },
+        zoom: locationType === 'specific' ? 16 : 14,
+        mapTypeControl: false,
+        streetViewControl: false,
+        fullscreenControl: false,
+        zoomControl: true,
+        styles: [
+          {
+            featureType: "poi",
+            elementType: "labels",
+            stylers: [{ visibility: "off" }]
+          },
+          {
+            featureType: "transit",
+            elementType: "labels",
+            stylers: [{ visibility: "off" }]
+          }
+        ]
+      });
+
+      // Add a marker with different colors based on type
+      const markerColor = locationType === 'specific' ? '#f97316' : '#3b82f6';
+      
+      new window.google.maps.Marker({
+        position: { lat: coordinates.lat, lng: coordinates.lng },
+        map: map,
+        title: locationName,
+        icon: {
+          url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
+            <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="16" cy="16" r="12" fill="${markerColor}" stroke="#fff" stroke-width="2"/>
+              <circle cx="16" cy="16" r="4" fill="#fff"/>
+            </svg>
+          `),
+          scaledSize: new google.maps.Size(32, 32),
+          anchor: new google.maps.Point(16, 16)
+        }
+      });
+
+      // Add a circle to show approximate area for neighborhoods
+      if (locationType === 'neighborhood') {
+        new window.google.maps.Circle({
+          strokeColor: markerColor,
+          strokeOpacity: 0.8,
+          strokeWeight: 2,
+          fillColor: markerColor,
+          fillOpacity: 0.15,
+          map: map,
+          center: { lat: coordinates.lat, lng: coordinates.lng },
+          radius: 2000 // 2km radius for neighborhood
+        });
+      }
+
+      setMapInstance(map);
+    } catch (error) {
+      console.error('Error creating map:', error);
+    }
+  }, [coordinates, locationName, mapInstance, googleMapsLoaded, locationType]);
+
+  // Reset map instance when coordinates change
+  useEffect(() => {
+    setMapInstance(null);
+  }, [coordinates]);
+
+  // Show error if Google Maps failed to load
+  if (loadError) {
+    return (
+      <div className="flex items-center gap-3 p-4 bg-red-50 border border-red-200 rounded-lg">
+        <MapPin size={20} className="text-red-500" />
+        <div>
+          <span className="text-red-700 font-medium">Maps unavailable</span>
+          <p className="text-red-600 text-sm mt-1">Failed to load Google Maps</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show loading if searching
+  if (isSearching) {
+    return (
+      <div className="flex items-center gap-3 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+        <div className="animate-spin rounded-full h-5 w-5 border-2 border-blue-500 border-t-transparent"></div>
+        <span className="text-blue-700 font-medium">Finding {locationName} on map...</span>
+      </div>
+    );
+  }
+
+  // No location available
+  if (locationType === 'none' || !coordinates) {
+    return (
+      <div className="flex items-center gap-3 p-4 bg-gray-50 border border-gray-200 rounded-lg">
+        <MapPin size={20} className="text-gray-400" />
+        <div>
+          <span className="text-gray-700 font-medium">Location not available</span>
+          <p className="text-gray-500 text-sm mt-1">No location information provided for this listing</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show location with map
+  return (
+    <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+      {/* Header */}
+      <div className="p-4 border-b border-gray-100">
+        <div className="flex items-center gap-2">
+          <MapPin size={20} className="text-orange-500" />
+          <div className="flex-1">
+            <h3 className="font-semibold text-gray-900">Location</h3>
+            <p className="text-sm text-gray-600">{locationName}</p>
+            {distanceFromSearch !== null && (
+              <p className="text-xs text-blue-600 mt-1">
+                📍 {distanceFromSearch.toFixed(1)}km from search location
+              </p>
+            )}
+          </div>
+          {/* Coordinate info for debugging */}
+          <div className="text-xs text-gray-400">
+            {coordinates.lat.toFixed(4)}, {coordinates.lng.toFixed(4)}
+          </div>
+        </div>
+      </div>
+      
+      {/* Map */}
+      <div className="relative">
+        {googleMapsLoaded ? (
+          <div 
+            ref={mapRef}
+            className="w-full h-64"
+            style={{ minHeight: '256px' }}
+          />
+        ) : (
+          <div className="w-full h-64 bg-gray-200 flex items-center justify-center">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-6 w-6 border-2 border-orange-500 border-t-transparent mx-auto mb-2"></div>
+              <p className="text-gray-600">Loading map...</p>
+            </div>
+          </div>
+        )}
+        
+        {/* Map overlay info */}
+        {googleMapsLoaded && (
+          <div className="absolute top-3 left-3 bg-white/90 backdrop-blur-sm px-3 py-2 rounded-lg shadow-sm">
+            <p className="text-sm font-medium text-gray-900">{locationName}</p>
+            <p className="text-xs text-gray-600">
+              {locationType === 'specific' ? 'Exact location' : 'Neighborhood area'}
+            </p>
+            {distanceFromSearch !== null && (
+              <p className="text-xs text-blue-600 mt-1">
+                {distanceFromSearch.toFixed(1)}km away
+              </p>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+// Helper function for distance calculation
+const calculateDistance = (lat1, lng1, lat2, lng2) => {
+  const R = 6371; // Earth's radius in kilometers
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLng = (lng2 - lng1) * Math.PI / 180;
+  const a = 
+    Math.sin(dLat/2) * Math.sin(dLat/2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
+    Math.sin(dLng/2) * Math.sin(dLng/2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  return R * c; // Distance in kilometers
+};
+
+// Helper function to get listing coordinates
+const getListingCoordinates = (listing) => {
+  // Priority 1: customLocation coordinates
+  if (listing.customLocation?.lat && listing.customLocation?.lng) {
+    return {
+      lat: Number(listing.customLocation.lat),
+      lng: Number(listing.customLocation.lng)
+    };
+  }
+  
+  // Priority 2: direct coordinates
+  if (listing.lat && listing.lng) {
+    return {
+      lat: Number(listing.lat),
+      lng: Number(listing.lng)
+    };
+  }
+  
+  // Priority 3: neighborhood coordinates
+  if (listing.location && neighborhoodCoords[listing.location]) {
+    return neighborhoodCoords[listing.location];
+  }
+  
+  // Fallback to Minneapolis center
+  return minneapolisCenter;
+};
+
+
+
+
+const SearchPage = ({ userData = null }) => { // Add default value for userData
   // =========================
   // State Definitions
   // =========================
+  const [firebaseUserData, setFirebaseUserData] = useState(null);
+  const [selectedLocationData, setSelectedLocationData] = useState(null);
   const [dateRange, setDateRange] = useState({ checkIn: null, checkOut: null });
-  const [bathrooms, setBathrooms] = useState(1);
-  const [bedrooms, setBedrooms] = useState(1);
+  const [bathrooms, setBathrooms] = useState('any'); 
+  const [bedrooms, setBedrooms] = useState('any');   
   const [location, setLocation] = useState([]);
   const [commuteLocation, setCommuteLocation] = useState('');
   const [currentMonth, setCurrentMonth] = useState(new Date().getMonth());
@@ -39,6 +492,8 @@ const SearchPage = () => {
   const [selectedDates, setSelectedDates] = useState([]);
   const [activeSection, setActiveSection] = useState(null);
   const [accommodationType, setAccommodationType] = useState(null);
+  const [hasLoadedUserLocation, setHasLoadedUserLocation] = useState(false);
+
   const [priceRange, setPriceRange] = useState({ min: 500, max: 2000 });
   const [priceType, setPriceType] = useState('monthly'); // for monthly, weekly, daily price
   const [selectedAmenities, setSelectedAmenities] = useState([]);
@@ -52,14 +507,23 @@ const [showEnhancedCommute, setShowEnhancedCommute] = useState(false);
   const [showMap, setShowMap] = useState(false);
   const [mapListings, setMapListings] = useState([]);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [neighborhoods, setNeighborhoods] = useState([]);
+const [isLoadingNeighborhoods, setIsLoadingNeighborhoods] = useState(false);
   const [favoriteListings, setFavoriteListings] = useState([]);
   const [activeTab, setActiveTab] = useState('favorites');
   const router = useRouter(); 
   const [commuteDestination, setCommuteDestination] = useState(null);
+   // Add these state variables with your other state
+const [isGoogleMapsLoading, setIsGoogleMapsLoading] = useState(false);
+const [googleMapsError, setGoogleMapsError] = useState(null);
+const [isGoogleMapsReady, setIsGoogleMapsReady] = useState(false);
+const [locationError, setLocationError] = useState(null);
 const [commuteRoutes, setCommuteRoutes] = useState([]);
 const [showCommuteResults, setShowCommuteResults] = useState(false);
 const [isCommuteMode, setIsCommuteMode] = useState(false);
 const [isCalculatingRoutes, setIsCalculatingRoutes] = useState(false);
+ // Add these state variables with your other st
+const [isLoadingUser] = useState(null);
 const [showSavedSearches, setShowSavedSearches] = useState(false);
 const [preferredGender, setPreferredGender] = useState(null); 
 const [smokingPreference, setSmokingPreference] = useState(null);
@@ -79,7 +543,15 @@ const [isMounted, setIsMounted] = useState(false);
     'Other': { lat: 44.9778, lng: -93.2358 }
   };
 
- 
+  const [expandedSearchActive, setExpandedSearchActive] = useState(false);
+const [expandedAreaInfo, setExpandedAreaInfo] = useState(null); // Add this line
+
+const [notifications, setNotifications] = useState([]);
+const [notificationsLoading, setNotificationsLoading] = useState(true);
+
+
+const { user } = useAuth();
+
   // =========================
   // Helper Functions
   // =========================
@@ -110,58 +582,228 @@ const getTransportIcon = (mode) => {
       return <Route size={14} className="text-gray-500" title="Transit" />;
   }
 };
+
+
+
+
+
+
+
+// Add this useEffect to fetch real notifications
+useEffect(() => {
+  if (!user?.uid) {
+    setNotifications([]);
+    setNotificationsLoading(false);
+    return;
+  }
+
+  const q = query(
+    collection(db, 'notifications'),
+    where('recipientId', '==', user.uid),
+    where('read', '==', false) // Only show unread for header
+  );
+
+  const unsubscribe = onSnapshot(
+    q,
+    (querySnapshot) => {
+      const notifs = querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+        time: getTimeAgo(doc.data().createdAt?.toDate())
+      }))
+      .sort((a, b) => {
+        const dateA = a.createdAt?.toDate();
+        const dateB = b.createdAt?.toDate();
+        if (!dateA || !dateB) return 0;
+        return dateB - dateA;
+      })
+      .slice(0, 5); // Show only recent 5 in header
+
+      setNotifications(notifs);
+      setNotificationsLoading(false);
+    },
+    (error) => {
+      console.error('Error loading notifications:', error);
+      setNotifications([]);
+      setNotificationsLoading(false);
+    }
+  );
+
+  return () => unsubscribe();
+}, [user?.uid]);
+
+// Add the getTimeAgo helper function
+const getTimeAgo = (date) => {
+  if (!date) return 'Unknown';
   
- useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    
-    // Location parameter
-    const locationParam = urlParams.get('location');
-    if (locationParam) {
-      setLocation(locationParam.split(','));
+  const now = new Date();
+  const diff = now - date;
+  const minutes = Math.floor(diff / 60000);
+  const hours = Math.floor(diff / 3600000);
+  const days = Math.floor(diff / 86400000);
+
+  if (minutes < 1) return 'Just now';
+  if (minutes < 60) return `${minutes}m ago`;
+  if (hours < 24) return `${hours}h ago`;
+  if (days < 7) return `${days}d ago`;
+  return date.toLocaleDateString();
+};
+
+useEffect(() => {
+  const urlParams = new URLSearchParams(window.location.search);
+  let hasUrlParams = false;
+  
+  // Location parameters - Enhanced handling
+  const locationParam = urlParams.get('location');
+  if (locationParam) {
+    setLocation(locationParam.split(','));
+    hasUrlParams = true;
+  }
+  
+  // Handle enhanced location data from FirstSearchPage
+  const selectedLocationDataParam = urlParams.get('selectedLocationData');
+  if (selectedLocationDataParam) {
+    try {
+      const locationData = JSON.parse(selectedLocationDataParam);
+      setSelectedLocationData(locationData);
+      
+      // Set expanded search states if applicable
+      if (locationData.areaType === 'expanded_region') {
+        setExpandedSearchActive(true);
+        setExpandedAreaInfo(locationData.expandedArea);
+      }
+      hasUrlParams = true;
+    } catch (error) {
+      console.error('Error parsing selectedLocationData from URL:', error);
     }
-    
-    // Date parameter - change string to date object
-    const checkInParam = urlParams.get('checkIn');
-    const checkOutParam = urlParams.get('checkOut');
-    if (checkInParam || checkOutParam) {
-      setDateRange({
-        checkIn: checkInParam ? new Date(checkInParam) : null,
-        checkOut: checkOutParam ? new Date(checkOutParam) : null
-      });
-    }
-    
-    // Room parameter
-    const bedroomsParam = urlParams.get('bedrooms');
-    const bathroomsParam = urlParams.get('bathrooms');
-    if (bedroomsParam) setBedrooms(parseInt(bedroomsParam));
-    if (bathroomsParam) setBathrooms(parseInt(bathroomsParam));
-    
-    // Amenities parameter
-    const amenitiesParam = urlParams.get('amenities');
-    if (amenitiesParam) {
-      setSelectedAmenities(amenitiesParam.split(','));
-    }
-    
-    // Price parameter
-    const priceMinParam = urlParams.get('priceMin');
-    const priceMaxParam = urlParams.get('priceMax');
-    if (priceMinParam || priceMaxParam) {
-      setPriceRange({
-        min: priceMinParam ? parseInt(priceMinParam) : 500,
-        max: priceMaxParam ? parseInt(priceMaxParam) : 2000
-      });
-    }
-    
-    // automatically run if the url have parameter
-    if (urlParams.toString()) {
-      setTimeout(() => {
-        handleSearch();
-      }, 500); 
-    }
-  }, []);
+  }
+  
+  // Date parameters
+  const checkInParam = urlParams.get('checkIn');
+  const checkOutParam = urlParams.get('checkOut');
+  if (checkInParam || checkOutParam) {
+    setDateRange({
+      checkIn: checkInParam ? new Date(checkInParam) : null,
+      checkOut: checkOutParam ? new Date(checkOutParam) : null
+    });
+    hasUrlParams = true;
+  }
+  
+  // Room parameters - FIXED: Handle 'any' values properly
+  const bedroomsParam = urlParams.get('bedrooms');
+  const bathroomsParam = urlParams.get('bathrooms');
+  
+  if (bedroomsParam !== null) {
+    const bedroomValue = bedroomsParam === 'any' ? 'any' : parseInt(bedroomsParam);
+    setBedrooms(bedroomValue);
+    hasUrlParams = true;
+  }
+  
+  if (bathroomsParam !== null) {
+    const bathroomValue = bathroomsParam === 'any' ? 'any' : parseInt(bathroomsParam);
+    setBathrooms(bathroomValue);
+    hasUrlParams = true;
+  }
+  
+  // Price parameters
+  const minPriceParam = urlParams.get('minPrice');
+  const maxPriceParam = urlParams.get('maxPrice');
+  const priceTypeParam = urlParams.get('priceType');
+  
+  if (minPriceParam || maxPriceParam) {
+    setPriceRange({
+      min: minPriceParam ? parseInt(minPriceParam) : 500,
+      max: maxPriceParam ? parseInt(maxPriceParam) : 2000
+    });
+    hasUrlParams = true;
+  }
+  
+  if (priceTypeParam) {
+    setPriceType(priceTypeParam);
+    hasUrlParams = true;
+  }
+  
+  // Accommodation type parameter
+  const accommodationTypeParam = urlParams.get('accommodationType');
+  if (accommodationTypeParam) {
+    setAccommodationType(accommodationTypeParam);
+    hasUrlParams = true;
+  }
+  
+  // Amenities parameter
+  const amenitiesParam = urlParams.get('amenities');
+  if (amenitiesParam) {
+    setSelectedAmenities(amenitiesParam.split(','));
+    hasUrlParams = true;
+  }
+  
+  // Gender preference parameter
+  const preferredGenderParam = urlParams.get('preferredGender');
+  if (preferredGenderParam) {
+    setPreferredGender(preferredGenderParam);
+    hasUrlParams = true;
+  }
+  
+  // Smoking preference parameter
+  const smokingPreferenceParam = urlParams.get('smokingPreference');
+  if (smokingPreferenceParam) {
+    setSmokingPreference(smokingPreferenceParam);
+    hasUrlParams = true;
+  }
+  
+  console.log('SearchPage: URL parameters restored:', {
+    location,
+    dateRange,
+    bedrooms,
+    bathrooms,
+    priceRange,
+    accommodationType,
+    amenities: selectedAmenities,
+    preferredGender,
+    smokingPreference
+  });
+  
+  // FIXED: Only run search when we have both URL params AND listings data
+  if (hasUrlParams && allListings.length > 0) {
+    console.log('SearchPage: Auto-running search with restored parameters and', allListings.length, 'listings');
+    setTimeout(() => {
+      handleSearch();
+    }, 500); // Reduced delay since data is already loaded
+  }
+}, [allListings]); // ADD allListings as dependency
 
 
-// Fetch user listings from Firestore
+
+  useEffect(() => {
+    if (!isLoadingUser && !hasLoadedUserLocation && isGoogleMapsReady) {
+      // Priority: firebaseUserData > userData prop
+      const userLocationData = firebaseUserData?.userLocation || userData?.userLocation;
+      
+      if (userLocationData && userLocationData.lat && userLocationData.lng) {
+        console.log('Auto-loading user saved location:', userLocationData);
+        
+        // Set the location display name
+        const displayName = userLocationData.displayName || 
+                           userLocationData.placeName || 
+                           userLocationData.city || 
+                           userLocationData.address;
+        
+        if (displayName) {
+          setLocation([displayName]);
+        }
+        setHasLoadedUserLocation(true);
+        
+        // Generate neighborhoods around user's saved location
+        generateNearbyNeighborhoods(userLocationData);
+      } else {
+        console.log('No saved user location found, using default setup');
+        setHasLoadedUserLocation(true);
+      }
+    }
+  }, [firebaseUserData, userData, isGoogleMapsReady, isLoadingUser, hasLoadedUserLocation]);
+
+
+
 useEffect(() => {
   const fetchUserListings = async () => {
     try {
@@ -177,22 +819,23 @@ useEffect(() => {
         };
         
         let coordinates = null;
+        let displayName = '';
         
-        // Priority 1: customLocation
-        if (data.customLocation && data.customLocation.lat && data.customLocation.lng) {
+        // Priority 1: customLocation from Firebase
+        if (data.customLocation?.lat && data.customLocation?.lng) {
           const lat = validateCoordinate(data.customLocation.lat);
           const lng = validateCoordinate(data.customLocation.lng);
           if (lat && lng) {
             coordinates = {
               lat,
               lng,
-              source: 'customLocation',
-              address: data.customLocation.address || data.address
+              source: 'customLocation'
             };
+            displayName = data.customLocation.placeName || data.customLocation.address || 'Specific Location';
           }
         }
         
-        // Priority 2: direct lat/lng
+        // Priority 2: direct lat/lng fields
         if (!coordinates && data.lat && data.lng) {
           const lat = validateCoordinate(data.lat);
           const lng = validateCoordinate(data.lng);
@@ -200,9 +843,9 @@ useEffect(() => {
             coordinates = {
               lat,
               lng,
-              source: 'direct',
-              address: data.address
+              source: 'direct'
             };
+            displayName = data.address || data.location || 'Specific Location';
           }
         }
         
@@ -211,9 +854,9 @@ useEffect(() => {
           const generated = generateCoordinatesForNeighborhood(data.location || 'Other');
           coordinates = {
             ...generated,
-            source: 'generated',
-            address: `${data.location || 'Campus Area'}, Minneapolis, MN`
+            source: 'generated'
           };
+          displayName = data.location || 'Campus Area';
         }
 
         const convertDate = (dateValue: any) => {
@@ -229,11 +872,21 @@ useEffect(() => {
         };
 
         return {
-          id: doc.id, // This is crucial - the Firestore document ID
+          id: doc.id,
           // Basic info with fallbacks
           title: data.title || `${data.listingType || 'Sublease'} in ${data.location || 'Campus Area'}`,
           listingType: data.listingType || 'Sublease',
-          location: data.location || `${data.location || 'Campus Area'}, Minneapolis, MN`,
+          location: data.location || 'Campus Area',
+          
+          // Enhanced coordinate handling
+          lat: coordinates.lat,
+          lng: coordinates.lng,
+          coordinateSource: coordinates.source,
+          displayName: displayName,
+          
+          // Preserve original customLocation data
+          customLocation: data.customLocation || null,
+          address: data.address || data.customLocation?.address || displayName,
           
           // Properly handle dates
           availableFrom: convertDate(data.availableFrom || data.startDate),
@@ -253,12 +906,6 @@ useEffect(() => {
           isPrivateRoom: Boolean(data.isPrivateRoom),
           utilitiesIncluded: Boolean(data.utilitiesIncluded),
           hasRoommates: Boolean(data.hasRoommates),
-
-          lat: coordinates.lat,
-          lng: coordinates.lng,
-          address: coordinates.location,
-          customLocation: data.customLocation || null,
-          coordinateSource: coordinates.source,
           
           // Ensure strings
           accommodationType: data.accommodationType || (data.isPrivateRoom ? 'private' : 'entire'),
@@ -275,14 +922,14 @@ useEffect(() => {
           // Default values for UI
           image: data.image || "https://images.unsplash.com/photo-1543852786-1cf6624b9987?q=80&w=800&h=500&auto=format&fit=crop",
           hostImage: data.hostImage || "https://images.unsplash.com/photo-1587300003388-59208cc962cb?q=80&w=800&h=500&auto=format&fit=crop",
-          address: data.address || data.customLocation?.address || `${data.location || 'Campus Area'}, Minneapolis, MN`,
 
           // Handle complex objects
-          customLocation: data.customLocation || null,
           contactInfo: data.contactInfo || { methods: [], note: '' },
           roommatePreferences: data.roommatePreferences || {},
           currentRoommateInfo: data.currentRoommateInfo || {},
-          rentNegotiation: data.rentNegotiation || { isNegotiable: false, minPrice: 0, maxPrice: 0 }
+          rentNegotiation: data.rentNegotiation || { isNegotiable: false, minPrice: 0, maxPrice: 0 },
+
+          preferredGender: data.preferredGender || 'any'
         };
       });
       
@@ -305,7 +952,7 @@ useEffect(() => {
 
 
 
-  useEffect(() => {
+useEffect(() => {
   setIsMounted(true);
   
   // get favorites from localStorage
@@ -394,25 +1041,6 @@ useEffect(() => {
     }
   };
 
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      if (user) {
-        setUserId(user.uid);
-      } else {
-        setUserId(null);
-      }
-    });
-
-    return () => unsubscribe();
-  }, []);
-
-  const [userId, setUserId] = useState(null);
-
-  const handleTabClick = (tab) => {
-    router.push(`browse/profile/${userId}?tab=${tab}/`);
-    setShowProfile(false); // close dropdown
-  };
-
   // Handle date selection
   const handleDateClick = (day) => {
     if (!day) return;
@@ -488,11 +1116,36 @@ const formatDate = (date) => {
     setMapListings(filteredListings);
   };
   
- // Add these state variables with your other state
-const [isGoogleMapsLoading, setIsGoogleMapsLoading] = useState(false);
-const [googleMapsError, setGoogleMapsError] = useState(null);
-const [isGoogleMapsReady, setIsGoogleMapsReady] = useState(false);
-const [locationError, setLocationError] = useState(null);
+
+
+
+  useEffect(() => {
+    if (!isLoadingUser && !hasLoadedUserLocation && isGoogleMapsReady) {
+      // Priority: firebaseUserData > userData prop
+      const userLocationData = firebaseUserData?.userLocation || userData?.userLocation;
+      
+      if (userLocationData && userLocationData.lat && userLocationData.lng) {
+        console.log('Auto-loading user saved location:', userLocationData);
+        
+        // Set the location display name
+        const displayName = userLocationData.displayName || 
+                           userLocationData.placeName || 
+                           userLocationData.city || 
+                           userLocationData.address;
+        
+        if (displayName) {
+          setLocation([displayName]);
+        }
+        setHasLoadedUserLocation(true);
+        
+        // Generate neighborhoods around user's saved location
+        generateNearbyNeighborhoods(userLocationData);
+      } else {
+        console.log('No saved user location found, using default setup');
+        setHasLoadedUserLocation(true);
+      }
+    }
+  }, [firebaseUserData, userData, isGoogleMapsReady, isLoadingUser, hasLoadedUserLocation]);
 
 // Add this useEffect after your existing useEffects
 useEffect(() => {
@@ -549,15 +1202,12 @@ useEffect(() => {
   loadGoogleMaps();
 }, []);
 
-  // Notification data
-  const notifications: Notification[] = [
-    { id: 1, type: "price-drop", message: "MacBook Pro price dropped by $50!", time: "2h ago" },
-    { id: 2, type: "new-item", message: "New furniture items in Dinkytown", time: "4h ago" },
-    { id: 3, type: "favorite", message: "Your favorited item is ending soon", time: "1d ago" }
-  ];
 
-// Notifications dropdown component
-const NotificationsButton = ({ notifications }: { notifications: Notification[] }) => {
+
+const NotificationsButton = ({ notifications, loading }: { 
+  notifications: any[], 
+  loading: boolean 
+}) => {
   const [showNotifications, setShowNotifications] = useState(false);
   const router = useRouter();
 
@@ -567,12 +1217,13 @@ const NotificationsButton = ({ notifications }: { notifications: Notification[] 
         whileHover={{ scale: 1.05 }}
         whileTap={{ scale: 0.95 }}
         onClick={() => setShowNotifications(!showNotifications)}
-        className="p-2 bg-gray-200 rounded-lg hover:bg-gray-300 transition-colors relative"
+        className="p-2 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors relative"
+        disabled={loading}
       >
-        <Bell className="w-5 h-5 text-gray-500" />
+        <Bell className="w-5 h-5 text-gray-600" />
         {notifications.length > 0 && (
           <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center">
-            {notifications.length}
+            {notifications.length > 9 ? '9+' : notifications.length}
           </span>
         )}
       </motion.button>
@@ -586,29 +1237,54 @@ const NotificationsButton = ({ notifications }: { notifications: Notification[] 
             className="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-lg border border-gray-200 z-50"
           >
             <div className="p-4">
-              <h3 className="font-semibold text-orange-600 mb-3">Notifications</h3>
-              <div className="space-y-3 max-h-64 overflow-y-auto">
-                {notifications.map(notif => (
-                  <button
-                    key={notif.id}
-                    onClick={() => router.push(`/sale/browse/notification?id=${notif.id}`)}
-                    className="w-full flex items-start space-x-3 p-2 rounded-lg hover:bg-orange-50 text-left"
-                  >
-                    <div className="w-2 h-2 bg-orange-500 rounded-full mt-2"></div>
-                    <div className="flex-1">
-                      <p className="text-sm text-gray-900">{notif.message}</p>
-                      <p className="text-xs text-gray-500">{notif.time}</p>
-                    </div>
-                  </button>
-                ))}
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="font-semibold text-gray-900">Notifications</h3>
+                <button
+                  onClick={() => router.push('/notifications/')}
+                  className="text-xs text-orange-600 hover:underline"
+                >
+                  View All
+                </button>
               </div>
-
-              <button
-                onClick={() => router.push(`/sale/browse/notification/`)}
-                className="mt-3 text-sm text-orange-600 hover:underline"
-              >
-                See all notifications
-              </button>
+              
+              <div className="space-y-3 max-h-64 overflow-y-auto">
+                {loading ? (
+                  <div className="text-center py-4">
+                    <div className="animate-spin rounded-full h-6 w-6 border-2 border-orange-500 border-t-transparent mx-auto"></div>
+                    <p className="text-sm text-gray-500 mt-2">Loading...</p>
+                  </div>
+                ) : notifications.length === 0 ? (
+                  <div className="text-center py-4">
+                    <Bell className="w-8 h-8 text-gray-300 mx-auto mb-2" />
+                    <p className="text-sm text-gray-500">No new notifications</p>
+                  </div>
+                ) : (
+                  notifications.map(notif => (
+                    <button
+                      key={notif.id}
+                      onClick={() => {
+                        // Mark as read and navigate
+                        router.push('/notifications');
+                        setShowNotifications(false);
+                      }}
+                      className="w-full flex items-start space-x-3 p-2 rounded-lg hover:bg-gray-50 text-left"
+                    >
+                      <div className="w-2 h-2 bg-orange-500 rounded-full mt-2 flex-shrink-0"></div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm text-gray-900 font-medium line-clamp-2">
+                          {notif.title || notif.message}
+                        </p>
+                        {notif.message && notif.title && (
+                          <p className="text-xs text-gray-600 line-clamp-1 mt-1">
+                            {notif.message}
+                          </p>
+                        )}
+                        <p className="text-xs text-gray-500 mt-1">{notif.time}</p>
+                      </div>
+                    </button>
+                  ))
+                )}
+              </div>
             </div>
           </motion.div>
         )}
@@ -625,13 +1301,9 @@ const NotificationsButton = ({ notifications }: { notifications: Notification[] 
       setSelectedAmenities([...selectedAmenities, amenity]);
     }
   };
-     const toggleGender = (gender) => {
-    if (preferredGender === gender) {
-        setPreferredGender(null); 
-    } else {
-        setPreferredGender(gender); 
-    }
-    };
+    const toggleGender = (genderKey) => {
+  setPreferredGender(genderKey);
+};
 
     const toggleSmoking = (smoking) => {
     if (smokingPreference === smoking) {
@@ -708,8 +1380,8 @@ const handleRouteCalculated = (routes) => {
 
 const resetSearch = () => {
   setDateRange({ checkIn: null, checkOut: null });
-  setBathrooms(1);
-  setBedrooms(1);
+  setBathrooms('any'); // Change from 1 to 'any'
+  setBedrooms('any');  // Change from 1 to 'any'
   setLocation([]);
   setCommuteLocation('');
   setSelectedDates([]);
@@ -806,144 +1478,228 @@ const clearCommuteSearch = () => {
     }
   };
 
-  // Badge function
-  const [badgeList, setBadgeList] = useState([]);
+const handleSearch = () => {
+  setIsSearching(true);
   
-  useEffect(() => {
-    const list = [];
+  // Store search location globally for distance calculations
+  if (selectedLocationData?.lat && selectedLocationData?.lng) {
+    window.searchLocationData = selectedLocationData;
+  }
+  
+  // URL parameter update
+  const searchParams = new URLSearchParams();
+  
+  if (location.length > 0) {
+    searchParams.set('location', location.join(','));
+  }
+  if (dateRange.checkIn) {
+    searchParams.set('checkIn', dateRange.checkIn);
+  }
+  if (dateRange.checkOut) {
+    searchParams.set('checkOut', dateRange.checkOut);
+  }
+// Room parameters - ALWAYS send both, even if 'any'
+  searchParams.append('bedrooms', bedrooms.toString());
+  searchParams.append('bathrooms', bathrooms.toString());
 
-    if (isLoggedIn) {
-      list.push(Badges.schoolBadge());
-    }
-    else {
-      list.push(Badges.alumniBadge());
-    }
-    setBadgeList(list);
-  }, []);
+  if (selectedAmenities.length > 0) {
+    searchParams.set('amenities', selectedAmenities.join(','));
+  }
+  if (priceRange.min !== 500 || priceRange.max !== 2000) {
+    searchParams.set('priceMin', priceRange.min);
+    searchParams.set('priceMax', priceRange.max);
+  }
+  if (selectedLocationData) {
+    searchParams.set('locationData', JSON.stringify(selectedLocationData));
+  }
 
-  const handleSearch = () => {
-    setIsSearching(true);
-     // URLparameter update
-    const searchParams = new URLSearchParams();
+  // URL update
+  const newUrl = searchParams.toString() ? `${window.location.pathname}?${searchParams.toString()}` : window.location.pathname;
+  window.history.pushState({}, '', newUrl);
+
+  setTimeout(() => {
+    let filtered = [...allListings];
+
+    console.log('Starting with listings:', filtered.length); 
     
-    if (location.length > 0) {
-        searchParams.set('location', location.join(','));
-    }
-    if (dateRange.checkIn) {
-        searchParams.set('checkIn', dateRange.checkIn);
-    }
-    if (dateRange.checkOut) {
-        searchParams.set('checkOut', dateRange.checkOut);
-    }
-    if (bedrooms !== 1) {
-        searchParams.set('bedrooms', bedrooms);
-    }
-    if (bathrooms !== 1) {
-        searchParams.set('bathrooms', bathrooms);
-    }
-    if (selectedAmenities.length > 0) {
-        searchParams.set('amenities', selectedAmenities.join(','));
-    }
-    if (priceRange.min !== 500 || priceRange.max !== 2000) {
-        searchParams.set('priceMin', priceRange.min);
-        searchParams.set('priceMax', priceRange.max);
-    }
-    if (commuteDestination) {
-        searchParams.set('commuteDestination', JSON.stringify(commuteDestination));
-    }
-
-    // URL update
-    const newUrl = searchParams.toString() ? `${window.location.pathname}?${searchParams.toString()}` : window.location.pathname;
-    window.history.pushState({}, '', newUrl);
-
-    setTimeout(() => {
-      setIsSearching(false);
-      let filtered = [...allListings];
-  
-      console.log('Starting with listings:', filtered.length); 
-      
-      // Location filter - fix the property name
-      if (location.length > 0) {
-        filtered = filtered.filter(listing => {
-          // Check both 'location' and 'neighborhood' properties
-          const listingLocation = listing.location || listing.neighborhood || '';
-          return location.some(selectedLoc => 
-            listingLocation.toLowerCase().includes(selectedLoc.toLowerCase()) ||
-            selectedLoc.toLowerCase().includes(listingLocation.toLowerCase())
-          );
-        });
-        console.log('After location filter:', filtered.length);
-      }
-      
-      // Date filter - fix date comparison
-      if (dateRange.checkIn && dateRange.checkOut) {
-        filtered = filtered.filter(listing => {
-          if (listing.availableFrom && listing.availableTo) {
-            const listingStart = new Date(listing.availableFrom);
-            const listingEnd = new Date(listing.availableTo);
-            const searchStart = new Date(dateRange.checkIn);
-            const searchEnd = new Date(dateRange.checkOut);
-            
-            // Check if the date ranges overlap
-            return listingStart <= searchEnd && listingEnd >= searchStart;
-          }
-          return true; // Include listings without dates
-        });
-        console.log('After date filter:', filtered.length);
-      }
-        
-      // Accommodation type filter
-      if (accommodationType) {
-        filtered = filtered.filter(listing => {
-          const listingType = listing.accommodationType || 
-            (listing.isPrivateRoom ? 'private' : 'entire');
-          return listingType === accommodationType;
-        });
-        console.log('After accommodation type filter:', filtered.length);
-      }
-      
-      // Bedrooms filter - use >= instead of exact match
-      if (bedrooms > 1) {
-        filtered = filtered.filter(listing => 
-          (listing.bedrooms || 1) >= bedrooms
-        );
-        console.log('After bedrooms filter:', filtered.length);
-      }
-      
-      // Bathrooms filter - use >= instead of exact match  
-      if (bathrooms > 1) {
-        filtered = filtered.filter(listing => 
-          (listing.bathrooms || 1) >= bathrooms
-        );
-        console.log('After bathrooms filter:', filtered.length);
-      }
-      
-      // Price range filter
+    // Enhanced Location filter with geographic distance
+    if (location.length > 0 || selectedLocationData) {
       filtered = filtered.filter(listing => {
-        const price = listing.price || listing.rent || 0;
-        return price >= priceRange.min && price <= priceRange.max;
-      });
-      console.log('After price filter:', filtered.length);
-      
-      // Amenities filter
-      if (selectedAmenities.length > 0) {
-        filtered = filtered.filter(listing => {
-          if (!listing.amenities || !Array.isArray(listing.amenities)) return false;
-          return selectedAmenities.some(amenity => 
-            listing.amenities.some(listingAmenity => 
-              listingAmenity.toLowerCase().includes(amenity.toLowerCase())
-            )
+        // Get listing coordinates using helper function
+        const listingCoords = getListingCoordinates(listing);
+        
+        // If we have selectedLocationData from SearchLocationPicker with coordinates
+        if (selectedLocationData?.lat && selectedLocationData?.lng) {
+          const distance = calculateDistance(
+            selectedLocationData.lat,
+            selectedLocationData.lng,
+            listingCoords.lat,
+            listingCoords.lng
           );
-        });
-        console.log('After amenities filter:', filtered.length);
-      }
+          
+          // Use search radius from location data (convert meters to km)
+          const maxDistance = (selectedLocationData.searchRadius || 10000) / 1000;
+          
+          console.log(`📍 Distance check: ${listing.title} is ${distance.toFixed(2)}km away (max: ${maxDistance}km)`);
+          
+          // Store distance on listing for sorting
+          listing.distanceFromSearch = distance;
+          
+          return distance <= maxDistance;
+        }
+        
+        // Fallback to text-based location matching for neighborhood searches
+        if (location.length > 0) {
+          return location.some(selectedLoc => {
+            // Check customLocation placeName first
+            if (listing.customLocation?.placeName) {
+              const placeNameMatch = listing.customLocation.placeName.toLowerCase().includes(selectedLoc.toLowerCase());
+              if (placeNameMatch) return true;
+            }
+            
+            // Check customLocation address
+            if (listing.customLocation?.address) {
+              const addressMatch = listing.customLocation.address.toLowerCase().includes(selectedLoc.toLowerCase());
+              if (addressMatch) return true;
+            }
+            
+            // Check main location field
+            const listingLocation = listing.location || '';
+            return listingLocation.toLowerCase().includes(selectedLoc.toLowerCase()) ||
+                   selectedLoc.toLowerCase().includes(listingLocation.toLowerCase());
+          });
+        }
+        
+        return true;
+      });
+      console.log('After location filter:', filtered.length);
       
-      console.log('Final filtered listings:', filtered.length);
-      setSearchResults(filtered);
-      setIsSearching(false);
-      setActiveSection(null);
-    }, 1000);
-  };
+      // Sort by distance if we have coordinates (closest to farthest)
+      if (selectedLocationData?.lat && selectedLocationData?.lng) {
+        filtered.sort((a, b) => {
+          const distanceA = a.distanceFromSearch || 0;
+          const distanceB = b.distanceFromSearch || 0;
+          return distanceA - distanceB; // Closest first
+        });
+        console.log('🎯 Sorted listings by distance from search location');
+      }
+    }
+    
+    // Date filter - fix date comparison
+    if (dateRange.checkIn && dateRange.checkOut) {
+      filtered = filtered.filter(listing => {
+        if (listing.availableFrom && listing.availableTo) {
+          const listingStart = new Date(listing.availableFrom);
+          const listingEnd = new Date(listing.availableTo);
+          const searchStart = new Date(dateRange.checkIn);
+          const searchEnd = new Date(dateRange.checkOut);
+          
+          // Check if the date ranges overlap
+          return listingStart <= searchEnd && listingEnd >= searchStart;
+        }
+        return true; // Include listings without dates
+      });
+      console.log('After date filter:', filtered.length);
+    }
+      
+    // Accommodation type filter
+    if (accommodationType) {
+      filtered = filtered.filter(listing => {
+        const listingType = listing.accommodationType || 
+          (listing.isPrivateRoom ? 'private' : 'entire');
+        return listingType === accommodationType;
+      });
+      console.log('After accommodation type filter:', filtered.length);
+    }
+    
+    // Bedrooms filter - only apply if not 'any'
+    if (bedrooms !== 'any' && bedrooms >= 0) {
+      filtered = filtered.filter(listing => 
+        (listing.bedrooms || 1) >= bedrooms
+      );
+      console.log('After bedrooms filter:', filtered.length);
+    }
+    
+    // Bathrooms filter - only apply if not 'any'
+    if (bathrooms !== 'any' && bathrooms >= 1) {
+      filtered = filtered.filter(listing => 
+        (listing.bathrooms || 1) >= bathrooms
+      );
+      console.log('After bathrooms filter:', filtered.length);
+    }
+    
+    // Price range filter
+    filtered = filtered.filter(listing => {
+      const price = listing.price || listing.rent || 0;
+      return price >= priceRange.min && price <= priceRange.max;
+    });
+    console.log('After price filter:', filtered.length);
+    
+    // Amenities filter
+    if (selectedAmenities.length > 0) {
+      filtered = filtered.filter(listing => {
+        if (!listing.amenities || !Array.isArray(listing.amenities)) return false;
+        return selectedAmenities.some(amenity => 
+          listing.amenities.some(listingAmenity => 
+            listingAmenity.toLowerCase().includes(amenity.toLowerCase())
+          )
+        );
+      });
+      console.log('After amenities filter:', filtered.length);
+    }
+
+    // Smoking filter
+    if (smokingPreference && smokingPreference !== 'any') {
+      filtered = filtered.filter(listing => {
+        const smokingAllowed = Boolean(listing.roommatePreferences?.smokingAllowed);
+        
+        if (smokingPreference === 'allowed') {
+          return smokingAllowed === true;
+        } else if (smokingPreference === 'not-allowed') {
+          return smokingAllowed === false;
+        }
+        
+        return true;
+      });
+      console.log('After smoking filter:', filtered.length);
+    }
+
+    // Gender filter
+    if (preferredGender && preferredGender !== 'any') {
+      filtered = filtered.filter(listing => {
+        const listingGender = listing.preferredGender;
+
+        if (!listingGender || listingGender === 'Any') {
+          return true;
+        }
+        
+        return listingGender === preferredGender;
+      });
+      console.log('After gender filter:', filtered.length);
+    }
+    
+    // Final sorting: If no location-based sorting was applied, sort by creation date (newest first)
+    if (!selectedLocationData?.lat || !selectedLocationData?.lng) {
+      filtered.sort((a, b) => {
+        const dateA = new Date(a.createdAt || a.availableFrom || 0);
+        const dateB = new Date(b.createdAt || b.availableFrom || 0);
+        return dateB.getTime() - dateA.getTime(); // Newest first
+      });
+      console.log('🕒 Sorted listings by date (newest first)');
+    }
+    
+    console.log('Final filtered listings:', filtered.length);
+    console.log('📊 Final results:', filtered.map(l => ({
+      title: l.title,
+      location: l.location || l.customLocation?.placeName,
+      distance: l.distanceFromSearch ? `${l.distanceFromSearch.toFixed(1)}km` : 'N/A'
+    })));
+    
+    setSearchResults(filtered);
+    setIsSearching(false);
+    setActiveSection(null);
+  }, 1000);
+};
 
   // Apply saved search
   const applySavedSearch = (search) => {
@@ -992,7 +1748,7 @@ const clearCommuteSearch = () => {
       dateRange.checkIn !== null || 
       dateRange.checkOut !== null || 
       bathrooms > 1 || 
-      bedrooms > 1 || 
+      bedrooms >= 0 || 
       location.length > 0 || 
       commuteLocation !== '' ||
       accommodationType !== null ||
@@ -1015,36 +1771,129 @@ const clearCommuteSearch = () => {
     }
   };
 
-  //favorites list
-  const toggleFavorite = (listing) => {
-  // check if it is already there
-  const isFavorited = favoriteListings.some(item => item.id === listing.id);
+  // //favorites list
+  // const toggleFavorite = (listing) => {
+  // // check if it is already there
+  // const isFavorited = favoriteListings.some(item => item.id === listing.id);
   
-  if (isFavorited) {
-    // if already added, cancel it
-    setFavoriteListings(favoriteListings.filter(item => item.id !== listing.id));
-  } else {
-    // add new favorites
-    const favoriteItem = {
-      id: listing.id,
-      title: listing.title || 'Untitled Listing',
-      location: listing.location || 'Unknown Location',
-      price: listing.price || 0,
-      bedrooms: listing.bedrooms || 1,
-      // if there is a bathrooms, use it.
-      ...(listing.bathrooms !== undefined && { bathrooms: listing.bathrooms }),
-      image: listing.image || '/api/placeholder/800/500',
-      // if there is a dataRange, use it.
-      ...(listing.dateRange && { dateRange: listing.dateRange })
-    };
+  // if (isFavorited) {
+  //   // if already added, cancel it
+  //   setFavoriteListings(favoriteListings.filter(item => item.id !== listing.id));
+  // } else {
+  //   // add new favorites
+  //   const favoriteItem = {
+  //     id: listing.id,
+  //     title: listing.title || 'Untitled Listing',
+  //     location: listing.location || 'Unknown Location',
+  //     price: listing.price || 0,
+  //     bedrooms: listing.bedrooms || 1,
+  //     // if there is a bathrooms, use it.
+  //     ...(listing.bathrooms !== undefined && { bathrooms: listing.bathrooms }),
+  //     image: listing.image || '/api/placeholder/800/500',
+  //     // if there is a dataRange, use it.
+  //     ...(listing.dateRange && { dateRange: listing.dateRange })
+  //   };
     
-    setFavoriteListings([favoriteItem, ...favoriteListings]);
-    // open sidebar
-    setIsSidebarOpen(true);
-    // change the tap into favorites
-    setActiveTab('favorites');
+  //   setFavoriteListings([favoriteItem, ...favoriteListings]);
+  //   // open sidebar
+  //   // setIsSidebarOpen(true);
+  //   // change the tap into favorites
+  //   setActiveTab('favorites');
+  //   }
+  // };
+
+  const toggleFavorite = (listing, listingType = 'sublease') => {
+  // Determine which localStorage key to use based on listing type
+  const storageKey = listingType === 'sale' ? 'favoriteSaleItems' : 'favoriteSubleaseItems';
+  
+  try {
+    // Get current favorites from localStorage
+    const currentFavorites = JSON.parse(localStorage.getItem(storageKey) || '[]');
+    
+    // Check if listing is already favorited
+    const isFavorited = currentFavorites.some(item => item.id === listing.id);
+    
+    let updatedFavorites;
+    
+    if (isFavorited) {
+      // Remove from favorites
+      updatedFavorites = currentFavorites.filter(item => item.id !== listing.id);
+    } else {
+      // Add to favorites
+      const favoriteItem = listingType === 'sale' ? {
+        id: listing.id,
+        name: listing.name || listing.title || 'Untitled Item',
+        price: listing.price || 0,
+        location: listing.location || 'Unknown Location',
+        image: listing.image || '/api/placeholder/400/300',
+        category: listing.category || 'Other',
+        condition: listing.condition || 'Good',
+        postedDate: listing.postedDate || new Date().toISOString().split('T')[0]
+      } : {
+        id: listing.id,
+        title: listing.title || 'Untitled Listing',
+        price: listing.price || 0,
+        location: listing.location || 'Unknown Location',
+        image: listing.image || '/api/placeholder/800/500',
+        bedrooms: listing.bedrooms || 1,
+        bathrooms: listing.bathrooms || 1,
+        startDate: listing.startDate || (listing.dateRange && listing.dateRange.split(' - ')[0]) || 'TBD',
+        endDate: listing.endDate || (listing.dateRange && listing.dateRange.split(' - ')[1]) || 'TBD',
+        amenities: listing.amenities || []
+      };
+      
+      updatedFavorites = [favoriteItem, ...currentFavorites];
     }
-  };
+    
+    // Save updated favorites to localStorage
+    localStorage.setItem(storageKey, JSON.stringify(updatedFavorites));
+    
+    // Update local state if you're tracking favorites in the search page
+    if (listingType === 'sale') {
+      setFavoriteSales && setFavoriteSales(updatedFavorites);
+    } else {
+      setFavoriteSubleases && setFavoriteSubleases(updatedFavorites);
+    }
+    
+    return !isFavorited; // Return new favorite status
+    
+  } catch (error) {
+    console.error('Error toggling favorite:', error);
+    return false;
+  }
+};
+
+// Helper function to check if a listing is favorited
+const isFavorited = (listingId, listingType = 'sublease') => {
+  const storageKey = listingType === 'sale' ? 'favoriteSaleItems' : 'favoriteSubleaseItems';
+  
+  try {
+    const currentFavorites = JSON.parse(localStorage.getItem(storageKey) || '[]');
+    return currentFavorites.some(item => item.id === listingId);
+  } catch (error) {
+    console.error('Error checking favorite status:', error);
+    return false;
+  }
+};
+
+const [favoriteSales, setFavoriteSales] = useState([]);
+const [favoriteSubleases, setFavoriteSubleases] = useState([]);
+
+useEffect(() => {
+  try {
+    const savedSales = localStorage.getItem('favoriteSaleItems');
+    if (savedSales) {
+      setFavoriteSales(JSON.parse(savedSales));
+    }
+    
+    const savedSubleases = localStorage.getItem('favoriteSubleaseItems');
+    if (savedSubleases) {
+      setFavoriteSubleases(JSON.parse(savedSubleases));
+    }
+  } catch (error) {
+    console.error('Error loading favorites:', error);
+  }
+}, []);
 
   // date range
   const updateSelectedDates = (start, end) => {
@@ -1095,14 +1944,160 @@ const debugGoogleMaps = () => {
   }
 };
 
+ const generateNearbyNeighborhoods = async (userLocation) => {
+    if (!window.google || !userLocation.lat || !userLocation.lng) {
+      console.log('Google Maps not ready or invalid location:', { userLocation });
+      return;
+    }
+    
+    setIsLoadingNeighborhoods(true);
+    
+    try {
+      const neighborhoods = new Set();
+      
+      // Add user's current area as the first item
+      const userAreaName = userLocation.displayName || 
+                          userLocation.placeName || 
+                          userLocation.city || 
+                          'Your Area';
+      neighborhoods.add(userAreaName);
+      
+      const placesService = new window.google.maps.places.PlacesService(document.createElement('div'));
+      
+      // Reduced radius for more accurate local neighborhoods (8km for cities, 5km for specific locations)
+      const searchRadius = userLocation.areaType === 'city' ? 8000 : 5000;
+      
+      // Search for neighborhoods within reduced radius
+      const request = {
+        location: new google.maps.LatLng(userLocation.lat, userLocation.lng),
+        radius: searchRadius,
+        type: 'sublocality_level_1'
+      };
+
+      await new Promise((resolve) => {
+        placesService.nearbySearch(request, (results, status) => {
+          if (status === google.maps.places.PlacesServiceStatus.OK && results) {
+            results.forEach(place => {
+              if (place.name && place.name.length > 2 && !place.name.includes('Unnamed')) {
+                neighborhoods.add(place.name);
+              }
+            });
+          }
+          resolve();
+        });
+      });
+      
+      // Search for establishments and points of interest with smaller radius
+      const poiRequest = {
+        location: new google.maps.LatLng(userLocation.lat, userLocation.lng),
+        radius: 3000, // 3km for POIs
+        type: 'establishment'
+      };
+      
+      await new Promise((resolve) => {
+        placesService.nearbySearch(poiRequest, (results, status) => {
+          if (status === google.maps.places.PlacesServiceStatus.OK && results) {
+            // Only add well-known establishments that could serve as area identifiers
+            results.slice(0, 5).forEach(place => {
+              if (place.name && 
+                  place.name.length > 3 && 
+                  place.rating && place.rating > 4.0 &&
+                  place.user_ratings_total && place.user_ratings_total > 100) {
+                neighborhoods.add(`Near ${place.name}`);
+              }
+            });
+          }
+          resolve();
+        });
+      });
+      
+      // Add city-based areas if we have a city name
+      const cityName = userLocation.city || userLocation.placeName;
+      if (cityName && cityName !== userAreaName) {
+        neighborhoods.add(cityName);
+        neighborhoods.add(`Downtown ${cityName}`);
+        
+        // Only add university area if it's likely to have one
+        if (cityName.toLowerCase().includes('college') || 
+            cityName.toLowerCase().includes('university') ||
+            neighborhoods.size < 4) {
+          neighborhoods.add(`${cityName} - University Area`);
+        }
+      }
+      
+      // Convert Set to Array and clean up
+      const cleanedNeighborhoods = Array.from(neighborhoods)
+        .filter(name => name && name.length > 2)
+        .filter(name => !name.toLowerCase().includes('unnamed'))
+        .filter(name => !name.toLowerCase().includes('null'))
+        .sort()
+        .slice(0, 8); // Limit to 8 results for better UX
+      
+      console.log('Generated neighborhoods with user location:', cleanedNeighborhoods);
+      setNeighborhoods(cleanedNeighborhoods);
+      setIsLoadingNeighborhoods(false);
+      
+    } catch (error) {
+      console.error('Error generating neighborhoods:', error);
+      setIsLoadingNeighborhoods(false);
+      
+      // Fallback with basic city-based areas
+      const cityName = userLocation.city || userLocation.placeName || "Your Area";
+      const fallbackNeighborhoods = [
+        userLocation.displayName || userLocation.placeName || cityName,
+        cityName !== (userLocation.displayName || userLocation.placeName) ? cityName : null,
+        `Downtown ${cityName}`,
+      ].filter(Boolean);
+      
+      console.log('Using fallback neighborhoods:', fallbackNeighborhoods);
+      setNeighborhoods(fallbackNeighborhoods);
+    }
+  };
+
+
 // Call this when the location section opens
 const toggleSection = (section) => {
-  if (activeSection === section) {
-    setActiveSection(null);
-  } else {
-    setActiveSection(section);
+    if (activeSection === section) {
+      setActiveSection(null);
+    } else {
+      setActiveSection(section);
+      
+      // Generate neighborhoods when location section opens
+      if (section === 'location' && neighborhoods.length === 0) {
+        const userLocationData = firebaseUserData?.userLocation || userData?.userLocation;
+        if (userLocationData && isGoogleMapsReady) {
+          generateNearbyNeighborhoods(userLocationData);
+        }
+      }
+    }
+  };
+
+  // Add loading state UI like in your MoveOutSaleSearchPage
+  if (isLoadingUser) {
+    return (
+      <div className="min-h-screen bg-white text-gray-800 flex flex-col items-center justify-center px-4">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-2 border-orange-500 border-t-transparent mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading your preferences...</p>
+        </div>
+      </div>
+    );
   }
-};
+
+  // Add location status display in your header area (add this after the logo section)
+  const renderLocationStatus = () => {
+    if (location && location.length > 0 && location[0] !== "Select location") {
+      return (
+        <div className="text-center mb-4">
+          <p className="text-sm text-gray-600">
+            Searching in: <span className="font-semibold text-orange-600">{location[0]}</span>
+            {location.length > 1 && <span> +{location.length - 1} more</span>}
+          </p>
+        </div>
+      );
+    }
+    return null;
+  };
 
 const handleCommuteResults = (routes, destination) => {
   console.log('🎯 Handling commute results in SearchPage:', routes.length, 'routes');
@@ -1227,13 +2222,13 @@ const handleCommuteResults = (routes, destination) => {
     }, 100);
   };
 
-  const getNeighborhoodCount = (neighborhoodName) => {
-    return allListings.filter(listing => {
-      const listingLocation = listing.location || listing.neighborhood || '';
-      return listingLocation.toLowerCase().includes(neighborhoodName.toLowerCase()) ||
-             neighborhoodName.toLowerCase().includes(listingLocation.toLowerCase());
-    }).length;
-  };
+const getNeighborhoodCount = (neighborhoodName) => {
+  return allListings.filter(listing => {
+    const listingLocation = listing.location || listing.neighborhood || '';
+    return listingLocation.toLowerCase().includes(neighborhoodName.toLowerCase()) ||
+           neighborhoodName.toLowerCase().includes(listingLocation.toLowerCase());
+  }).length;
+};
 
 
   useEffect(() => {
@@ -1361,276 +2356,186 @@ const processListingsWithRealCoordinates = async (listings) => {
   // =========================
   // Render Components
   // =========================
-
-  // Location Section with Google Maps search for neighborhoods
-// Location Section with Enhanced Google Maps search for neighborhoods
-const renderLocationSection = () => {
-  // Function to handle popular destination clicks with Google Maps geocoding
-  const handlePopularDestinationClick = (destination) => {
-    // Instead of setting searchQuery, directly trigger the CommuteLocationPicker
-    // by setting the commute destination
-    
-    // Immediately search for this destination using Google Maps
-    if (isGoogleMapsReady && !googleMapsError) {
-      console.log('🔍 Searching for popular destination:', destination);
-      
-      // Use geocoding for popular destinations to get exact coordinates
-      const geocoder = new window.google.maps.Geocoder();
-      geocoder.geocode(
-        { 
-          address: `${destination}, Minneapolis, MN`,
-          componentRestrictions: { country: 'US' }
-        },
-        (results, status) => {
-          if (status === 'OK' && results?.[0]) {
-            const result = results[0];
-            const addressComponents = parseAddressComponents(result.address_components || []);
-            
-            const locationData = {
-              lat: result.geometry.location.lat(),
-              lng: result.geometry.location.lng(),
-              address: result.formatted_address,
-              placeName: destination,
-              commutePreferences: {
-                transportMode: 'transit', // Default transport mode
-                maxCommuteTime: 30,      // Default max commute time
-                maxDistance: 10,         // Default max distance
-                showAlternatives: true,  // Enhanced feature
-                avoidTolls: false,      // Enhanced feature
-                avoidHighways: false    // Enhanced feature
-              },
-              isNeighborhood: result.types?.includes('neighborhood') || result.types?.includes('sublocality'),
-              placeTypes: result.types || [],
-              ...addressComponents
-            };
-
-            console.log('📍 Popular destination found:', locationData);
-            
-            // Set the commute destination directly
-            setCommuteDestination(locationData);
-            setCommuteLocation(locationData.address);
-          } else {
-            console.warn('Geocoding failed for:', destination, status);
-            // Set a basic location without geocoding
-            const fallbackLocation = {
-              lat: 44.9778, lng: -93.2358, // Minneapolis center
-              address: `${destination}, Minneapolis, MN`,
-              placeName: destination,
-              commutePreferences: {
-                transportMode: 'transit',
-                maxCommuteTime: 30,
-                maxDistance: 10,
-                showAlternatives: true,
-                avoidTolls: false,
-                avoidHighways: false
-              }
-            };
-            setCommuteDestination(fallbackLocation);
-            setCommuteLocation(fallbackLocation.address);
-          }
-        }
-      );
-    } else {
-      // If Google Maps not ready, set a basic destination
-      const basicLocation = {
-        lat: 44.9778, lng: -93.2358,
-        address: `${destination}, Minneapolis, MN`,
-        placeName: destination,
-        commutePreferences: {
-          transportMode: 'transit',
-          maxCommuteTime: 30,
-          maxDistance: 10,
-          showAlternatives: true,
-          avoidTolls: false,
-          avoidHighways: false
-        }
-      };
-      setCommuteDestination(basicLocation);
-      setCommuteLocation(basicLocation.address);
-    }
-  };
-
-  return (
-    <div className="p-5 border-t border-gray-200 animate-fadeIn">
-      <div className="grid grid-cols-2 gap-6">
-          <div className="max-w-sm"> 
-            <h3 className="font-bold mb-3 text-gray-800">Choose Your Location</h3>
-            <div className="w-full">
-              <SearchLocationPicker 
-                  initialValue={location[0] || "University of Minnesota"}
-                  onLocationSelect={(selectedLocation) => {
-                    console.log('Selected Location:', selectedLocation);
-                    const locationName = selectedLocation.placeName || selectedLocation.address || selectedLocation;
-                    setLocation([locationName]);
-                  // if location is String
-                  // setLocation(selectedLocation.address || selectedLocation);
-                  }}
-              />
-            </div>
+ const renderLocationSection = () => {
+    return (
+      <div className="p-5 border-t border-gray-200 animate-fadeIn">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Enhanced Location Picker */}
+          <div>
+            <h3 className="font-bold mb-3 text-gray-800">Search by Location</h3>
+            <SearchLocationPicker 
+              initialValue={location[0] || ""}
+              onLocationSelect={(selectedLocation) => {
+                console.log('Location selected:', selectedLocation);
+                
+                // Handle different location types
+                if (selectedLocation.areaType === 'city') {
+                  // For city searches, set broader location filter
+                  setLocation([selectedLocation.city || selectedLocation.placeName]);
+                } else {
+                  // For specific locations, use place name or address
+                  setLocation([selectedLocation.placeName || selectedLocation.address]);
+                }
+                
+                // Store full location data for filtering
+                setSelectedLocationData(selectedLocation);
+                
+                // Generate new neighborhoods for the selected location
+                if (selectedLocation.lat && selectedLocation.lng) {
+                  generateNearbyNeighborhoods(selectedLocation);
+                }
+              }}
+              customLocationsData={allListings}
+            />
           </div>
-        <div>
-          <h3 className="font-bold mb-3 text-gray-800">Campus Neighborhoods</h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {['Dinkytown', 'East Bank', 'Stadium Village', 'Como', 'Southeast Como', 'St. Paul'].map((loc) => (
-              <div 
-                key={loc}
-                className={`p-3 rounded-lg border cursor-pointer transition ${location.includes(loc) ? 'bg-orange-50 border-orange-200' : 'hover:bg-gray-50'}`}
-                onClick={() => {
-                  // First add to location filter
-                  toggleLocation(loc);
-                  
-                  // Also search for this neighborhood on Google Maps for commute
-                  handlePopularDestinationClick(loc);
-                }}
-              >
-                <div className="flex items-center justify-between">
-                  <div className="font-semibold text-gray-600">{loc}</div>
-                  {location.includes(loc) && (
-                    <div className="w-4 h-4 rounded-full bg-orange-500 flex items-center justify-center text-white">
-                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3 h-3">
-                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                      </svg>
-                    </div>
-                  )}
+          
+          {/* Popular Neighborhoods */}
+          <div>
+            <h3 className="font-bold mb-3 text-gray-800">
+              Popular Areas Near You
+              {isLoadingNeighborhoods && (
+                <span className="ml-2">
+                  <span className="inline-block animate-spin rounded-full h-4 w-4 border-2 border-orange-500 border-t-transparent"></span>
+                </span>
+              )}
+            </h3>
+            
+            <div className="overflow-y-auto max-h-80">
+              {neighborhoods.length > 0 ? (
+                <div className="space-y-2">
+                  {neighborhoods.map((neighborhood, idx) => (
+                    <button
+                      key={idx}
+                      className={`w-full p-3 rounded-lg text-left transition-all border ${
+                        location.includes(neighborhood)
+                          ? 'bg-orange-50 border-orange-300 text-orange-700'
+                          : 'bg-gray-50 border-gray-200 hover:bg-orange-50 hover:border-orange-300'
+                      }`}
+                      onClick={() => {
+                        if (location.includes(neighborhood)) {
+                          // Remove if already selected
+                          setLocation(location.filter(loc => loc !== neighborhood));
+                        } else {
+                          // Add to selection
+                          setLocation([...location, neighborhood]);
+                        }
+                      }}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center">
+                          <MapPin size={16} className="text-orange-500 mr-3 flex-shrink-0" />
+                          <span className="font-medium">{neighborhood}</span>
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          {getNeighborhoodCount(neighborhood)} listings
+                        </div>
+                      </div>
+                    </button>
+                  ))}
                 </div>
-                <div className="text-xs text-gray-500 mt-1">
-                  {getNeighborhoodCount(loc)} listings
+              ) : !isLoadingNeighborhoods ? (
+                <div className="text-center py-8 text-gray-500">
+                  <MapPin size={48} className="mx-auto text-gray-300 mb-4" />
+                  <p className="text-sm">No nearby areas found</p>
+                  <p className="text-xs mt-1">Use the search on the left to find locations</p>
                 </div>
-              </div>
-            ))}
+              ) : (
+                <div className="text-center py-8 text-gray-500">
+                  <div className="animate-spin rounded-full h-8 w-8 border-2 border-orange-500 border-t-transparent mx-auto mb-4"></div>
+                  <p className="text-sm">Loading nearby areas...</p>
+                </div>
+              )}
+            </div>
           </div>
         </div>
         
-      
-      </div>
-      
-      <div className="mt-6 flex justify-end items-center space-x-3">
-        <button 
-          className="px-3 py-1.5 text-orange-500 hover:underline"
-          onClick={() => setActiveSection(null)}
-        >
-          Cancel
-        </button>
-        <button 
-          className="px-4 py-2 rounded-lg bg-orange-500 text-white hover:bg-orange-700 font-medium"
-          onClick={() => {
-            setActiveSection(null);
-            if (!isCommuteMode) {
+        <div className="mt-6 flex justify-end items-center space-x-3">
+          <button 
+            className="px-3 py-1.5 text-orange-500 hover:underline"
+            onClick={() => setActiveSection(null)}
+          >
+            Cancel
+          </button>
+          <button 
+            className="px-4 py-2 rounded-lg bg-orange-500 text-white hover:bg-orange-700 font-medium"
+            onClick={() => {
+              setActiveSection(null);
               handleSearch();
-            }
-          }}
-        >
-          Apply
-        </button>
+            }}
+          >
+            Apply
+          </button>
+        </div>
       </div>
+    );
+  };
 
-   
-    </div>
-  );
-};
+
 const renderCalendarSection = () => (
-  <div className="p-5 border-t border-gray-200 animate-fadeIn">
+  <div className="p-5 border-t border-gray-200">
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-      {/* Quick Date Presets - More Prominent */}
+      {/* Quick Options - Orange Theme */}
       <div className="lg:order-2">
-        <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2">
-          <Clock size={18} className="text-orange-500" />
+        <h3 className="font-semibold text-gray-800 mb-3 flex items-center gap-2">
+          <Clock size={16} className="text-orange-500" />
           Quick Options
         </h3>
-        <div className="space-y-3">
+        <div className="space-y-2">
           <button 
             onClick={setAvailableNow}
-            className="w-full p-4 border-2 border-green-200 text-green-700 rounded-xl flex items-center justify-between hover:bg-green-50 transition-all group hover:border-green-300"
+            className="w-full p-3 border border-orange-200 text-gray-700 rounded-lg hover:border-orange-300 hover:bg-orange-50 transition-colors"
           >
-            <div className="text-left">
-              <div className="font-semibold flex items-center gap-2">
-                <Clock size={16} />
-                Available Now
-              </div>
-              <div className="text-sm text-green-600">Next 2 weeks</div>
-            </div>
-            <div className="p-2 bg-green-100 rounded-lg group-hover:bg-green-200 transition-colors">
-              <ChevronRight size={20} className="text-green-600" />
-            </div>
+            <div className="font-medium">Available Now</div>
+            <div className="text-sm text-gray-500">Next 2 weeks</div>
           </button>
           
           <button 
             onClick={setSummerSemester}
-            className="w-full p-4 border-2 border-yellow-200 text-yellow-700 rounded-xl flex items-center justify-between hover:bg-yellow-50 transition-all group hover:border-yellow-300"
+            className="w-full p-3 border border-orange-200 text-gray-700 rounded-lg hover:border-orange-300 hover:bg-orange-50 transition-colors"
           >
-            <div className="text-left">
-              <div className="font-semibold flex items-center gap-2">
-                <Sparkles size={16} />
-                Summer Semester
-              </div>
-              <div className="text-sm text-yellow-600">May - August</div>
-            </div>
-            <div className="p-2 bg-yellow-100 rounded-lg group-hover:bg-yellow-200 transition-colors">
-              <ChevronRight size={20} className="text-yellow-600" />
-            </div>
+            <div className="font-medium">Summer Semester</div>
+            <div className="text-sm text-gray-500">May - August</div>
           </button>
           
           <button 
             onClick={setFallSemester}
-            className="w-full p-4 border-2 border-orange-200 text-orange-700 rounded-xl flex items-center justify-between hover:bg-orange-50 transition-all group hover:border-orange-300"
+            className="w-full p-3 border border-orange-200 text-gray-700 rounded-lg hover:border-orange-300 hover:bg-orange-50 transition-colors"
           >
-            <div className="text-left">
-              <div className="font-semibold flex items-center gap-2">
-                <Calendar size={16} />
-                Fall Semester
-              </div>
-              <div className="text-sm text-orange-600">August - December</div>
-            </div>
-            <div className="p-2 bg-orange-100 rounded-lg group-hover:bg-orange-200 transition-colors">
-              <ChevronRight size={20} className="text-orange-600" />
-            </div>
+            <div className="font-medium">Fall Semester</div>
+            <div className="text-sm text-gray-500">August - December</div>
           </button>
-          
-          {/* Custom Range Info */}
-          <div className="mt-4 p-4 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg border border-blue-200">
-            <div className="flex items-start gap-3">
-              <div className="p-2 bg-blue-100 rounded-lg">
-                <MapPin size={16} className="text-blue-600" />
-              </div>
-              <div>
-                <div className="text-sm font-medium text-blue-800 mb-1">Custom Date Range</div>
-                <div className="text-xs text-blue-600">Click start date, then end date on the calendar</div>
-              </div>
-            </div>
-          </div>
         </div>
       </div>
       
-      {/* Calendar - Improved */}
+      {/* Calendar - Orange Theme */}
       <div className="lg:col-span-2 lg:order-1">
-        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
-          {/* Calendar Header */}
-          <div className="bg-gradient-to-r from-orange-500 to-orange-600 text-white p-4">
+        <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+          {/* Orange Header */}
+          <div className="bg-orange-500 text-white p-3">
             <div className="flex justify-between items-center">
               <button 
                 onClick={goToPreviousMonth} 
-                className="p-2 rounded-full hover:bg-white/20 transition-colors flex items-center gap-1"
+                className="p-2 hover:bg-orange-600 rounded transition-colors"
               >
-                <ChevronLeft size={20} />
+                <ChevronLeft size={18} />
               </button>
-              <div className="text-xl font-bold flex items-center gap-2">
-                <Calendar size={20} />
+              <div className="font-semibold">
                 {monthNames[currentMonth]} {currentYear}
               </div>
               <button 
                 onClick={goToNextMonth} 
-                className="p-2 rounded-full hover:bg-white/20 transition-colors flex items-center gap-1"
+                className="p-2 hover:bg-orange-600 rounded transition-colors"
               >
-                <ChevronRight size={20} />
+                <ChevronRight size={18} />
               </button>
             </div>
           </div>
           
           {/* Calendar Grid */}
-          <div className="p-4">
+          <div className="p-3">
             <div className="grid grid-cols-7 gap-1 mb-2">
               {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day, i) => (
-                <div key={i} className="text-center text-sm font-semibold text-gray-600 py-2">
+                <div key={i} className="text-center text-sm font-medium text-gray-600 py-2">
                   {day}
                 </div>
               ))}
@@ -1650,32 +2555,30 @@ const renderCalendarSection = () => (
                               dateRange.checkOut.getMonth() === currentMonth && 
                               dateRange.checkOut.getFullYear() === currentYear;
                 
+                let dayClass = "h-10 flex items-center justify-center rounded cursor-pointer transition-colors ";
+                
+                if (!day) {
+                  dayClass += "text-gray-300 cursor-default";
+                } else if (isCheckIn || isCheckOut) {
+                  dayClass += "bg-orange-500 text-white font-medium";
+                } else if (isSelected) {
+                  dayClass += "bg-orange-100 text-orange-800";
+                } else if (isToday) {
+                  dayClass += "bg-gray-100 text-gray-900 font-medium ring-2 ring-orange-300";
+                } else {
+                  dayClass += "hover:bg-orange-50 text-gray-700";
+                }
+                
                 return (
                   <div 
                     key={i} 
-                    className={`
-                      h-12 flex items-center justify-center rounded-lg cursor-pointer relative transition-all duration-200 font-medium
-                      ${!day ? 'text-gray-300 cursor-default' : 'hover:bg-orange-100 hover:scale-105'}
-                      ${isToday ? 'ring-2 ring-blue-300 bg-blue-50' : ''}
-                      ${isSelected && !isCheckIn && !isCheckOut ? 'bg-orange-100 text-orange-800' : ''}
-                      ${isCheckIn ? 'bg-orange-500 text-white shadow-lg scale-110' : ''}
-                      ${isCheckOut ? 'bg-orange-500 text-white shadow-lg scale-110' : ''}
-                    `}
+                    className={dayClass}
                     onClick={() => day && handleDateClick(day)}
                   >
                     {day}
-                    {isToday && (
-                      <div className="absolute -bottom-1 w-2 h-2 bg-blue-500 rounded-full"></div>
-                    )}
-                    {isCheckIn && (
-                      <div className="absolute -top-1 -right-1 w-4 h-4 bg-green-400 rounded-full border-2 border-white flex items-center justify-center">
-                        <div className="w-1.5 h-1.5 bg-white rounded-full"></div>
-                      </div>
-                    )}
-                    {isCheckOut && (
-                      <div className="absolute -top-1 -right-1 w-4 h-4 bg-red-400 rounded-full border-2 border-white flex items-center justify-center">
-                        <div className="w-1.5 h-1.5 bg-white rounded-full"></div>
-                      </div>
+                    {/* Today indicator */}
+                    {isToday && !isCheckIn && !isCheckOut && (
+                      <div className="absolute bottom-1 w-1.5 h-1.5 bg-orange-500 rounded-full"></div>
                     )}
                   </div>
                 );
@@ -1686,62 +2589,48 @@ const renderCalendarSection = () => (
       </div>
     </div>
     
-    {/* Selection Summary - More Visual */}
-    <div className="mt-6 bg-gradient-to-r from-orange-50 to-yellow-50 p-4 rounded-xl border border-orange-200">
+    {/* Orange Selection Summary */}
+    <div className="mt-4 bg-orange-50 p-4 rounded-lg border border-orange-200">
       <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-6">
-          <div className="flex items-center space-x-2">
-            <div className="w-4 h-4 bg-green-400 rounded-full flex items-center justify-center">
-              <div className="w-2 h-2 bg-white rounded-full"></div>
-            </div>
-            <span className="text-sm font-medium text-gray-700">Check-in:</span>
-            <span className="font-bold text-gray-800 flex items-center gap-1">
-              <Calendar size={14} />
+        <div className="flex items-center space-x-4">
+          <div className="text-sm">
+            <span className="text-gray-600">Check-in: </span>
+            <span className="font-medium">
               {dateRange.checkIn ? formatDate(dateRange.checkIn) : 'Select date'}
             </span>
           </div>
-          <div className="text-gray-400">
-            <ChevronRight size={16} />
-          </div>
-          <div className="flex items-center space-x-2">
-            <div className="w-4 h-4 bg-red-400 rounded-full flex items-center justify-center">
-              <div className="w-2 h-2 bg-white rounded-full"></div>
-            </div>
-            <span className="text-sm font-medium text-gray-700">Check-out:</span>
-            <span className="font-bold text-gray-800 flex items-center gap-1">
-              <Calendar size={14} />
+          <div className="text-sm">
+            <span className="text-gray-600">Check-out: </span>
+            <span className="font-medium">
               {dateRange.checkOut ? formatDate(dateRange.checkOut) : 'Select date'}
             </span>
           </div>
           {dateRange.checkIn && dateRange.checkOut && (
-            <div className="ml-4 px-3 py-1.5 bg-orange-500 text-white rounded-full text-sm font-medium flex items-center gap-1">
-              <Clock size={12} />
+            <div className="text-sm px-2 py-1 bg-orange-200 text-orange-800 rounded">
               {Math.ceil((dateRange.checkOut - dateRange.checkIn) / (1000 * 60 * 60 * 24))} nights
             </div>
           )}
         </div>
         
-        <div className="flex items-center space-x-3">
+        <div className="flex items-center space-x-2">
           {(dateRange.checkIn || dateRange.checkOut) && (
             <button 
-              className="px-3 py-1.5 text-gray-500 hover:text-gray-700 text-sm flex items-center gap-1 hover:bg-gray-100 rounded-lg transition-colors"
+              className="text-sm text-gray-500 hover:text-gray-700"
               onClick={() => {
                 setDateRange({ checkIn: null, checkOut: null });
                 setSelectedDates([]);
               }}
             >
-              <X size={14} />
-              Clear dates
+              Clear
             </button>
           )}
           <button 
-            className="px-4 py-2 rounded-lg bg-orange-500 text-white hover:bg-orange-600 font-medium transition-colors flex items-center gap-2"
+            className="px-4 py-2 rounded bg-orange-500 text-white hover:bg-orange-600 font-medium transition-colors"
             onClick={() => {
               setActiveSection(null);
               handleSearch();
             }}
           >
-            <Search size={16} />
             Apply Dates
           </button>
         </div>
@@ -1751,328 +2640,307 @@ const renderCalendarSection = () => (
 );
 
   // Rooms Section
-  const renderRoomsSection = () => (
-    <div className="p-5 border-t border-gray-200 animate-fadeIn">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div>
-          <h3 className="font-bold mb-3 text-gray-800">Room Configuration</h3>
-          
-          <div className="p-4 border rounded-lg mb-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="font-semibold text-gray-600">Bedrooms</div>
-                <div className="text-sm text-gray-500">Number of bedrooms</div>
-              </div>
-              <div className="flex items-center space-x-3">
-                <button 
-                  className={`w-8 h-8 rounded-full border border-orange-500 flex items-center justify-center cursor-pointer ${bedrooms > 1 ? 'text-orange-500' : 'text-gray-300'}`}
-                  onClick={() => setBedrooms(Math.max(1, bedrooms - 1))}
-                  disabled={bedrooms <= 1}
-                >
-                  -
-                </button>
-                <span className="text-lg font-medium w-6 text-center text-gray-700">{bedrooms}</span>
-                <button 
-                  className="w-8 h-8 rounded-full border border-orange-500 flex items-center justify-center text-orange-500 cursor-pointer"
-                  onClick={() => setBedrooms(bedrooms + 1)}
-                >
-                  +
-                </button>
-              </div>
+const renderRoomsSection = () => (
+  <div className="p-5 border-t border-gray-200 animate-fadeIn">
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div>
+        <h3 className="font-bold mb-3 text-gray-800">Room Configuration</h3>
+        
+        {/* Bedrooms Section */}
+        <div className="p-4 border rounded-lg mb-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="font-semibold text-gray-600">Bedrooms</div>
+              <div className="text-sm text-gray-500">Number of bedrooms</div>
             </div>
-          </div>
-          
-          <div className="p-4 border rounded-lg">
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="font-semibold text-gray-600">Bathrooms</div>
-                <div className="text-sm text-gray-500">Number of bathrooms</div>
-              </div>
-              <div className="flex items-center space-x-3">
-                <button 
-                  className={`w-8 h-8 rounded-full border border-orange-500 flex items-center justify-center cursor-pointer ${bathrooms > 1 ? 'text-orange-500' : 'text-gray-300'}`}
-                  onClick={() => setBathrooms(Math.max(1, bathrooms - 1))}
-                  disabled={bathrooms <= 1}
-                >
-                  -
-                </button>
-                <span className="text-lg font-medium w-6 text-center text-gray-700">{bathrooms}</span>
-                <button 
-                  className="w-8 h-8 rounded-full border border-orange-500 flex items-center justify-center text-orange-500 cursor-pointer"
-                  onClick={() => setBathrooms(bathrooms + 1)}
-                >
-                  +
-                </button>
-              </div>
+            <div className="flex items-center space-x-3">
+              <button 
+                className={`px-3 py-1 rounded-full border text-sm font-medium transition-colors ${
+                  bedrooms === 'any' 
+                    ? 'bg-orange-500 text-white border-orange-500' 
+                    : 'border-gray-300 text-gray-600 hover:border-orange-500'
+                }`}
+                onClick={() => setBedrooms('any')}
+              >
+                Any+
+              </button>
+              <button 
+                className={`w-8 h-8 rounded-full border border-orange-500 flex items-center justify-center cursor-pointer ${
+                  bedrooms !== 'any' && bedrooms > 0 ? 'text-orange-500' : 'text-gray-300'
+                }`}
+                onClick={() => setBedrooms(bedrooms === 'any' ? 1 : Math.max(0, bedrooms - 1))}
+                disabled={bedrooms === 'any' || bedrooms <= 0}
+              >
+                -
+              </button>
+              <span className="text-lg font-medium w-6 text-center text-gray-700">
+                {bedrooms === 'any' ? 'Any' : bedrooms}
+              </span>
+              <button 
+                className="w-8 h-8 rounded-full border border-orange-500 flex items-center justify-center text-orange-500 cursor-pointer"
+                onClick={() => setBedrooms(bedrooms === 'any' ? 0 : bedrooms + 1)}
+              >
+                +
+              </button>
             </div>
           </div>
         </div>
         
-        {/* Accommodation Type */}
-<div className="mb-6">
-  <h3 className="font-bold mb-3 text-gray-800">Accommodation Type</h3>
-  <div className="grid grid-cols-1 gap-3">
-    {[
-      { key: 'entire', label: 'Entire Place', desc: 'Have the entire place to yourself', icon: '🏠' },
-      { key: 'private', label: 'Private Room', desc: 'Your own bedroom, shared spaces', icon: '🚪' },
-      { key: 'shared', label: 'Shared Room', desc: 'Share a bedroom with others', icon: '👥' }
-    ].map((type) => (
-      <div
-        key={type.key}
-        className={`p-4 rounded-lg border cursor-pointer transition-all hover:shadow-md ${
-          accommodationType === type.key 
-            ? 'bg-orange-50 border-orange-200 shadow-md' 
-            : 'hover:bg-gray-50 border-gray-200'
-        }`}
-        onClick={() => setAccommodationType(accommodationType === type.key ? null : type.key)}
-      >
-        <div className="flex items-center justify-between mb-2">
-          <div className="flex items-center gap-2">
-            <span className="text-lg">{type.icon}</span>
-            <div className="font-semibold text-gray-700">{type.label}</div>
-          </div>
-          {accommodationType === type.key && (
-            <div className="w-4 h-4 rounded-full bg-orange-500 flex items-center justify-center text-white">
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3 h-3">
-                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-              </svg>
+        {/* Bathrooms Section */}
+        <div className="p-4 border rounded-lg">
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="font-semibold text-gray-600">Bathrooms</div>
+              <div className="text-sm text-gray-500">Number of bathrooms</div>
             </div>
-          )}
+            <div className="flex items-center space-x-3">
+              <button 
+                className={`px-3 py-1 rounded-full border text-sm font-medium transition-colors ${
+                  bathrooms === 'any' 
+                    ? 'bg-orange-500 text-white border-orange-500' 
+                    : 'border-gray-300 text-gray-600 hover:border-orange-500'
+                }`}
+                onClick={() => setBathrooms('any')}
+              >
+                Any+
+              </button>
+              <button 
+                className={`w-8 h-8 rounded-full border border-orange-500 flex items-center justify-center cursor-pointer ${
+                  bathrooms !== 'any' && bathrooms > 1 ? 'text-orange-500' : 'text-gray-300'
+                }`}
+                onClick={() => setBathrooms(bathrooms === 'any' ? 2 : Math.max(1, bathrooms - 1))}
+                disabled={bathrooms === 'any' || bathrooms <= 1}
+              >
+                -
+              </button>
+              <span className="text-lg font-medium w-6 text-center text-gray-700">
+                {bathrooms === 'any' ? 'Any' : bathrooms}
+              </span>
+              <button 
+                className="w-8 h-8 rounded-full border border-orange-500 flex items-center justify-center text-orange-500 cursor-pointer"
+                onClick={() => setBathrooms(bathrooms === 'any' ? 1 : bathrooms + 1)}
+              >
+                +
+              </button>
+            </div>
+          </div>
         </div>
-        <div className="text-xs text-gray-500">
-          {type.desc}
-        </div>
-      </div>
-    ))}
-  </div>
-</div>
       </div>
       
-      <div className="mt-6 flex justify-end items-center space-x-3">
-        <button 
-          className="px-3 py-1.5 text-orange-500 hover:underline"
-          onClick={() => setActiveSection(null)}
-        >
-          Cancel
-        </button>
-        <button 
-          className="px-4 py-2 rounded-lg bg-orange-500 text-white hover:bg-orange-700 font-medium"
-          onClick={() => {
-            setActiveSection(null);
-            handleSearch();
-          }}
-        >
-          Apply
-        </button>
+      {/* Accommodation Type */}
+      <div className="mb-6">
+        <h3 className="font-bold mb-3 text-gray-800">Accommodation Type</h3>
+        <div className="grid grid-cols-1 gap-3">
+          {[
+            { key: 'entire', label: 'Entire Place', desc: 'Have the entire place to yourself', icon: <Home size={18} className = "text-gray-700"/> },
+            { key: 'private', label: 'Private Room', desc: 'Your own bedroom, shared spaces', icon:  <Bed size={18} className = "text-gray-700"/> },
+            { key: 'shared', label: 'Shared Room', desc: 'Share a bedroom with others', icon:  <Users size={18} className = "text-gray-700"/> }
+          ].map((type) => (
+            <div
+              key={type.key}
+              className={`p-4 rounded-lg border cursor-pointer transition-all hover:shadow-md ${
+                accommodationType === type.key 
+                  ? 'bg-orange-50 border-orange-200 shadow-md' 
+                  : 'hover:bg-gray-50 border-gray-200'
+              }`}
+              onClick={() => setAccommodationType(accommodationType === type.key ? null : type.key)}
+            >
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <span className="text-lg">{type.icon}</span>
+                  <div className="font-semibold text-gray-700">{type.label}</div>
+                </div>
+                {accommodationType === type.key && (
+                  <div className="w-4 h-4 rounded-full bg-orange-500 flex items-center justify-center text-white">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3 h-3">
+                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                    </svg>
+                  </div>
+                )}
+              </div>
+              <div className="text-xs text-gray-500">
+                {type.desc}
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
-
-        {/* Map View */}
-
-
-
     </div>
-  );
+    
+    <div className="mt-6 flex justify-end items-center space-x-3">
+      <button 
+        className="px-3 py-1.5 text-orange-500 hover:underline"
+        onClick={() => setActiveSection(null)}
+      >
+        Cancel
+      </button>
+      <button 
+        className="px-4 py-2 rounded-lg bg-orange-500 text-white hover:bg-orange-700 font-medium"
+        onClick={() => {
+          setActiveSection(null);
+          handleSearch();
+        }}
+      >
+        Apply
+      </button>
+    </div>
+  </div>
+);
 
   // Filters Section
-  const renderFiltersSection = () => (
-    <div className="p-5 border-t border-gray-200 animate-fadeIn">
+const renderFiltersSection = () => {
+  // Simple function to count listings in range
+  const getListingsInRange = (min, max) => {
+    return allListings.filter(listing => {
+      const price = listing.price || listing.rent || 0;
+      return price >= min && price <= max;
+    }).length;
+  };
+
+  return (
+    <div className="p-5 border-t border-gray-200">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-<div>
-  <h3 className="font-bold mb-3 text-gray-800">Price Range</h3>
-  <div className="p-4 border rounded-lg">
-    {/* Price Type Toggle - More Visual */}
-    <div className="mb-4">
-      <div className="text-sm font-medium text-gray-700 mb-3">Payment Frequency</div>
-      <div className="grid grid-cols-3 gap-2 p-1 bg-gray-100 rounded-lg">
-        {[
-          { key: 'monthly', label: 'Monthly', icon: <Calendar size={16} /> },
-          { key: 'weekly', label: 'Weekly', icon: <Clock size={16} /> },
-          { key: 'daily', label: 'Daily', icon: <MapPin size={16} /> }
-        ].map(type => (
-          <button 
-            key={type.key}
-            className={`px-3 py-2.5 rounded-md text-sm font-medium transition-all duration-200 flex items-center justify-center gap-2 ${
-              priceType === type.key 
-                ? 'bg-orange-500 text-white shadow-md transform scale-105' 
-                : 'text-gray-600 hover:bg-white hover:shadow-sm'
-            }`}
-            onClick={() => setPriceType(type.key)}
-          >
-            <div className={`${priceType === type.key ? 'text-white' : 'text-orange-500'}`}>
-              {type.icon}
-            </div>
-            <span>{type.label}</span>
-          </button>
-        ))}
-      </div>
-    </div>
-    
-    {/* Price Range with Better Visual Feedback */}
-    <div className="mb-4">
-      <div className="flex justify-between items-center mb-3">
-        <span className="text-sm font-medium text-gray-700 flex items-center gap-2">
-          <DollarSign size={16} className="text-orange-500" />
-          Budget Range
-        </span>
-        <div className="bg-gradient-to-r from-orange-50 to-orange-100 px-4 py-2 rounded-full border border-orange-200">
-          <span className="text-orange-700 font-bold text-sm flex items-center gap-1">
-            <DollarSign size={14} />
-            {convertPrice(priceRange.min, priceType)} - {convertPrice(priceRange.max, priceType)} {getPriceUnit(priceType)}
-          </span>
-        </div>
-      </div>
-      
-      {/* Custom Range Slider with Better Styling */}
-      <div className="relative mt-6 mb-8">
-        <div className="h-3 bg-gray-200 rounded-full relative overflow-hidden shadow-inner">
-          {/* Active range indicator */}
-          <div 
-            className="absolute h-full bg-gradient-to-r from-orange-400 to-orange-600 rounded-full transition-all duration-300 shadow-sm"
-            style={{
-              left: `${((priceRange.min - 500) / (2000 - 500)) * 100}%`,
-              width: `${((priceRange.max - priceRange.min) / (2000 - 500)) * 100}%`
-            }}
-          ></div>
-        </div>
-        
-        {/* Min slider */}
-        <input 
-          type="range" 
-          min="500" 
-          max="2000" 
-          step="25"
-          value={priceRange.min}
-          onChange={(e) => handlePriceChange('min', e.target.value)}
-          className="absolute top-0 h-3 w-full appearance-none bg-transparent cursor-pointer range-slider"
-          style={{ zIndex: priceRange.min > priceRange.max - 100 ? 2 : 1 }}
-        />
-        
-        {/* Max slider */}
-        <input 
-          type="range" 
-          min="500" 
-          max="2000" 
-          step="25"
-          value={priceRange.max}
-          onChange={(e) => handlePriceChange('max', e.target.value)}
-          className="absolute top-0 h-3 w-full appearance-none bg-transparent cursor-pointer range-slider"
-          style={{ zIndex: priceRange.max < priceRange.min + 100 ? 2 : 1 }}
-        />
-        
-        {/* Price markers with icons */}
-        <div className="flex justify-between text-xs text-gray-500 mt-3">
-          <div className="flex flex-col items-center">
-            <span className="font-medium">$500</span>
-            <div className="w-1 h-1 bg-gray-400 rounded-full mt-1"></div>
-          </div>
-          <div className="flex flex-col items-center">
-            <span className="font-medium">$1,000</span>
-            <div className="w-1 h-1 bg-gray-400 rounded-full mt-1"></div>
-          </div>
-          <div className="flex flex-col items-center">
-            <span className="font-medium">$1,500</span>
-            <div className="w-1 h-1 bg-gray-400 rounded-full mt-1"></div>
-          </div>
-          <div className="flex flex-col items-center">
-            <span className="font-medium">$2,000</span>
-            <div className="w-1 h-1 bg-gray-400 rounded-full mt-1"></div>
-          </div>
-        </div>
-      </div>
-    </div>
-    
-    {/* Quick Price Presets with Icons */}
-    <div className="mb-4">
-      <div className="text-sm font-medium text-gray-700 mb-3 flex items-center gap-2">
-        <Star size={16} className="text-orange-500" />
-        Quick Budget Presets:
-      </div>
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-        {[
-          { label: 'Budget', min: 500, max: 800, icon: <Home size={16} />, color: 'green' },
-          { label: 'Mid-range', min: 800, max: 1200, icon: <BedDouble size={16} />, color: 'blue' },
-          { label: 'Premium', min: 1200, max: 1600, icon: <Star size={16} />, color: 'purple' },
-          { label: 'Luxury', min: 1600, max: 2000, icon: <Sparkles size={16} />, color: 'orange' }
-        ].map(preset => (
-          <button
-            key={preset.label}
-            onClick={() => setPriceRange({ min: preset.min, max: preset.max })}
-            className={`p-3 bg-gray-50 hover:bg-${preset.color}-50 hover:text-${preset.color}-700 hover:border-${preset.color}-200 rounded-lg transition-all border border-gray-200 group`}
-          >
-            <div className="flex items-center justify-center mb-2">
-              <div className={`p-2 bg-${preset.color}-100 rounded-lg group-hover:bg-${preset.color}-200 transition-colors`}>
-                {preset.icon}
+        {/* Clean Price Range Section */}
+        <div>
+          <h3 className="font-bold mb-3 text-gray-800">Price Range</h3>
+          <div className="p-4 border rounded-lg">
+            {/* Payment Frequency Toggle */}
+            <div className="mb-4">
+              <div className="text-sm font-medium text-gray-700 mb-3">Payment Frequency</div>
+              <div className="grid grid-cols-3 gap-2 p-1 bg-gray-100 rounded-lg">
+                {[
+                  { key: 'monthly', label: 'Monthly' },
+                  { key: 'weekly', label: 'Weekly' },
+                  { key: 'daily', label: 'Daily' }
+                ].map(type => (
+                  <button 
+                    key={type.key}
+                    className={`px-3 py-2 rounded text-sm font-medium transition-colors ${
+                      priceType === type.key 
+                        ? 'bg-orange-500 text-white' 
+                        : 'text-gray-600 hover:bg-white'
+                    }`}
+                    onClick={() => setPriceType(type.key)}
+                  >
+                    {type.label}
+                  </button>
+                ))}
               </div>
             </div>
-            <div className="font-medium text-sm">{preset.label}</div>
-            <div className="text-xs text-gray-500 mt-1">
-              ${convertPrice(preset.min, priceType)}-${convertPrice(preset.max, priceType)}
+
+            {/* Simple Visual Bar with Selected Range */}
+            <div className="mb-4">
+              <div className="flex justify-between text-sm text-gray-600 mb-2">
+        
+              </div>
+              
+              {/* Visual Price Bar */}
+              <div className="relative h-8 bg-gray-200 rounded-lg overflow-hidden">
+                {/* Background bars showing distribution */}
+                <div className="absolute inset-0 flex">
+                  {[500, 750, 1000, 1250, 1500, 1750, 2000].map((price, index) => {
+                    const count = getListingsInRange(price - 125, price + 125);
+                    const opacity = count > 0 ? Math.min(count / 10, 1) : 0.1;
+                    
+                    return (
+                      <div 
+                        key={index}
+                        className="flex-1 bg-orange-200 mx-px"
+                        style={{ opacity: opacity }}
+                      />
+                    );
+                  })}
+                </div>
+                
+                {/* Selected range overlay */}
+                <div 
+                  className="absolute h-full bg-orange-500 transition-all duration-300"
+                  style={{
+                    left: `${((priceRange.min - 500) / (2000 - 500)) * 100}%`,
+                    width: `${((priceRange.max - priceRange.min) / (2000 - 500)) * 100}%`
+                  }}
+                />
+              </div>
+              
+              <div className="flex justify-between text-xs text-gray-500 mt-1">
+                <span>${convertPrice(500, priceType)}</span>
+                <span>${convertPrice(1250, priceType)}</span>
+                <span>${convertPrice(2000, priceType)}</span>
+              </div>
             </div>
-          </button>
-        ))}
-      </div>
-    </div>
-    
-    {/* Manual Input - Simplified with Icons */}
-    <div className="grid grid-cols-2 gap-4">
-      <div>
-        <label className="block text-xs font-medium text-gray-600 mb-2 flex items-center gap-1">
-          <TrendingDown size={12} className="text-green-500" />
-          Minimum Budget
-        </label>
-        <div className="relative">
-          <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={16} />
-          <input
-            type="number"
-            min={priceType === 'monthly' ? 500 : priceType === 'weekly' ? 125 : 17}
-            max={priceType === 'monthly' ? 1950 : priceType === 'weekly' ? 487 : 65}
-            step={priceType === 'monthly' ? 25 : priceType === 'weekly' ? 6 : 1}
-            value={convertPrice(priceRange.min, priceType)}
-            onChange={(e) => {
-              const value = parseInt(e.target.value) || 0;
-              let monthlyValue;
-              switch(priceType) {
-                case 'weekly': monthlyValue = value * 4; break;
-                case 'daily': monthlyValue = value * 30; break;
-                default: monthlyValue = value;
-              }
-              handlePriceChange('min', monthlyValue);
-            }}
-            className="w-full pl-10 pr-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-200 focus:border-orange-400 text-sm transition-all"
-          />
+
+            {/* Selected Range Display */}
+            <div className="mb-4 text-center">
+              <div className="text-lg font-semibold text-gray-800">
+                ${convertPrice(priceRange.min, priceType)} - ${convertPrice(priceRange.max, priceType)} {getPriceUnit(priceType)}
+              </div>
+              <div className="text-sm text-gray-600">
+                {getListingsInRange(priceRange.min, priceRange.max)} listings available
+              </div>
+            </div>
+
+            
+            
+            {/* Manual Input */}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-2">
+                  Minimum
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm">$</span>
+                  <input
+                    type="number"
+                    min={priceType === 'monthly' ? 500 : priceType === 'weekly' ? 125 : 17}
+                    max={priceType === 'monthly' ? 1950 : priceType === 'weekly' ? 487 : 65}
+                    step={priceType === 'monthly' ? 25 : priceType === 'weekly' ? 6 : 1}
+                    value={convertPrice(priceRange.min, priceType)}
+                    onChange={(e) => {
+                      const value = parseInt(e.target.value) || 0;
+                      let monthlyValue;
+                      switch(priceType) {
+                        case 'weekly': monthlyValue = value * 4; break;
+                        case 'daily': monthlyValue = value * 30; break;
+                        default: monthlyValue = value;
+                      }
+                      handlePriceChange('min', monthlyValue);
+                    }}
+                    className="w-full pl-8 pr-3 py-2 border border-gray-300 rounded focus:ring-1 focus:ring-orange-300 focus:border-orange-400 text-sm"
+                  />
+                </div>
+              </div>
+              
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-2">
+                  Maximum
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm">$</span>
+                  <input
+                    type="number"
+                    min={priceType === 'monthly' ? 550 : priceType === 'weekly' ? 137 : 18}
+                    max={priceType === 'monthly' ? 2000 : priceType === 'weekly' ? 500 : 67}
+                    step={priceType === 'monthly' ? 25 : priceType === 'weekly' ? 6 : 1}
+                    value={convertPrice(priceRange.max, priceType)}
+                    onChange={(e) => {
+                      const value = parseInt(e.target.value) || 0;
+                      let monthlyValue;
+                      switch(priceType) {
+                        case 'weekly': monthlyValue = value * 4; break;
+                        case 'daily': monthlyValue = value * 30; break;
+                        default: monthlyValue = value;
+                      }
+                      handlePriceChange('max', monthlyValue);
+                    }}
+                    className="w-full pl-8 pr-3 py-2 border border-gray-300 rounded focus:ring-1 focus:ring-orange-300 focus:border-orange-400 text-sm"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
-      </div>
-      
-      <div>
-        <label className="block text-xs font-medium text-gray-600 mb-2 flex items-center gap-1">
-          <TrendingUp size={12} className="text-red-500" />
-          Maximum Budget
-        </label>
-        <div className="relative">
-          <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={16} />
-          <input
-            type="number"
-            min={priceType === 'monthly' ? 550 : priceType === 'weekly' ? 137 : 18}
-            max={priceType === 'monthly' ? 2000 : priceType === 'weekly' ? 500 : 67}
-            step={priceType === 'monthly' ? 25 : priceType === 'weekly' ? 6 : 1}
-            value={convertPrice(priceRange.max, priceType)}
-            onChange={(e) => {
-              const value = parseInt(e.target.value) || 0;
-              let monthlyValue;
-              switch(priceType) {
-                case 'weekly': monthlyValue = value * 4; break;
-                case 'daily': monthlyValue = value * 30; break;
-                default: monthlyValue = value;
-              }
-              handlePriceChange('max', monthlyValue);
-            }}
-            className="w-full pl-10 pr-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-200 focus:border-orange-400 text-sm transition-all"
-          />
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
+
+        {/* Amenities Section */}
         <div>
           <h3 className="font-bold mb-3 text-gray-800">Amenities</h3>
           <div className="grid grid-cols-2 gap-3">
@@ -2113,63 +2981,67 @@ const renderCalendarSection = () => (
             ))}
           </div>
         </div>
-         {/* Preferred Gender */}
-            <div>
-            <h3 className="font-bold mb-3 text-gray-800">Preferred Gender</h3>
-            <div className="grid grid-cols-1 gap-3">
-                {[
-                { key: 'any', label: 'Any Gender', icon: '👫' },
-                { key: 'female', label: 'Female Only', icon: '👩' },
-                { key: 'male', label: 'Male Only', icon: '👨' }
-                ].map(gender => (
-                <button
-                    key={gender.key}
-                    className={`flex items-center p-3 border rounded-lg transition-all ${
-                    preferredGender === gender.key 
-                        ? 'bg-purple-50 border-purple-500 text-purple-700' 
-                        : 'hover:bg-gray-50 text-gray-700'
-                    }`}
-                    onClick={() => toggleGender(gender.key)}
-                >
-                    <span className="text-lg mr-2">{gender.icon}</span>
-                    <span className="text-sm font-medium">{gender.label}</span>
-                </button>
-                ))}
-            </div>
-            </div>
 
-            {/* Smoking Policy */}
-            <div>
-            <h3 className="font-bold mb-3 text-gray-800">Smoking Policy</h3>
-            <div className="grid grid-cols-1 gap-3">
-                {[
-                { key: null, label: 'No Preference', icon: '🤷' },
-                { key: 'no-smoking', label: 'No Smoking', icon: '🚭' },
-                { key: 'smoking-ok', label: 'Smoking OK', icon: '🚬' }
-                ].map(smoking => (
-                <button
-                    key={smoking.key || 'any'}
-                    className={`flex items-center p-3 border rounded-lg transition-all ${
-                    smokingPreference === smoking.key 
-                        ? 'bg-green-50 border-green-500 text-green-700' 
-                        : 'hover:bg-gray-50 text-gray-700'
-                    }`}
-                    onClick={() => toggleSmoking(smoking.key)}
-                >
-                    <span className="text-lg mr-2">{smoking.icon}</span>
-                    <span className="text-sm font-medium">{smoking.label}</span>
-                </button>
-                ))}
-            </div>
-            </div>
+        {/* Preferred Gender */}
+        <div>
+          <h3 className="font-bold mb-3 text-gray-800">Preferred Gender</h3>
+          <div className="grid grid-cols-1 gap-3">
+            {[
+              { key: 'any', label: 'Any Gender', icon: <Users size={18} className="text-gray-700"/> },
+              { key: 'Female', label: 'Female Only', icon: <User size={18} className="text-gray-700"/>},
+              { key: 'Male', label: 'Male Only', icon: <User size={18} className="text-gray-700"/> }
+            ].map(gender => (
+              <button
+                key={gender.key}
+                className={`flex items-center p-3 border rounded-lg transition-all ${
+                  preferredGender === gender.key 
+                    ? 'bg-orange-50 border-orange-500 text-orange-700' 
+                    : 'hover:bg-gray-50 text-gray-700'
+                }`}
+                onClick={() => toggleGender(gender.key)}
+              >
+                <span className="text-lg mr-2">{gender.icon}</span>
+                <span className="text-sm font-medium">{gender.label}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Smoking Preference */}
+        <div>
+          <h3 className="font-bold mb-3 text-gray-800">Smoking Preference</h3>
+          <div className="grid grid-cols-1 gap-3">
+            {[
+              { key: 'any', label: 'Any', icon: <Users size={18} className="text-gray-700"/> },
+              { key: 'allowed', label: 'Smoking Allowed', icon: <Cigarette size={18} className="text-gray-700"/>},
+              { key: 'not-allowed', label: 'Non-Smoking Only', icon: <X size={18} className="text-gray-700"/> }
+            ].map(option => (
+              <button
+                key={option.key}
+                className={`flex items-center p-3 border rounded-lg transition-all ${
+                  smokingPreference === option.key
+                    ? 'bg-orange-50 border-orange-500 text-orange-700'
+                    : 'hover:bg-gray-50 text-gray-700'
+                }`}
+                onClick={() => setSmokingPreference(option.key)}
+              >
+                <span className="text-lg mr-2">{option.icon}</span>
+                <span className="text-sm font-medium">{option.label}</span>
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
       
+      {/* Action Buttons */}
       <div className="mt-6 flex justify-between items-center">
         <button 
           className="text-orange-500 text-sm font-medium hover:underline flex items-center"
           onClick={() => {
             setPriceRange({ min: 500, max: 2000 });
             setSelectedAmenities([]);
+            setPreferredGender(null);
+            setSmokingPreference(null);
           }}
         >
           <X size={16} className="mr-1" />
@@ -2184,7 +3056,7 @@ const renderCalendarSection = () => (
             Cancel
           </button>
           <button 
-            className="px-4 py-2 rounded-lg bg-orange-700 text-white hover:bg-orange-700 font-medium"
+            className="px-4 py-2 rounded-lg bg-orange-500 text-white hover:bg-orange-600 font-medium"
             onClick={() => {
               setActiveSection(null);
               handleSearch();
@@ -2196,6 +3068,7 @@ const renderCalendarSection = () => (
       </div>
     </div>
   );
+};
 
 
   // Favorites Sidebar
@@ -2239,7 +3112,9 @@ const renderFavoritesSidebar = () => (
                 </div>
                 <button 
                   className="p-2 text-gray-400 hover:text-red-500 self-start"
-                  onClick={() => toggleFavorite(listing)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    toggleFavorite(listing);}}
                 >
                   <X size={16} />
                 </button>
@@ -2364,20 +3239,26 @@ const renderFavoritesSidebar = () => (
                     </div>
                     <button 
                       className={`absolute top-2 left-2 p-2 rounded-full transition-all cursor-pointer ${
-                        favoriteListings.some(item => item.id === listing.id) 
+                        isFavorited(listing.id, 'sublease') 
                           ? 'bg-red-500 text-white' 
                           : 'bg-white text-gray-500 hover:text-red-500'
                       }`}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        toggleFavorite(listing);
+                      onClick={() => {
+                        const newStatus = toggleFavorite(listing, 'sublease'); 
+                        // Optional: Add visual feedback
+                        if (newStatus) {
+                          console.log('Added to favorites!');
+                        } else {
+                          console.log('Removed from favorites!');
+                        }
                       }}
                     >
                       <Heart 
                         size={18} 
-                        className={favoriteListings.some(item => item.id === listing.id) ? 'fill-current' : ''} 
+                        className={isFavorited(listing.id, 'sublease')  ? 'fill-current' : ''} 
                       />
                     </button>
+ 
                     
                     {/* Show commute badge if in commute mode */}
                     {isCommuteMode && renderCommuteBadge(listing)}
@@ -2387,12 +3268,12 @@ const renderFavoritesSidebar = () => (
                     <div className="flex justify-between items-start">
                       <div>
                         <div className="font-bold text-gray-800">{listing.title}</div>
-                        <div className="text-gray-500 text-sm">{listing.location} · {listing.distance} miles from campus</div>
+                        {/* <div className="text-gray-500 text-sm">{listing.location} · {listing.distance} miles from campus</div> */}
                       </div>
-                      <div className="flex items-center text-amber-500">
+                      {/* <div className="flex items-center text-amber-500">
                         <Star size={16} className="fill-current" />
                         <span className="ml-1 text-sm font-medium">{listing.rating}</span>
-                      </div>
+                      </div> */}
                     </div>
                     
                     <div className="flex items-center mt-3 text-sm text-gray-500">
@@ -2665,641 +3546,474 @@ const renderCommuteInfo = (listing) => {
        {/* Header */}
         <div className="bg-white border-b border-gray-200 sticky top-0 z-50">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex items-center justify-between h-16 hidden md:flex">
-              {/* Logo */}
+            <div className="flex items-center justify-between h-16">
+              <div className='hidden md:flex'>
+                {/* Enhanced Subox Logo */}
                 <motion.div 
-                    className="flex items-center space-x-6 relative mt-3"
-                    whileHover={{ scale: 1.05 }}
-                    onClick={() => {isLoggedIn ? (router.push("/find")) : router.push("/")}}
+                  className="flex items-center space-x-4 relative"
+                  whileHover={{ scale: 1.05 }}
                 >
-                {/* Main Subox Logo */}
-                <motion.div className="relative">
-                {/* House Icon */}
-                <motion.svg 
-                    className="w-12 h-12" 
-                    viewBox="0 0 100 100" 
-                    fill="none"
-                    whileHover={{ rotate: [0, -5, 5, 0] }}
-                    transition={{ duration: 0.5 }}
-                >
-                    {/* House Base */}
-                    <motion.path
-                    d="M20 45L50 20L80 45V75C80 78 77 80 75 80H25C22 80 20 78 20 75V45Z"
-                    fill="#E97451"
-                    animate={{ 
-                        fill: ["#E97451", "#F59E0B", "#E97451"],
-                        scale: [1, 1.02, 1]
-                    }}
-                    transition={{ duration: 3, repeat: Infinity }}
-                    />
-                    {/* House Roof */}
-                    <motion.path
-                    d="M15 50L50 20L85 50L50 15L15 50Z"
-                    fill="#D97706"
-                    animate={{ rotate: [0, 1, 0] }}
-                    transition={{ duration: 4, repeat: Infinity }}
-                    />
-                    {/* Window */}
-                    <motion.rect
-                    x="40"
-                    y="50"
-                    width="20"
-                    height="15"
-                    fill="white"
-                    animate={{ 
-                        opacity: [1, 0.8, 1],
-                        scale: [1, 1.1, 1]
-                    }}
-                    transition={{ duration: 2, repeat: Infinity }}
-                    />
-                    {/* Door */}
-                    <motion.rect
-                    x="45"
-                    y="65"
-                    width="10"
-                    height="15"
-                    fill="white"
-                    animate={{ scaleY: [1, 1.05, 1] }}
-                    transition={{ duration: 2.5, repeat: Infinity }}
-                    />
-                </motion.svg>
+                  {/* Main Subox Logo */}
+                  <motion.div className="relative mt-2">
+                    {/* House Icon */}
+                    <motion.svg 
+                      className="w-12 h-12" 
+                      viewBox="0 0 100 100" 
+                      fill="none"
+                      whileHover={{ rotate: [0, -5, 5, 0] }}
+                      transition={{ duration: 0.5 }}
+                    >
+                      {/* House Base */}
+                      <motion.path
+                        d="M20 45L50 20L80 45V75C80 78 77 80 75 80H25C22 80 20 78 20 75V45Z"
+                        fill="#E97451"
+                        animate={{ 
+                          fill: ["#E97451", "#F59E0B", "#E97451"],
+                          scale: [1, 1.02, 1]
+                        }}
+                        transition={{ duration: 3, repeat: Infinity }}
+                      />
+                      {/* House Roof */}
+                      <motion.path
+                        d="M15 50L50 20L85 50L50 15L15 50Z"
+                        fill="#D97706"
+                        animate={{ rotate: [0, 1, 0] }}
+                        transition={{ duration: 4, repeat: Infinity }}
+                      />
+                      {/* Window */}
+                      <motion.rect
+                        x="40"
+                        y="50"
+                        width="20"
+                        height="15"
+                        fill="white"
+                        animate={{ 
+                          opacity: [1, 0.8, 1],
+                          scale: [1, 1.1, 1]
+                        }}
+                        transition={{ duration: 2, repeat: Infinity }}
+                      />
+                      {/* Door */}
+                      <motion.rect
+                        x="45"
+                        y="65"
+                        width="10"
+                        height="15"
+                        fill="white"
+                        animate={{ scaleY: [1, 1.05, 1] }}
+                        transition={{ duration: 2.5, repeat: Infinity }}
+                      />
+                    </motion.svg>
 
-                {/* Tag Icon */}
-                <motion.svg 
-                    className="w-8 h-8 absolute -top-2 -right-2" 
-                    viewBox="0 0 60 60" 
-                    fill="none"
-                    whileHover={{ rotate: 360 }}
-                    transition={{ duration: 0.8 }}
-                >
-                    <motion.path
-                    d="M5 25L25 5H50V25L30 45L5 25Z"
-                    fill="#E97451"
-                    animate={{ 
-                        rotate: [0, 5, -5, 0],
-                        scale: [1, 1.1, 1]
-                    }}
-                    transition={{ duration: 3, repeat: Infinity }}
-                    />
-                    <motion.circle
-                    cx="38"
-                    cy="17"
-                    r="4"
-                    fill="white"
-                    animate={{ 
-                        scale: [1, 1.3, 1],
-                        opacity: [1, 0.7, 1]
-                    }}
-                    transition={{ duration: 1.5, repeat: Infinity }}
-                    />
-                </motion.svg>
-                </motion.div>
+                    {/* Tag Icon */}
+                    <motion.svg 
+                      className="w-8 h-8 absolute -top-2 -right-2" 
+                      viewBox="0 0 60 60" 
+                      fill="none"
+                      whileHover={{ rotate: 360 }}
+                      transition={{ duration: 0.8 }}
+                    >
+                      <motion.path
+                        d="M5 25L25 5H50V25L30 45L5 25Z"
+                        fill="#E97451"
+                        animate={{ 
+                          rotate: [0, 5, -5, 0],
+                          scale: [1, 1.1, 1]
+                        }}
+                        transition={{ duration: 3, repeat: Infinity }}
+                      />
+                      <motion.circle
+                        cx="38"
+                        cy="17"
+                        r="4"
+                        fill="white"
+                        animate={{ 
+                          scale: [1, 1.3, 1],
+                          opacity: [1, 0.7, 1]
+                        }}
+                        transition={{ duration: 1.5, repeat: Infinity }}
+                      />
+                    </motion.svg>
+                  </motion.div>
 
-                {/* Subox Text */}
-                <motion.div className="flex flex-col -mx-4">
-                <motion.span 
-                    className="text-3xl font-bold text-gray-900"
-                    animate={{
-                    background: [
-                        "linear-gradient(45deg, #1F2937, #374151)",
-                        "linear-gradient(45deg, #E97451, #F59E0B)",
-                        "linear-gradient(45deg, #1F2937, #374151)"
-                    ],
-                    backgroundClip: "text",
-                    WebkitBackgroundClip: "text",
-                    color: "transparent"
-                    }}
-                    transition={{ duration: 4, repeat: Infinity }}
-                >
-                    Subox
-                </motion.span>
-                <motion.span 
-                    className="text-xs text-gray-500 font-medium tracking-wider"
-                    animate={{ opacity: [0.7, 1, 0.7] }}
-                    transition={{ duration: 2, repeat: Infinity }}
-                >
-                    SUBLEASE
-                    {badgeList.map((badge, i) => (
-                      <span key={i} className="inline-flex items-center translate-y-1">
-                        {React.cloneElement(badge as React.ReactElement, {
-                          className: "w-4 h-4 ml-1"
-                        })}
-                      </span>
+                  {/* Subox Text */}
+                  <motion.div className="flex flex-col mb-1">
+                    <motion.span 
+                      className="text-3xl font-bold text-gray-900"
+                      animate={{
+                        background: [
+                          "linear-gradient(45deg, #1F2937, #374151)",
+                          "linear-gradient(45deg, #E97451, #F59E0B)",
+                          "linear-gradient(45deg, #1F2937, #374151)"
+                        ],
+                        backgroundClip: "text",
+                        WebkitBackgroundClip: "text",
+                        color: "transparent"
+                      }}
+                      transition={{ duration: 4, repeat: Infinity }}
+                    >
+                      Subox
+                    </motion.span>
+                    <motion.span 
+                      className="text-xs text-gray-500 font-medium tracking-wider ml-1"
+                      animate={{ opacity: [0.7, 1, 0.7] }}
+                      transition={{ duration: 2, repeat: Infinity }}
+                    >
+                      Subleases
+                    </motion.span>
+                  </motion.div>              
+                  {/* Interactive Follower Elements */}
+                  <motion.div className="absolute -inset-4 pointer-events-none">
+                    {Array.from({ length: 6 }, (_, i) => (
+                      <motion.div
+                        key={i}
+                        className="absolute w-1 h-1 bg-orange-300 rounded-full opacity-60"
+                        style={{
+                          left: `${20 + i * 15}%`,
+                          top: `${30 + Math.sin(i) * 20}%`,
+                        }}
+                        animate={{
+                          x: [0, 10, -10, 0],
+                          y: [0, -5, 5, 0],
+                          scale: [0.5, 1, 0.5],
+                          opacity: [0.3, 0.8, 0.3]
+                        }}
+                        transition={{
+                          duration: 3 + i * 0.5,
+                          repeat: Infinity,
+                          ease: "easeInOut"
+                        }}
+                      />
                     ))}
-                </motion.span>
+                  </motion.div>
                 </motion.div>
-                </motion.div>
-  
-  
-              {/* Header Actions */}
-              <div className="flex items-center space-x-4">
-                
-                {/* Back */}
-                <motion.button 
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={() => router.push("/find")}
-                  className="hidden md:flex items-center px-3 py-2 rounded-lg hover:bg-orange-600 text-black hover:text-white transition-colors"
-                >
-                  <ArrowLeft size={20} /> Back
-                </motion.button>
-
-                {/* Back */}
-                <motion.button 
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={() => router.push("/find")}
-                  className="flex md:hidden items-center py-2 rounded-lg hover:bg-orange-600 text-black hover:text-white transition-colors"
-                >
-                  <ArrowLeft size={20} />
-                </motion.button>
-
-                {/* Notifications */}
-                <NotificationsButton notifications={notifications} />
-  
-                {/* Favorites */}
-                <motion.button 
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-                  className="p-2 bg-gray-200 rounded-lg hover:bg-gray-300 transition-colors"
-                >
-                  <MessagesSquare size={20} className = "w-5 h-5 text-gray-500"/>
-                </motion.button>
-                
-                {/* Favorites Sidebar */}
-                {renderFavoritesSidebar()}
-  
-                {/* Profile */}
-                <div className="relative">
-                <motion.button
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    onClick={() => setShowProfile(!showProfile)}
-                    className="p-2 bg-gray-200 rounded-lg hover:bg-gray-300 transition-colors"
-                >
-                    <User className="w-5 h-5 text-gray-500" />
-                </motion.button>
-
-                <AnimatePresence>
-                    {showProfile && (
-                    <motion.div
-                        initial={{ opacity: 0, y: -10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -10 }}
-                        className="absolute right-0 mt-2 w-64 bg-white rounded-lg shadow-lg border border-gray-200 z-50"
-                    >
-                        <div className="p-4 space-y-2">
-                        <button onClick={() => handleTabClick("purchased")} className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-orange-50 transition-colors">What I Purchased</button>
-                        <button onClick={() => handleTabClick("returned")} className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-orange-50 transition-colors">What I Returned</button>
-                        <button onClick={() => handleTabClick("cancelled")} className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-orange-50 transition-colors">What I Cancelled</button>
-                        <button onClick={() => handleTabClick("sold")} className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-orange-50 transition-colors">What I Sold</button>
-                        <button onClick={() => handleTabClick("sublease")} className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-orange-50 transition-colors">Sublease</button>
-                        <button onClick={() => handleTabClick("reviews")} className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-orange-50 transition-colors">Reviews</button>
-                        <hr className="my-2" />
-                        <button onClick={() => handleTabClick("history")} className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-orange-50 transition-colors">History</button>
-                        </div>
-                    </motion.div>
-                    )}
-                </AnimatePresence>
-                </div>
-
-                {/* menu */}
-                <div className="relative">
-                <motion.button
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    onClick={() => setShowMenu(!showMenu)}
-                    className="p-2 bg-gray-200 rounded-lg hover:bg-gray-300 transition-colors"
-                >
-                    <Menu className="w-5 h-5 text-gray-500" />
-                </motion.button>
-
-                <AnimatePresence>
-                    {showMenu && (
-                    <motion.div
-                        initial={{ opacity: 0, y: -10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -10 }}
-                        className="absolute right-0 mt-2 w-64 bg-white rounded-lg shadow-lg border border-gray-200 z-50"
-                    >
-                        <div className="p-4 space-y-2">
-                        <p className="text-medium font-semibold max-w-2xl mb-4 text-orange-700">
-                        Move Out Sale
-                        </p>
-                        <button 
-                            onClick={() => {
-                            router.push('../browse');
-                            setShowMenu(false);
-                            }} 
-                            className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-orange-50 transition-colors"
-                        >
-                            Browse Items
-                        </button>                        
-                        <button 
-                            onClick={() => {
-                            router.push('/sale/create');
-                            setShowMenu(false);
-                            }} 
-                            className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-orange-50 transition-colors"
-                        >
-                            Sell Items
-                        </button> 
-                        <button 
-                            onClick={() => {
-                            router.push('/sale/create');
-                            setShowMenu(false);
-                            }} 
-                            className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-orange-50 transition-colors"
-                        >
-                            My Items
-                        </button>   
-                        
-                        <p className="text-medium font-semibold max-w-2xl mb-4 text-orange-700">
-                            Sublease
-                        </p>
-                        <button 
-                            onClick={() => {
-                            router.push('../search');
-                            setShowMenu(false);
-                            }} 
-                            className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-orange-50 transition-colors"
-                        >
-                            Find Sublease
-                        </button>   
-                        <button 
-                            onClick={() => {
-                            router.push('../search');
-                            setShowMenu(false);
-                            }} 
-                            className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-orange-50 transition-colors"
-                        >
-                            Post Sublease
-                        </button>   
-                        <button 
-                            onClick={() => {
-                            router.push('../search');
-                            setShowMenu(false);
-                            }} 
-                            className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-orange-50 transition-colors"
-                        >
-                            My Sublease Listing
-                        </button>
-                        <hr className="my-2" />
-                        <button 
-                            onClick={() => {
-                            router.push('../sale/browse');
-                            setShowMenu(false);
-                            }} 
-                            className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-orange-50 transition-colors"
-                        >
-                            Messages
-                        </button>   
-                        <button 
-                            onClick={() => {
-                            router.push('../help');
-                            setShowMenu(false);
-                            }} 
-                            className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-orange-50 transition-colors"
-                        >
-                            Help & Support
-                        </button>
-
-                        {/* need change (when user didn't log in -> show log in button) */}
-                        <hr className="my-2" />
-                            {/* log in/ out */}
-                            {isLoggedIn ? (
-                            <button className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-orange-50 transition-colors">
-                                Logout
-                            </button>
-                            ) : (
-                            <button className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-orange-50 transition-colors">
-                                Login
-                            </button>
-                            )}
-                        </div>
-                    </motion.div>
-                    )}
-                </AnimatePresence>
-                </div>
               </div>
-          </div>
-            <div className="flex items-center justify-between h-16 flex md:hidden">
-              {/* Logo */}
+              <div className='flex md:hidden'>
+                {/* Enhanced Subox Logo */}
                 <motion.div 
-                    className="flex items-center space-x-6 relative mt-3"
-                    whileHover={{ scale: 1.05 }}
-                    onClick={() => {isLoggedIn ? (router.push("/find")) : router.push("/")}}
+                  className="flex items-center space-x-4 relative"
+                  whileHover={{ scale: 1.05 }}
                 >
-                {/* Main Subox Logo */}
-                <motion.div className="relative">
-                {/* House Icon */}
-                <motion.svg 
-                    className="w-10 h-10" 
-                    viewBox="0 0 100 100" 
-                    fill="none"
-                    whileHover={{ rotate: [0, -5, 5, 0] }}
-                    transition={{ duration: 0.5 }}
-                >
-                    {/* House Base */}
-                    <motion.path
-                    d="M20 45L50 20L80 45V75C80 78 77 80 75 80H25C22 80 20 78 20 75V45Z"
-                    fill="#E97451"
-                    animate={{ 
-                        fill: ["#E97451", "#F59E0B", "#E97451"],
-                        scale: [1, 1.02, 1]
-                    }}
-                    transition={{ duration: 3, repeat: Infinity }}
-                    />
-                    {/* House Roof */}
-                    <motion.path
-                    d="M15 50L50 20L85 50L50 15L15 50Z"
-                    fill="#D97706"
-                    animate={{ rotate: [0, 1, 0] }}
-                    transition={{ duration: 4, repeat: Infinity }}
-                    />
-                    {/* Window */}
-                    <motion.rect
-                    x="40"
-                    y="50"
-                    width="20"
-                    height="15"
-                    fill="white"
-                    animate={{ 
-                        opacity: [1, 0.8, 1],
-                        scale: [1, 1.1, 1]
-                    }}
-                    transition={{ duration: 2, repeat: Infinity }}
-                    />
-                    {/* Door */}
-                    <motion.rect
-                    x="45"
-                    y="65"
-                    width="10"
-                    height="15"
-                    fill="white"
-                    animate={{ scaleY: [1, 1.05, 1] }}
-                    transition={{ duration: 2.5, repeat: Infinity }}
-                    />
-                </motion.svg>
+                  {/* Main Subox Logo */}
+                  <motion.div className="relative mt-2">
+                    {/* House Icon */}
+                    <motion.svg 
+                      className="w-10 h-10" 
+                      viewBox="0 0 100 100" 
+                      fill="none"
+                      whileHover={{ rotate: [0, -5, 5, 0] }}
+                      transition={{ duration: 0.5 }}
+                    >
+                      {/* House Base */}
+                      <motion.path
+                        d="M20 45L50 20L80 45V75C80 78 77 80 75 80H25C22 80 20 78 20 75V45Z"
+                        fill="#E97451"
+                        animate={{ 
+                          fill: ["#E97451", "#F59E0B", "#E97451"],
+                          scale: [1, 1.02, 1]
+                        }}
+                        transition={{ duration: 3, repeat: Infinity }}
+                      />
+                      {/* House Roof */}
+                      <motion.path
+                        d="M15 50L50 20L85 50L50 15L15 50Z"
+                        fill="#D97706"
+                        animate={{ rotate: [0, 1, 0] }}
+                        transition={{ duration: 4, repeat: Infinity }}
+                      />
+                      {/* Window */}
+                      <motion.rect
+                        x="40"
+                        y="50"
+                        width="20"
+                        height="15"
+                        fill="white"
+                        animate={{ 
+                          opacity: [1, 0.8, 1],
+                          scale: [1, 1.1, 1]
+                        }}
+                        transition={{ duration: 2, repeat: Infinity }}
+                      />
+                      {/* Door */}
+                      <motion.rect
+                        x="45"
+                        y="65"
+                        width="10"
+                        height="15"
+                        fill="white"
+                        animate={{ scaleY: [1, 1.05, 1] }}
+                        transition={{ duration: 2.5, repeat: Infinity }}
+                      />
+                    </motion.svg>
 
-                {/* Tag Icon */}
-                <motion.svg 
-                    className="w-6 h-6 absolute -top-1 -right-1" 
-                    viewBox="0 0 60 60" 
-                    fill="none"
-                    whileHover={{ rotate: 360 }}
-                    transition={{ duration: 0.8 }}
-                >
-                    <motion.path
-                    d="M5 25L25 5H50V25L30 45L5 25Z"
-                    fill="#E97451"
-                    animate={{ 
-                        rotate: [0, 5, -5, 0],
-                        scale: [1, 1.1, 1]
-                    }}
-                    transition={{ duration: 3, repeat: Infinity }}
-                    />
-                    <motion.circle
-                    cx="38"
-                    cy="17"
-                    r="4"
-                    fill="white"
-                    animate={{ 
-                        scale: [1, 1.3, 1],
-                        opacity: [1, 0.7, 1]
-                    }}
-                    transition={{ duration: 1.5, repeat: Infinity }}
-                    />
-                </motion.svg>
-                </motion.div>
+                    {/* Tag Icon */}
+                    <motion.svg 
+                      className="w-6 h-6 absolute -top-1 -right-1" 
+                      viewBox="0 0 60 60" 
+                      fill="none"
+                      whileHover={{ rotate: 360 }}
+                      transition={{ duration: 0.8 }}
+                    >
+                      <motion.path
+                        d="M5 25L25 5H50V25L30 45L5 25Z"
+                        fill="#E97451"
+                        animate={{ 
+                          rotate: [0, 5, -5, 0],
+                          scale: [1, 1.1, 1]
+                        }}
+                        transition={{ duration: 3, repeat: Infinity }}
+                      />
+                      <motion.circle
+                        cx="38"
+                        cy="17"
+                        r="4"
+                        fill="white"
+                        animate={{ 
+                          scale: [1, 1.3, 1],
+                          opacity: [1, 0.7, 1]
+                        }}
+                        transition={{ duration: 1.5, repeat: Infinity }}
+                      />
+                    </motion.svg>
+                  </motion.div>
 
-                {/* Subox Text */}
-                <motion.div className="flex flex-col -mx-4">
-                <motion.span 
-                    className="text-2xl font-bold text-gray-900"
-                    animate={{
-                    background: [
-                        "linear-gradient(45deg, #1F2937, #374151)",
-                        "linear-gradient(45deg, #E97451, #F59E0B)",
-                        "linear-gradient(45deg, #1F2937, #374151)"
-                    ],
-                    backgroundClip: "text",
-                    WebkitBackgroundClip: "text",
-                    color: "transparent"
-                    }}
-                    transition={{ duration: 4, repeat: Infinity }}
-                >
-                    Subox
-                </motion.span>
-                <motion.span 
-                    className="text-[10px] text-gray-500 font-medium tracking-wider"
-                    animate={{ opacity: [0.7, 1, 0.7] }}
-                    transition={{ duration: 2, repeat: Infinity }}
-                >
-                    SUBLEASE
-                    {badgeList.map((badge, i) => (
-                      <span key={i} className="inline-flex items-center translate-y-1">
-                        {React.cloneElement(badge as React.ReactElement, {
-                          className: "w-4 h-4 ml-1"
-                        })}
-                      </span>
+                  {/* Subox Text */}
+                  <motion.div className="flex flex-col mb-1">
+                    <motion.span 
+                      className="text-xl font-bold text-gray-900"
+                      animate={{
+                        background: [
+                          "linear-gradient(45deg, #1F2937, #374151)",
+                          "linear-gradient(45deg, #E97451, #F59E0B)",
+                          "linear-gradient(45deg, #1F2937, #374151)"
+                        ],
+                        backgroundClip: "text",
+                        WebkitBackgroundClip: "text",
+                        color: "transparent"
+                      }}
+                      transition={{ duration: 4, repeat: Infinity }}
+                    >
+                      Subox
+                    </motion.span>
+                    <motion.span 
+                      className="text-[10px] text-gray-500 font-medium tracking-wider"
+                      animate={{ opacity: [0.7, 1, 0.7] }}
+                      transition={{ duration: 2, repeat: Infinity }}
+                    >
+                      Subleases
+                    </motion.span>
+                  </motion.div>              
+                  {/* Interactive Follower Elements */}
+                  <motion.div className="absolute -inset-4 pointer-events-none">
+                    {Array.from({ length: 6 }, (_, i) => (
+                      <motion.div
+                        key={i}
+                        className="absolute w-1 h-1 bg-orange-300 rounded-full opacity-60"
+                        style={{
+                          left: `${20 + i * 15}%`,
+                          top: `${30 + Math.sin(i) * 20}%`,
+                        }}
+                        animate={{
+                          x: [0, 10, -10, 0],
+                          y: [0, -5, 5, 0],
+                          scale: [0.5, 1, 0.5],
+                          opacity: [0.3, 0.8, 0.3]
+                        }}
+                        transition={{
+                          duration: 3 + i * 0.5,
+                          repeat: Infinity,
+                          ease: "easeInOut"
+                        }}
+                      />
                     ))}
-                </motion.span>
+                  </motion.div>
                 </motion.div>
-                </motion.div>
+              </div>
   
   
               {/* Header Actions */}
               <div className="flex items-center space-x-4">
                 
-                {/* Back */}
-                <motion.button 
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={() => router.push("/find")}
-                  className="hidden md:flex items-center px-3 py-2 rounded-lg hover:bg-orange-600 text-black hover:text-white transition-colors"
-                >
-                  <ArrowLeft size={20} /> Back
-                </motion.button>
 
-                {/* Back */}
+              <NotificationsButton 
+                notifications={notifications} 
+                loading={notificationsLoading} 
+              />  
+                {/* messages */}
                 <motion.button 
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
-                  onClick={() => router.push("/find")}
-                  className="flex md:hidden items-center py-2 rounded-lg hover:bg-orange-600 text-black hover:text-white transition-colors"
+                  onClick={() => window.location.href = '/sublease/search/list'}
+                  className="p-2 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
                 >
-                  <ArrowLeft size={20} />
-                </motion.button>
-
-                {/* Notifications */}
-                <NotificationsButton notifications={notifications} />
-  
-                {/* Favorites */}
-                <motion.button 
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-                  className="p-2 bg-gray-200 rounded-lg hover:bg-gray-300 transition-colors"
-                >
-                  <MessagesSquare size={20} className = "w-5 h-5 text-gray-500"/>
+                  <MessagesSquare size={20} className = "w-5 h-5 text-gray-600"/>
                 </motion.button>
                 
                 {/* Favorites Sidebar */}
-                {renderFavoritesSidebar()}
+                {/* {renderFavoritesSidebar()} */}
   
                 {/* Profile */}
                 <div className="relative">
-                <motion.button
+                  <motion.button
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
                     onClick={() => setShowProfile(!showProfile)}
-                    className="p-2 bg-gray-200 rounded-lg hover:bg-gray-300 transition-colors"
-                >
-                    <User className="w-5 h-5 text-gray-500" />
-                </motion.button>
-
-                <AnimatePresence>
+                    className="p-2 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                  >
+                    <User className="w-5 h-5 text-gray-600" />
+                  </motion.button>
+  
+                  <AnimatePresence>
                     {showProfile && (
-                    <motion.div
+                      <motion.div
                         initial={{ opacity: 0, y: -10 }}
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: -10 }}
                         className="absolute right-0 mt-2 w-64 bg-white rounded-lg shadow-lg border border-gray-200 z-50"
-                    >
+                      >
                         <div className="p-4 space-y-2">
-                        <button onClick={() => handleTabClick("purchased")} className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-orange-50 transition-colors">What I Purchased</button>
-                        <button onClick={() => handleTabClick("returned")} className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-orange-50 transition-colors">What I Returned</button>
-                        <button onClick={() => handleTabClick("cancelled")} className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-orange-50 transition-colors">What I Cancelled</button>
-                        <button onClick={() => handleTabClick("sold")} className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-orange-50 transition-colors">What I Sold</button>
-                        <button onClick={() => handleTabClick("sublease")} className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-orange-50 transition-colors">Sublease</button>
-                        <button onClick={() => handleTabClick("reviews")} className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-orange-50 transition-colors">Reviews</button>
-                        <hr className="my-2" />
-                        <button onClick={() => handleTabClick("history")} className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-orange-50 transition-colors">History</button>
+                          <button onClick={() => handleTabClick("purchased")} className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors">What I Purchased</button>
+                          <button onClick={() => handleTabClick("returned")} className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors">What I Returned</button>
+                          <button onClick={() => handleTabClick("cancelled")} className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors">What I Cancelled</button>
+                          <button onClick={() => handleTabClick("sold")} className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors">What I Sold</button>
+                          <button onClick={() => handleTabClick("sublease")} className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors">Sublease</button>
+                          <button onClick={() => handleTabClick("reviews")} className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors">Reviews</button>
+                          <hr className="my-2" />
+                          <button onClick={() => handleTabClick("history")} className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors">History</button>
                         </div>
-                    </motion.div>
+                      </motion.div>
                     )}
-                </AnimatePresence>
+                  </AnimatePresence>
                 </div>
-
+  
                 {/* menu */}
                 <div className="relative">
-                <motion.button
+                  <motion.button
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
                     onClick={() => setShowMenu(!showMenu)}
-                    className="p-2 bg-gray-200 rounded-lg hover:bg-gray-300 transition-colors"
-                >
-                    <Menu className="w-5 h-5 text-gray-500" />
-                </motion.button>
-
-                <AnimatePresence>
+                    className="p-2 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                  >
+                    <Menu className="w-5 h-5 text-gray-600" />
+                  </motion.button>
+  
+                  <AnimatePresence>
                     {showMenu && (
-                    <motion.div
+                      <motion.div
                         initial={{ opacity: 0, y: -10 }}
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: -10 }}
                         className="absolute right-0 mt-2 w-64 bg-white rounded-lg shadow-lg border border-gray-200 z-50"
-                    >
+                      >
                         <div className="p-4 space-y-2">
-                        <p className="text-medium font-semibold max-w-2xl mb-4 text-orange-700">
-                        Move Out Sale
-                        </p>
-                        <button 
+                          <p className="text-medium font-semibold max-w-2xl mb-4 text-orange-700">
+                          Move Out Sale
+                          </p>
+                          <button 
                             onClick={() => {
-                            router.push('../browse');
-                            setShowMenu(false);
+                              router.push('/sale/browse');
+                              setShowMenu(false);
                             }} 
-                            className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-orange-50 transition-colors"
-                        >
+                            className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors"
+                          >
                             Browse Items
-                        </button>                        
-                        <button 
+                          </button>                        
+                          <button 
                             onClick={() => {
-                            router.push('/sale/create');
-                            setShowMenu(false);
+                              router.push('/sale/create/options/nonai');
+                              setShowMenu(false);
                             }} 
-                            className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-orange-50 transition-colors"
-                        >
+                            className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors"
+                          >
                             Sell Items
-                        </button> 
-                        <button 
+                          </button> 
+                          <button 
                             onClick={() => {
-                            router.push('/sale/create');
-                            setShowMenu(false);
+                              router.push('/sale/browse');
+                              setShowMenu(false);
                             }} 
-                            className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-orange-50 transition-colors"
-                        >
+                            className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors"
+                          >
                             My Items
-                        </button>   
-                        
-                        <p className="text-medium font-semibold max-w-2xl mb-4 text-orange-700">
+                          </button>   
+                          
+                          <p className="text-medium font-semibold max-w-2xl mb-4 text-orange-700">
                             Sublease
-                        </p>
-                        <button 
+                          </p>
+                          <button 
                             onClick={() => {
-                            router.push('../search');
-                            setShowMenu(false);
+                              router.push('/sublease/search');
+                              setShowMenu(false);
                             }} 
-                            className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-orange-50 transition-colors"
-                        >
+                            className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors"
+                          >
                             Find Sublease
-                        </button>   
-                        <button 
+                          </button>   
+                          <button 
                             onClick={() => {
-                            router.push('../search');
-                            setShowMenu(false);
+                              router.push('/sublease/write/options/chat');
+                              setShowMenu(false);
                             }} 
-                            className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-orange-50 transition-colors"
-                        >
+                            className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors"
+                          >
                             Post Sublease
-                        </button>   
-                        <button 
+                          </button>   
+                          <button 
                             onClick={() => {
-                            router.push('../search');
-                            setShowMenu(false);
+                              router.push('../search');
+                              setShowMenu(false);
                             }} 
-                            className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-orange-50 transition-colors"
-                        >
+                            className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors"
+                          >
                             My Sublease Listing
-                        </button>
-                        <hr className="my-2" />
-                        <button 
+                          </button>
+                          <hr className="my-2" />
+                          <button                              
+                            onClick={() => {                               
+                              router.push('/favorite');                               
+                              setShowMenu(false);                             
+                            }}                              
+                            className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors flex items-center gap-2"
+                            >                             
+                            <Heart className="w-4 h-4 text-gray-600" />                             
+                            Favorites                           
+                          </button>
+                          <button 
                             onClick={() => {
-                            router.push('../sale/browse');
-                            setShowMenu(false);
+                              router.push('/sublease/search/list');
+                              setShowMenu(false);
                             }} 
-                            className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-orange-50 transition-colors"
-                        >
+                            className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors flex items-center gap-2"
+                          >
+                            <MessagesSquare className="w-4 h-4 text-gray-600" />                             
                             Messages
-                        </button>   
-                        <button 
+                          </button>   
+                          <button 
                             onClick={() => {
-                            router.push('../help');
-                            setShowMenu(false);
+                              router.push('../help');
+                              setShowMenu(false);
                             }} 
-                            className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-orange-50 transition-colors"
-                        >
+                            className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors"
+                          >
                             Help & Support
-                        </button>
-
-                        {/* need change (when user didn't log in -> show log in button) */}
-                        <hr className="my-2" />
+                          </button>
+  
+                          {/* need change (when user didn't log in -> show log in button) */}
+                          <hr className="my-2" />
                             {/* log in/ out */}
                             {isLoggedIn ? (
-                            <button className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-orange-50 transition-colors">
+                              <button className="w-full text-left px-3 py-2 rounded-md text-sm text-red-600 hover:bg-red-50 hover:text-red-700 transition-colors">
                                 Logout
-                            </button>
+                              </button>
                             ) : (
-                            <button className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-orange-50 transition-colors">
+                              <button className="w-full text-left px-3 py-2 rounded-md text-sm text-blue-600 hover:bg-blue-50 hover:text-blue-700 transition-colors">
                                 Login
-                            </button>
+                              </button>
                             )}
                         </div>
-                    </motion.div>
+                      </motion.div>
                     )}
-                </AnimatePresence>
+                  </AnimatePresence>
                 </div>
               </div>
           </div>
@@ -3324,121 +4038,144 @@ const renderCommuteInfo = (listing) => {
               {/* Logo Section */}
               <div className="flex justify-center items-center  animate-fadeInUp">
                 <div className="flex items-center gap-3">
-                  {/* Logo Icon */}
+                  {/* Enhanced Subox Logo */}
                   <motion.div 
-                      className="flex items-center space-x-7 relative"
-                      whileHover={{ scale: 1.05 }}
-                      onClick={() => {isLoggedIn ? (router.push("/find")) : router.push("/")}}
+                    className="flex items-center space-x-4 relative"
+                    whileHover={{ scale: 1.05 }}
                   >
-                  {/* Main Subox Logo */}
-                  <motion.div className="relative">
-                  {/* House Icon */}
-                  <motion.svg 
-                      className="w-12 h-12" 
-                      viewBox="0 0 100 100" 
-                      fill="none"
-                      whileHover={{ rotate: [0, -5, 5, 0] }}
-                      transition={{ duration: 0.5 }}
-                  >
-                      {/* House Base */}
-                      <motion.path
-                      d="M20 45L50 20L80 45V75C80 78 77 80 75 80H25C22 80 20 78 20 75V45Z"
-                      fill="#E97451"
-                      animate={{ 
-                          fill: ["#E97451", "#F59E0B", "#E97451"],
-                          scale: [1, 1.02, 1]
-                      }}
-                      transition={{ duration: 3, repeat: Infinity }}
-                      />
-                      {/* House Roof */}
-                      <motion.path
-                      d="M15 50L50 20L85 50L50 15L15 50Z"
-                      fill="#D97706"
-                      animate={{ rotate: [0, 1, 0] }}
-                      transition={{ duration: 4, repeat: Infinity }}
-                      />
-                      {/* Window */}
-                      <motion.rect
-                      x="40"
-                      y="50"
-                      width="20"
-                      height="15"
-                      fill="white"
-                      animate={{ 
-                          opacity: [1, 0.8, 1],
-                          scale: [1, 1.1, 1]
-                      }}
-                      transition={{ duration: 2, repeat: Infinity }}
-                      />
-                      {/* Door */}
-                      <motion.rect
-                      x="45"
-                      y="65"
-                      width="10"
-                      height="15"
-                      fill="white"
-                      animate={{ scaleY: [1, 1.05, 1] }}
-                      transition={{ duration: 2.5, repeat: Infinity }}
-                      />
-                  </motion.svg>
-
-                  {/* Tag Icon */}
-                  <motion.svg 
-                      className="w-8 h-8 absolute -top-2 -right-2" 
-                      viewBox="0 0 60 60" 
-                      fill="none"
-                      whileHover={{ rotate: 360 }}
-                      transition={{ duration: 0.8 }}
-                  >
-                      <motion.path
-                      d="M5 25L25 5H50V25L30 45L5 25Z"
-                      fill="#E97451"
-                      animate={{ 
-                          rotate: [0, 5, -5, 0],
-                          scale: [1, 1.1, 1]
-                      }}
-                      transition={{ duration: 3, repeat: Infinity }}
-                      />
-                      <motion.circle
-                      cx="38"
-                      cy="17"
-                      r="4"
-                      fill="white"
-                      animate={{ 
-                          scale: [1, 1.3, 1],
-                          opacity: [1, 0.7, 1]
-                      }}
-                      transition={{ duration: 1.5, repeat: Infinity }}
-                      />
-                  </motion.svg>
-                  </motion.div>
-
-                  {/* Subox Text */}
-                  <motion.div className="flex flex-col -mx-4">
-                  <motion.span 
-                      className="text-3xl font-bold text-gray-900"
-                      animate={{
-                      background: [
-                          "linear-gradient(45deg, #1F2937, #374151)",
-                          "linear-gradient(45deg, #E97451, #F59E0B)",
-                          "linear-gradient(45deg, #1F2937, #374151)"
-                      ],
-                      backgroundClip: "text",
-                      WebkitBackgroundClip: "text",
-                      color: "transparent"
-                      }}
-                      transition={{ duration: 4, repeat: Infinity }}
-                  >
-                      Subox
-                  </motion.span>
-                  <motion.span 
-                      className="text-xs text-gray-500 font-medium tracking-wider"
-                      animate={{ opacity: [0.7, 1, 0.7] }}
-                      transition={{ duration: 2, repeat: Infinity }}
-                  >
-                      SUBLEASE
-                  </motion.span>
-                  </motion.div>
+                    {/* Main Subox Logo */}
+                    <motion.div className="relative mt-2">
+                      {/* House Icon */}
+                      <motion.svg 
+                        className="w-12 h-12" 
+                        viewBox="0 0 100 100" 
+                        fill="none"
+                        whileHover={{ rotate: [0, -5, 5, 0] }}
+                        transition={{ duration: 0.5 }}
+                      >
+                        {/* House Base */}
+                        <motion.path
+                          d="M20 45L50 20L80 45V75C80 78 77 80 75 80H25C22 80 20 78 20 75V45Z"
+                          fill="#E97451"
+                          animate={{ 
+                            fill: ["#E97451", "#F59E0B", "#E97451"],
+                            scale: [1, 1.02, 1]
+                          }}
+                          transition={{ duration: 3, repeat: Infinity }}
+                        />
+                        {/* House Roof */}
+                        <motion.path
+                          d="M15 50L50 20L85 50L50 15L15 50Z"
+                          fill="#D97706"
+                          animate={{ rotate: [0, 1, 0] }}
+                          transition={{ duration: 4, repeat: Infinity }}
+                        />
+                        {/* Window */}
+                        <motion.rect
+                          x="40"
+                          y="50"
+                          width="20"
+                          height="15"
+                          fill="white"
+                          animate={{ 
+                            opacity: [1, 0.8, 1],
+                            scale: [1, 1.1, 1]
+                          }}
+                          transition={{ duration: 2, repeat: Infinity }}
+                        />
+                        {/* Door */}
+                        <motion.rect
+                          x="45"
+                          y="65"
+                          width="10"
+                          height="15"
+                          fill="white"
+                          animate={{ scaleY: [1, 1.05, 1] }}
+                          transition={{ duration: 2.5, repeat: Infinity }}
+                        />
+                      </motion.svg>
+      
+                      {/* Tag Icon */}
+                      <motion.svg 
+                        className="w-8 h-8 absolute -top-2 -right-2" 
+                        viewBox="0 0 60 60" 
+                        fill="none"
+                        whileHover={{ rotate: 360 }}
+                        transition={{ duration: 0.8 }}
+                      >
+                        <motion.path
+                          d="M5 25L25 5H50V25L30 45L5 25Z"
+                          fill="#E97451"
+                          animate={{ 
+                            rotate: [0, 5, -5, 0],
+                            scale: [1, 1.1, 1]
+                          }}
+                          transition={{ duration: 3, repeat: Infinity }}
+                        />
+                        <motion.circle
+                          cx="38"
+                          cy="17"
+                          r="4"
+                          fill="white"
+                          animate={{ 
+                            scale: [1, 1.3, 1],
+                            opacity: [1, 0.7, 1]
+                          }}
+                          transition={{ duration: 1.5, repeat: Infinity }}
+                        />
+                      </motion.svg>
+                    </motion.div>
+      
+                    {/* Subox Text */}
+                    <motion.div className="flex flex-col mb-1">
+                      <motion.span 
+                        className="text-3xl font-bold text-gray-900"
+                        animate={{
+                          background: [
+                            "linear-gradient(45deg, #1F2937, #374151)",
+                            "linear-gradient(45deg, #E97451, #F59E0B)",
+                            "linear-gradient(45deg, #1F2937, #374151)"
+                          ],
+                          backgroundClip: "text",
+                          WebkitBackgroundClip: "text",
+                          color: "transparent"
+                        }}
+                        transition={{ duration: 4, repeat: Infinity }}
+                      >
+                        Subox
+                      </motion.span>
+                      <motion.span 
+                        className="text-xs text-gray-500 font-medium tracking-wider"
+                        animate={{ opacity: [0.7, 1, 0.7] }}
+                        transition={{ duration: 2, repeat: Infinity }}
+                      >
+                        Subleases
+                      </motion.span>
+                    </motion.div>              
+                    {/* Interactive Follower Elements */}
+                    <motion.div className="absolute -inset-4 pointer-events-none">
+                      {Array.from({ length: 6 }, (_, i) => (
+                        <motion.div
+                          key={i}
+                          className="absolute w-1 h-1 bg-orange-300 rounded-full opacity-60"
+                          style={{
+                            left: `${20 + i * 15}%`,
+                            top: `${30 + Math.sin(i) * 20}%`,
+                          }}
+                          animate={{
+                            x: [0, 10, -10, 0],
+                            y: [0, -5, 5, 0],
+                            scale: [0.5, 1, 0.5],
+                            opacity: [0.3, 0.8, 0.3]
+                          }}
+                          transition={{
+                            duration: 3 + i * 0.5,
+                            repeat: Infinity,
+                            ease: "easeInOut"
+                          }}
+                        />
+                      ))}
+                    </motion.div>
                   </motion.div>
                 </div>
               </div>
@@ -3491,10 +4228,132 @@ const renderCommuteInfo = (listing) => {
         </button>
       </div>
 
-      {/* Dropdown Content */}
+      
+    </div>
+
+ 
+          
+  
+          {/* Main Search Container */}
+          
+            <div className="bg-white rounded-xl shadow-xl transition-all duration-500 overflow-hidden hover:shadow-2xl transform hover:-translate-y-1">
+              {/* Search Controls */}
+              <div className="flex flex-col md:flex-row md:items-center p-3 gap-2">
+                {/* Location */}
+                <div 
+                  className={`flex-1 p-3 rounded-lg cursor-pointer transition-all duration-300 transform hover:scale-105 ${activeSection === 'location' ? 'bg-gray-100 border border-gray-200 shadow-inner' : 'hover:bg-gray-50 border border-transparent hover:shadow-md'}`}
+                  onClick={() => toggleSection('location')}
+                >
+                  <div className="flex items-center">
+                    <MapPin className={`mr-2 text-orange-500 flex-shrink-0 transition-all duration-300 ${activeSection === 'location' ? 'animate-bounce' : ''}`} size={18} />
+                    <div>
+                      <div className="font-medium text-sm text-gray-500">Location</div>
+                      <div className={`font-semibold transition-all duration-300 ${location.length > 0 ? 'text-gray-800' : 'text-gray-400'}`}>
+                        {location.length > 0 
+                          ? location.length === 1 
+                            ? location[0] 
+                            : `${location[0]} + ${location.length - 1} more`
+                          : 'Where are you looking?'}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Dates */}
+                <div 
+                  className={`flex-1 p-3 rounded-lg cursor-pointer transition-all duration-300 transform hover:scale-105 ${activeSection === 'dates' ? 'bg-orange-50 border border-orange-200 shadow-inner' : 'hover:bg-gray-50 border border-transparent hover:shadow-md'}`}
+                  onClick={() => toggleSection('dates')}
+                >
+                  <div className="flex items-center">
+                    <Calendar className={`mr-2 text-orange-500 flex-shrink-0 transition-all duration-300 ${activeSection === 'dates' ? 'animate-bounce' : ''}`} size={18} />
+                    <div>
+                      <div className="font-medium text-sm text-gray-500">Dates</div>
+                      <div className={`font-semibold transition-all duration-300 ${dateRange.checkIn ? 'text-gray-800' : 'text-gray-400'}`}>
+                        {dateRange.checkIn && dateRange.checkOut 
+                          ? `${formatDate(dateRange.checkIn)} - ${formatDate(dateRange.checkOut)}` 
+                          : dateRange.checkIn 
+                            ? `${formatDate(dateRange.checkIn)} - ?` 
+                            : 'When do you need it?'}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Bathrooms & Bedrooms */}
+                <div 
+                  className={`flex-1 p-3 rounded-lg cursor-pointer transition-all duration-300 transform hover:scale-105 ${activeSection === 'rooms' ? 'bg-orange-50 border border-orange-200 shadow-inner' : 'hover:bg-gray-50 border border-transparent hover:shadow-md'}`}
+                  onClick={() => toggleSection('rooms')}
+                >
+                  <div className="flex items-center">
+                    <BedDouble className={`mr-2 text-orange-500 flex-shrink-0 transition-all duration-300 ${activeSection === 'rooms' ? 'animate-bounce' : ''}`} size={18} />
+                    <div>
+                      <div className="font-medium text-sm text-gray-500">Rooms</div>
+                     <div className="font-semibold text-gray-800">
+  {bedrooms === 'any' ? 'Any' : bedrooms} bedroom{bedrooms !== 1 && bedrooms !== 'any' ? 's' : ''}, {bathrooms === 'any' ? 'Any' : bathrooms} bathroom{bathrooms !== 1 && bathrooms !== 'any' ? 's' : ''}
+</div>
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Filters */}
+                <div 
+                  className={`flex-1 p-3 rounded-lg cursor-pointer transition-all duration-300 transform hover:scale-105 ${activeSection === 'filters' ? 'bg-orange-50 border border-orange-200 shadow-inner' : 'hover:bg-gray-50 border border-transparent hover:shadow-md'}`}
+                  onClick={() => toggleSection('filters')}
+                >
+                  <div className="flex items-center">
+                    <Filter className={`mr-2 text-orange-500 flex-shrink-0 transition-all duration-300 ${activeSection === 'filters' ? 'animate-bounce' : ''}`} size={18} />
+                    <div>
+                      <div className="font-medium text-sm text-gray-500">Filters</div>
+                      <div className={`font-semibold transition-all duration-300 ${selectedAmenities.length > 0 || priceRange.min !== 500 || priceRange.max !== 2000 ? 'text-gray-800' : 'text-gray-400'}`}>
+                        {selectedAmenities.length > 0 
+                          ? `${selectedAmenities.length} filter${selectedAmenities.length !== 1 ? 's' : ''} applied` 
+                          : 'Add filters'}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Search Button */}
+                <button 
+                  className="p-4 rounded-lg text-white flex items-center justify-center bg-orange-600 hover:bg-orange-500 transition-all ml-2 disabled:opacity-70 disabled:cursor-not-allowed transform hover:scale-105 hover:shadow-lg"
+                  onClick={handleSearch}
+                  disabled={isSearching}
+                >
+                  {isSearching ? (
+                    <div className="animate-spin w-5 h-5 border-2 border-white border-t-transparent rounded-full mr-2" />
+                  ) : (
+                    <Search size={20} className="mr-2 animate-pulse" />
+                  )}
+                  <span className="font-medium">Search</span>
+                </button>
+                
+                {/* Reset Button - Only show if search criteria exists */}
+                {hasSearchCriteria() && (
+                  <button 
+                    className="p-2 rounded-full text-gray-500 hover:bg-gray-100 transition-all transform hover:scale-110 hover:rotate-90 duration-300"
+                    onClick={resetSearch}
+                    title="Reset search"
+                  >
+                    <X size={20} />
+                  </button>
+                )}
+              </div>
+              
+              {/* Expandable sections */}
+              {activeSection === 'location' && renderLocationSection()}
+              {activeSection === 'dates' && renderCalendarSection()}
+              {activeSection === 'rooms' && renderRoomsSection()}
+              {activeSection === 'filters' && renderFiltersSection()}
+            </div>
+          
+        </div>
+      </div>
+
+
+{/* Dropdown Content */}
       {showSavedSearches && (
-        <div className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden animate-fadeIn">
-          <div className="p-6">
+        <div className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden animate-fadeIn mb-4 mt-4 w-full max-w-4xl mx-auto p-6 -mb-10">
+              <div className="p-6">
             {savedSearches.length === 0 ? (
               // Empty State
               <div className="text-center py-8">
@@ -3635,138 +4494,18 @@ const renderCommuteInfo = (listing) => {
           </div>
         </div>
       )}
-    </div>
 
- 
-          
   
-          {/* Main Search Container */}
-          
-            <div className="bg-white rounded-xl shadow-xl transition-all duration-500 overflow-hidden hover:shadow-2xl transform hover:-translate-y-1">
-              {/* Search Controls */}
-              <div className="flex flex-col md:flex-row md:items-center p-3 gap-2">
-                {/* Location */}
-                <div 
-                  className={`flex-1 p-3 rounded-lg cursor-pointer transition-all duration-300 transform hover:scale-105 ${activeSection === 'location' ? 'bg-gray-100 border border-gray-200 shadow-inner' : 'hover:bg-gray-50 border border-transparent hover:shadow-md'}`}
-                  onClick={() => toggleSection('location')}
-                >
-                  <div className="flex items-center">
-                    <MapPin className={`mr-2 text-orange-500 flex-shrink-0 transition-all duration-300 ${activeSection === 'location' ? 'animate-bounce' : ''}`} size={18} />
-                    <div>
-                      <div className="font-medium text-sm text-gray-500">Location</div>
-                      <div className={`font-semibold transition-all duration-300 ${location.length > 0 ? 'text-gray-800' : 'text-gray-400'}`}>
-                        {location.length > 0 
-                          ? location.length === 1 
-                            ? location[0] 
-                            : `${location[0]} + ${location.length - 1} more`
-                          : 'Where are you looking?'}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                
-                {/* Dates */}
-                <div 
-                  className={`flex-1 p-3 rounded-lg cursor-pointer transition-all duration-300 transform hover:scale-105 ${activeSection === 'dates' ? 'bg-orange-50 border border-orange-200 shadow-inner' : 'hover:bg-gray-50 border border-transparent hover:shadow-md'}`}
-                  onClick={() => toggleSection('dates')}
-                >
-                  <div className="flex items-center">
-                    <Calendar className={`mr-2 text-orange-500 flex-shrink-0 transition-all duration-300 ${activeSection === 'dates' ? 'animate-bounce' : ''}`} size={18} />
-                    <div>
-                      <div className="font-medium text-sm text-gray-500">Dates</div>
-                      <div className={`font-semibold transition-all duration-300 ${dateRange.checkIn ? 'text-gray-800' : 'text-gray-400'}`}>
-                        {dateRange.checkIn && dateRange.checkOut 
-                          ? `${formatDate(dateRange.checkIn)} - ${formatDate(dateRange.checkOut)}` 
-                          : dateRange.checkIn 
-                            ? `${formatDate(dateRange.checkIn)} - ?` 
-                            : 'When do you need it?'}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                
-                {/* Bathrooms & Bedrooms */}
-                <div 
-                  className={`flex-1 p-3 rounded-lg cursor-pointer transition-all duration-300 transform hover:scale-105 ${activeSection === 'rooms' ? 'bg-orange-50 border border-orange-200 shadow-inner' : 'hover:bg-gray-50 border border-transparent hover:shadow-md'}`}
-                  onClick={() => toggleSection('rooms')}
-                >
-                  <div className="flex items-center">
-                    <BedDouble className={`mr-2 text-orange-500 flex-shrink-0 transition-all duration-300 ${activeSection === 'rooms' ? 'animate-bounce' : ''}`} size={18} />
-                    <div>
-                      <div className="font-medium text-sm text-gray-500">Rooms</div>
-                      <div className="font-semibold text-gray-800">
-                        {bedrooms} bedroom{bedrooms !== 1 ? 's' : ''}, {bathrooms} bathroom{bathrooms !== 1 ? 's' : ''}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                
-                {/* Filters */}
-                <div 
-                  className={`flex-1 p-3 rounded-lg cursor-pointer transition-all duration-300 transform hover:scale-105 ${activeSection === 'filters' ? 'bg-orange-50 border border-orange-200 shadow-inner' : 'hover:bg-gray-50 border border-transparent hover:shadow-md'}`}
-                  onClick={() => toggleSection('filters')}
-                >
-                  <div className="flex items-center">
-                    <Filter className={`mr-2 text-orange-500 flex-shrink-0 transition-all duration-300 ${activeSection === 'filters' ? 'animate-bounce' : ''}`} size={18} />
-                    <div>
-                      <div className="font-medium text-sm text-gray-500">Filters</div>
-                      <div className={`font-semibold transition-all duration-300 ${selectedAmenities.length > 0 || priceRange.min !== 500 || priceRange.max !== 2000 ? 'text-gray-800' : 'text-gray-400'}`}>
-                        {selectedAmenities.length > 0 
-                          ? `${selectedAmenities.length} filter${selectedAmenities.length !== 1 ? 's' : ''} applied` 
-                          : 'Add filters'}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                
-                {/* Search Button */}
-                <button 
-                  className="p-4 rounded-lg text-white flex items-center justify-center bg-orange-600 hover:bg-orange-500 transition-all ml-2 disabled:opacity-70 disabled:cursor-not-allowed transform hover:scale-105 hover:shadow-lg"
-                  onClick={handleSearch}
-                  disabled={isSearching}
-                >
-                  {isSearching ? (
-                    <div className="animate-spin w-5 h-5 border-2 border-white border-t-transparent rounded-full mr-2" />
-                  ) : (
-                    <Search size={20} className="mr-2 animate-pulse" />
-                  )}
-                  <span className="font-medium">Search</span>
-                </button>
-                
-                {/* Reset Button - Only show if search criteria exists */}
-                {hasSearchCriteria() && (
-                  <button 
-                    className="p-2 rounded-full text-gray-500 hover:bg-gray-100 transition-all transform hover:scale-110 hover:rotate-90 duration-300"
-                    onClick={resetSearch}
-                    title="Reset search"
-                  >
-                    <X size={20} />
-                  </button>
-                )}
+ {showMapView && (
+      <div className="w-full max-w-4xl mx-auto p-6 -mb-8">
+      <div id="map-container">
+      <div>
+      <div className="flex items-center gap-2 mb-6">
+                <Settings size={20} className="text-gray-600" />
+                <h3 className="text-lg font-semibold text-gray-900">Commute Preferences</h3>
               </div>
-              
-              {/* Expandable sections */}
-              {activeSection === 'location' && renderLocationSection()}
-              {activeSection === 'dates' && renderCalendarSection()}
-              {activeSection === 'rooms' && renderRoomsSection()}
-              {activeSection === 'filters' && renderFiltersSection()}
-            </div>
-          
-        </div>
-      </div>
-
-
-
-
-{showMapView && (
-<div className="mt-4 w-[60%] mx-auto overflow-hidden">
-<div id="map-container">
-  <div>
-          <h3 className="font-bold mb-3 text-gray-800 mt-2">Find by Enhanced Commute</h3>
-          <div className="bg-gradient-to-br from-blue-50 to-indigo-50 p-4 rounded-lg border border-blue-200">
-            {/* Show loading/error states */}
-           
-            
+                  
+            {/* Show loading/error states */}            
             {googleMapsError && (
               <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-3">
                 <p className="text-red-700 text-sm">{googleMapsError}</p>
@@ -3879,8 +4618,9 @@ const renderCommuteInfo = (listing) => {
           )}
         </div>
       </div>
-    </div>
+    
 )}
+
 {/* 
   {showCommuteResults && commuteDestination && (
     <div className="mt-6 w-[60%] mx-auto px-4 bg-gradient-to-r from-green-50 to-blue-50 rounded-xl p-6 border border-green-200 animate-slideUp transform hover:scale-105 transition-all duration-300">
@@ -3940,151 +4680,7 @@ const renderCommuteInfo = (listing) => {
 
         {/* Content Sections */}
         {renderFeaturedListings()}
-                  
-        {/* Global Styles */}
-        <style jsx global>{`
-          @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(-10px); }
-            to { opacity: 1; transform: translateY(0); }
-          }
-          
-          @keyframes fadeInLeft {
-            from { opacity: 0; transform: translateX(-20px); }
-            to { opacity: 1; transform: translateX(0); }
-          }
-          
-          @keyframes fadeInRight {
-            from { opacity: 0; transform: translateX(20px); }
-            to { opacity: 1; transform: translateX(0); }
-          }
-          
-          @keyframes fadeInUp {
-            from { opacity: 0; transform: translateY(30px); }
-            to { opacity: 1; transform: translateY(0); }
-          }
-          
-          @keyframes slideUp {
-            from { opacity: 0; transform: translateY(50px); }
-            to { opacity: 1; transform: translateY(0); }
-          }
-          
-          @keyframes slideDown {
-            from { opacity: 0; transform: translateY(-30px); }
-            to { opacity: 1; transform: translateY(0); }
-          }
-          
-          @keyframes float {
-            0%, 100% { transform: translateY(0px) rotate(0deg); }
-            50% { transform: translateY(-20px) rotate(180deg); }
-          }
-          
-          @keyframes float-delayed {
-            0%, 100% { transform: translateY(0px) rotate(0deg); }
-            50% { transform: translateY(-15px) rotate(-90deg); }
-          }
-          
-          @keyframes float-slow {
-            0%, 100% { transform: translateY(0px) rotate(0deg); }
-            50% { transform: translateY(-10px) rotate(45deg); }
-          }
-          
-          @keyframes bounce-subtle {
-            0%, 100% { transform: translateY(0); }
-            50% { transform: translateY(-5px); }
-          }
-          
-          @keyframes counter {
-            from { transform: scale(0); }
-            to { transform: scale(1); }
-          }
-          
-          .animate-fadeIn {
-            animation: fadeIn 0.6s ease-out forwards;
-          }
-          
-          .animate-fadeInLeft {
-            animation: fadeInLeft 0.8s ease-out forwards;
-          }
-          
-          .animate-fadeInRight {
-            animation: fadeInRight 0.8s ease-out forwards;
-          }
-          
-          .animate-fadeInUp {
-            animation: fadeInUp 1s ease-out forwards;
-          }
-          
-          .animate-slideUp {
-            animation: slideUp 0.8s ease-out forwards;
-          }
-          
-          .animate-slideDown {
-            animation: slideDown 0.6s ease-out forwards;
-          }
-          
-          .animate-float {
-            animation: float 6s ease-in-out infinite;
-          }
-          
-          .animate-float-delayed {
-            animation: float-delayed 8s ease-in-out infinite;
-            animation-delay: 2s;
-          }
-          
-          .animate-float-slow {
-            animation: float-slow 10s ease-in-out infinite;
-            animation-delay: 4s;
-          }
-          
-          .animate-bounce-subtle {
-            animation: bounce-subtle 2s ease-in-out infinite;
-          }
-          
-          .animate-counter {
-            animation: counter 0.5s ease-out forwards;
-          }
-          
-          .delay-100 { animation-delay: 100ms; }
-          .delay-200 { animation-delay: 200ms; }
-          .delay-300 { animation-delay: 300ms; }
 
-          /* Price slider styles */
-          .slider-thumb::-webkit-slider-thumb {
-            appearance: none;
-            height: 20px;
-            width: 20px;
-            border-radius: 50%;
-            background: #D35400;
-            cursor: pointer;
-            border: 2px solid #ffffff;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-            transition: all 0.3s ease;
-          }
-          
-          .slider-thumb::-webkit-slider-thumb:hover {
-            transform: scale(1.2);
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-          }
-          
-          .slider-thumb::-moz-range-thumb {
-            height: 20px;
-            width: 20px;
-            border-radius: 50%;
-            background: #D35400;
-            cursor: pointer;
-            border: 2px solid #ffffff;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-            transition: all 0.3s ease;
-          }
-          
-          .slider-thumb:focus {
-            outline: none;
-          }
-          
-          .slider-thumb:focus::-webkit-slider-thumb {
-            box-shadow: 0 0 0 3px rgba(211, 84, 0, 0.3);
-          }
-        `}</style>
       </div>
     </div>
   );

@@ -69,50 +69,50 @@ const CustomIcons = {
     </motion.svg>
   ),
 
-Key: ({ size = 28, className = "", animated = false }) => (
-  <motion.svg
-    width={size}
-    height={size}
-    viewBox="0 0 28 28"
-    fill="none"
-    className={className}
-    whileHover={{ rotate: 15 }}
-    transition={{ type: "spring", stiffness: 400 }}
-  >
-    {/* Key head (circle) */}
-    <motion.circle
-      cx="8"
-      cy="8"
-      r="4"
-      stroke="currentColor"
-      strokeWidth="2"
-      fill="currentColor"
-      opacity="0.2"
-      animate={animated ? { rotate: 360 } : {}}
-      transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
-    />
-    <motion.circle
-      cx="8"
-      cy="8"
-      r="4"
-      stroke="currentColor"
-      strokeWidth="2"
+  Key: ({ size = 28, className = "", animated = false }) => (
+    <motion.svg
+      width={size}
+      height={size}
+      viewBox="0 0 28 28"
       fill="none"
-    />
+      className={className}
+      whileHover={{ rotate: 15 }}
+      transition={{ type: "spring", stiffness: 400 }}
+    >
+      {/* Key head (circle) */}
+      <motion.circle
+        cx="8"
+        cy="8"
+        r="4"
+        stroke="currentColor"
+        strokeWidth="2"
+        fill="currentColor"
+        opacity="0.2"
+        animate={animated ? { rotate: 360 } : {}}
+        transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
+      />
+      <motion.circle
+        cx="8"
+        cy="8"
+        r="4"
+        stroke="currentColor"
+        strokeWidth="2"
+        fill="none"
+      />
 
-    {/* Key shaft and teeth */}
-    <motion.path
-      d="M12 8 H24 V11 H21 V13 H18 V11 H15"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      initial={{ pathLength: 0 }}
-      animate={{ pathLength: 1 }}
-      transition={{ duration: 1 }}
-    />
-  </motion.svg>
-),
+      {/* Key shaft and teeth */}
+      <motion.path
+        d="M12 8 H24 V11 H21 V13 H18 V11 H15"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        initial={{ pathLength: 0 }}
+        animate={{ pathLength: 1 }}
+        transition={{ duration: 1 }}
+      />
+    </motion.svg>
+  ),
 
   Package: ({ size = 32, className = "", animated = false }) => (
     <motion.svg 
@@ -855,416 +855,291 @@ const SuboxLogo = ({ size = 200, className = "" }) => (
         className="bg-white/80 backdrop-blur-lg border-b border-gray-200 sticky top-0 z-40"
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16 hidden md:flex">
-            {/* Enhanced Subox Logo */}
-            <motion.div 
-              className="flex items-center space-x-4 relative"
-              whileHover={{ scale: 1.05 }}
-              onClick={() => router.push('/')}
-            >
-              {/* Main Subox Logo */}
-              <motion.div className="relative">
-                {/* House Icon */}
-                <motion.svg 
-                  className="w-12 h-12" 
-                  viewBox="0 0 100 100" 
-                  fill="none"
-                  whileHover={{ rotate: [0, -5, 5, 0] }}
-                  transition={{ duration: 0.5 }}
-                >
-                  {/* House Base */}
-                  <motion.path
-                    d="M20 45L50 20L80 45V75C80 78 77 80 75 80H25C22 80 20 78 20 75V45Z"
-                    fill="#E97451"
-                    animate={{ 
-                      fill: ["#E97451", "#F59E0B", "#E97451"],
-                      scale: [1, 1.02, 1]
-                    }}
-                    transition={{ duration: 3, repeat: Infinity }}
-                  />
-                  {/* House Roof */}
-                  <motion.path
-                    d="M15 50L50 20L85 50L50 15L15 50Z"
-                    fill="#D97706"
-                    animate={{ rotate: [0, 1, 0] }}
-                    transition={{ duration: 4, repeat: Infinity }}
-                  />
-                  {/* Window */}
-                  <motion.rect
-                    x="40"
-                    y="50"
-                    width="20"
-                    height="15"
-                    fill="white"
-                    animate={{ 
-                      opacity: [1, 0.8, 1],
-                      scale: [1, 1.1, 1]
-                    }}
-                    transition={{ duration: 2, repeat: Infinity }}
-                  />
-                  {/* Door */}
-                  <motion.rect
-                    x="45"
-                    y="65"
-                    width="10"
-                    height="15"
-                    fill="white"
-                    animate={{ scaleY: [1, 1.05, 1] }}
-                    transition={{ duration: 2.5, repeat: Infinity }}
-                  />
-                </motion.svg>
- 
-                {/* Tag Icon */}
-                <motion.svg 
-                  className="w-8 h-8 absolute -top-2 -right-2" 
-                  viewBox="0 0 60 60" 
-                  fill="none"
-                  whileHover={{ rotate: 360 }}
-                  transition={{ duration: 0.8 }}
-                >
-                  <motion.path
-                    d="M5 25L25 5H50V25L30 45L5 25Z"
-                    fill="#E97451"
-                    animate={{ 
-                      rotate: [0, 5, -5, 0],
-                      scale: [1, 1.1, 1]
-                    }}
-                    transition={{ duration: 3, repeat: Infinity }}
-                  />
-                  <motion.circle
-                    cx="38"
-                    cy="17"
-                    r="4"
-                    fill="white"
-                    animate={{ 
-                      scale: [1, 1.3, 1],
-                      opacity: [1, 0.7, 1]
-                    }}
-                    transition={{ duration: 1.5, repeat: Infinity }}
-                  />
-                </motion.svg>
-              </motion.div>
- 
-              {/* Subox Text */}
-              <motion.div className="flex flex-col">
-                <motion.span 
-                  className="text-3xl font-bold text-gray-900"
-                  animate={{
-                    background: [
-                      "linear-gradient(45deg, #1F2937, #374151)",
-                      "linear-gradient(45deg, #E97451, #F59E0B)",
-                      "linear-gradient(45deg, #1F2937, #374151)"
-                    ],
-                    backgroundClip: "text",
-                    WebkitBackgroundClip: "text",
-                    color: "transparent"
-                  }}
-                  transition={{ duration: 4, repeat: Infinity }}
-                >
-                  Subox
-                </motion.span>
-                <motion.span 
-                  className="text-xs text-gray-500 font-medium tracking-wider"
-                  animate={{ opacity: [0.7, 1, 0.7] }}
-                  transition={{ duration: 2, repeat: Infinity }}
-                >
-                  SUBLETS & MOVING SALES
-                </motion.span>
-              </motion.div>
- 
-              {/* Interactive Follower Elements */}
-              <motion.div className="absolute -inset-4 pointer-events-none">
-                {Array.from({ length: 6 }, (_, i) => (
-                  <motion.div
-                    key={i}
-                    className="absolute w-1 h-1 bg-orange-300 rounded-full opacity-60"
-                    style={{
-                      left: `${20 + i * 15}%`,
-                      top: `${30 + Math.sin(i) * 20}%`,
-                    }}
+          <div className="flex items-center justify-between h-16">
+            <div className="hidden md:flex">
+              {/* Enhanced Subox Logo */}
+              <motion.div 
+                className="flex items-center space-x-4 relative"
+                whileHover={{ scale: 1.05 }}
+              >
+                {/* Main Subox Logo */}
+                <motion.div className="relative mt-3">
+                  {/* House Icon */}
+                  <motion.svg 
+                    className="w-12 h-12" 
+                    viewBox="0 0 100 100" 
+                    fill="none"
+                    whileHover={{ rotate: [0, -5, 5, 0] }}
+                    transition={{ duration: 0.5 }}
+                  >
+                    {/* House Base */}
+                    <motion.path
+                      d="M20 45L50 20L80 45V75C80 78 77 80 75 80H25C22 80 20 78 20 75V45Z"
+                      fill="#E97451"
+                      animate={{ 
+                        fill: ["#E97451", "#F59E0B", "#E97451"],
+                        scale: [1, 1.02, 1]
+                      }}
+                      transition={{ duration: 3, repeat: Infinity }}
+                    />
+                    {/* House Roof */}
+                    <motion.path
+                      d="M15 50L50 20L85 50L50 15L15 50Z"
+                      fill="#D97706"
+                      animate={{ rotate: [0, 1, 0] }}
+                      transition={{ duration: 4, repeat: Infinity }}
+                    />
+                    {/* Window */}
+                    <motion.rect
+                      x="40"
+                      y="50"
+                      width="20"
+                      height="15"
+                      fill="white"
+                      animate={{ 
+                        opacity: [1, 0.8, 1],
+                        scale: [1, 1.1, 1]
+                      }}
+                      transition={{ duration: 2, repeat: Infinity }}
+                    />
+                    {/* Door */}
+                    <motion.rect
+                      x="45"
+                      y="65"
+                      width="10"
+                      height="15"
+                      fill="white"
+                      animate={{ scaleY: [1, 1.05, 1] }}
+                      transition={{ duration: 2.5, repeat: Infinity }}
+                    />
+                  </motion.svg>
+  
+                  {/* Tag Icon */}
+                  <motion.svg 
+                    className="w-8 h-8 absolute -top-2 -right-2" 
+                    viewBox="0 0 60 60" 
+                    fill="none"
+                    whileHover={{ rotate: 360 }}
+                    transition={{ duration: 0.8 }}
+                  >
+                    <motion.path
+                      d="M5 25L25 5H50V25L30 45L5 25Z"
+                      fill="#E97451"
+                      animate={{ 
+                        rotate: [0, 5, -5, 0],
+                        scale: [1, 1.1, 1]
+                      }}
+                      transition={{ duration: 3, repeat: Infinity }}
+                    />
+                    <motion.circle
+                      cx="38"
+                      cy="17"
+                      r="4"
+                      fill="white"
+                      animate={{ 
+                        scale: [1, 1.3, 1],
+                        opacity: [1, 0.7, 1]
+                      }}
+                      transition={{ duration: 1.5, repeat: Infinity }}
+                    />
+                  </motion.svg>
+                </motion.div>
+  
+                {/* Subox Text */}
+                <motion.div className="flex flex-col mb-1">
+                  <motion.span 
+                    className="text-3xl font-bold text-gray-900"
                     animate={{
-                      x: [0, 10, -10, 0],
-                      y: [0, -5, 5, 0],
-                      scale: [0.5, 1, 0.5],
-                      opacity: [0.3, 0.8, 0.3]
+                      background: [
+                        "linear-gradient(45deg, #1F2937, #374151)",
+                        "linear-gradient(45deg, #E97451, #F59E0B)",
+                        "linear-gradient(45deg, #1F2937, #374151)"
+                      ],
+                      backgroundClip: "text",
+                      WebkitBackgroundClip: "text",
+                      color: "transparent"
                     }}
-                    transition={{
-                      duration: 3 + i * 0.5,
-                      repeat: Infinity,
-                      ease: "easeInOut"
-                    }}
-                  />
-                ))}
+                    transition={{ duration: 4, repeat: Infinity }}
+                  >
+                    Subox
+                  </motion.span>
+                  <motion.span 
+                    className="text-xs text-gray-500 font-medium tracking-wider"
+                    animate={{ opacity: [0.7, 1, 0.7] }}
+                    transition={{ duration: 2, repeat: Infinity }}
+                  >
+                    SUBLETS & MOVING SALES
+                  </motion.span>
+                </motion.div>              
+                {/* Interactive Follower Elements */}
+                <motion.div className="absolute -inset-4 pointer-events-none">
+                  {Array.from({ length: 6 }, (_, i) => (
+                    <motion.div
+                      key={i}
+                      className="absolute w-1 h-1 bg-orange-300 rounded-full opacity-60"
+                      style={{
+                        left: `${20 + i * 15}%`,
+                        top: `${30 + Math.sin(i) * 20}%`,
+                      }}
+                      animate={{
+                        x: [0, 10, -10, 0],
+                        y: [0, -5, 5, 0],
+                        scale: [0.5, 1, 0.5],
+                        opacity: [0.3, 0.8, 0.3]
+                      }}
+                      transition={{
+                        duration: 3 + i * 0.5,
+                        repeat: Infinity,
+                        ease: "easeInOut"
+                      }}
+                    />
+                  ))}
+                </motion.div>
               </motion.div>
-            </motion.div>
-            
-            {/* Header Actions */}
-            <div className="flex items-center space-x-4">
-              {/* Enhanced Back Button */}
-              <AnimatePresence>
-                {selectedOption && (
-                  <motion.button 
-                    initial={{ opacity: 0, x: 20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: 20 }}
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    onClick={resetSelection}
-                    className="flex items-center px-4 py-2 rounded-xl text-black hover:text-white bg-gray-100 hover:bg-orange-600 transition-colors"
-                  >
-                    <CustomIcons.ArrowLeft size={18} className="mr-2" />
-                    <span className="font-medium">Back</span>
-                  </motion.button>
-                )}
-              </AnimatePresence>
-              
-              {/* Enhanced User Menu */}
-              {user ? (
-                <div className="flex items-center space-x-3">
-                  <motion.button
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    onClick={handleSignOut}
-                    className="hidden md:flex items-center px-3 py-2 text-sm text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors"
-                  >
-                    <CustomIcons.LogOut size={16} className="mr-1" />
-                    Sign Out
-                  </motion.button>
-                  
-                  <div className="relative">
-                    <motion.button
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
-                      onClick={() => setShowUserMenu(!showUserMenu)}
-                      className="flex items-center space-x-3 text-sm text-gray-700 hover:text-gray-900 transition-colors"
-                    >
-                      <motion.div 
-                        className="w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center"
-                        whileHover={{ rotate: 360 }}
-                        transition={{ duration: 0.5 }}
-                      >
-                        <span className="text-orange-600 font-medium text-sm">
-                          {getUserInitials()}
-                        </span>
-                      </motion.div>
-                      <div className="hidden sm:block text-left">
-                        <div className="text-sm font-medium text-gray-900">
-                          Welcome, {getUserDisplayName()}!
-                        </div>
-                        <div className="text-xs text-gray-500">
-                          {user.email}
-                        </div>
-                      </div>
-                    </motion.button>
-                    
-                    <AnimatePresence>
-                      {showUserMenu && (
-                        <>
-                          <motion.div
-                            initial={{ opacity: 0, scale: 0.95, y: -10 }}
-                            animate={{ opacity: 1, scale: 1, y: 0 }}
-                            exit={{ opacity: 0, scale: 0.95, y: -10 }}
-                            className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-lg py-1 z-50 border border-gray-200"
-                          >
-                            <div className="px-4 py-2 text-sm text-gray-700 border-b border-gray-100">
-                              <div className="font-medium">{getUserDisplayName()}</div>
-                              <div className="text-xs text-gray-500 truncate">{user.email}</div>
-                            </div>
-                            <motion.button
-                              whileHover={{ backgroundColor: "#f3f4f6" }}
-                              onClick={() => {
-                                setShowUserMenu(false);
-                                router.push('/profile');
-                              }}
-                              className="flex items-center w-full px-4 py-2 text-sm text-gray-700"
-                            >
-                              <CustomIcons.User size={16} className="mr-2" />
-                              Profile
-                            </motion.button>
-                            <motion.button
-                              whileHover={{ backgroundColor: "#f3f4f6" }}
-                              onClick={() => {
-                                setShowUserMenu(false);
-                                router.push('/my-listings');
-                              }}
-                              className="flex items-center w-full px-4 py-2 text-sm text-gray-700"
-                            >
-                              <CustomIcons.Home size={16} className="mr-2" />
-                              My Listings
-                            </motion.button>
-                            <div className="border-t border-gray-100 my-1"></div>
-                            <motion.button
-                              whileHover={{ backgroundColor: "#fef2f2" }}
-                              onClick={handleSignOut}
-                              className="flex items-center w-full px-4 py-2 text-sm text-red-600"
-                            >
-                              <CustomIcons.LogOut size={16} className="mr-2" />
-                              Sign Out
-                            </motion.button>
-                          </motion.div>
-                          <div 
-                            className="fixed inset-0 z-40" 
-                            onClick={() => setShowUserMenu(false)}
-                          />
-                        </>
-                      )}
-                    </AnimatePresence>
-                  </div>
-                </div>
-              ) : (
-                <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={() => router.push('/auth')}
-                  className="px-4 py-2 text-orange-600 hover:text-orange-700 font-medium"
-                >
-                  Sign In
-                </motion.button>
-              )}
             </div>
-          </div>
-          <div className="flex items-center justify-between h-16 flex md:hidden">
-            {/* Enhanced Subox Logo */}
-            <motion.div 
-              className="flex items-center space-x-4 relative mt-1"
-              whileHover={{ scale: 1.05 }}
-              onClick={() => router.push('/')}
-            >
-              {/* Main Subox Logo */}
-              <motion.div className="relative">
-                {/* House Icon */}
-                <motion.svg 
-                  className="w-10 h-10" 
-                  viewBox="0 0 100 100" 
-                  fill="none"
-                  whileHover={{ rotate: [0, -5, 5, 0] }}
-                  transition={{ duration: 0.5 }}
-                >
-                  {/* House Base */}
-                  <motion.path
-                    d="M20 45L50 20L80 45V75C80 78 77 80 75 80H25C22 80 20 78 20 75V45Z"
-                    fill="#E97451"
-                    animate={{ 
-                      fill: ["#E97451", "#F59E0B", "#E97451"],
-                      scale: [1, 1.02, 1]
-                    }}
-                    transition={{ duration: 3, repeat: Infinity }}
-                  />
-                  {/* House Roof */}
-                  <motion.path
-                    d="M15 50L50 20L85 50L50 15L15 50Z"
-                    fill="#D97706"
-                    animate={{ rotate: [0, 1, 0] }}
-                    transition={{ duration: 4, repeat: Infinity }}
-                  />
-                  {/* Window */}
-                  <motion.rect
-                    x="40"
-                    y="50"
-                    width="20"
-                    height="15"
-                    fill="white"
-                    animate={{ 
-                      opacity: [1, 0.8, 1],
-                      scale: [1, 1.1, 1]
-                    }}
-                    transition={{ duration: 2, repeat: Infinity }}
-                  />
-                  {/* Door */}
-                  <motion.rect
-                    x="45"
-                    y="65"
-                    width="10"
-                    height="15"
-                    fill="white"
-                    animate={{ scaleY: [1, 1.05, 1] }}
-                    transition={{ duration: 2.5, repeat: Infinity }}
-                  />
-                </motion.svg>
- 
-                {/* Tag Icon */}
-                <motion.svg 
-                  className="w-6 h-6 absolute -top-1 -right-1" 
-                  viewBox="0 0 60 60" 
-                  fill="none"
-                  whileHover={{ rotate: 360 }}
-                  transition={{ duration: 0.8 }}
-                >
-                  <motion.path
-                    d="M5 25L25 5H50V25L30 45L5 25Z"
-                    fill="#E97451"
-                    animate={{ 
-                      rotate: [0, 5, -5, 0],
-                      scale: [1, 1.1, 1]
-                    }}
-                    transition={{ duration: 3, repeat: Infinity }}
-                  />
-                  <motion.circle
-                    cx="38"
-                    cy="17"
-                    r="4"
-                    fill="white"
-                    animate={{ 
-                      scale: [1, 1.3, 1],
-                      opacity: [1, 0.7, 1]
-                    }}
-                    transition={{ duration: 1.5, repeat: Infinity }}
-                  />
-                </motion.svg>
-              </motion.div>
- 
-              {/* Subox Text */}
-              <motion.div className="flex flex-col">
-                <motion.span 
-                  className="text-2xl font-bold text-gray-900"
-                  animate={{
-                    background: [
-                      "linear-gradient(45deg, #1F2937, #374151)",
-                      "linear-gradient(45deg, #E97451, #F59E0B)",
-                      "linear-gradient(45deg, #1F2937, #374151)"
-                    ],
-                    backgroundClip: "text",
-                    WebkitBackgroundClip: "text",
-                    color: "transparent"
-                  }}
-                  transition={{ duration: 4, repeat: Infinity }}
-                >
-                  Subox
-                </motion.span>
-                <motion.span 
-                  className="text-[10px] text-gray-500 font-medium tracking-wider"
-                  animate={{ opacity: [0.7, 1, 0.7] }}
-                  transition={{ duration: 2, repeat: Infinity }}
-                >
-                  SUBLETS & MOVING SALES
-                </motion.span>
-              </motion.div>
- 
-              {/* Interactive Follower Elements */}
-              <motion.div className="absolute -inset-4 pointer-events-none">
-                {Array.from({ length: 6 }, (_, i) => (
-                  <motion.div
-                    key={i}
-                    className="absolute w-1 h-1 bg-orange-300 rounded-full opacity-60"
-                    style={{
-                      left: `${20 + i * 15}%`,
-                      top: `${30 + Math.sin(i) * 20}%`,
-                    }}
+            <div className="flex md:hidden">
+              {/* Enhanced Subox Logo */}
+              <motion.div 
+                className="flex items-center space-x-4 relative"
+                whileHover={{ scale: 1.05 }}
+              >
+                {/* Main Subox Logo */}
+                <motion.div className="relative mt-2">
+                  {/* House Icon */}
+                  <motion.svg 
+                    className="w-10 h-10" 
+                    viewBox="0 0 100 100" 
+                    fill="none"
+                    whileHover={{ rotate: [0, -5, 5, 0] }}
+                    transition={{ duration: 0.5 }}
+                  >
+                    {/* House Base */}
+                    <motion.path
+                      d="M20 45L50 20L80 45V75C80 78 77 80 75 80H25C22 80 20 78 20 75V45Z"
+                      fill="#E97451"
+                      animate={{ 
+                        fill: ["#E97451", "#F59E0B", "#E97451"],
+                        scale: [1, 1.02, 1]
+                      }}
+                      transition={{ duration: 3, repeat: Infinity }}
+                    />
+                    {/* House Roof */}
+                    <motion.path
+                      d="M15 50L50 20L85 50L50 15L15 50Z"
+                      fill="#D97706"
+                      animate={{ rotate: [0, 1, 0] }}
+                      transition={{ duration: 4, repeat: Infinity }}
+                    />
+                    {/* Window */}
+                    <motion.rect
+                      x="40"
+                      y="50"
+                      width="20"
+                      height="15"
+                      fill="white"
+                      animate={{ 
+                        opacity: [1, 0.8, 1],
+                        scale: [1, 1.1, 1]
+                      }}
+                      transition={{ duration: 2, repeat: Infinity }}
+                    />
+                    {/* Door */}
+                    <motion.rect
+                      x="45"
+                      y="65"
+                      width="10"
+                      height="15"
+                      fill="white"
+                      animate={{ scaleY: [1, 1.05, 1] }}
+                      transition={{ duration: 2.5, repeat: Infinity }}
+                    />
+                  </motion.svg>
+  
+                  {/* Tag Icon */}
+                  <motion.svg 
+                    className="w-6 h-6 absolute -top-1 -right-1" 
+                    viewBox="0 0 60 60" 
+                    fill="none"
+                    whileHover={{ rotate: 360 }}
+                    transition={{ duration: 0.8 }}
+                  >
+                    <motion.path
+                      d="M5 25L25 5H50V25L30 45L5 25Z"
+                      fill="#E97451"
+                      animate={{ 
+                        rotate: [0, 5, -5, 0],
+                        scale: [1, 1.1, 1]
+                      }}
+                      transition={{ duration: 3, repeat: Infinity }}
+                    />
+                    <motion.circle
+                      cx="38"
+                      cy="17"
+                      r="4"
+                      fill="white"
+                      animate={{ 
+                        scale: [1, 1.3, 1],
+                        opacity: [1, 0.7, 1]
+                      }}
+                      transition={{ duration: 1.5, repeat: Infinity }}
+                    />
+                  </motion.svg>
+                </motion.div>
+  
+                {/* Subox Text */}
+                <motion.div className="flex flex-col mb-1">
+                  <motion.span 
+                    className="text-xl font-bold text-gray-900"
                     animate={{
-                      x: [0, 10, -10, 0],
-                      y: [0, -5, 5, 0],
-                      scale: [0.5, 1, 0.5],
-                      opacity: [0.3, 0.8, 0.3]
+                      background: [
+                        "linear-gradient(45deg, #1F2937, #374151)",
+                        "linear-gradient(45deg, #E97451, #F59E0B)",
+                        "linear-gradient(45deg, #1F2937, #374151)"
+                      ],
+                      backgroundClip: "text",
+                      WebkitBackgroundClip: "text",
+                      color: "transparent"
                     }}
-                    transition={{
-                      duration: 3 + i * 0.5,
-                      repeat: Infinity,
-                      ease: "easeInOut"
-                    }}
-                  />
-                ))}
+                    transition={{ duration: 4, repeat: Infinity }}
+                  >
+                    Subox
+                  </motion.span>
+                  <motion.span 
+                    className="text-[10px] text-gray-500 font-medium tracking-wider"
+                    animate={{ opacity: [0.7, 1, 0.7] }}
+                    transition={{ duration: 2, repeat: Infinity }}
+                  >
+                    SUBLETS & MOVING SALES
+                  </motion.span>
+                </motion.div>              
+                {/* Interactive Follower Elements */}
+                <motion.div className="absolute -inset-4 pointer-events-none">
+                  {Array.from({ length: 6 }, (_, i) => (
+                    <motion.div
+                      key={i}
+                      className="absolute w-1 h-1 bg-orange-300 rounded-full opacity-60"
+                      style={{
+                        left: `${20 + i * 15}%`,
+                        top: `${30 + Math.sin(i) * 20}%`,
+                      }}
+                      animate={{
+                        x: [0, 10, -10, 0],
+                        y: [0, -5, 5, 0],
+                        scale: [0.5, 1, 0.5],
+                        opacity: [0.3, 0.8, 0.3]
+                      }}
+                      transition={{
+                        duration: 3 + i * 0.5,
+                        repeat: Infinity,
+                        ease: "easeInOut"
+                      }}
+                    />
+                  ))}
+                </motion.div>
               </motion.div>
-            </motion.div>
+            </div>
+ 
+
             
             {/* Header Actions */}
             <div className="flex items-center space-x-4">
@@ -1278,10 +1153,10 @@ const SuboxLogo = ({ size = 200, className = "" }) => (
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
                     onClick={resetSelection}
-                    className="flex items-center px-4 py-2 rounded-xl text-black hover:text-white bg-gray-100 hover:bg-orange-600 transition-colors"
+                    className="flex items-center px-4 py-2 rounded-xl bg-gray-100 hover:bg-gray-200 transition-colors"
                   >
-                    <CustomIcons.ArrowLeft size={18} className="mr-2" />
-                    <span className="font-medium">Back</span>
+                    <CustomIcons.ArrowLeft size={18} className="mr-2 text-gray-600" />
+                    <span className="font-medium text-gray-700">Back</span>
                   </motion.button>
                 )}
               </AnimatePresence>
@@ -1412,7 +1287,7 @@ const SuboxLogo = ({ size = 200, className = "" }) => (
                 exit={{ opacity: 0, y: -20 }}
               >
                 <motion.h1 
-                  className="text-4xl md:text-5xl font-bold text-gray-900 mb-4 pb-2"
+                  className="text-4xl md:text-5xl font-bold text-gray-900 mb-4"
                   animate={{ 
                     background: ["linear-gradient(45deg, #E97451, #F59E0B)", "linear-gradient(45deg, #F59E0B, #E97451)"],
                     backgroundClip: "text",
