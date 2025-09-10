@@ -13,19 +13,17 @@ import {
    Accessibility, ChefHat, BookOpen,Settings, Bed, Minus, CigaretteOff, Check, Cigarette
 } from 'lucide-react';
 import { Route, Car, Users as TransitIcon } from 'lucide-react';
-import { collection, getDocs, query, orderBy } from 'firebase/firestore';
+import { doc, getDoc, addDoc, deleteDoc, updateDoc, collection, query, where, getDocs, serverTimestamp, increment, orderBy } from 'firebase/firestore';
+
 import { db } from '@/lib/firebase'; // Adjust path to your firebase config
 
 import CommuteLocationPicker from '../../../components/CommuteLocationPicker'
+import CommuteResultsMap from '../../../components/CommuteMap' // Adjust path as needed
 import EnhancedCommuteResultsMap from '../../../components/CommuteMap' // Update path as needed
+import { address } from 'framer-motion/client';
+// Component imports - This should use the actual LocationPicker component
 import SearchLocationPicker from '../../../components/SearchLocationPicker';
-import { 
-   where, onSnapshot
-} from 'firebase/firestore';
-
-import { useAuth } from '@/app/contexts/AuthInfo'; // Adjust path as needed
-
-
+import Badges from '@/data/badge';
 
 const NeighborhoodDetectorWrapper = ({ listing, onNeighborhoodDetected }: { 
   listing: any, 
@@ -474,13 +472,10 @@ const getListingCoordinates = (listing) => {
 };
 
 
-
-
-const SearchPage = ({ userData = null }) => { // Add default value for userData
+const SearchPage = () => {
   // =========================
   // State Definitions
   // =========================
-  const [firebaseUserData, setFirebaseUserData] = useState(null);
   const [selectedLocationData, setSelectedLocationData] = useState(null);
   const [dateRange, setDateRange] = useState({ checkIn: null, checkOut: null });
   const [bathrooms, setBathrooms] = useState('any'); 
@@ -492,8 +487,6 @@ const SearchPage = ({ userData = null }) => { // Add default value for userData
   const [selectedDates, setSelectedDates] = useState([]);
   const [activeSection, setActiveSection] = useState(null);
   const [accommodationType, setAccommodationType] = useState(null);
-  const [hasLoadedUserLocation, setHasLoadedUserLocation] = useState(false);
-
   const [priceRange, setPriceRange] = useState({ min: 500, max: 2000 });
   const [priceType, setPriceType] = useState('monthly'); // for monthly, weekly, daily price
   const [selectedAmenities, setSelectedAmenities] = useState([]);
@@ -507,23 +500,14 @@ const [showEnhancedCommute, setShowEnhancedCommute] = useState(false);
   const [showMap, setShowMap] = useState(false);
   const [mapListings, setMapListings] = useState([]);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [neighborhoods, setNeighborhoods] = useState([]);
-const [isLoadingNeighborhoods, setIsLoadingNeighborhoods] = useState(false);
   const [favoriteListings, setFavoriteListings] = useState([]);
   const [activeTab, setActiveTab] = useState('favorites');
   const router = useRouter(); 
   const [commuteDestination, setCommuteDestination] = useState(null);
-   // Add these state variables with your other state
-const [isGoogleMapsLoading, setIsGoogleMapsLoading] = useState(false);
-const [googleMapsError, setGoogleMapsError] = useState(null);
-const [isGoogleMapsReady, setIsGoogleMapsReady] = useState(false);
-const [locationError, setLocationError] = useState(null);
 const [commuteRoutes, setCommuteRoutes] = useState([]);
 const [showCommuteResults, setShowCommuteResults] = useState(false);
 const [isCommuteMode, setIsCommuteMode] = useState(false);
 const [isCalculatingRoutes, setIsCalculatingRoutes] = useState(false);
- // Add these state variables with your other st
-const [isLoadingUser] = useState(null);
 const [showSavedSearches, setShowSavedSearches] = useState(false);
 const [preferredGender, setPreferredGender] = useState(null); 
 const [smokingPreference, setSmokingPreference] = useState(null);
@@ -543,15 +527,7 @@ const [isMounted, setIsMounted] = useState(false);
     'Other': { lat: 44.9778, lng: -93.2358 }
   };
 
-  const [expandedSearchActive, setExpandedSearchActive] = useState(false);
-const [expandedAreaInfo, setExpandedAreaInfo] = useState(null); // Add this line
-
-const [notifications, setNotifications] = useState([]);
-const [notificationsLoading, setNotificationsLoading] = useState(true);
-
-
-const { user } = useAuth();
-
+ 
   // =========================
   // Helper Functions
   // =========================
@@ -582,228 +558,66 @@ const getTransportIcon = (mode) => {
       return <Route size={14} className="text-gray-500" title="Transit" />;
   }
 };
-
-
-
-
-
-
-
-// Add this useEffect to fetch real notifications
-useEffect(() => {
-  if (!user?.uid) {
-    setNotifications([]);
-    setNotificationsLoading(false);
-    return;
-  }
-
-  const q = query(
-    collection(db, 'notifications'),
-    where('recipientId', '==', user.uid),
-    where('read', '==', false) // Only show unread for header
-  );
-
-  const unsubscribe = onSnapshot(
-    q,
-    (querySnapshot) => {
-      const notifs = querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-        time: getTimeAgo(doc.data().createdAt?.toDate())
-      }))
-      .sort((a, b) => {
-        const dateA = a.createdAt?.toDate();
-        const dateB = b.createdAt?.toDate();
-        if (!dateA || !dateB) return 0;
-        return dateB - dateA;
-      })
-      .slice(0, 5); // Show only recent 5 in header
-
-      setNotifications(notifs);
-      setNotificationsLoading(false);
-    },
-    (error) => {
-      console.error('Error loading notifications:', error);
-      setNotifications([]);
-      setNotificationsLoading(false);
+  
+ useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    
+    // Location parameter
+    const locationParam = urlParams.get('location');
+    if (locationParam) {
+      setLocation(locationParam.split(','));
     }
-  );
-
-  return () => unsubscribe();
-}, [user?.uid]);
-
-// Add the getTimeAgo helper function
-const getTimeAgo = (date) => {
-  if (!date) return 'Unknown';
-  
-  const now = new Date();
-  const diff = now - date;
-  const minutes = Math.floor(diff / 60000);
-  const hours = Math.floor(diff / 3600000);
-  const days = Math.floor(diff / 86400000);
-
-  if (minutes < 1) return 'Just now';
-  if (minutes < 60) return `${minutes}m ago`;
-  if (hours < 24) return `${hours}h ago`;
-  if (days < 7) return `${days}d ago`;
-  return date.toLocaleDateString();
-};
-
-useEffect(() => {
-  const urlParams = new URLSearchParams(window.location.search);
-  let hasUrlParams = false;
-  
-  // Location parameters - Enhanced handling
-  const locationParam = urlParams.get('location');
-  if (locationParam) {
-    setLocation(locationParam.split(','));
-    hasUrlParams = true;
-  }
-  
-  // Handle enhanced location data from FirstSearchPage
-  const selectedLocationDataParam = urlParams.get('selectedLocationData');
-  if (selectedLocationDataParam) {
-    try {
-      const locationData = JSON.parse(selectedLocationDataParam);
-      setSelectedLocationData(locationData);
-      
-      // Set expanded search states if applicable
-      if (locationData.areaType === 'expanded_region') {
-        setExpandedSearchActive(true);
-        setExpandedAreaInfo(locationData.expandedArea);
-      }
-      hasUrlParams = true;
-    } catch (error) {
-      console.error('Error parsing selectedLocationData from URL:', error);
+    
+    // Date parameter - change string to date object
+    const checkInParam = urlParams.get('checkIn');
+    const checkOutParam = urlParams.get('checkOut');
+    if (checkInParam || checkOutParam) {
+      setDateRange({
+        checkIn: checkInParam ? new Date(checkInParam) : null,
+        checkOut: checkOutParam ? new Date(checkOutParam) : null
+      });
     }
-  }
-  
-  // Date parameters
-  const checkInParam = urlParams.get('checkIn');
-  const checkOutParam = urlParams.get('checkOut');
-  if (checkInParam || checkOutParam) {
-    setDateRange({
-      checkIn: checkInParam ? new Date(checkInParam) : null,
-      checkOut: checkOutParam ? new Date(checkOutParam) : null
-    });
-    hasUrlParams = true;
-  }
-  
-  // Room parameters - FIXED: Handle 'any' values properly
-  const bedroomsParam = urlParams.get('bedrooms');
-  const bathroomsParam = urlParams.get('bathrooms');
-  
-  if (bedroomsParam !== null) {
-    const bedroomValue = bedroomsParam === 'any' ? 'any' : parseInt(bedroomsParam);
-    setBedrooms(bedroomValue);
-    hasUrlParams = true;
-  }
-  
-  if (bathroomsParam !== null) {
-    const bathroomValue = bathroomsParam === 'any' ? 'any' : parseInt(bathroomsParam);
-    setBathrooms(bathroomValue);
-    hasUrlParams = true;
-  }
-  
-  // Price parameters
-  const minPriceParam = urlParams.get('minPrice');
-  const maxPriceParam = urlParams.get('maxPrice');
-  const priceTypeParam = urlParams.get('priceType');
-  
-  if (minPriceParam || maxPriceParam) {
-    setPriceRange({
-      min: minPriceParam ? parseInt(minPriceParam) : 500,
-      max: maxPriceParam ? parseInt(maxPriceParam) : 2000
-    });
-    hasUrlParams = true;
-  }
-  
-  if (priceTypeParam) {
-    setPriceType(priceTypeParam);
-    hasUrlParams = true;
-  }
-  
-  // Accommodation type parameter
-  const accommodationTypeParam = urlParams.get('accommodationType');
-  if (accommodationTypeParam) {
-    setAccommodationType(accommodationTypeParam);
-    hasUrlParams = true;
-  }
-  
-  // Amenities parameter
-  const amenitiesParam = urlParams.get('amenities');
-  if (amenitiesParam) {
-    setSelectedAmenities(amenitiesParam.split(','));
-    hasUrlParams = true;
-  }
-  
-  // Gender preference parameter
-  const preferredGenderParam = urlParams.get('preferredGender');
-  if (preferredGenderParam) {
-    setPreferredGender(preferredGenderParam);
-    hasUrlParams = true;
-  }
-  
-  // Smoking preference parameter
-  const smokingPreferenceParam = urlParams.get('smokingPreference');
-  if (smokingPreferenceParam) {
-    setSmokingPreference(smokingPreferenceParam);
-    hasUrlParams = true;
-  }
-  
-  console.log('SearchPage: URL parameters restored:', {
-    location,
-    dateRange,
-    bedrooms,
-    bathrooms,
-    priceRange,
-    accommodationType,
-    amenities: selectedAmenities,
-    preferredGender,
-    smokingPreference
-  });
-  
-  // FIXED: Only run search when we have both URL params AND listings data
-  if (hasUrlParams && allListings.length > 0) {
-    console.log('SearchPage: Auto-running search with restored parameters and', allListings.length, 'listings');
-    setTimeout(() => {
-      handleSearch();
-    }, 500); // Reduced delay since data is already loaded
-  }
-}, [allListings]); // ADD allListings as dependency
+    
+    // Room parameter
+    const bedroomsParam = urlParams.get('bedrooms');
+    const bathroomsParam = urlParams.get('bathrooms');
+   if (bedroomsParam) setBedrooms(bedroomsParam === 'any' ? 'any' : parseInt(bedroomsParam));
+if (bathroomsParam) setBathrooms(bathroomsParam === 'any' ? 'any' : parseInt(bathroomsParam));
 
-
-
-  useEffect(() => {
-    if (!isLoadingUser && !hasLoadedUserLocation && isGoogleMapsReady) {
-      // Priority: firebaseUserData > userData prop
-      const userLocationData = firebaseUserData?.userLocation || userData?.userLocation;
-      
-      if (userLocationData && userLocationData.lat && userLocationData.lng) {
-        console.log('Auto-loading user saved location:', userLocationData);
-        
-        // Set the location display name
-        const displayName = userLocationData.displayName || 
-                           userLocationData.placeName || 
-                           userLocationData.city || 
-                           userLocationData.address;
-        
-        if (displayName) {
-          setLocation([displayName]);
-        }
-        setHasLoadedUserLocation(true);
-        
-        // Generate neighborhoods around user's saved location
-        generateNearbyNeighborhoods(userLocationData);
-      } else {
-        console.log('No saved user location found, using default setup');
-        setHasLoadedUserLocation(true);
-      }
+// In handleSearch for URL generation:
+if (bedrooms !== 'any') {
+  searchParams.set('bedrooms', bedrooms);
+}
+if (bathrooms !== 'any') {
+  searchParams.set('bathrooms', bathrooms);
+}
+ // Amenities parameter
+    const amenitiesParam = urlParams.get('amenities');
+    if (amenitiesParam) {
+      setSelectedAmenities(amenitiesParam.split(','));
     }
-  }, [firebaseUserData, userData, isGoogleMapsReady, isLoadingUser, hasLoadedUserLocation]);
+    
+    // Price parameter
+    const priceMinParam = urlParams.get('priceMin');
+    const priceMaxParam = urlParams.get('priceMax');
+    if (priceMinParam || priceMaxParam) {
+      setPriceRange({
+        min: priceMinParam ? parseInt(priceMinParam) : 500,
+        max: priceMaxParam ? parseInt(priceMaxParam) : 2000
+      });
+    }
+    
+    // automatically run if the url have parameter
+    if (urlParams.toString()) {
+      setTimeout(() => {
+        handleSearch();
+      }, 500); 
+    }
+  }, []);
 
 
-
+// Fetch user listings from Firestore
+// Fetch user listings from Firestore
 useEffect(() => {
   const fetchUserListings = async () => {
     try {
@@ -910,6 +724,7 @@ useEffect(() => {
           // Ensure strings
           accommodationType: data.accommodationType || (data.isPrivateRoom ? 'private' : 'entire'),
           description: data.description || data.additionalDetails || 'No description available',
+          hostId : data.hostId,
           hostName: data.hostName || 'Anonymous',
           hostEmail: data.hostEmail || '',
           hostBio: data.hostBio || `Hello, I'm ${data.hostName || 'a student'} looking to sublease my place.`,
@@ -1116,36 +931,11 @@ const formatDate = (date) => {
     setMapListings(filteredListings);
   };
   
-
-
-
-  useEffect(() => {
-    if (!isLoadingUser && !hasLoadedUserLocation && isGoogleMapsReady) {
-      // Priority: firebaseUserData > userData prop
-      const userLocationData = firebaseUserData?.userLocation || userData?.userLocation;
-      
-      if (userLocationData && userLocationData.lat && userLocationData.lng) {
-        console.log('Auto-loading user saved location:', userLocationData);
-        
-        // Set the location display name
-        const displayName = userLocationData.displayName || 
-                           userLocationData.placeName || 
-                           userLocationData.city || 
-                           userLocationData.address;
-        
-        if (displayName) {
-          setLocation([displayName]);
-        }
-        setHasLoadedUserLocation(true);
-        
-        // Generate neighborhoods around user's saved location
-        generateNearbyNeighborhoods(userLocationData);
-      } else {
-        console.log('No saved user location found, using default setup');
-        setHasLoadedUserLocation(true);
-      }
-    }
-  }, [firebaseUserData, userData, isGoogleMapsReady, isLoadingUser, hasLoadedUserLocation]);
+ // Add these state variables with your other state
+const [isGoogleMapsLoading, setIsGoogleMapsLoading] = useState(false);
+const [googleMapsError, setGoogleMapsError] = useState(null);
+const [isGoogleMapsReady, setIsGoogleMapsReady] = useState(false);
+const [locationError, setLocationError] = useState(null);
 
 // Add this useEffect after your existing useEffects
 useEffect(() => {
@@ -1202,12 +992,15 @@ useEffect(() => {
   loadGoogleMaps();
 }, []);
 
+  // Notification data
+  const notifications: Notification[] = [
+    { id: 1, type: "price-drop", message: "MacBook Pro price dropped by $50!", time: "2h ago" },
+    { id: 2, type: "new-item", message: "New furniture items in Dinkytown", time: "4h ago" },
+    { id: 3, type: "favorite", message: "Your favorited item is ending soon", time: "1d ago" }
+  ];
 
-
-const NotificationsButton = ({ notifications, loading }: { 
-  notifications: any[], 
-  loading: boolean 
-}) => {
+// Notifications dropdown component
+const NotificationsButton = ({ notifications }: { notifications: Notification[] }) => {
   const [showNotifications, setShowNotifications] = useState(false);
   const router = useRouter();
 
@@ -1218,12 +1011,11 @@ const NotificationsButton = ({ notifications, loading }: {
         whileTap={{ scale: 0.95 }}
         onClick={() => setShowNotifications(!showNotifications)}
         className="p-2 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors relative"
-        disabled={loading}
       >
         <Bell className="w-5 h-5 text-gray-600" />
         {notifications.length > 0 && (
           <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center">
-            {notifications.length > 9 ? '9+' : notifications.length}
+            {notifications.length}
           </span>
         )}
       </motion.button>
@@ -1234,57 +1026,32 @@ const NotificationsButton = ({ notifications, loading }: {
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
-            className="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-lg border border-gray-200 z-50"
+            className="absolute right-0 mt-2 w-70 bg-white rounded-lg shadow-lg border border-gray-200 z-50"
           >
             <div className="p-4">
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="font-semibold text-gray-900">Notifications</h3>
-                <button
-                  onClick={() => router.push('/notifications/')}
-                  className="text-xs text-orange-600 hover:underline"
-                >
-                  View All
-                </button>
-              </div>
-              
+              <h3 className="font-semibold text-gray-900 mb-3">Notifications</h3>
               <div className="space-y-3 max-h-64 overflow-y-auto">
-                {loading ? (
-                  <div className="text-center py-4">
-                    <div className="animate-spin rounded-full h-6 w-6 border-2 border-orange-500 border-t-transparent mx-auto"></div>
-                    <p className="text-sm text-gray-500 mt-2">Loading...</p>
-                  </div>
-                ) : notifications.length === 0 ? (
-                  <div className="text-center py-4">
-                    <Bell className="w-8 h-8 text-gray-300 mx-auto mb-2" />
-                    <p className="text-sm text-gray-500">No new notifications</p>
-                  </div>
-                ) : (
-                  notifications.map(notif => (
-                    <button
-                      key={notif.id}
-                      onClick={() => {
-                        // Mark as read and navigate
-                        router.push('/notifications');
-                        setShowNotifications(false);
-                      }}
-                      className="w-full flex items-start space-x-3 p-2 rounded-lg hover:bg-gray-50 text-left"
-                    >
-                      <div className="w-2 h-2 bg-orange-500 rounded-full mt-2 flex-shrink-0"></div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm text-gray-900 font-medium line-clamp-2">
-                          {notif.title || notif.message}
-                        </p>
-                        {notif.message && notif.title && (
-                          <p className="text-xs text-gray-600 line-clamp-1 mt-1">
-                            {notif.message}
-                          </p>
-                        )}
-                        <p className="text-xs text-gray-500 mt-1">{notif.time}</p>
-                      </div>
-                    </button>
-                  ))
-                )}
+                {notifications.map(notif => (
+                  <button
+                    key={notif.id}
+                    onClick={() => router.push(`browse/notificationDetail/${notif.id}`)}
+                    className="w-full flex items-start space-x-3 p-2 rounded-lg hover:bg-gray-50 text-left"
+                  >
+                    <div className="w-2 h-2 bg-orange-500 rounded-full mt-2"></div>
+                    <div className="flex-1">
+                      <p className="text-sm text-gray-900">{notif.message}</p>
+                      <p className="text-xs text-gray-500">{notif.time}</p>
+                    </div>
+                  </button>
+                ))}
               </div>
+
+              <button
+                onClick={() => router.push(`/sale/browse/notification/`)}
+                className="mt-3 text-sm text-blue-600 hover:underline"
+              >
+                See all notifications
+              </button>
             </div>
           </motion.div>
         )}
@@ -1498,10 +1265,12 @@ const handleSearch = () => {
   if (dateRange.checkOut) {
     searchParams.set('checkOut', dateRange.checkOut);
   }
-// Room parameters - ALWAYS send both, even if 'any'
-  searchParams.append('bedrooms', bedrooms.toString());
-  searchParams.append('bathrooms', bathrooms.toString());
-
+  if (bedrooms !== 'any') {
+    searchParams.set('bedrooms', bedrooms);
+  }
+  if (bathrooms !== 'any') {
+    searchParams.set('bathrooms', bathrooms);
+  }
   if (selectedAmenities.length > 0) {
     searchParams.set('amenities', selectedAmenities.join(','));
   }
@@ -1615,7 +1384,7 @@ const handleSearch = () => {
     // Bedrooms filter - only apply if not 'any'
     if (bedrooms !== 'any' && bedrooms >= 0) {
       filtered = filtered.filter(listing => 
-        (listing.bedrooms || 1) >= bedrooms
+        (listing.bedrooms || 1) === bedrooms
       );
       console.log('After bedrooms filter:', filtered.length);
     }
@@ -1623,7 +1392,7 @@ const handleSearch = () => {
     // Bathrooms filter - only apply if not 'any'
     if (bathrooms !== 'any' && bathrooms >= 1) {
       filtered = filtered.filter(listing => 
-        (listing.bathrooms || 1) >= bathrooms
+        (listing.bathrooms || 1) === bathrooms
       );
       console.log('After bathrooms filter:', filtered.length);
     }
@@ -1944,160 +1713,14 @@ const debugGoogleMaps = () => {
   }
 };
 
- const generateNearbyNeighborhoods = async (userLocation) => {
-    if (!window.google || !userLocation.lat || !userLocation.lng) {
-      console.log('Google Maps not ready or invalid location:', { userLocation });
-      return;
-    }
-    
-    setIsLoadingNeighborhoods(true);
-    
-    try {
-      const neighborhoods = new Set();
-      
-      // Add user's current area as the first item
-      const userAreaName = userLocation.displayName || 
-                          userLocation.placeName || 
-                          userLocation.city || 
-                          'Your Area';
-      neighborhoods.add(userAreaName);
-      
-      const placesService = new window.google.maps.places.PlacesService(document.createElement('div'));
-      
-      // Reduced radius for more accurate local neighborhoods (8km for cities, 5km for specific locations)
-      const searchRadius = userLocation.areaType === 'city' ? 8000 : 5000;
-      
-      // Search for neighborhoods within reduced radius
-      const request = {
-        location: new google.maps.LatLng(userLocation.lat, userLocation.lng),
-        radius: searchRadius,
-        type: 'sublocality_level_1'
-      };
-
-      await new Promise((resolve) => {
-        placesService.nearbySearch(request, (results, status) => {
-          if (status === google.maps.places.PlacesServiceStatus.OK && results) {
-            results.forEach(place => {
-              if (place.name && place.name.length > 2 && !place.name.includes('Unnamed')) {
-                neighborhoods.add(place.name);
-              }
-            });
-          }
-          resolve();
-        });
-      });
-      
-      // Search for establishments and points of interest with smaller radius
-      const poiRequest = {
-        location: new google.maps.LatLng(userLocation.lat, userLocation.lng),
-        radius: 3000, // 3km for POIs
-        type: 'establishment'
-      };
-      
-      await new Promise((resolve) => {
-        placesService.nearbySearch(poiRequest, (results, status) => {
-          if (status === google.maps.places.PlacesServiceStatus.OK && results) {
-            // Only add well-known establishments that could serve as area identifiers
-            results.slice(0, 5).forEach(place => {
-              if (place.name && 
-                  place.name.length > 3 && 
-                  place.rating && place.rating > 4.0 &&
-                  place.user_ratings_total && place.user_ratings_total > 100) {
-                neighborhoods.add(`Near ${place.name}`);
-              }
-            });
-          }
-          resolve();
-        });
-      });
-      
-      // Add city-based areas if we have a city name
-      const cityName = userLocation.city || userLocation.placeName;
-      if (cityName && cityName !== userAreaName) {
-        neighborhoods.add(cityName);
-        neighborhoods.add(`Downtown ${cityName}`);
-        
-        // Only add university area if it's likely to have one
-        if (cityName.toLowerCase().includes('college') || 
-            cityName.toLowerCase().includes('university') ||
-            neighborhoods.size < 4) {
-          neighborhoods.add(`${cityName} - University Area`);
-        }
-      }
-      
-      // Convert Set to Array and clean up
-      const cleanedNeighborhoods = Array.from(neighborhoods)
-        .filter(name => name && name.length > 2)
-        .filter(name => !name.toLowerCase().includes('unnamed'))
-        .filter(name => !name.toLowerCase().includes('null'))
-        .sort()
-        .slice(0, 8); // Limit to 8 results for better UX
-      
-      console.log('Generated neighborhoods with user location:', cleanedNeighborhoods);
-      setNeighborhoods(cleanedNeighborhoods);
-      setIsLoadingNeighborhoods(false);
-      
-    } catch (error) {
-      console.error('Error generating neighborhoods:', error);
-      setIsLoadingNeighborhoods(false);
-      
-      // Fallback with basic city-based areas
-      const cityName = userLocation.city || userLocation.placeName || "Your Area";
-      const fallbackNeighborhoods = [
-        userLocation.displayName || userLocation.placeName || cityName,
-        cityName !== (userLocation.displayName || userLocation.placeName) ? cityName : null,
-        `Downtown ${cityName}`,
-      ].filter(Boolean);
-      
-      console.log('Using fallback neighborhoods:', fallbackNeighborhoods);
-      setNeighborhoods(fallbackNeighborhoods);
-    }
-  };
-
-
 // Call this when the location section opens
 const toggleSection = (section) => {
-    if (activeSection === section) {
-      setActiveSection(null);
-    } else {
-      setActiveSection(section);
-      
-      // Generate neighborhoods when location section opens
-      if (section === 'location' && neighborhoods.length === 0) {
-        const userLocationData = firebaseUserData?.userLocation || userData?.userLocation;
-        if (userLocationData && isGoogleMapsReady) {
-          generateNearbyNeighborhoods(userLocationData);
-        }
-      }
-    }
-  };
-
-  // Add loading state UI like in your MoveOutSaleSearchPage
-  if (isLoadingUser) {
-    return (
-      <div className="min-h-screen bg-white text-gray-800 flex flex-col items-center justify-center px-4">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-2 border-orange-500 border-t-transparent mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading your preferences...</p>
-        </div>
-      </div>
-    );
+  if (activeSection === section) {
+    setActiveSection(null);
+  } else {
+    setActiveSection(section);
   }
-
-  // Add location status display in your header area (add this after the logo section)
-  const renderLocationStatus = () => {
-    if (location && location.length > 0 && location[0] !== "Select location") {
-      return (
-        <div className="text-center mb-4">
-          <p className="text-sm text-gray-600">
-            Searching in: <span className="font-semibold text-orange-600">{location[0]}</span>
-            {location.length > 1 && <span> +{location.length - 1} more</span>}
-          </p>
-        </div>
-      );
-    }
-    return null;
-  };
+};
 
 const handleCommuteResults = (routes, destination) => {
   console.log('🎯 Handling commute results in SearchPage:', routes.length, 'routes');
@@ -2222,13 +1845,13 @@ const handleCommuteResults = (routes, destination) => {
     }, 100);
   };
 
-const getNeighborhoodCount = (neighborhoodName) => {
-  return allListings.filter(listing => {
-    const listingLocation = listing.location || listing.neighborhood || '';
-    return listingLocation.toLowerCase().includes(neighborhoodName.toLowerCase()) ||
-           neighborhoodName.toLowerCase().includes(listingLocation.toLowerCase());
-  }).length;
-};
+  const getNeighborhoodCount = (neighborhoodName) => {
+    return allListings.filter(listing => {
+      const listingLocation = listing.location || listing.neighborhood || '';
+      return listingLocation.toLowerCase().includes(neighborhoodName.toLowerCase()) ||
+             neighborhoodName.toLowerCase().includes(listingLocation.toLowerCase());
+    }).length;
+  };
 
 
   useEffect(() => {
@@ -2356,119 +1979,57 @@ const processListingsWithRealCoordinates = async (listings) => {
   // =========================
   // Render Components
   // =========================
- const renderLocationSection = () => {
-    return (
-      <div className="p-5 border-t border-gray-200 animate-fadeIn">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Enhanced Location Picker */}
-          <div>
-            <h3 className="font-bold mb-3 text-gray-800">Search by Location</h3>
-            <SearchLocationPicker 
-              initialValue={location[0] || ""}
-              onLocationSelect={(selectedLocation) => {
-                console.log('Location selected:', selectedLocation);
-                
-                // Handle different location types
-                if (selectedLocation.areaType === 'city') {
-                  // For city searches, set broader location filter
-                  setLocation([selectedLocation.city || selectedLocation.placeName]);
-                } else {
-                  // For specific locations, use place name or address
-                  setLocation([selectedLocation.placeName || selectedLocation.address]);
-                }
-                
-                // Store full location data for filtering
-                setSelectedLocationData(selectedLocation);
-                
-                // Generate new neighborhoods for the selected location
-                if (selectedLocation.lat && selectedLocation.lng) {
-                  generateNearbyNeighborhoods(selectedLocation);
-                }
-              }}
-              customLocationsData={allListings}
-            />
-          </div>
-          
-          {/* Popular Neighborhoods */}
-          <div>
-            <h3 className="font-bold mb-3 text-gray-800">
-              Popular Areas Near You
-              {isLoadingNeighborhoods && (
-                <span className="ml-2">
-                  <span className="inline-block animate-spin rounded-full h-4 w-4 border-2 border-orange-500 border-t-transparent"></span>
-                </span>
-              )}
-            </h3>
-            
-            <div className="overflow-y-auto max-h-80">
-              {neighborhoods.length > 0 ? (
-                <div className="space-y-2">
-                  {neighborhoods.map((neighborhood, idx) => (
-                    <button
-                      key={idx}
-                      className={`w-full p-3 rounded-lg text-left transition-all border ${
-                        location.includes(neighborhood)
-                          ? 'bg-orange-50 border-orange-300 text-orange-700'
-                          : 'bg-gray-50 border-gray-200 hover:bg-orange-50 hover:border-orange-300'
-                      }`}
-                      onClick={() => {
-                        if (location.includes(neighborhood)) {
-                          // Remove if already selected
-                          setLocation(location.filter(loc => loc !== neighborhood));
-                        } else {
-                          // Add to selection
-                          setLocation([...location, neighborhood]);
-                        }
-                      }}
-                    >
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center">
-                          <MapPin size={16} className="text-orange-500 mr-3 flex-shrink-0" />
-                          <span className="font-medium">{neighborhood}</span>
-                        </div>
-                        <div className="text-xs text-gray-500">
-                          {getNeighborhoodCount(neighborhood)} listings
-                        </div>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              ) : !isLoadingNeighborhoods ? (
-                <div className="text-center py-8 text-gray-500">
-                  <MapPin size={48} className="mx-auto text-gray-300 mb-4" />
-                  <p className="text-sm">No nearby areas found</p>
-                  <p className="text-xs mt-1">Use the search on the left to find locations</p>
-                </div>
-              ) : (
-                <div className="text-center py-8 text-gray-500">
-                  <div className="animate-spin rounded-full h-8 w-8 border-2 border-orange-500 border-t-transparent mx-auto mb-4"></div>
-                  <p className="text-sm">Loading nearby areas...</p>
-                </div>
-              )}
-            </div>
-          </div>
+const renderLocationSection = () => {
+  return (
+    <div className="p-5 border-t border-gray-200 animate-fadeIn">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Enhanced Location Picker */}
+        <div>
+          <h3 className="font-bold mb-3 text-gray-800">Search by Location</h3>
+          <SearchLocationPicker 
+            initialValue={location[0] || ""}
+            onLocationSelect={(selectedLocation) => {
+              console.log('🔍 Location selected:', selectedLocation);
+              
+              // Handle different location types
+              if (selectedLocation.areaType === 'city') {
+                // For city searches, set broader location filter
+                setLocation([selectedLocation.city || selectedLocation.placeName]);
+              } else {
+                // For specific locations, use place name or address
+                setLocation([selectedLocation.placeName || selectedLocation.address]);
+              }
+              
+              // Store full location data for filtering
+              setSelectedLocationData(selectedLocation);
+            }}
+            customLocationsData={allListings}
+          />
         </div>
         
-        <div className="mt-6 flex justify-end items-center space-x-3">
-          <button 
-            className="px-3 py-1.5 text-orange-500 hover:underline"
-            onClick={() => setActiveSection(null)}
-          >
-            Cancel
-          </button>
-          <button 
-            className="px-4 py-2 rounded-lg bg-orange-500 text-white hover:bg-orange-700 font-medium"
-            onClick={() => {
-              setActiveSection(null);
-              handleSearch();
-            }}
-          >
-            Apply
-          </button>
-        </div>
+       
       </div>
-    );
-  };
+      
+      <div className="mt-6 flex justify-end items-center space-x-3">
+        <button 
+          className="px-3 py-1.5 text-orange-500 hover:underline"
+          onClick={() => setActiveSection(null)}
+        >
+          Cancel
+        </button>
+        <button 
+          className="px-4 py-2 rounded-lg bg-orange-500 text-white hover:bg-orange-700 font-medium"
+          onClick={() => {
+            setActiveSection(null);
+            handleSearch();
+          }}
+        >
+          Apply
+        </button>
+      </div>
+    </div>
+  );
+};
 
 
 const renderCalendarSection = () => (
@@ -3176,6 +2737,48 @@ const renderFavoritesSidebar = () => (
     }, 100);
   };
 
+ const [hostDataMap, setHostDataMap] = useState({});
+
+ const fetchHostData = async (hostId) => {
+  if (!hostId || hostDataMap[hostId]) return; 
+  
+  try {
+    const hostDocRef = doc(db, 'users', hostId);
+    const hostDocSnap = await getDoc(hostDocRef);
+    
+    if (hostDocSnap.exists()) {
+      const data = hostDocSnap.data();
+      setHostDataMap(prev => ({
+        ...prev,
+        [hostId]: data
+      }));
+    } else {
+      setHostDataMap(prev => ({
+        ...prev,
+        [hostId]: {
+          totalReviews: 0,
+          averageRating: 0,
+          reviewsGivenCount: 0
+        }
+      }));
+    }
+  } catch (error) {
+    console.error('Error fetching host data:', error);
+    setHostDataMap(prev => ({
+      ...prev,
+      [hostId]: null
+    }));
+  }
+};
+
+useEffect(() => {
+  const uniqueHostIds = [...new Set(searchResults.map(listing => listing.hostId).filter(Boolean))];
+  
+ uniqueHostIds.forEach(hostId => {
+    fetchHostData(hostId);
+  });
+}, [searchResults]);
+
   // Featured Listings Section
   const renderFeaturedListings = () => {
     const displayListings = searchResults;
@@ -3224,7 +2827,14 @@ const renderFavoritesSidebar = () => (
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {displayListings.map((listing) => (
+              {displayListings.map((listing) => {
+                const currentHostData = hostDataMap[listing.hostId] || {
+                  totalReviews: 0,
+                  averageRating: 0,
+                  reviewsGivenCount: 0
+                };
+
+                return (
                 <div 
                   key={listing.id} 
                   onClick={() => handleListingClick(listing)}
@@ -3259,14 +2869,17 @@ const renderFavoritesSidebar = () => (
                       />
                     </button>
  
-                    
+                    <div className="absolute bottom-2 right-2">
+                      <Badges listing={listing} hostData={currentHostData} className="mr-2" />
+                    </div>
+
                     {/* Show commute badge if in commute mode */}
                     {isCommuteMode && renderCommuteBadge(listing)}
                   </div>
                   
                   <div className="p-4">
                     <div className="flex justify-between items-start">
-                      <div>
+                      <div>   
                         <div className="font-bold text-gray-800">{listing.title}</div>
                         {/* <div className="text-gray-500 text-sm">{listing.location} · {listing.distance} miles from campus</div> */}
                       </div>
@@ -3306,7 +2919,8 @@ const renderFavoritesSidebar = () => (
                     </div>
                   </div>
                 </div>
-              ))}
+              );
+              })}
             </div>
           )}
         </div>
@@ -3547,286 +3161,237 @@ const renderCommuteInfo = (listing) => {
         <div className="bg-white border-b border-gray-200 sticky top-0 z-50">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex items-center justify-between h-16">
-              <div className='hidden md:flex'>
-                {/* Enhanced Subox Logo */}
+              <div className="flex items-center space-x-3 hidden md:flex">
                 <motion.div 
-                  className="flex items-center space-x-4 relative"
-                  whileHover={{ scale: 1.05 }}
+                    className="flex items-center space-x-7 relative"
+                    whileHover={{ scale: 1.05 }}
                 >
-                  {/* Main Subox Logo */}
-                  <motion.div className="relative mt-2">
-                    {/* House Icon */}
-                    <motion.svg 
-                      className="w-12 h-12" 
-                      viewBox="0 0 100 100" 
-                      fill="none"
-                      whileHover={{ rotate: [0, -5, 5, 0] }}
-                      transition={{ duration: 0.5 }}
-                    >
-                      {/* House Base */}
-                      <motion.path
-                        d="M20 45L50 20L80 45V75C80 78 77 80 75 80H25C22 80 20 78 20 75V45Z"
-                        fill="#E97451"
-                        animate={{ 
-                          fill: ["#E97451", "#F59E0B", "#E97451"],
-                          scale: [1, 1.02, 1]
-                        }}
-                        transition={{ duration: 3, repeat: Infinity }}
-                      />
-                      {/* House Roof */}
-                      <motion.path
-                        d="M15 50L50 20L85 50L50 15L15 50Z"
-                        fill="#D97706"
-                        animate={{ rotate: [0, 1, 0] }}
-                        transition={{ duration: 4, repeat: Infinity }}
-                      />
-                      {/* Window */}
-                      <motion.rect
-                        x="40"
-                        y="50"
-                        width="20"
-                        height="15"
-                        fill="white"
-                        animate={{ 
-                          opacity: [1, 0.8, 1],
-                          scale: [1, 1.1, 1]
-                        }}
-                        transition={{ duration: 2, repeat: Infinity }}
-                      />
-                      {/* Door */}
-                      <motion.rect
-                        x="45"
-                        y="65"
-                        width="10"
-                        height="15"
-                        fill="white"
-                        animate={{ scaleY: [1, 1.05, 1] }}
-                        transition={{ duration: 2.5, repeat: Infinity }}
-                      />
-                    </motion.svg>
+                {/* Main Subox Logo */}
+                <motion.div className="relative mt-3">
+                {/* House Icon */}
+                <motion.svg 
+                    className="w-12 h-12" 
+                    viewBox="0 0 100 100" 
+                    fill="none"
+                    whileHover={{ rotate: [0, -5, 5, 0] }}
+                    transition={{ duration: 0.5 }}
+                >
+                    {/* House Base */}
+                    <motion.path
+                    d="M20 45L50 20L80 45V75C80 78 77 80 75 80H25C22 80 20 78 20 75V45Z"
+                    fill="#E97451"
+                    animate={{ 
+                        fill: ["#E97451", "#F59E0B", "#E97451"],
+                        scale: [1, 1.02, 1]
+                    }}
+                    transition={{ duration: 3, repeat: Infinity }}
+                    />
+                    {/* House Roof */}
+                    <motion.path
+                    d="M15 50L50 20L85 50L50 15L15 50Z"
+                    fill="#D97706"
+                    animate={{ rotate: [0, 1, 0] }}
+                    transition={{ duration: 4, repeat: Infinity }}
+                    />
+                    {/* Window */}
+                    <motion.rect
+                    x="40"
+                    y="50"
+                    width="20"
+                    height="15"
+                    fill="white"
+                    animate={{ 
+                        opacity: [1, 0.8, 1],
+                        scale: [1, 1.1, 1]
+                    }}
+                    transition={{ duration: 2, repeat: Infinity }}
+                    />
+                    {/* Door */}
+                    <motion.rect
+                    x="45"
+                    y="65"
+                    width="10"
+                    height="15"
+                    fill="white"
+                    animate={{ scaleY: [1, 1.05, 1] }}
+                    transition={{ duration: 2.5, repeat: Infinity }}
+                    />
+                </motion.svg>
 
-                    {/* Tag Icon */}
-                    <motion.svg 
-                      className="w-8 h-8 absolute -top-2 -right-2" 
-                      viewBox="0 0 60 60" 
-                      fill="none"
-                      whileHover={{ rotate: 360 }}
-                      transition={{ duration: 0.8 }}
-                    >
-                      <motion.path
-                        d="M5 25L25 5H50V25L30 45L5 25Z"
-                        fill="#E97451"
-                        animate={{ 
-                          rotate: [0, 5, -5, 0],
-                          scale: [1, 1.1, 1]
-                        }}
-                        transition={{ duration: 3, repeat: Infinity }}
-                      />
-                      <motion.circle
-                        cx="38"
-                        cy="17"
-                        r="4"
-                        fill="white"
-                        animate={{ 
-                          scale: [1, 1.3, 1],
-                          opacity: [1, 0.7, 1]
-                        }}
-                        transition={{ duration: 1.5, repeat: Infinity }}
-                      />
-                    </motion.svg>
-                  </motion.div>
+                {/* Tag Icon */}
+                <motion.svg 
+                    className="w-8 h-8 absolute -top-2 -right-2" 
+                    viewBox="0 0 60 60" 
+                    fill="none"
+                    whileHover={{ rotate: 360 }}
+                    transition={{ duration: 0.8 }}
+                >
+                    <motion.path
+                    d="M5 25L25 5H50V25L30 45L5 25Z"
+                    fill="#E97451"
+                    animate={{ 
+                        rotate: [0, 5, -5, 0],
+                        scale: [1, 1.1, 1]
+                    }}
+                    transition={{ duration: 3, repeat: Infinity }}
+                    />
+                    <motion.circle
+                    cx="38"
+                    cy="17"
+                    r="4"
+                    fill="white"
+                    animate={{ 
+                        scale: [1, 1.3, 1],
+                        opacity: [1, 0.7, 1]
+                    }}
+                    transition={{ duration: 1.5, repeat: Infinity }}
+                    />
+                </motion.svg>
+                </motion.div>
 
-                  {/* Subox Text */}
-                  <motion.div className="flex flex-col mb-1">
-                    <motion.span 
-                      className="text-3xl font-bold text-gray-900"
-                      animate={{
-                        background: [
-                          "linear-gradient(45deg, #1F2937, #374151)",
-                          "linear-gradient(45deg, #E97451, #F59E0B)",
-                          "linear-gradient(45deg, #1F2937, #374151)"
-                        ],
-                        backgroundClip: "text",
-                        WebkitBackgroundClip: "text",
-                        color: "transparent"
-                      }}
-                      transition={{ duration: 4, repeat: Infinity }}
-                    >
-                      Subox
-                    </motion.span>
-                    <motion.span 
-                      className="text-xs text-gray-500 font-medium tracking-wider ml-1"
-                      animate={{ opacity: [0.7, 1, 0.7] }}
-                      transition={{ duration: 2, repeat: Infinity }}
-                    >
-                      Subleases
-                    </motion.span>
-                  </motion.div>              
-                  {/* Interactive Follower Elements */}
-                  <motion.div className="absolute -inset-4 pointer-events-none">
-                    {Array.from({ length: 6 }, (_, i) => (
-                      <motion.div
-                        key={i}
-                        className="absolute w-1 h-1 bg-orange-300 rounded-full opacity-60"
-                        style={{
-                          left: `${20 + i * 15}%`,
-                          top: `${30 + Math.sin(i) * 20}%`,
-                        }}
-                        animate={{
-                          x: [0, 10, -10, 0],
-                          y: [0, -5, 5, 0],
-                          scale: [0.5, 1, 0.5],
-                          opacity: [0.3, 0.8, 0.3]
-                        }}
-                        transition={{
-                          duration: 3 + i * 0.5,
-                          repeat: Infinity,
-                          ease: "easeInOut"
-                        }}
-                      />
-                    ))}
-                  </motion.div>
+                {/* Subox Text */}
+                <motion.div className="flex flex-col -mx-4">
+                <motion.span 
+                    className="text-3xl font-bold text-gray-900"
+                    animate={{
+                    background: [
+                        "linear-gradient(45deg, #1F2937, #374151)",
+                        "linear-gradient(45deg, #E97451, #F59E0B)",
+                        "linear-gradient(45deg, #1F2937, #374151)"
+                    ],
+                    backgroundClip: "text",
+                    WebkitBackgroundClip: "text",
+                    color: "transparent"
+                    }}
+                    transition={{ duration: 4, repeat: Infinity }}
+                >
+                    Subox
+                </motion.span>
+                <motion.span 
+                    className="text-xs text-gray-500 font-medium tracking-wider"
+                    animate={{ opacity: [0.7, 1, 0.7] }}
+                    transition={{ duration: 2, repeat: Infinity }}
+                >
+                    Subleases
+                </motion.span>
+                </motion.div>
                 </motion.div>
               </div>
-              <div className='flex md:hidden'>
-                {/* Enhanced Subox Logo */}
+
+              <div className="flex items-center space-x-3 flex md:hidden">
                 <motion.div 
-                  className="flex items-center space-x-4 relative"
-                  whileHover={{ scale: 1.05 }}
+                    className="flex items-center space-x-7 relative"
+                    whileHover={{ scale: 1.05 }}
                 >
-                  {/* Main Subox Logo */}
-                  <motion.div className="relative mt-2">
-                    {/* House Icon */}
-                    <motion.svg 
-                      className="w-10 h-10" 
-                      viewBox="0 0 100 100" 
-                      fill="none"
-                      whileHover={{ rotate: [0, -5, 5, 0] }}
-                      transition={{ duration: 0.5 }}
-                    >
-                      {/* House Base */}
-                      <motion.path
-                        d="M20 45L50 20L80 45V75C80 78 77 80 75 80H25C22 80 20 78 20 75V45Z"
-                        fill="#E97451"
-                        animate={{ 
-                          fill: ["#E97451", "#F59E0B", "#E97451"],
-                          scale: [1, 1.02, 1]
-                        }}
-                        transition={{ duration: 3, repeat: Infinity }}
-                      />
-                      {/* House Roof */}
-                      <motion.path
-                        d="M15 50L50 20L85 50L50 15L15 50Z"
-                        fill="#D97706"
-                        animate={{ rotate: [0, 1, 0] }}
-                        transition={{ duration: 4, repeat: Infinity }}
-                      />
-                      {/* Window */}
-                      <motion.rect
-                        x="40"
-                        y="50"
-                        width="20"
-                        height="15"
-                        fill="white"
-                        animate={{ 
-                          opacity: [1, 0.8, 1],
-                          scale: [1, 1.1, 1]
-                        }}
-                        transition={{ duration: 2, repeat: Infinity }}
-                      />
-                      {/* Door */}
-                      <motion.rect
-                        x="45"
-                        y="65"
-                        width="10"
-                        height="15"
-                        fill="white"
-                        animate={{ scaleY: [1, 1.05, 1] }}
-                        transition={{ duration: 2.5, repeat: Infinity }}
-                      />
-                    </motion.svg>
+                {/* Main Subox Logo */}
+                <motion.div className="relative mt-3">
+                {/* House Icon */}
+                <motion.svg 
+                    className="w-10 h-10" 
+                    viewBox="0 0 100 100" 
+                    fill="none"
+                    whileHover={{ rotate: [0, -5, 5, 0] }}
+                    transition={{ duration: 0.5 }}
+                >
+                    {/* House Base */}
+                    <motion.path
+                    d="M20 45L50 20L80 45V75C80 78 77 80 75 80H25C22 80 20 78 20 75V45Z"
+                    fill="#E97451"
+                    animate={{ 
+                        fill: ["#E97451", "#F59E0B", "#E97451"],
+                        scale: [1, 1.02, 1]
+                    }}
+                    transition={{ duration: 3, repeat: Infinity }}
+                    />
+                    {/* House Roof */}
+                    <motion.path
+                    d="M15 50L50 20L85 50L50 15L15 50Z"
+                    fill="#D97706"
+                    animate={{ rotate: [0, 1, 0] }}
+                    transition={{ duration: 4, repeat: Infinity }}
+                    />
+                    {/* Window */}
+                    <motion.rect
+                    x="40"
+                    y="50"
+                    width="20"
+                    height="15"
+                    fill="white"
+                    animate={{ 
+                        opacity: [1, 0.8, 1],
+                        scale: [1, 1.1, 1]
+                    }}
+                    transition={{ duration: 2, repeat: Infinity }}
+                    />
+                    {/* Door */}
+                    <motion.rect
+                    x="45"
+                    y="65"
+                    width="10"
+                    height="15"
+                    fill="white"
+                    animate={{ scaleY: [1, 1.05, 1] }}
+                    transition={{ duration: 2.5, repeat: Infinity }}
+                    />
+                </motion.svg>
 
-                    {/* Tag Icon */}
-                    <motion.svg 
-                      className="w-6 h-6 absolute -top-1 -right-1" 
-                      viewBox="0 0 60 60" 
-                      fill="none"
-                      whileHover={{ rotate: 360 }}
-                      transition={{ duration: 0.8 }}
-                    >
-                      <motion.path
-                        d="M5 25L25 5H50V25L30 45L5 25Z"
-                        fill="#E97451"
-                        animate={{ 
-                          rotate: [0, 5, -5, 0],
-                          scale: [1, 1.1, 1]
-                        }}
-                        transition={{ duration: 3, repeat: Infinity }}
-                      />
-                      <motion.circle
-                        cx="38"
-                        cy="17"
-                        r="4"
-                        fill="white"
-                        animate={{ 
-                          scale: [1, 1.3, 1],
-                          opacity: [1, 0.7, 1]
-                        }}
-                        transition={{ duration: 1.5, repeat: Infinity }}
-                      />
-                    </motion.svg>
-                  </motion.div>
+                {/* Tag Icon */}
+                <motion.svg 
+                    className="w-6 h-6 absolute -top-1 -right-1" 
+                    viewBox="0 0 60 60" 
+                    fill="none"
+                    whileHover={{ rotate: 360 }}
+                    transition={{ duration: 0.8 }}
+                >
+                    <motion.path
+                    d="M5 25L25 5H50V25L30 45L5 25Z"
+                    fill="#E97451"
+                    animate={{ 
+                        rotate: [0, 5, -5, 0],
+                        scale: [1, 1.1, 1]
+                    }}
+                    transition={{ duration: 3, repeat: Infinity }}
+                    />
+                    <motion.circle
+                    cx="38"
+                    cy="17"
+                    r="4"
+                    fill="white"
+                    animate={{ 
+                        scale: [1, 1.3, 1],
+                        opacity: [1, 0.7, 1]
+                    }}
+                    transition={{ duration: 1.5, repeat: Infinity }}
+                    />
+                </motion.svg>
+                </motion.div>
 
-                  {/* Subox Text */}
-                  <motion.div className="flex flex-col mb-1">
-                    <motion.span 
-                      className="text-xl font-bold text-gray-900"
-                      animate={{
-                        background: [
-                          "linear-gradient(45deg, #1F2937, #374151)",
-                          "linear-gradient(45deg, #E97451, #F59E0B)",
-                          "linear-gradient(45deg, #1F2937, #374151)"
-                        ],
-                        backgroundClip: "text",
-                        WebkitBackgroundClip: "text",
-                        color: "transparent"
-                      }}
-                      transition={{ duration: 4, repeat: Infinity }}
-                    >
-                      Subox
-                    </motion.span>
-                    <motion.span 
-                      className="text-[10px] text-gray-500 font-medium tracking-wider"
-                      animate={{ opacity: [0.7, 1, 0.7] }}
-                      transition={{ duration: 2, repeat: Infinity }}
-                    >
-                      Subleases
-                    </motion.span>
-                  </motion.div>              
-                  {/* Interactive Follower Elements */}
-                  <motion.div className="absolute -inset-4 pointer-events-none">
-                    {Array.from({ length: 6 }, (_, i) => (
-                      <motion.div
-                        key={i}
-                        className="absolute w-1 h-1 bg-orange-300 rounded-full opacity-60"
-                        style={{
-                          left: `${20 + i * 15}%`,
-                          top: `${30 + Math.sin(i) * 20}%`,
-                        }}
-                        animate={{
-                          x: [0, 10, -10, 0],
-                          y: [0, -5, 5, 0],
-                          scale: [0.5, 1, 0.5],
-                          opacity: [0.3, 0.8, 0.3]
-                        }}
-                        transition={{
-                          duration: 3 + i * 0.5,
-                          repeat: Infinity,
-                          ease: "easeInOut"
-                        }}
-                      />
-                    ))}
-                  </motion.div>
+                {/* Subox Text */}
+                <motion.div className="flex flex-col -mx-4">
+                <motion.span 
+                    className="text-xl font-bold text-gray-900"
+                    animate={{
+                    background: [
+                        "linear-gradient(45deg, #1F2937, #374151)",
+                        "linear-gradient(45deg, #E97451, #F59E0B)",
+                        "linear-gradient(45deg, #1F2937, #374151)"
+                    ],
+                    backgroundClip: "text",
+                    WebkitBackgroundClip: "text",
+                    color: "transparent"
+                    }}
+                    transition={{ duration: 4, repeat: Infinity }}
+                >
+                    Subox
+                </motion.span>
+                <motion.span 
+                    className="text-[10px] text-gray-500 font-medium tracking-wider"
+                    animate={{ opacity: [0.7, 1, 0.7] }}
+                    transition={{ duration: 2, repeat: Infinity }}
+                >
+                    Subleases
+                </motion.span>
+                </motion.div>
                 </motion.div>
               </div>
   
@@ -3835,10 +3400,9 @@ const renderCommuteInfo = (listing) => {
               <div className="flex items-center space-x-4">
                 
 
-              <NotificationsButton 
-                notifications={notifications} 
-                loading={notificationsLoading} 
-              />  
+                {/* Notifications */}
+                <NotificationsButton notifications={notifications} />
+  
                 {/* messages */}
                 <motion.button 
                   whileHover={{ scale: 1.05 }}
@@ -3857,33 +3421,11 @@ const renderCommuteInfo = (listing) => {
                   <motion.button
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
-                    onClick={() => setShowProfile(!showProfile)}
+                    onClick={() => router.push("/profile")}
                     className="p-2 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
                   >
                     <User className="w-5 h-5 text-gray-600" />
                   </motion.button>
-  
-                  <AnimatePresence>
-                    {showProfile && (
-                      <motion.div
-                        initial={{ opacity: 0, y: -10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -10 }}
-                        className="absolute right-0 mt-2 w-64 bg-white rounded-lg shadow-lg border border-gray-200 z-50"
-                      >
-                        <div className="p-4 space-y-2">
-                          <button onClick={() => handleTabClick("purchased")} className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors">What I Purchased</button>
-                          <button onClick={() => handleTabClick("returned")} className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors">What I Returned</button>
-                          <button onClick={() => handleTabClick("cancelled")} className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors">What I Cancelled</button>
-                          <button onClick={() => handleTabClick("sold")} className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors">What I Sold</button>
-                          <button onClick={() => handleTabClick("sublease")} className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors">Sublease</button>
-                          <button onClick={() => handleTabClick("reviews")} className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors">Reviews</button>
-                          <hr className="my-2" />
-                          <button onClick={() => handleTabClick("history")} className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors">History</button>
-                        </div>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
                 </div>
   
                 {/* menu */}
@@ -4038,145 +3580,23 @@ const renderCommuteInfo = (listing) => {
               {/* Logo Section */}
               <div className="flex justify-center items-center  animate-fadeInUp">
                 <div className="flex items-center gap-3">
-                  {/* Enhanced Subox Logo */}
-                  <motion.div 
-                    className="flex items-center space-x-4 relative"
-                    whileHover={{ scale: 1.05 }}
-                  >
-                    {/* Main Subox Logo */}
-                    <motion.div className="relative mt-2">
-                      {/* House Icon */}
-                      <motion.svg 
-                        className="w-12 h-12" 
-                        viewBox="0 0 100 100" 
-                        fill="none"
-                        whileHover={{ rotate: [0, -5, 5, 0] }}
-                        transition={{ duration: 0.5 }}
-                      >
-                        {/* House Base */}
-                        <motion.path
-                          d="M20 45L50 20L80 45V75C80 78 77 80 75 80H25C22 80 20 78 20 75V45Z"
-                          fill="#E97451"
-                          animate={{ 
-                            fill: ["#E97451", "#F59E0B", "#E97451"],
-                            scale: [1, 1.02, 1]
-                          }}
-                          transition={{ duration: 3, repeat: Infinity }}
-                        />
-                        {/* House Roof */}
-                        <motion.path
-                          d="M15 50L50 20L85 50L50 15L15 50Z"
-                          fill="#D97706"
-                          animate={{ rotate: [0, 1, 0] }}
-                          transition={{ duration: 4, repeat: Infinity }}
-                        />
-                        {/* Window */}
-                        <motion.rect
-                          x="40"
-                          y="50"
-                          width="20"
-                          height="15"
-                          fill="white"
-                          animate={{ 
-                            opacity: [1, 0.8, 1],
-                            scale: [1, 1.1, 1]
-                          }}
-                          transition={{ duration: 2, repeat: Infinity }}
-                        />
-                        {/* Door */}
-                        <motion.rect
-                          x="45"
-                          y="65"
-                          width="10"
-                          height="15"
-                          fill="white"
-                          animate={{ scaleY: [1, 1.05, 1] }}
-                          transition={{ duration: 2.5, repeat: Infinity }}
-                        />
-                      </motion.svg>
-      
-                      {/* Tag Icon */}
-                      <motion.svg 
-                        className="w-8 h-8 absolute -top-2 -right-2" 
-                        viewBox="0 0 60 60" 
-                        fill="none"
-                        whileHover={{ rotate: 360 }}
-                        transition={{ duration: 0.8 }}
-                      >
-                        <motion.path
-                          d="M5 25L25 5H50V25L30 45L5 25Z"
-                          fill="#E97451"
-                          animate={{ 
-                            rotate: [0, 5, -5, 0],
-                            scale: [1, 1.1, 1]
-                          }}
-                          transition={{ duration: 3, repeat: Infinity }}
-                        />
-                        <motion.circle
-                          cx="38"
-                          cy="17"
-                          r="4"
-                          fill="white"
-                          animate={{ 
-                            scale: [1, 1.3, 1],
-                            opacity: [1, 0.7, 1]
-                          }}
-                          transition={{ duration: 1.5, repeat: Infinity }}
-                        />
-                      </motion.svg>
-                    </motion.div>
-      
-                    {/* Subox Text */}
-                    <motion.div className="flex flex-col mb-1">
-                      <motion.span 
-                        className="text-3xl font-bold text-gray-900"
-                        animate={{
-                          background: [
-                            "linear-gradient(45deg, #1F2937, #374151)",
-                            "linear-gradient(45deg, #E97451, #F59E0B)",
-                            "linear-gradient(45deg, #1F2937, #374151)"
-                          ],
-                          backgroundClip: "text",
-                          WebkitBackgroundClip: "text",
-                          color: "transparent"
-                        }}
-                        transition={{ duration: 4, repeat: Infinity }}
-                      >
-                        Subox
-                      </motion.span>
-                      <motion.span 
-                        className="text-xs text-gray-500 font-medium tracking-wider"
-                        animate={{ opacity: [0.7, 1, 0.7] }}
-                        transition={{ duration: 2, repeat: Infinity }}
-                      >
-                        Subleases
-                      </motion.span>
-                    </motion.div>              
-                    {/* Interactive Follower Elements */}
-                    <motion.div className="absolute -inset-4 pointer-events-none">
-                      {Array.from({ length: 6 }, (_, i) => (
-                        <motion.div
-                          key={i}
-                          className="absolute w-1 h-1 bg-orange-300 rounded-full opacity-60"
-                          style={{
-                            left: `${20 + i * 15}%`,
-                            top: `${30 + Math.sin(i) * 20}%`,
-                          }}
-                          animate={{
-                            x: [0, 10, -10, 0],
-                            y: [0, -5, 5, 0],
-                            scale: [0.5, 1, 0.5],
-                            opacity: [0.3, 0.8, 0.3]
-                          }}
-                          transition={{
-                            duration: 3 + i * 0.5,
-                            repeat: Infinity,
-                            ease: "easeInOut"
-                          }}
-                        />
-                      ))}
-                    </motion.div>
-                  </motion.div>
+                  {/* Logo Icon */}
+                  <div className="relative">
+                    <div className="w-12 h-12 bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl flex items-center justify-center shadow-lg transform hover:scale-110 hover:rotate-3 transition-all duration-300 animate-bounce-subtle">
+                      <Home size={24} className="text-white" />
+                    </div>
+                    <div className="absolute -top-1 -right-1 w-4 h-4 bg-green-400 rounded-full border-2 border-white flex items-center justify-center animate-pulse">
+                      <div className="w-1.5 h-1.5 bg-white rounded-full animate-ping"></div>
+                    </div>
+                  </div>
+                  
+                  {/* Logo Text */}
+                  <div className="text-left">
+                    <h1 className="text-2xl md:text-3xl font-bold text-gray-900 hover:text-orange-600 transition-colors duration-300">
+                      Su<span className="text-orange-500 animate-pulse">box</span>
+                    </h1>
+                    <p className="text-xs text-gray-500 font-medium tracking-wide animate-fadeIn delay-300">CAMPUS SUBLEASING</p>
+                  </div>
                 </div>
               </div>
               </div>

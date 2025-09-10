@@ -49,95 +49,6 @@ import LocationPicker from '../../../../../components/LocationPicker';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { storage } from '@/lib/firebase';
 
-// Subox Logo Component from first code
-const SuboxLogo = ({ size = 40, className = "" }) => (
-  <motion.div 
-    className={`flex items-center space-x-3 ${className}`}
-    whileHover={{ scale: 1.05 }}
-  >
-    <motion.div className="relative">
-      {/* House Icon */}
-      <motion.svg 
-        width={size} 
-        height={size} 
-        viewBox="0 0 100 100" 
-        fill="none"
-        whileHover={{ rotate: [0, -5, 5, 0] }}
-        transition={{ duration: 0.5 }}
-      >
-        {/* House Base */}
-        <motion.path
-          d="M20 45L50 20L80 45V75C80 78 77 80 75 80H25C22 80 20 78 20 75V45Z"
-          fill="#E97451"
-          animate={{ 
-            fill: ["#E97451", "#F59E0B", "#E97451"],
-            scale: [1, 1.02, 1]
-          }}
-          transition={{ duration: 3, repeat: Infinity }}
-        />
-        {/* House Roof */}
-        <motion.path
-          d="M15 50L50 20L85 50L50 15L15 50Z"
-          fill="#D97706"
-        />
-        {/* Window */}
-        <motion.rect
-          x="40"
-          y="50"
-          width="20"
-          height="15"
-          fill="white"
-        />
-        {/* Door */}
-        <motion.rect
-          x="45"
-          y="65"
-          width="10"
-          height="15"
-          fill="white"
-        />
-      </motion.svg>
-
-      {/* Tag Icon */}
-      <motion.svg 
-        width={size * 0.6} 
-        height={size * 0.6} 
-        viewBox="0 0 60 60" 
-        fill="none"
-        className="absolute -top-2 -right-2"
-        whileHover={{ rotate: 15 }}
-        transition={{ duration: 0.3 }}
-      >
-        <motion.path
-          d="M5 25L25 5H50V25L30 45L5 25Z"
-          fill="#E97451"
-        />
-        <motion.circle
-          cx="38"
-          cy="17"
-          r="4"
-          fill="white"
-        />
-      </motion.svg>
-    </motion.div>
-
-    {/* Subox Text */}
-    <motion.div className="flex flex-col">
-      <motion.span 
-        className="text-2xl font-bold text-gray-900"
-      >
-        Subox
-      </motion.span>
-      <motion.span 
-        className="text-xs text-gray-500 font-medium tracking-wider"
-      >
-        SUBLETS & MOVING SALES
-      </motion.span>
-    </motion.div>
-  </motion.div>
-);
-
-
 
 
 // Types
@@ -709,29 +620,292 @@ const submitListings = async () => {
 const renderHeader = (title: string, onBack?: () => void) => (
     <div className="bg-white/90 backdrop-blur-sm border-b border-gray-100 sticky top-0 z-20">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16">
-          <div className="flex items-center space-x-3">
-            {onBack && (
-              <motion.button 
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={onBack}
-                className="flex items-center px-3 py-2 rounded-lg hover:bg-gray-50 transition-colors"
-              >
-                <ArrowLeft size={20} className="text-gray-600" />
-              </motion.button>
-            )}
-            
-            <SuboxLogo size={32} />
-            <span className="text-xl font-semibold text-gray-900">{title}</span>
-          </div>
-          
-          {step === "item-details" && (
-            <div className="text-sm text-gray-500 bg-gray-50 px-3 py-1.5 rounded-lg">
-              Item {currentItemIndex + 1} of {items.length}
+            <div className="flex item-center justify-between h-16 flex md:hidden">
+              <div className="flex items-center space-x-3">
+                {/* Enhanced Subox Logo */}
+                <motion.div 
+                  className="flex items-center space-x-4 relative"
+                  whileHover={{ scale: 1.05 }}
+                >
+                  {/* Main Subox Logo */}
+                  <motion.div className="relative mt-2">
+                    {/* House Icon */}
+                    <motion.svg 
+                      className="w-10 h-10" 
+                      viewBox="0 0 100 100" 
+                      fill="none"
+                      whileHover={{ rotate: [0, -5, 5, 0] }}
+                      transition={{ duration: 0.5 }}
+                    >
+                      {/* House Base */}
+                      <motion.path
+                        d="M20 45L50 20L80 45V75C80 78 77 80 75 80H25C22 80 20 78 20 75V45Z"
+                        fill="#E97451"
+                        animate={{ 
+                          fill: ["#E97451", "#F59E0B", "#E97451"],
+                          scale: [1, 1.02, 1]
+                        }}
+                        transition={{ duration: 3, repeat: Infinity }}
+                      />
+                      {/* House Roof */}
+                      <motion.path
+                        d="M15 50L50 20L85 50L50 15L15 50Z"
+                        fill="#D97706"
+                        animate={{ rotate: [0, 1, 0] }}
+                        transition={{ duration: 4, repeat: Infinity }}
+                      />
+                      {/* Window */}
+                      <motion.rect
+                        x="40"
+                        y="50"
+                        width="20"
+                        height="15"
+                        fill="white"
+                        animate={{ 
+                          opacity: [1, 0.8, 1],
+                          scale: [1, 1.1, 1]
+                        }}
+                        transition={{ duration: 2, repeat: Infinity }}
+                      />
+                      {/* Door */}
+                      <motion.rect
+                        x="45"
+                        y="65"
+                        width="10"
+                        height="15"
+                        fill="white"
+                        animate={{ scaleY: [1, 1.05, 1] }}
+                        transition={{ duration: 2.5, repeat: Infinity }}
+                      />
+                    </motion.svg>
+
+                    {/* Tag Icon */}
+                    <motion.svg 
+                      className="w-6 h-6 absolute -top-1 -right-1" 
+                      viewBox="0 0 60 60" 
+                      fill="none"
+                      whileHover={{ rotate: 360 }}
+                      transition={{ duration: 0.8 }}
+                    >
+                      <motion.path
+                        d="M5 25L25 5H50V25L30 45L5 25Z"
+                        fill="#E97451"
+                        animate={{ 
+                          rotate: [0, 5, -5, 0],
+                          scale: [1, 1.1, 1]
+                        }}
+                        transition={{ duration: 3, repeat: Infinity }}
+                      />
+                      <motion.circle
+                        cx="38"
+                        cy="17"
+                        r="4"
+                        fill="white"
+                        animate={{ 
+                          scale: [1, 1.3, 1],
+                          opacity: [1, 0.7, 1]
+                        }}
+                        transition={{ duration: 1.5, repeat: Infinity }}
+                      />
+                    </motion.svg>
+                  </motion.div>
+
+                  {/* Subox Text */}
+                  <motion.div className="flex flex-col mb-1">
+                    <motion.span 
+                      className="text-xl font-bold text-gray-900"
+                      animate={{
+                        background: [
+                          "linear-gradient(45deg, #1F2937, #374151)",
+                          "linear-gradient(45deg, #E97451, #F59E0B)",
+                          "linear-gradient(45deg, #1F2937, #374151)"
+                        ],
+                        backgroundClip: "text",
+                        WebkitBackgroundClip: "text",
+                        color: "transparent"
+                      }}
+                      transition={{ duration: 4, repeat: Infinity }}
+                    >
+                      Subox
+                    </motion.span>
+                    <motion.span 
+                      className="text-[10px] text-gray-500 font-medium tracking-wider"
+                      animate={{ opacity: [0.7, 1, 0.7] }}
+                      transition={{ duration: 2, repeat: Infinity }}
+                    >
+                      Move-out Sales
+                    </motion.span>
+                  </motion.div>              
+                  {/* Interactive Follower Elements */}
+                  <motion.div className="absolute -inset-4 pointer-events-none">
+                    {Array.from({ length: 6 }, (_, i) => (
+                      <motion.div
+                        key={i}
+                        className="absolute w-1 h-1 bg-orange-300 rounded-full opacity-60"
+                        style={{
+                          left: `${20 + i * 15}%`,
+                          top: `${30 + Math.sin(i) * 20}%`,
+                        }}
+                        animate={{
+                          x: [0, 10, -10, 0],
+                          y: [0, -5, 5, 0],
+                          scale: [0.5, 1, 0.5],
+                          opacity: [0.3, 0.8, 0.3]
+                        }}
+                        transition={{
+                          duration: 3 + i * 0.5,
+                          repeat: Infinity,
+                          ease: "easeInOut"
+                        }}
+                      />
+                    ))}
+                  </motion.div>
+                </motion.div>
+              </div>
             </div>
-          )}
-        </div>
+            <div className="flex item-center justify-between h-16 hidden md:flex">
+              <div className="flex items-center space-x-3">
+                {/* Enhanced Subox Logo */}
+                <motion.div 
+                  className="flex items-center space-x-4 relative"
+                  whileHover={{ scale: 1.05 }}
+                >
+                  {/* Main Subox Logo */}
+                  <motion.div className="relative mt-2">
+                    {/* House Icon */}
+                    <motion.svg 
+                      className="w-12 h-12" 
+                      viewBox="0 0 100 100" 
+                      fill="none"
+                      whileHover={{ rotate: [0, -5, 5, 0] }}
+                      transition={{ duration: 0.5 }}
+                    >
+                      {/* House Base */}
+                      <motion.path
+                        d="M20 45L50 20L80 45V75C80 78 77 80 75 80H25C22 80 20 78 20 75V45Z"
+                        fill="#E97451"
+                        animate={{ 
+                          fill: ["#E97451", "#F59E0B", "#E97451"],
+                          scale: [1, 1.02, 1]
+                        }}
+                        transition={{ duration: 3, repeat: Infinity }}
+                      />
+                      {/* House Roof */}
+                      <motion.path
+                        d="M15 50L50 20L85 50L50 15L15 50Z"
+                        fill="#D97706"
+                        animate={{ rotate: [0, 1, 0] }}
+                        transition={{ duration: 4, repeat: Infinity }}
+                      />
+                      {/* Window */}
+                      <motion.rect
+                        x="40"
+                        y="50"
+                        width="20"
+                        height="15"
+                        fill="white"
+                        animate={{ 
+                          opacity: [1, 0.8, 1],
+                          scale: [1, 1.1, 1]
+                        }}
+                        transition={{ duration: 2, repeat: Infinity }}
+                      />
+                      {/* Door */}
+                      <motion.rect
+                        x="45"
+                        y="65"
+                        width="10"
+                        height="15"
+                        fill="white"
+                        animate={{ scaleY: [1, 1.05, 1] }}
+                        transition={{ duration: 2.5, repeat: Infinity }}
+                      />
+                    </motion.svg>
+
+                    {/* Tag Icon */}
+                    <motion.svg 
+                      className="w-8 h-8 absolute -top-2 -right-2" 
+                      viewBox="0 0 60 60" 
+                      fill="none"
+                      whileHover={{ rotate: 360 }}
+                      transition={{ duration: 0.8 }}
+                    >
+                      <motion.path
+                        d="M5 25L25 5H50V25L30 45L5 25Z"
+                        fill="#E97451"
+                        animate={{ 
+                          rotate: [0, 5, -5, 0],
+                          scale: [1, 1.1, 1]
+                        }}
+                        transition={{ duration: 3, repeat: Infinity }}
+                      />
+                      <motion.circle
+                        cx="38"
+                        cy="17"
+                        r="4"
+                        fill="white"
+                        animate={{ 
+                          scale: [1, 1.3, 1],
+                          opacity: [1, 0.7, 1]
+                        }}
+                        transition={{ duration: 1.5, repeat: Infinity }}
+                      />
+                    </motion.svg>
+                  </motion.div>
+
+                  {/* Subox Text */}
+                  <motion.div className="flex flex-col mb-1">
+                    <motion.span 
+                      className="text-3xl font-bold text-gray-900"
+                      animate={{
+                        background: [
+                          "linear-gradient(45deg, #1F2937, #374151)",
+                          "linear-gradient(45deg, #E97451, #F59E0B)",
+                          "linear-gradient(45deg, #1F2937, #374151)"
+                        ],
+                        backgroundClip: "text",
+                        WebkitBackgroundClip: "text",
+                        color: "transparent"
+                      }}
+                      transition={{ duration: 4, repeat: Infinity }}
+                    >
+                      Subox
+                    </motion.span>
+                    <motion.span 
+                      className="text-xs text-gray-500 font-medium tracking-wider"
+                      animate={{ opacity: [0.7, 1, 0.7] }}
+                      transition={{ duration: 2, repeat: Infinity }}
+                    >
+                      Move-out Sales
+                    </motion.span>
+                  </motion.div>              
+                  {/* Interactive Follower Elements */}
+                  <motion.div className="absolute -inset-4 pointer-events-none">
+                    {Array.from({ length: 6 }, (_, i) => (
+                      <motion.div
+                        key={i}
+                        className="absolute w-1 h-1 bg-orange-300 rounded-full opacity-60"
+                        style={{
+                          left: `${20 + i * 15}%`,
+                          top: `${30 + Math.sin(i) * 20}%`,
+                        }}
+                        animate={{
+                          x: [0, 10, -10, 0],
+                          y: [0, -5, 5, 0],
+                          scale: [0.5, 1, 0.5],
+                          opacity: [0.3, 0.8, 0.3]
+                        }}
+                        transition={{
+                          duration: 3 + i * 0.5,
+                          repeat: Infinity,
+                          ease: "easeInOut"
+                        }}
+                      />
+                    ))}
+                  </motion.div>
+                </motion.div>
+              </div>
+            </div>
       </div>
     </div>
   );

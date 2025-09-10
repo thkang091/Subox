@@ -362,7 +362,7 @@ const MainNavigationCards = ({ onNavigate }: { onNavigate: (flow: NavigationFlow
       <p className="text-lg text-gray-600">Choose your activity to get started</p>
     </div>
     
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+    <div className="grid grid-cols-2 text-[10px] mt-16 md:text-lg gap-8">
       {/* Sublease Card */}
       <div 
         onClick={() => onNavigate('sublease')}
@@ -436,11 +436,11 @@ const SubleaseRoleSelection = ({
       </div>
       
       <div className="text-center mb-8">
-        <h2 className="text-3xl font-bold text-gray-900 mb-4">Sublease Dashboard</h2>
+        <h2 className="text-3xl font-bold text-gray-900 mb-4 -mt-3">Sublease Dashboard</h2>
         <p className="text-lg text-gray-600">Choose your role to access the right tools</p>
       </div>
       
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+      <div className="grid grid-cols-2 text-[10px] md:text-lg gap-8 -mt-2">
         {/* Guest Card */}
         <div 
           onClick={() => onRoleSelect('guest')}
@@ -466,21 +466,21 @@ const SubleaseRoleSelection = ({
             </p>
             
             <div className="space-y-3">
-              <div className="flex items-center text-sm text-gray-600">
+              <div className="flex items-center text-[10px] md:text-sm text-gray-600">
                 <Search className="w-4 h-4 mr-3 text-blue-500" />
                 Browse and search listings
               </div>
-              <div className="flex items-center text-sm text-gray-600">
+              <div className="flex items-center text-[10px] md:text-sm text-gray-600">
                 <Calendar className="w-4 h-4 mr-3 text-blue-500" />
                 Request and manage tours
               </div>
-              <div className="flex items-center text-sm text-gray-600">
+              <div className="flex items-center text-[10px] md:text-sm text-gray-600">
                 <Bell className="w-4 h-4 mr-3 text-blue-500" />
                 Track application status
               </div>
             </div>
             
-            <div className="mt-6 text-sm text-blue-600 font-medium group-hover:underline">
+            <div className="mt-6 text-xs md:text-sm text-blue-600 font-medium group-hover:underline">
               Access guest dashboard
             </div>
           </div>
@@ -511,15 +511,15 @@ const SubleaseRoleSelection = ({
             </p>
             
             <div className="space-y-3">
-              <div className="flex items-center text-sm text-gray-600">
+              <div className="flex items-center text-[10px] md:text-sm text-gray-600">
                 <Plus className="w-4 h-4 mr-3 text-purple-500" />
                 Create and manage listings
               </div>
-              <div className="flex items-center text-sm text-gray-600">
+              <div className="flex items-center text-[10px] md:text-sm text-gray-600">
                 <Settings className="w-4 h-4 mr-3 text-purple-500" />
                 Set tour availability
               </div>
-              <div className="flex items-center text-sm text-gray-600">
+              <div className="flex items-center text-[10px] md:text-sm text-gray-600">
                 <Users className="w-4 h-4 mr-3 text-purple-500" />
                 Manage tour requests
               </div>
@@ -557,11 +557,11 @@ const MoveOutSaleRoleSelection = ({
     </div>
     
     <div className="text-center mb-8">
-      <h2 className="text-3xl font-bold text-gray-900 mb-4">Move-Out Sale Dashboard</h2>
+      <h2 className="text-3xl font-bold text-gray-900 mb-4 -mt-3">Move-Out Sale Dashboard</h2>
       <p className="text-lg text-gray-600">Buy or sell items from students moving out</p>
     </div>
     
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+    <div className="grid grid-cols-2 text-[10px] md:text-lg gap-8 -mt-2">
       {/* Buyer Card */}
       <div 
         onClick={() => onRoleSelect('buyer')}
@@ -580,21 +580,21 @@ const MoveOutSaleRoleSelection = ({
           </p>
           
           <div className="space-y-3">
-            <div className="flex items-center text-sm text-gray-600">
+            <div className="flex items-center text-[10px] md:text-sm text-gray-600">
               <Search className="w-4 h-4 mr-3 text-emerald-500" />
               Browse available items
             </div>
-            <div className="flex items-center text-sm text-gray-600">
+            <div className="flex items-center text-[10px] md:text-sm text-gray-600">
               <Eye className="w-4 h-4 mr-3 text-emerald-500" />
               View detailed photos and descriptions
             </div>
-            <div className="flex items-center text-sm text-gray-600">
+            <div className="flex items-center text-[10px] md:text-sm text-gray-600">
               <MapPin className="w-4 h-4 mr-3 text-emerald-500" />
               Find items near you
             </div>
           </div>
           
-          <div className="mt-6 text-sm text-emerald-600 font-medium group-hover:underline">
+          <div className="mt-6 text-xs md:text-sm text-emerald-600 font-medium group-hover:underline">
             Start browsing items
           </div>
         </div>
@@ -610,11 +610,13 @@ const MoveOutSaleRoleSelection = ({
             <div className="w-16 h-16 bg-gradient-to-br from-teal-100 to-teal-200 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
               <DollarSign className="w-8 h-8 text-teal-600" />
             </div>
-            {profileData.hostSaleItems.length > 0 && (
-              <span className="bg-teal-100 text-teal-800 px-3 py-1 rounded-full text-sm font-medium">
-                {profileData.hostSaleItems.length} active listing{profileData.hostSaleItems.length > 1 ? 's' : ''}
-              </span>
-            )}
+            <div className='flex top-2 right-2'>
+              {profileData.hostSaleItems.length > 0 && (
+                <span className="bg-teal-100 text-teal-800 px-3 py-1 rounded-full text[10px] md:text-sm font-medium">
+                  {profileData.hostSaleItems.length} active listing{profileData.hostSaleItems.length > 1 ? 's' : ''}
+                </span>
+              )}
+            </div>
           </div>
           
           <h3 className="text-2xl font-bold text-gray-900 mb-3 group-hover:text-teal-600 transition-colors">
@@ -625,21 +627,21 @@ const MoveOutSaleRoleSelection = ({
           </p>
           
           <div className="space-y-3">
-            <div className="flex items-center text-sm text-gray-600">
+            <div className="flex items-center text-[10px] md:text-sm text-gray-600">
               <Plus className="w-4 h-4 mr-3 text-teal-500" />
               Create item listings
             </div>
-            <div className="flex items-center text-sm text-gray-600">
+            <div className="flex items-center text-[10px] md:text-sm text-gray-600">
               <Settings className="w-4 h-4 mr-3 text-teal-500" />
               Manage your items
             </div>
-            <div className="flex items-center text-sm text-gray-600">
+            <div className="flex items-center text-[10px] md:text-sm text-gray-600">
               <Users className="w-4 h-4 mr-3 text-teal-500" />
               Communicate with buyers
             </div>
           </div>
           
-          <div className="mt-6 text-sm text-teal-600 font-medium group-hover:underline">
+          <div className="mt-6 text-xs md:text-sm text-teal-600 font-medium group-hover:underline">
             Manage your items
           </div>
         </div>

@@ -46,7 +46,7 @@ const Badge = ({ bgColor, icon, title }: {
   </div>
 )
 
-const Badges = ({ listing, hostData, className }: {
+const BadgeMoveOutSale = ({ listing, hostData, className }: {
   listing?: any
   hostData?: any
   className?: string
@@ -669,4 +669,4 @@ const Badges = ({ listing, hostData, className }: {
   )
 }
 
-export default Badges
+export default BadgeMoveOutSale

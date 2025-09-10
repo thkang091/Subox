@@ -6,16 +6,14 @@ import { useParams } from 'next/navigation';
 import { motion, AnimatePresence } from "framer-motion";
 import { db } from '@/lib/firebase';
 import { doc, getDoc, updateDoc, increment, collection, query, where, 
-  getDocs, limit, orderBy, addDoc, serverTimestamp } from 'firebase/firestore';
+  getDocs, limit, orderBy, addDoc, deleteDoc, serverTimestamp } from 'firebase/firestore';
 import { useAuth } from '@/app/contexts/AuthInfo';
 import { MapPin, Heart, User, Package, Bell, X,
         ChevronLeft, Plus, Flag, MessagesSquare, Menu,  ArrowLeft, ArrowRight,Video, 
         MessageCircle, AlertCircle, Info, DollarSign, BedDouble, Calendar, Users, 
-        Expand, Eye, EyeOff, Navigation, Check, Volume2,CalendarCheck,Zap,Cigarette, BookOpen
+        Expand, Eye, EyeOff, Navigation, Check, Volume2,CalendarCheck,Zap,Cigarette, BookOpen, Star
       } from 'lucide-react';
-
-    import DeliveryZoneMap from '@/components/DeliveryZoneMap';
-
+import BadgeMoveOutSale from '@/data/badgeMoveOutSale';
 
 
 // Interfaces
@@ -40,18 +38,6 @@ interface ProductData {
   location: string;
   deliveryAvailable?: boolean;
   pickupAvailable?: boolean;
-  // Add these new fields
-  deliveryZone?: {
-    center: { lat: number; lng: number };
-    radius: number;
-    type: 'delivery';
-  };
-  pickupLocations?: Array<{
-    lat: number;
-    lng: number;
-    address: string;
-    placeName?: string;
-  }>;
   image?: string;
   images?: string[];
   additionalImages?: string[];
@@ -67,7 +53,6 @@ interface ProductData {
   availableUntil?: string;
   similarity?: number;
 }
-
 
 interface SellerInfo {
   ID: string;
@@ -116,10 +101,13 @@ const ProductDetailPage = () => {
   const [creatingConversation, setCreatingConversation] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
-  const [locationCheckResult, setLocationCheckResult] = useState<{
-  inZone: boolean;
-  distance?: number;
-} | null>(null);
+   const [showReviewModal, setShowReviewModal] = useState(false);
+    const [newReviewRating, setNewReviewRating] = useState(5);
+    const [newReviewComment, setNewReviewComment] = useState('');
+    const [hostReviews, setHostReviews] = useState([]);
+     const [editingReviewId, setEditingReviewId] = useState(null);
+      const [editReviewRating, setEditReviewRating] = useState(5);
+      const [editReviewComment, setEditReviewComment] = useState('');
   const [seller, setSeller] = useState<SellerInfo>({
     ID: "none",
     name: "seller",
@@ -127,29 +115,38 @@ const ProductDetailPage = () => {
     photoURL: null
   });
 
+  const [hostData, setHostData] = useState({
+    totalReviews: 0,
+    averageRating: 0,
+    reviewsGivenCount: 0
+  });  
 
-const getDeliveryMode = (product: ProductData): 'delivery' | 'pickup' | 'both' => {
-  console.log('getDeliveryMode called with:', {
-    deliveryAvailable: product.deliveryAvailable,
-    hasDeliveryZone: !!product.deliveryZone,
-    pickupAvailable: product.pickupAvailable,
-    hasPickupLocations: !!product.pickupLocations?.length,
-    product // Log the entire product to see what's there
-  });
-  
-  const hasDelivery = product.deliveryAvailable && product.deliveryZone;
-  const hasPickup = product.pickupAvailable && product.pickupLocations?.length;
-  
-  if (hasDelivery && hasPickup) return 'both';
-  if (hasDelivery) return 'delivery';
-  if (hasPickup) return 'pickup';
-  
-  // Fallback: if deliveryAvailable is true but no deliveryZone, still show delivery mode
-  if (product.deliveryAvailable) return 'delivery';
-  return 'pickup';
-};
+   const fetchHostData = async (hostId) => {
+    if (!hostId) return;
+    
+    try {
+      const hostDocRef = doc(db, 'users', hostId);
+      const hostDocSnap = await getDoc(hostDocRef);
+      
+      if (hostDocSnap.exists()) {
+        const data = hostDocSnap.data();
+        setHostData(data);
+      } else {
+        console.log('No host data found');
+        setHostData(null);
+      }
+    } catch (error) {
+      console.error('Error fetching host data:', error);
+      setHostData(null);
+    }
+  };
 
-// Ad
+  useEffect(() => {
+    if (product?.hostId) {
+      fetchHostData(product.hostId);
+    }
+  }, [product?.hostId]);
+
   const notifications = [
     { id: 1, type: "price-drop", message: "MacBook Pro price dropped by $50!", time: "2h ago" },
     { id: 2, type: "new-item", message: "New furniture items in Dinkytown", time: "4h ago" },
@@ -288,6 +285,528 @@ const getDeliveryMode = (product: ProductData): 'delivery' | 'pickup' | 'both' =
       alert('Failed to start conversation. Please try again.');
     } finally {
       setCreatingConversation(false);
+    }
+  };
+
+  const updateReviewerStats = async (reviewerId: string, reviewData: {
+    reviewId: string,
+    revieweeId: string,
+    revieweeName: string,
+    listingId: string,
+    listingTitle: string,
+    rating: number,
+    comment: string,
+    createdAt: any
+  }) => {
+    try {
+      const reviewerRef = doc(db, 'users', reviewerId);
+      const reviewerDoc = await getDoc(reviewerRef);
+      
+      if (reviewerDoc.exists()) {
+        const userData = reviewerDoc.data();
+        const currentReviewsGiven = userData.reviewsGiven || [];
+        const currentReviewsGivenCount = userData.reviewsGivenCount || 0;
+        
+        // 새로운 리뷰 정보 추가
+        const newReviewRecord = {
+          reviewId: reviewData.reviewId,
+          revieweeId: reviewData.revieweeId,
+          revieweeName: reviewData.revieweeName,
+          listingId: reviewData.listingId,
+          listingTitle: reviewData.listingTitle,
+          rating: reviewData.rating,
+          comment: reviewData.comment,
+          createdAt: reviewData.createdAt,
+          timestamp: new Date()
+        };
+        
+        // 리뷰 목록과 카운트 업데이트
+        await updateDoc(reviewerRef, {
+          reviewsGiven: [...currentReviewsGiven, newReviewRecord],
+          reviewsGivenCount: currentReviewsGivenCount + 1,
+          lastReviewGiven: reviewData.createdAt
+        });
+        
+        console.log(`Updated reviewer ${reviewerId} stats: ${currentReviewsGivenCount + 1} reviews given`);
+      } else {
+        // 새 사용자인 경우 초기 리뷰 통계 생성
+        await updateDoc(reviewerRef, {
+          reviewsGiven: [{
+            reviewId: reviewData.reviewId,
+            revieweeId: reviewData.revieweeId,
+            revieweeName: reviewData.revieweeName,
+            listingId: reviewData.listingId,
+            listingTitle: reviewData.listingTitle,
+            rating: reviewData.rating,
+            comment: reviewData.comment,
+            createdAt: reviewData.createdAt,
+            timestamp: new Date()
+          }],
+          reviewsGivenCount: 1,
+          lastReviewGiven: reviewData.createdAt
+        });
+        
+        console.log(`Created initial reviewer stats for ${reviewerId}`);
+      }
+    } catch (error) {
+      console.error('Error updating reviewer stats:', error);
+    }
+  };
+
+    const isUserHost = user && product && (
+    user.uid === product.hostId ||
+    user.uid === product.id ||
+    user.email === product.hostEmail
+  );
+  
+  
+  const addReview = async () => {
+    if (!newReviewComment.trim()) {
+      alert('Please write a comment for your review.');
+      return;
+    }
+  
+    if (!user) {
+      alert('Please sign in to write a review.');
+      return;
+    }
+  
+    // Prevent self-review
+    if (user.uid === product?.hostId) {
+      alert('You cannot review your own listing!');
+      return;
+    }
+  
+    try {
+      // Check if user already reviewed this host
+      const existingReviewQuery = query(
+        collection(db, 'reviews'),
+        where('reviewerId', '==', user.uid),
+        where('revieweeId', '==', product?.hostId),
+        where('listingId', '==', product?.id)
+      );
+      
+      const existingReviews = await getDocs(existingReviewQuery);
+      
+      if (!existingReviews.empty) {
+        alert('You have already reviewed this host for this listing!');
+        return;
+      }
+  
+      // Create the review document
+      const reviewData = {
+        reviewerId: user.uid,
+        reviewerName: user.displayName || user.email || 'Anonymous',
+        reviewerEmail: user.email,
+        revieweeId: product?.hostId,
+        revieweeName: product?.seller,
+        productId: product?.id,
+        productTitle: product?.name,
+        rating: newReviewRating,
+        comment: newReviewComment.trim(),
+        interactionType: 'sublease',
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      };
+  
+      // Add review to reviews collection
+      const reviewRef = await addDoc(collection(db, 'reviews'), reviewData);
+      console.log('Review added successfully:', reviewRef.id);
+  
+      // Update the local state to show the new review immediately
+      const newReview = {
+        id: reviewRef.id,
+        name: user.displayName || user.email || 'Anonymous',
+        date: new Date().toLocaleDateString('en-US', {
+          year: 'numeric',
+          month: 'long'
+        }),
+        comment: newReviewComment,
+        rating: newReviewRating
+      };
+      
+      const updatedReviews = [newReview, ...hostReviews];
+      setHostReviews(updatedReviews);
+  
+      // Update the host's review statistics (you might want to do this server-side with Cloud Functions)
+      await updateHostReviewStats(product?.hostId, newReviewRating);
+  
+      await updateReviewerStats(user.uid, {
+        reviewId: reviewRef.id,
+        revieweeId: product?.hostId,
+        revieweeName: product?.seller,
+        listingId: product?.id,
+        listingTitle: product?.name,
+        rating: newReviewRating,
+        comment: newReviewComment.trim(),
+        createdAt: new Date()
+      });
+      // Reset form
+      setShowReviewModal(false);
+      setNewReviewComment('');
+      setNewReviewRating(5);
+  
+      alert('Review submitted successfully!');
+  
+    } catch (error) {
+      console.error('Error adding review:', error);
+      alert('Failed to submit review. Please try again.');
+    }
+  };
+  
+  
+  const updateHostReviewStats = async (hostId: string, newRating: number) => {
+    try {
+      // Get current user document
+      const userRef = doc(db, 'users', hostId);
+      const userDoc = await getDoc(userRef);
+      
+      if (userDoc.exists()) {
+        const userData = userDoc.data();
+        const currentStats = userData.reviewStats || {
+          averageRating: 0,
+          totalReviews: 0,
+          ratingDistribution: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 }
+        };
+  
+        // Calculate new average
+        const totalReviews = currentStats.totalReviews + 1;
+        const newAverage = ((currentStats.averageRating * currentStats.totalReviews) + newRating) / totalReviews;
+  
+        // Update rating distribution
+        const newDistribution = { ...currentStats.ratingDistribution };
+        newDistribution[newRating] = (newDistribution[newRating] || 0) + 1;
+  
+        // Update user document
+        await updateDoc(userRef, {
+          reviewStats: {
+            averageRating: Math.round(newAverage * 10) / 10, // Round to 1 decimal
+            totalReviews: totalReviews,
+            ratingDistribution: newDistribution
+          },
+          averageRating: Math.round(newAverage * 10) / 10,
+          totalReviews: totalReviews
+        });
+      } else {
+        // Create initial review stats for new user
+        await updateDoc(userRef, {
+          reviewStats: {
+            averageRating: newRating,
+            totalReviews: 1,
+            ratingDistribution: {
+              1: newRating === 1 ? 1 : 0,
+              2: newRating === 2 ? 1 : 0,
+              3: newRating === 3 ? 1 : 0,
+              4: newRating === 4 ? 1 : 0,
+              5: newRating === 5 ? 1 : 0
+            }
+          },
+          averageRating: newRating,
+          totalReviews: 1
+        });
+      }
+    } catch (error) {
+      console.error('Error updating host review stats:', error);
+    }
+  };
+  
+  const fetchHostReviews = async () => {
+    if (!product?.hostId) return;
+  
+    try {
+      const reviewsQuery = query(
+        collection(db, 'reviews'),
+        where('revieweeId', '==', product.hostId),
+        orderBy('createdAt', 'desc')
+      );
+      
+      const reviewsSnapshot = await getDocs(reviewsQuery);
+      const reviews = reviewsSnapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          reviewerId: data.reviewerId,
+          name: data.reviewerName,
+          date: data.createdAt?.toDate().toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'long'
+          }) || 'Recent',
+          comment: data.comment,
+          rating: data.rating,
+          isEdited: data.isEdited || false 
+        };
+      });
+      
+      setHostReviews(reviews);
+    } catch (error) {
+      console.error('Error fetching reviews:', error);
+    }
+  };
+    //calculate the average rating
+    const hostReviewCount = hostReviews.length;
+    const hostRating = hostReviews.length > 0 
+      ? (hostReviews.reduce((sum, review) => sum + review.rating, 0) / hostReviews.length).toFixed(1)
+      : "0.0";
+  
+      const fetchUserReviewStats = async (userId: string) => {
+    try {
+      const userRef = doc(db, 'users', userId);
+      const userDoc = await getDoc(userRef);
+      
+      if (userDoc.exists()) {
+        const userData = userDoc.data();
+        return {
+          reviewsGivenCount: userData.reviewsGivenCount || 0,
+          reviewsGiven: userData.reviewsGiven || [],
+          lastReviewGiven: userData.lastReviewGiven || null
+        };
+      }
+      
+      return {
+        reviewsGivenCount: 0,
+        reviewsGiven: [],
+        lastReviewGiven: null
+      };
+    } catch (error) {
+      console.error('Error fetching user review stats:', error);
+      return {
+        reviewsGivenCount: 0,
+        reviewsGiven: [],
+        lastReviewGiven: null
+      };
+    }
+  };
+  
+  // 🆕 hostData에 리뷰어 정보도 포함시키기 (Badge 컴포넌트에서 사용)
+  // const [hostData, setHostData] = useState({
+  //   totalReviews: 0,
+  //   averageRating: 0,
+  //   reviewsGivenCount: 0 // 리뷰어로서의 통계
+  // });
+  
+  // const [currentUserReviewStats, setCurrentUserReviewStats] = useState({
+  //   reviewsGivenCount: 0,
+  //   reviewsGiven: [],
+  //   lastReviewGiven: null
+  // });
+  
+  const loadHostDataWithReviewerStats = async (userId: string) => {
+    try {
+      const userRef = doc(db, 'users', userId);
+      const userDoc = await getDoc(userRef);
+      
+      if (userDoc.exists()) {
+        const userData = userDoc.data();
+        setHostData({
+          totalReviews: userData.totalReviews || 0,
+          averageRating: userData.averageRating || 0,
+          reviewsGivenCount: userData.reviewsGivenCount || 0
+        });
+      }
+    } catch (error) {
+      console.error('Error loading host data:', error);
+    }
+  };
+  
+  const deleteReview = async (reviewId, reviewData) => {
+    if (!window.confirm('Are you sure you want to delete this review?')) {
+      return;
+    }
+  
+    try {
+      await deleteDoc(doc(db, 'reviews', reviewId));
+      
+      await removeRatingFromHostStats(reviewData.revieweeId, reviewData.rating);
+      
+      await removeReviewFromReviewerStats(reviewData.reviewerId, reviewId);
+      
+      const updatedReviews = hostReviews.filter(review => review.id !== reviewId);
+      setHostReviews(updatedReviews);
+      
+      alert('Review deleted successfully!');
+      
+    } catch (error) {
+      console.error('Error deleting review:', error);
+      alert('Failed to delete review. Please try again.');
+    }
+  };
+  
+  const updateReview = async (reviewId, originalReviewData) => {
+    if (!editReviewComment.trim()) {
+      alert('Please write a comment for your review.');
+      return;
+    }
+  
+    try {
+      const updatedAt = new Date();
+      
+      await updateDoc(doc(db, 'reviews', reviewId), {
+        rating: editReviewRating,
+        comment: editReviewComment.trim(),
+        updatedAt: updatedAt,
+        isEdited: true
+      });
+      
+      if (originalReviewData.rating !== editReviewRating) {
+        await updateHostRatingChange(
+          originalReviewData.revieweeId, 
+          originalReviewData.rating, 
+          editReviewRating
+        );
+      }
+      
+      await updateReviewerReviewData(originalReviewData.reviewerId, reviewId, {
+        rating: editReviewRating,
+        comment: editReviewComment.trim(),
+        updatedAt: updatedAt
+      });
+      
+      const updatedReviews = hostReviews.map(review => 
+        review.id === reviewId 
+          ? {
+              ...review,
+              rating: editReviewRating,
+              comment: editReviewComment.trim(),
+              isEdited: true
+            }
+          : review
+      );
+      setHostReviews(updatedReviews);
+      
+      setEditingReviewId(null);
+      setEditReviewComment('');
+      setEditReviewRating(5);
+      
+      alert('Review updated successfully!');
+      
+    } catch (error) {
+      console.error('Error updating review:', error);
+      alert('Failed to update review. Please try again.');
+    }
+  };
+  
+  const removeRatingFromHostStats = async (hostId, removedRating) => {
+    try {
+      const userRef = doc(db, 'users', hostId);
+      const userDoc = await getDoc(userRef);
+      
+      if (userDoc.exists()) {
+        const userData = userDoc.data();
+        const currentStats = userData.reviewStats || {
+          averageRating: 0,
+          totalReviews: 0,
+          ratingDistribution: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 }
+        };
+        
+        if (currentStats.totalReviews <= 1) {
+          await updateDoc(userRef, {
+            reviewStats: {
+              averageRating: 0,
+              totalReviews: 0,
+              ratingDistribution: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 }
+            },
+            averageRating: 0,
+            totalReviews: 0
+          });
+        } else {
+          const newTotalReviews = currentStats.totalReviews - 1;
+          const newAverage = ((currentStats.averageRating * currentStats.totalReviews) - removedRating) / newTotalReviews;
+          
+          const newDistribution = { ...currentStats.ratingDistribution };
+          newDistribution[removedRating] = Math.max(0, (newDistribution[removedRating] || 1) - 1);
+          
+          await updateDoc(userRef, {
+            reviewStats: {
+              averageRating: Math.round(newAverage * 10) / 10,
+              totalReviews: newTotalReviews,
+              ratingDistribution: newDistribution
+            },
+            averageRating: Math.round(newAverage * 10) / 10,
+            totalReviews: newTotalReviews
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Error removing rating from host stats:', error);
+    }
+  };
+  
+  const updateHostRatingChange = async (hostId, oldRating, newRating) => {
+    try {
+      const userRef = doc(db, 'users', hostId);
+      const userDoc = await getDoc(userRef);
+      
+      if (userDoc.exists()) {
+        const userData = userDoc.data();
+        const currentStats = userData.reviewStats || {
+          averageRating: 0,
+          totalReviews: 0,
+          ratingDistribution: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 }
+        };
+        
+        const newAverage = ((currentStats.averageRating * currentStats.totalReviews) - oldRating + newRating) / currentStats.totalReviews;
+        
+        const newDistribution = { ...currentStats.ratingDistribution };
+        newDistribution[oldRating] = Math.max(0, (newDistribution[oldRating] || 1) - 1);
+        newDistribution[newRating] = (newDistribution[newRating] || 0) + 1;
+        
+        await updateDoc(userRef, {
+          reviewStats: {
+            averageRating: Math.round(newAverage * 10) / 10,
+            totalReviews: currentStats.totalReviews,
+            ratingDistribution: newDistribution
+          },
+          averageRating: Math.round(newAverage * 10) / 10
+        });
+      }
+    } catch (error) {
+      console.error('Error updating host rating change:', error);
+    }
+  };
+  
+  const removeReviewFromReviewerStats = async (reviewerId, reviewId) => {
+    try {
+      const reviewerRef = doc(db, 'users', reviewerId);
+      const reviewerDoc = await getDoc(reviewerRef);
+      
+      if (reviewerDoc.exists()) {
+        const userData = reviewerDoc.data();
+        const currentReviewsGiven = userData.reviewsGiven || [];
+        const filteredReviews = currentReviewsGiven.filter(review => review.reviewId !== reviewId);
+        
+        await updateDoc(reviewerRef, {
+          reviewsGiven: filteredReviews,
+          reviewsGivenCount: filteredReviews.length,
+          lastReviewGiven: filteredReviews.length > 0 
+            ? filteredReviews[filteredReviews.length - 1].createdAt 
+            : null
+        });
+      }
+    } catch (error) {
+      console.error('Error removing review from reviewer stats:', error);
+    }
+  };
+  
+  const updateReviewerReviewData = async (reviewerId, reviewId, updatedData) => {
+    try {
+      const reviewerRef = doc(db, 'users', reviewerId);
+      const reviewerDoc = await getDoc(reviewerRef);
+      
+      if (reviewerDoc.exists()) {
+        const userData = reviewerDoc.data();
+        const currentReviewsGiven = userData.reviewsGiven || [];
+        const updatedReviews = currentReviewsGiven.map(review => 
+          review.reviewId === reviewId 
+            ? { ...review, ...updatedData }
+            : review
+        );
+        
+        await updateDoc(reviewerRef, {
+          reviewsGiven: updatedReviews
+        });
+      }
+    } catch (error) {
+      console.error('Error updating reviewer review data:', error);
     }
   };
 
@@ -668,8 +1187,8 @@ const getDeliveryMode = (product: ProductData): 'delivery' | 'pickup' | 'both' =
       </div>
     );
   }
- return (
-    <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-gray-50">
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-orange-50 via-orange-100 to-gray-50">
       {/* Header */}
       <div className="bg-white border-b border-gray-200 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -730,134 +1249,135 @@ const getDeliveryMode = (product: ProductData): 'delivery' | 'pickup' | 'both' =
               </div>
 
               {/* menu */}
-              <div className="relative">
-                <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={() => setShowMenu(!showMenu)}
-                  className="p-2 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
-                >
-                  <Menu className="w-5 h-5 text-gray-600" />
-                </motion.button>
+                              <div className="relative">
+                                <motion.button
+                                  whileHover={{ scale: 1.05 }}
+                                  whileTap={{ scale: 0.95 }}
+                                  onClick={() => setShowMenu(!showMenu)}
+                                  className="p-2 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                                >
+                                  <Menu className="w-5 h-5 text-gray-600" />
+                                </motion.button>
+                
+                                <AnimatePresence>
+                                  {showMenu && (
+                                    <motion.div
+                                      initial={{ opacity: 0, y: -10 }}
+                                      animate={{ opacity: 1, y: 0 }}
+                                      exit={{ opacity: 0, y: -10 }}
+                                      className="absolute right-0 mt-2 w-64 bg-white rounded-lg shadow-lg border border-gray-200 z-50"
+                                    >
+                                      <div className="p-4 space-y-2">
+                                        <p className="text-medium font-semibold max-w-2xl mb-4 text-orange-700">
+                                        Move Out Sale
+                                        </p>
+                                        <button 
+                                          onClick={() => {
+                                            router.push('/sale/browse');
+                                            setShowMenu(false);
+                                          }} 
+                                          className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors"
+                                        >
+                                          Browse Items
+                                        </button>                        
+                                        <button 
+                                          onClick={() => {
+                                            router.push('/sale/create/options/nonai');
+                                            setShowMenu(false);
+                                          }} 
+                                          className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors"
+                                        >
+                                          Sell Items
+                                        </button> 
+                                        <button 
+                                          onClick={() => {
+                                            router.push('/sale/browse');
+                                            setShowMenu(false);
+                                          }} 
+                                          className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors"
+                                        >
+                                          My Items
+                                        </button>   
+                                        
+                                        <p className="text-medium font-semibold max-w-2xl mb-4 text-orange-700">
+                                          Sublease
+                                        </p>
+                                        <button 
+                                          onClick={() => {
+                                            router.push('/sublease/search');
+                                            setShowMenu(false);
+                                          }} 
+                                          className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors"
+                                        >
+                                          Find Sublease
+                                        </button>   
+                                        <button 
+                                          onClick={() => {
+                                            router.push('/sublease/write/options/chat');
+                                            setShowMenu(false);
+                                          }} 
+                                          className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors"
+                                        >
+                                          Post Sublease
+                                        </button>   
+                                        <button 
+                                          onClick={() => {
+                                            router.push('../search');
+                                            setShowMenu(false);
+                                          }} 
+                                          className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors"
+                                        >
+                                          My Sublease Listing
+                                        </button>
+                                        <hr className="my-2" />
+                                        <button                              
+                                          onClick={() => {                               
+                                            router.push('/favorite');                               
+                                            setShowMenu(false);                             
+                                          }}                              
+                                          className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors flex items-center gap-2"
+                                          >                             
+                                          <Heart className="w-4 h-4 text-gray-600" />                             
+                                          Favorites                           
+                                        </button>
+                                        <button 
+                                          onClick={() => {
+                                            router.push('/sublease/search/list');
+                                            setShowMenu(false);
+                                          }} 
+                                          className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors flex items-center gap-2"
+                                        >
+                                          <MessagesSquare className="w-4 h-4 text-gray-600" />                             
+                                          Messages
+                                        </button>   
+                                        <button 
+                                          onClick={() => {
+                                            router.push('../help');
+                                            setShowMenu(false);
+                                          }} 
+                                          className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors"
+                                        >
+                                          Help & Support
+                                        </button>
+                
+                                        {/* need change (when user didn't log in -> show log in button) */}
+                                        <hr className="my-2" />
+                                          {/* log in/ out */}
+                                          {isLoggedIn ? (
+                                            <button className="w-full text-left px-3 py-2 rounded-md text-sm text-red-600 hover:bg-red-50 hover:text-red-700 transition-colors">
+                                              Logout
+                                            </button>
+                                          ) : (
+                                            <button className="w-full text-left px-3 py-2 rounded-md text-sm text-blue-600 hover:bg-blue-50 hover:text-blue-700 transition-colors">
+                                              Login
+                                            </button>
+                                          )}
+                                      </div>
+                                    </motion.div>
+                                  )}
+                                </AnimatePresence>
+                              </div>
 
-                <AnimatePresence>
-                  {showMenu && (
-                    <motion.div
-                      initial={{ opacity: 0, y: -10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -10 }}
-                      className="absolute right-0 mt-2 w-64 bg-white rounded-lg shadow-lg border border-gray-200 z-50"
-                    >
-                      <div className="p-4 space-y-2">
-                        <p className="text-medium font-semibold max-w-2xl mb-4 text-orange-700">
-                        Move Out Sale
-                        </p>
-                        <button 
-                          onClick={() => {
-                            router.push('/sale/browse');
-                            setShowMenu(false);
-                          }} 
-                          className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors"
-                        >
-                          Browse Items
-                        </button>                        
-                        <button 
-                          onClick={() => {
-                            router.push('/sale/create/options/nonai');
-                            setShowMenu(false);
-                          }} 
-                          className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors"
-                        >
-                          Sell Items
-                        </button> 
-                        <button 
-                          onClick={() => {
-                            router.push('/sale/browse');
-                            setShowMenu(false);
-                          }} 
-                          className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors"
-                        >
-                          My Items
-                        </button>   
-                        
-                        <p className="text-medium font-semibold max-w-2xl mb-4 text-orange-700">
-                          Sublease
-                        </p>
-                        <button 
-                          onClick={() => {
-                            router.push('/sublease/search');
-                            setShowMenu(false);
-                          }} 
-                          className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors"
-                        >
-                          Find Sublease
-                        </button>   
-                        <button 
-                          onClick={() => {
-                            router.push('/sublease/write/options/chat');
-                            setShowMenu(false);
-                          }} 
-                          className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors"
-                        >
-                          Post Sublease
-                        </button>   
-                        <button 
-                          onClick={() => {
-                            router.push('../search');
-                            setShowMenu(false);
-                          }} 
-                          className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors"
-                        >
-                          My Sublease Listing
-                        </button>
-                        <hr className="my-2" />
-                        <button                              
-                          onClick={() => {                               
-                            router.push('/favorite');                               
-                            setShowMenu(false);                             
-                          }}                              
-                          className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors flex items-center gap-2"
-                          >                             
-                          <Heart className="w-4 h-4 text-gray-600" />                             
-                          Favorites                           
-                        </button>
-                        <button 
-                          onClick={() => {
-                            router.push('/sublease/search/list');
-                            setShowMenu(false);
-                          }} 
-                          className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors flex items-center gap-2"
-                        >
-                          <MessagesSquare className="w-4 h-4 text-gray-600" />                             
-                          Messages
-                        </button>   
-                        <button 
-                          onClick={() => {
-                            router.push('../help');
-                            setShowMenu(false);
-                          }} 
-                          className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors"
-                        >
-                          Help & Support
-                        </button>
-
-                        {/* need change (when user didn't log in -> show log in button) */}
-                        <hr className="my-2" />
-                          {/* log in/ out */}
-                          {isLoggedIn ? (
-                            <button className="w-full text-left px-3 py-2 rounded-md text-sm text-red-600 hover:bg-red-50 hover:text-red-700 transition-colors">
-                              Logout
-                            </button>
-                          ) : (
-                            <button className="w-full text-left px-3 py-2 rounded-md text-sm text-blue-600 hover:bg-blue-50 hover:text-blue-700 transition-colors">
-                              Login
-                            </button>
-                          )}
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
             </div>
           </div>
         </div>
@@ -1010,13 +1530,16 @@ const getDeliveryMode = (product: ProductData): 'delivery' | 'pickup' | 'both' =
                   <User className="w-12 h-12 text-gray-500" />
                 </div>
               )}
-              <div>
-                <h2 className="text-xl font-bold text-gray-700">{seller.name}</h2>
-                <p className="text-gray-500 text-sm">{seller.email}</p>
-                {isCurrentUserSeller && (
+              <div className = "">
+                <h2 className="text-xl font-bold text-gray-700">{seller.name}
+                 <p className="text-gray-500 text-sm">{seller.email}</p>
+                   <BadgeMoveOutSale listing={product} hostData={hostData} className = "ml-15" />                
+                 {isCurrentUserSeller && (
                   <p className="text-orange-600 text-sm font-medium mt-1">This is your listing</p>
                 )}
+                </h2>
               </div>
+
             </div>
  
             {/* Report Button - Only for other users */}
@@ -1106,135 +1629,79 @@ const getDeliveryMode = (product: ProductData): 'delivery' | 'pickup' | 'both' =
               )}
             </div>
           </div>
- 
-          {/* Key Information */}
-          <div className="bg-white rounded-lg border border-gray-200 mb-6">
-            {/* Header */}
-            <div className="p-6 border-b border-gray-100">
-              <h2 className="text-lg font-semibold text-gray-900">Key Information</h2>
-            </div>
-
-            <div className="p-6">
-              {/* Main Information */}
-              <div className="space-y-4 mb-6">
-                <div className="flex items-center gap-3">
-                  <MapPin size={18} className="text-orange-500" />
-                  <span className="text-gray-700">Location: {product.location?.replace(/-/g, " ").toUpperCase()}</span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <DollarSign size={18} className="text-orange-500" />
-                  <span className="text-gray-700">${product.price}</span>
-                  {product.priceType && (
-                    <span className={`text-sm px-2 py-1 rounded-full ${
-                      product.priceType === 'fixed' 
-                        ? 'bg-red-100 text-red-700' 
-                        : 'bg-green-100 text-green-700'
-                    }`}>
-                      {product.priceType === 'fixed' ? 'Fixed Price' : 'Negotiable'}
-                    </span>
-                  )}
-                </div>
-                <div className="flex items-center gap-3">
-                  <Calendar size={18} className="text-orange-500" />
-                  <span className="text-gray-700">Available Until: {product.availableUntil || 'Not specified'}</span>
-                </div>
-                
-                <div className="flex items-center gap-3">
-                  <Package size={18} className="text-orange-500" />
-                  <span className="text-gray-700">{product.category}</span>
-                </div>
-              </div>
-
-              {/* Delivery and Pickup Options */}
-              <div className="pt-6 border-t border-gray-100">
-                <div className="space-y-3">
-                  <div className="flex items-center gap-3">
-                    {product.deliveryAvailable ? 
-                      <Check size={16} className="text-green-500" /> : 
-                      <X size={16} className="text-red-500" />
-                    }
-                    <span className="text-sm text-gray-700">
-                      {product.deliveryAvailable ? "Delivery Available" : "No Delivery"}
-                    </span>
-                    {product.deliveryAvailable && product.deliveryZone && (
-                      <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full">
-                        {Math.round(product.deliveryZone.radius / 1000 * 100) / 100}km radius
-                      </span>
-                    )}
-                  </div>
-
-                  <div className="flex items-center gap-3">
-                    {product.pickupAvailable ? 
-                      <Check size={16} className="text-green-500" /> : 
-                      <X size={16} className="text-red-500" />
-                    }
-                    <span className="text-sm text-gray-700">
-                      {product.pickupAvailable ? "Pickup Available" : "No Pickup"}
-                    </span>
-                    {product.pickupAvailable && product.pickupLocations && (
-                      <span className="text-xs bg-orange-100 text-orange-700 px-2 py-1 rounded-full">
-                        {product.pickupLocations.length} location{product.pickupLocations.length !== 1 ? 's' : ''}
-                      </span>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Delivery/Pickup Zone Map */}
-          {(product.deliveryAvailable || product.pickupAvailable) && (
+        
+         {/* Key Information */}
             <div className="bg-white rounded-lg border border-gray-200 mb-6">
               {/* Header */}
               <div className="p-6 border-b border-gray-100">
-                <h2 className="text-lg font-semibold text-gray-900 flex items-center">
-                  <MapPin size={20} className="mr-2 text-orange-500" />
-                  {getDeliveryMode(product) === 'both' ? 'Delivery & Pickup Options' :
-                   getDeliveryMode(product) === 'delivery' ? 'Delivery Zone' : 'Pickup Locations'}
-                </h2>
-                <p className="text-sm text-gray-600 mt-1">
-                  {getDeliveryMode(product) === 'both' ? 'Check delivery availability or view pickup locations' :
-                   getDeliveryMode(product) === 'delivery' ? 'Check if delivery is available to your address' : 
-                   'View available pickup locations'}
-                </p>
+                <h2 className="text-lg font-semibold text-gray-900">Key Information</h2>
               </div>
 
               <div className="p-6">
-                <DeliveryZoneMap
-                  deliveryZone={product.deliveryZone}
-                  pickupLocations={product.pickupLocations || []}
-                  mode={getDeliveryMode(product)}
-                  onLocationCheck={(inZone, distance) => {
-                    setLocationCheckResult({ inZone, distance });
-                  }}
-                />
-                
-                {/* Location Check Result Display */}
-                {locationCheckResult && getDeliveryMode(product) === 'delivery' && (
-                  <div className={`mt-4 p-4 rounded-lg border ${
-                    locationCheckResult.inZone
-                      ? 'bg-green-50 border-green-200'
-                      : 'bg-red-50 border-red-200'
-                  }`}>
-                    <div className={`flex items-center space-x-2 ${
-                      locationCheckResult.inZone ? 'text-green-700' : 'text-red-700'
-                    }`}>
-                      {locationCheckResult.inZone ? 
-                        <Check size={16} /> : 
-                        <X size={16} />
-                      }
-                      <span className="font-medium">
-                        {locationCheckResult.inZone 
-                          ? `Delivery available! (${locationCheckResult.distance}km from center)`
-                          : `Outside delivery zone (${locationCheckResult.distance}km from center)`
-                        }
-                      </span>
-                    </div>
+                {/* Main Information */}
+                <div className="space-y-4 mb-6">
+                  <div className="flex items-center gap-3">
+                    <MapPin size={18} className="text-orange-500" />
+                    <span className="text-gray-700">Pickup Location: {product.location?.replace(/-/g, " ").toUpperCase()}</span>
                   </div>
-                )}
+                  <div className="flex items-center gap-3">
+                    <DollarSign size={18} className="text-orange-500" />
+                    <span className="text-gray-700">${product.price}</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <Calendar size={18} className="text-orange-500" />
+                    <span className="text-gray-700">Available Until: {product.availableUntil}</span>
+                  </div>
+                  
+                  <div className="flex items-center gap-3">
+                    <Heart size={18} className="text-orange-500" />
+                    <span className="text-gray-700">{product.category}</span>
+                  </div>
+                  
+
+                  {product.preferredGender && (
+                    <p className="flex items-center ml-0.5 gap-1">
+                      {getGenderInfo(product.preferredGender).icon}
+                      <span className={`${product.preferredGender === 'female' ? 'text-pink-600' : product.preferredGender === 'male' ? 'text-orange-600' : 'text-green-600'} font-medium`}>
+                        {getGenderInfo(product.preferredGender).text}
+                      </span>
+                    </p>
+                  )}
+
+                </div>
+
+                {/* Features */}
+                <div className="pt-6 border-t border-gray-100">
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-3">
+                      {product.delieveryAvailable ? 
+                        <Check size={16} className="text-green-500" /> : 
+                        <X size={16} className="text-red-500" />
+                      }
+                      <span className="text-sm text-gray-700">{product.delieveryAvailable ? "Delievery Available" : "No Delievery"}</span>
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                      {product.pickupAvailable ? 
+                        <Check size={16} className="text-green-500" /> : 
+                        <X size={16} className="text-red-500" />
+                      }
+                      <span className="text-sm text-gray-700">{product.pickupAvailable ? "PickUp Available" : "No PickUp"}</span>
+                    </div>
+                    
+                    <div className="flex items-center gap-3">
+                      {product.priceType === 'fixed' ? 
+                        <X size={16} className="text-red-500" /> : 
+                        <Check size={16} className="text-green-500" />
+                      }
+                      <span className="text-sm text-gray-700">{product.priceType === 'fixed' ? "Non-Negotiable" : "Negotiable"}</span>
+                    </div>
+                  
+                    
+                  </div>
+                </div>
               </div>
             </div>
-          )}
                 
           {/* Details Section */}
           <div className="bg-white rounded-lg shadow p-6">
@@ -1242,12 +1709,260 @@ const getDeliveryMode = (product: ProductData): 'delivery' | 'pickup' | 'both' =
                 <Info size={20} className="text-orange-600" />
                 <h3 className="text-lg font-semibold text-gray-900">Details</h3>
               </div>
-              <div className="space-y-3">
-                <p className="text-gray-600">{product.description}</p>
-              </div>
+                          <div className="space-y-3">
+              <p className="text-gray-600">{product.description}</p>
+              
+            </div>
           </div>
         </div>
  
+            {/* Host Ratings Section */}
+             <div className="mb-8">
+          <h2 className="text-xl font-semibold text-gray-900 mt-8 mb-4">Host Ratings</h2>
+          
+          <div className="flex items-center gap-4 rounded-lg">
+            {[1, 2, 3, 4, 5].map((star) => (
+              <Star 
+                key={star} 
+                className={`w-5 h-5 ${star <= Math.round(hostRating) ? 'text-orange-400 fill-orange-400' : 'text-gray-300'}`} 
+              />
+            ))}
+            <span className="ml-2 text-gray-700 font-medium">
+              {hostRating}/5
+            </span>
+            <span className="ml-2 text-gray-600 text-sm">
+              ({hostReviewCount} reviews)
+            </span>
+          </div>
+          
+          {/* Reviews List with Edit/Delete functionality */}
+          <div className="mt-4 p-4 bg-orange-50 border border-orange-200 rounded-lg">
+            <div className="space-y-4">
+              {/* when no review */}
+              {hostReviews.length === 0 && (
+                <p className="text-gray-500 italic">No reviews yet. Be the first to leave a review!</p>
+              )}
+              
+              {/* review listings with edit/delete */}
+              {hostReviews.map((review) => {
+                const isMyReview = user && review.reviewerId === user.uid;
+                const isEditing = editingReviewId === review.id;
+                
+                return (
+                  <div key={review.id} className="border-b pb-4 last:border-0 last:pb-0">
+                    <div className="flex justify-between items-start mb-2">
+                      <div className="flex items-center">
+                        <div>
+                          <div className="font-medium text-gray-600">{review.name}</div>
+                          <div className="text-sm text-gray-500 flex items-center">
+                            {review.date}
+                            {review.isEdited && (
+                              <span className="ml-2 text-xs text-gray-400">(edited)</span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <div className="flex items-center gap-3">
+                        {/* Star Rating */}
+                        <div className="flex">
+                          {[1, 2, 3, 4, 5].map((star) => (
+                            <Star 
+                              key={star} 
+                              className={`w-3 h-3 ${star <= review.rating ? 'text-orange-400 fill-orange-400' : 'text-gray-300'}`} 
+                            />
+                          ))}
+                        </div>
+                        
+                        {/* Edit/Delete buttons for own reviews */}
+                        {isMyReview && !isEditing && (
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => {
+                                setEditingReviewId(review.id);
+                                setEditReviewRating(review.rating);
+                                setEditReviewComment(review.comment);
+                              }}
+                              className="text-sm text-blue-600 hover:text-blue-800 font-medium"
+                            >
+                              Edit
+                            </button>
+                            <button
+                              onClick={() => deleteReview(review.id, {
+                                reviewerId: review.reviewerId,
+                                revieweeId: product.hostId,
+                                rating: review.rating
+                              })}
+                              className="text-sm text-red-600 hover:text-red-800 font-medium"
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    
+                    {/* Review Content - 편집 모드 vs 일반 모드 */}
+                    {isEditing ? (
+                      <div className="mt-3 bg-white p-4 rounded-lg border">
+                        {/* Edit Rating */}
+                        <div className="mb-3">
+                          <label className="block text-sm font-medium text-gray-700 mb-2">Rating</label>
+                          <div className="flex gap-1">
+                            {[1, 2, 3, 4, 5].map((star) => (
+                              <button
+                                key={star}
+                                onClick={() => setEditReviewRating(star)}
+                                className="transition-colors"
+                              >
+                                <Star
+                                  size={20}
+                                  className={`${
+                                    editReviewRating >= star 
+                                      ? 'text-yellow-400 fill-yellow-400' 
+                                      : 'text-gray-300'
+                                  } hover:text-yellow-400`}
+                                />
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                        
+                        {/* Edit Comment */}
+                        <textarea
+                          value={editReviewComment}
+                          onChange={(e) => setEditReviewComment(e.target.value)}
+                          className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent resize-none mb-3"
+                          rows={3}
+                        />
+                        
+                        {/* Save/Cancel Buttons */}
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => updateReview(review.id, {
+                              reviewerId: review.reviewerId,
+                              revieweeId: product.hostId,
+                              rating: review.rating
+                            })}
+                            disabled={!editReviewComment.trim()}
+                            className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 disabled:bg-gray-300 text-sm transition"
+                          >
+                            Save Changes
+                          </button>
+                          <button
+                            onClick={() => {
+                              setEditingReviewId(null);
+                              setEditReviewComment('');
+                              setEditReviewRating(5);
+                            }}
+                            className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-sm transition"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="text-gray-700">{review.comment}</p>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+        
+        {/* Write a Review Button */}
+        {!isUserHost && user ? (
+          <button 
+            onClick={() => setShowReviewModal(!showReviewModal)}
+            className="mt-6 mb-8 w-full py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition flex items-center justify-center cursor-pointer"
+          >
+            <Star className="w-4 h-4 mr-2" />
+            Write a Review
+          </button>
+        ) : isUserHost ? (
+          <div className="mt-6 mb-8 w-full py-2 bg-gray-200 text-gray-600 rounded-lg flex items-center justify-center">
+            <Star className="w-4 h-4 mr-2" />
+            You cannot review your own listing
+          </div>
+        ) : (
+          <button 
+            onClick={() => router.push('/auth')}
+            className="mt-6 mb-8 w-full py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition flex items-center justify-center cursor-pointer"
+          >
+            <Star className="w-4 h-4 mr-2" />
+            Sign in to Write a Review
+          </button>
+        )}
+        
+        {/* Review Form Dropdown - 기존 그대로 */}
+        {showReviewModal && (
+          <div className="mb-8 bg-white border border-gray-200 rounded-lg p-6 shadow-lg animate-fadeIn">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">Write a Review</h3>
+              <button 
+                onClick={() => setShowReviewModal(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            
+            {/* Star Rating */}
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">Rating</label>
+              <div className="flex gap-1">
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <button
+                    key={star}
+                    onClick={() => setNewReviewRating(star)}
+                    className="transition-colors"
+                  >
+                    <Star 
+                      size={24} 
+                      className={`${newReviewRating >= star ? 'text-yellow-400 fill-yellow-400' : 'text-gray-300'} hover:text-yellow-400`}
+                    />
+                  </button>
+                ))}
+              </div>
+            </div>
+            
+            {/* Review Text */}
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 mb-2">Your Review</label>
+              <textarea
+                value={newReviewComment}
+                onChange={(e) => setNewReviewComment(e.target.value)}
+                placeholder="Share your experience with this property..."
+                className="w-full p-3 border border-gray-300 text-gray-500 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent resize-none"
+                rows={4}
+              />
+            </div>
+            
+            {/* Submit Buttons */}
+            <div className="flex gap-3">
+              <button
+                onClick={addReview}
+                disabled={!newReviewComment.trim()}
+                className="flex-1 py-2 px-4 bg-orange-500 text-white rounded-lg hover:bg-orange-600 disabled:bg-gray-300 disabled:cursor-not-allowed transition"
+              >
+                Submit Review
+              </button>
+              
+              <button
+                onClick={() => {
+                  setShowReviewModal(false);
+                  setNewReviewComment('');
+                  setNewReviewRating(5);
+                }}
+                className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Other Items by This Seller */}
         {otherSellerItems.length > 0 && (
           <div className="bg-white rounded-lg shadow p-6 mt-6">
@@ -1276,7 +1991,7 @@ const getDeliveryMode = (product: ProductData): 'delivery' | 'pickup' | 'both' =
                       <p className="text-gray-500 text-xs capitalize">{item.location?.replace("-", " ")}</p>
                       {item.condition && (
                         <p className="text-gray-400 text-xs mt-1">{item.condition}</p>
-                        )}
+                      )}
                     </div>
                   </div>
                 ))}
@@ -1363,6 +2078,7 @@ const getDeliveryMode = (product: ProductData): 'delivery' | 'pickup' | 'both' =
             </div>
           </div>
         )}
+ 
       </div>
     </div>
   );

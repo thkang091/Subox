@@ -13,6 +13,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/app/contexts/AuthInfo';
+import { motion, AnimatePresence } from 'framer-motion';
 
 const ConversationListPage = () => {
   const router = useRouter();
@@ -28,23 +29,6 @@ const ConversationListPage = () => {
   const [notifications, setNotifications] = useState([]);
   const [showNotifications, setShowNotifications] = useState(false);
 
-  // Handle profile dropdown navigation
-  const handleTabClick = (tab) => {
-    const routes = {
-      purchased: '/profile/purchased',
-      returned: '/profile/returned',
-      cancelled: '/profile/cancelled',
-      sold: '/profile/sold',
-      sublease: '/sublease/search',
-      reviews: '/profile/reviews',
-      history: '/profile/history'
-    };
-    
-    if (routes[tab]) {
-      router.push(routes[tab]);
-    }
-    setShowProfile(false);
-  };
 
   // Load notifications
 
@@ -234,18 +218,291 @@ const ConversationListPage = () => {
       <header className="bg-white border-b border-gray-200 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
-            {/* Logo */}
-            <div className="flex items-center space-x-3">
-              <div className="w-8 h-8 bg-gradient-to-br from-orange-500 to-red-600 rounded-lg flex items-center justify-center">
-                <Package className="w-5 h-5 text-white" />
+            <div className="flex item-center justify-between h-16 flex md:hidden">
+              <div className="flex items-center space-x-3">
+                {/* Enhanced Subox Logo */}
+                <motion.div 
+                  className="flex items-center space-x-4 relative"
+                  whileHover={{ scale: 1.05 }}
+                >
+                  {/* Main Subox Logo */}
+                  <motion.div className="relative mt-2">
+                    {/* House Icon */}
+                    <motion.svg 
+                      className="w-10 h-10" 
+                      viewBox="0 0 100 100" 
+                      fill="none"
+                      whileHover={{ rotate: [0, -5, 5, 0] }}
+                      transition={{ duration: 0.5 }}
+                    >
+                      {/* House Base */}
+                      <motion.path
+                        d="M20 45L50 20L80 45V75C80 78 77 80 75 80H25C22 80 20 78 20 75V45Z"
+                        fill="#E97451"
+                        animate={{ 
+                          fill: ["#E97451", "#F59E0B", "#E97451"],
+                          scale: [1, 1.02, 1]
+                        }}
+                        transition={{ duration: 3, repeat: Infinity }}
+                      />
+                      {/* House Roof */}
+                      <motion.path
+                        d="M15 50L50 20L85 50L50 15L15 50Z"
+                        fill="#D97706"
+                        animate={{ rotate: [0, 1, 0] }}
+                        transition={{ duration: 4, repeat: Infinity }}
+                      />
+                      {/* Window */}
+                      <motion.rect
+                        x="40"
+                        y="50"
+                        width="20"
+                        height="15"
+                        fill="white"
+                        animate={{ 
+                          opacity: [1, 0.8, 1],
+                          scale: [1, 1.1, 1]
+                        }}
+                        transition={{ duration: 2, repeat: Infinity }}
+                      />
+                      {/* Door */}
+                      <motion.rect
+                        x="45"
+                        y="65"
+                        width="10"
+                        height="15"
+                        fill="white"
+                        animate={{ scaleY: [1, 1.05, 1] }}
+                        transition={{ duration: 2.5, repeat: Infinity }}
+                      />
+                    </motion.svg>
+
+                    {/* Tag Icon */}
+                    <motion.svg 
+                      className="w-6 h-6 absolute -top-1 -right-1" 
+                      viewBox="0 0 60 60" 
+                      fill="none"
+                      whileHover={{ rotate: 360 }}
+                      transition={{ duration: 0.8 }}
+                    >
+                      <motion.path
+                        d="M5 25L25 5H50V25L30 45L5 25Z"
+                        fill="#E97451"
+                        animate={{ 
+                          rotate: [0, 5, -5, 0],
+                          scale: [1, 1.1, 1]
+                        }}
+                        transition={{ duration: 3, repeat: Infinity }}
+                      />
+                      <motion.circle
+                        cx="38"
+                        cy="17"
+                        r="4"
+                        fill="white"
+                        animate={{ 
+                          scale: [1, 1.3, 1],
+                          opacity: [1, 0.7, 1]
+                        }}
+                        transition={{ duration: 1.5, repeat: Infinity }}
+                      />
+                    </motion.svg>
+                  </motion.div>
+
+                  {/* Subox Text */}
+                  <motion.div className="flex flex-col mb-1">
+                    <motion.span 
+                      className="text-xl font-bold text-gray-900"
+                      animate={{
+                        background: [
+                          "linear-gradient(45deg, #1F2937, #374151)",
+                          "linear-gradient(45deg, #E97451, #F59E0B)",
+                          "linear-gradient(45deg, #1F2937, #374151)"
+                        ],
+                        backgroundClip: "text",
+                        WebkitBackgroundClip: "text",
+                        color: "transparent"
+                      }}
+                      transition={{ duration: 4, repeat: Infinity }}
+                    >
+                      Subox
+                    </motion.span>
+                    <motion.span 
+                      className="text-[10px] text-gray-500 font-medium tracking-wider"
+                      animate={{ opacity: [0.7, 1, 0.7] }}
+                      transition={{ duration: 2, repeat: Infinity }}
+                    >
+                      Subleases & Move-out Sales
+                    </motion.span>
+                  </motion.div>              
+                  {/* Interactive Follower Elements */}
+                  <motion.div className="absolute -inset-4 pointer-events-none">
+                    {Array.from({ length: 6 }, (_, i) => (
+                      <motion.div
+                        key={i}
+                        className="absolute w-1 h-1 bg-orange-300 rounded-full opacity-60"
+                        style={{
+                          left: `${20 + i * 15}%`,
+                          top: `${30 + Math.sin(i) * 20}%`,
+                        }}
+                        animate={{
+                          x: [0, 10, -10, 0],
+                          y: [0, -5, 5, 0],
+                          scale: [0.5, 1, 0.5],
+                          opacity: [0.3, 0.8, 0.3]
+                        }}
+                        transition={{
+                          duration: 3 + i * 0.5,
+                          repeat: Infinity,
+                          ease: "easeInOut"
+                        }}
+                      />
+                    ))}
+                  </motion.div>
+                </motion.div>
               </div>
-              <button 
-                onClick={() => router.push('/sale/browse')}
-                className="text-2xl font-bold text-gray-900 hover:text-orange-600 transition-colors"
-              >
-                Subox
-              </button>
-              <span className="text-sm text-gray-500 hidden sm:block">Messages</span>
+            </div>
+            <div className="flex item-center justify-between h-16 hidden md:flex">
+              <div className="flex items-center space-x-3">
+                {/* Enhanced Subox Logo */}
+                <motion.div 
+                  className="flex items-center space-x-4 relative"
+                  whileHover={{ scale: 1.05 }}
+                >
+                  {/* Main Subox Logo */}
+                  <motion.div className="relative mt-2">
+                    {/* House Icon */}
+                    <motion.svg 
+                      className="w-12 h-12" 
+                      viewBox="0 0 100 100" 
+                      fill="none"
+                      whileHover={{ rotate: [0, -5, 5, 0] }}
+                      transition={{ duration: 0.5 }}
+                    >
+                      {/* House Base */}
+                      <motion.path
+                        d="M20 45L50 20L80 45V75C80 78 77 80 75 80H25C22 80 20 78 20 75V45Z"
+                        fill="#E97451"
+                        animate={{ 
+                          fill: ["#E97451", "#F59E0B", "#E97451"],
+                          scale: [1, 1.02, 1]
+                        }}
+                        transition={{ duration: 3, repeat: Infinity }}
+                      />
+                      {/* House Roof */}
+                      <motion.path
+                        d="M15 50L50 20L85 50L50 15L15 50Z"
+                        fill="#D97706"
+                        animate={{ rotate: [0, 1, 0] }}
+                        transition={{ duration: 4, repeat: Infinity }}
+                      />
+                      {/* Window */}
+                      <motion.rect
+                        x="40"
+                        y="50"
+                        width="20"
+                        height="15"
+                        fill="white"
+                        animate={{ 
+                          opacity: [1, 0.8, 1],
+                          scale: [1, 1.1, 1]
+                        }}
+                        transition={{ duration: 2, repeat: Infinity }}
+                      />
+                      {/* Door */}
+                      <motion.rect
+                        x="45"
+                        y="65"
+                        width="10"
+                        height="15"
+                        fill="white"
+                        animate={{ scaleY: [1, 1.05, 1] }}
+                        transition={{ duration: 2.5, repeat: Infinity }}
+                      />
+                    </motion.svg>
+
+                    {/* Tag Icon */}
+                    <motion.svg 
+                      className="w-8 h-8 absolute -top-2 -right-2" 
+                      viewBox="0 0 60 60" 
+                      fill="none"
+                      whileHover={{ rotate: 360 }}
+                      transition={{ duration: 0.8 }}
+                    >
+                      <motion.path
+                        d="M5 25L25 5H50V25L30 45L5 25Z"
+                        fill="#E97451"
+                        animate={{ 
+                          rotate: [0, 5, -5, 0],
+                          scale: [1, 1.1, 1]
+                        }}
+                        transition={{ duration: 3, repeat: Infinity }}
+                      />
+                      <motion.circle
+                        cx="38"
+                        cy="17"
+                        r="4"
+                        fill="white"
+                        animate={{ 
+                          scale: [1, 1.3, 1],
+                          opacity: [1, 0.7, 1]
+                        }}
+                        transition={{ duration: 1.5, repeat: Infinity }}
+                      />
+                    </motion.svg>
+                  </motion.div>
+
+                  {/* Subox Text */}
+                  <motion.div className="flex flex-col mb-1">
+                    <motion.span 
+                      className="text-3xl font-bold text-gray-900"
+                      animate={{
+                        background: [
+                          "linear-gradient(45deg, #1F2937, #374151)",
+                          "linear-gradient(45deg, #E97451, #F59E0B)",
+                          "linear-gradient(45deg, #1F2937, #374151)"
+                        ],
+                        backgroundClip: "text",
+                        WebkitBackgroundClip: "text",
+                        color: "transparent"
+                      }}
+                      transition={{ duration: 4, repeat: Infinity }}
+                    >
+                      Subox
+                    </motion.span>
+                    <motion.span 
+                      className="text-xs text-gray-500 font-medium tracking-wider"
+                      animate={{ opacity: [0.7, 1, 0.7] }}
+                      transition={{ duration: 2, repeat: Infinity }}
+                    >
+                      Subleases & Move-out Sales
+                    </motion.span>
+                  </motion.div>              
+                  {/* Interactive Follower Elements */}
+                  <motion.div className="absolute -inset-4 pointer-events-none">
+                    {Array.from({ length: 6 }, (_, i) => (
+                      <motion.div
+                        key={i}
+                        className="absolute w-1 h-1 bg-orange-300 rounded-full opacity-60"
+                        style={{
+                          left: `${20 + i * 15}%`,
+                          top: `${30 + Math.sin(i) * 20}%`,
+                        }}
+                        animate={{
+                          x: [0, 10, -10, 0],
+                          y: [0, -5, 5, 0],
+                          scale: [0.5, 1, 0.5],
+                          opacity: [0.3, 0.8, 0.3]
+                        }}
+                        transition={{
+                          duration: 3 + i * 0.5,
+                          repeat: Infinity,
+                          ease: "easeInOut"
+                        }}
+                      />
+                    ))}
+                  </motion.div>
+                </motion.div>
+              </div>
             </div>
 
             {/* Header Actions */}
@@ -297,41 +554,11 @@ const ConversationListPage = () => {
               {/* Profile */}
               <div className="relative">
                 <button
-                  onClick={() => setShowProfile(!showProfile)}
+                  onClick={() => router.push("/profile")}
                   className="p-2 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
                 >
                   <User className="w-5 h-5 text-gray-600" />
                 </button>
-
-                {showProfile && (
-                  <div className="absolute right-0 mt-2 w-64 bg-white rounded-lg shadow-lg border border-gray-200 z-50">
-                    <div className="p-4 space-y-1">
-                      {[
-                        { key: "purchased", label: "What I Purchased" },
-                        { key: "returned", label: "What I Returned" },
-                        { key: "cancelled", label: "What I Cancelled" },
-                        { key: "sold", label: "What I Sold" },
-                        { key: "sublease", label: "Sublease" },
-                        { key: "reviews", label: "Reviews" }
-                      ].map(item => (
-                        <button 
-                          key={item.key}
-                          onClick={() => handleTabClick(item.key)} 
-                          className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-orange-600 transition-colors"
-                        >
-                          {item.label}
-                        </button>
-                      ))}
-                      <hr className="my-2" />
-                      <button 
-                        onClick={() => handleTabClick("history")} 
-                        className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-orange-600 transition-colors"
-                      >
-                        History
-                      </button>
-                    </div>
-                  </div>
-                )}
               </div>
 
               {/* Menu */}

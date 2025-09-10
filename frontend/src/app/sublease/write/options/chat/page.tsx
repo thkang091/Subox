@@ -2685,7 +2685,7 @@ Partial availability: ${currentFormData.partialDatesOk === true ? 'Yes' : curren
 <div className="flex items-center gap-2">
   <button
     onClick={saveDraft}
-    className={`px-3 py-1.5 text-sm rounded-lg transition-all flex items-center gap-1 ${
+    className={`px-3 py-1.5 mt-3 text-[10px] md:text-sm rounded-lg transition-all flex items-center gap-1 ${
       draftSaved 
         ? 'bg-green-100 text-green-700' 
         : 'bg-orange-100 text-orange-700 hover:bg-orange-200'
@@ -2719,7 +2719,7 @@ Partial availability: ${currentFormData.partialDatesOk === true ? 'Yes' : curren
 
 
           {/* User Menu */}
-          <div className="relative">
+          <div className="relative mt-3 -mr-5">
             <button
               onClick={() => setShowUserMenu(!showUserMenu)}
               className="flex items-center space-x-3 text-sm text-gray-700 hover:text-gray-900 transition-all duration-200 p-2 rounded-lg hover:bg-orange-50 hover:scale-105 active:scale-95"

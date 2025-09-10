@@ -13,9 +13,12 @@ import {
   Expand, Eye, EyeOff, Navigation, Check, Volume2,CalendarCheck,Zap,Cigarette, BookOpen, Thermometer, Utensils, Dumbbell, Trees,
   Building, Flame, ArrowUp, Shield, Accessibility, Sofa, Gamepad2, Play, Trash2
 } from 'lucide-react';
-import { doc, getDoc, addDoc, updateDoc, collection, query, where, getDocs, serverTimestamp, increment, orderBy } from 'firebase/firestore';import { db } from '@/lib/firebase';
+import { doc, getDoc, addDoc, deleteDoc, updateDoc, collection, query, where, getDocs, serverTimestamp, increment, orderBy } from 'firebase/firestore';import { db } from '@/lib/firebase';
 import { useAuth } from '@/app/contexts/AuthInfo';
 import { featuredListings } from '../../../../data/listings';
+import Badges from '@/data/badge';
+
+
 
 // gender information icon
 const getGenderInfo = (preferredGender) => {
@@ -329,12 +332,15 @@ const NeighborhoodDetectorWrapper = ({ listing, onNeighborhoodDetected }: {
   );
 };
 
-const ListingDetailPage = ({ previewData = null }) => {
+const ListingDetailPage = () => {
   const router = useRouter();
   const params = useParams();
   const id = params?.id;
-  const [hostData, setHostData] = useState(null);
-  
+const [hostData, setHostData] = useState({
+  totalReviews: 0,
+  averageRating: 0,
+  reviewsGivenCount: 0
+});  
   // ALL useState hooks first
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [activeImage, setActiveImage] = useState(0);
@@ -352,7 +358,6 @@ const ListingDetailPage = ({ previewData = null }) => {
   const [hostReviews, setHostReviews] = useState([]);
   const [showProfile, setShowProfile] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
-  
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   
   // Calendar-related state variables
@@ -361,19 +366,64 @@ const ListingDetailPage = ({ previewData = null }) => {
   const [selectedDateRanges, setSelectedDateRanges] = useState([]);
   const [isSelectingRange, setIsSelectingRange] = useState(false);
   const [rangeStart, setRangeStart] = useState(null);
-  const [currentMonth, setCurrentMonth] = useState(null);
+  const [currentMonth, setCurrentMonth] = useState(null); // Add this line
+
+  const [editingReviewId, setEditingReviewId] = useState(null);
+  const [editReviewRating, setEditReviewRating] = useState(5);
+  const [editReviewComment, setEditReviewComment] = useState('');
 
   const { user } = useAuth();
 
-  // Updated fetch listing effect to handle preview data
+  // Debug useEffect
   useEffect(() => {
-    // If preview data is provided, use it instead of fetching
-    if (previewData) {
-      setListing(previewData);
-      setListingLoading(false);
-      return;
+    if (listing) {
+      console.log('🔍 DEBUG: Listing data:', listing);
+      console.log('🔍 DEBUG: Location string:', listing.location);
+      console.log('🔍 DEBUG: Available listing fields:', Object.keys(listing));
+      
+      // Check for different coordinate formats
+      console.log('🔍 DEBUG: Coordinates check:', {
+        coordinates: listing.coordinates,
+        lat: listing.lat,
+        lng: listing.lng,
+        latitude: listing.latitude,
+        longitude: listing.longitude
+      });
     }
+  }, [listing]);
 
+  // Mount effect
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+    
+  // Favorites loading effect
+  useEffect(() => {
+    if (isMounted) {
+      try {
+        const savedFavorites = localStorage.getItem('favoriteListings');
+        if (savedFavorites) {
+          setFavoriteListings(JSON.parse(savedFavorites));
+        }
+      } catch (error) {
+        console.error('Error loading favorites from localStorage:', error);
+      }
+    }
+  }, [isMounted]);
+
+  // Favorites saving effect
+  useEffect(() => {
+    if (isMounted) {
+      try {
+        localStorage.setItem('favoriteListings', JSON.stringify(favoriteListings));
+      } catch (error) {
+        console.error('Error saving favorites to localStorage:', error);
+      }
+    }
+  }, [favoriteListings, isMounted]);
+
+  // Fetch listing effect
+  useEffect(() => {
     const fetchListing = async () => {
       if (!id) return;
       
@@ -417,10 +467,10 @@ const ListingDetailPage = ({ previewData = null }) => {
             listingType: firestoreData.listingType || 'Sublease',
             location: firestoreData.location || 'Campus Area',
             
-            // Preserve customLocation data from Firestore
+            // ✅ CRITICAL: Preserve customLocation data from Firestore
             customLocation: firestoreData.customLocation || null,
             
-            // Preserve address field
+            // ✅ ALSO: Preserve address field
             address: firestoreData.address || firestoreData.customLocation?.address || '',
             
             // Images - handle both single and multiple images
@@ -453,7 +503,7 @@ const ListingDetailPage = ({ previewData = null }) => {
             rating: Number(firestoreData.rating || 0),
             reviews: Number(firestoreData.reviews || 0),
             averageRating: Number(firestoreData.averageRating || firestoreData.reviewStats?.averageRating || 0),
-            totalReviews: Number(firestoreData.totalReviews || firestoreData.reviewStats?.totalReviews || 0),
+totalReviews: Number(firestoreData.totalReviews || firestoreData.reviewStats?.totalReviews || 0),
             // Amenities
             amenities: Array.isArray(firestoreData.amenities) ? firestoreData.amenities : [],
             
@@ -499,9 +549,9 @@ const ListingDetailPage = ({ previewData = null }) => {
     };
     
     fetchListing();
-  }, [previewData, id]); // Added previewData as dependency
+  }, [id]);
 
-
+  // Host reviews effect
 useEffect(() => {
   if (listing?.hostId) {
     fetchHostReviews();
@@ -999,7 +1049,7 @@ const AvailabilityCalendar = () => {
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
-              className="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-lg border border-gray-200 z-50"
+              className="absolute right-0 mt-2 w-70 bg-white rounded-lg shadow-lg border border-gray-200 z-50"
             >
               <div className="p-4">
                 <h3 className="font-semibold text-gray-900 mb-3">Notifications</h3>
@@ -1290,6 +1340,72 @@ const AvailabilityCalendar = () => {
     return <Star size={16} />;
   };
 
+const updateReviewerStats = async (reviewerId: string, reviewData: {
+  reviewId: string,
+  revieweeId: string,
+  revieweeName: string,
+  listingId: string,
+  listingTitle: string,
+  rating: number,
+  comment: string,
+  createdAt: any
+}) => {
+  try {
+    const reviewerRef = doc(db, 'users', reviewerId);
+    const reviewerDoc = await getDoc(reviewerRef);
+    
+    if (reviewerDoc.exists()) {
+      const userData = reviewerDoc.data();
+      const currentReviewsGiven = userData.reviewsGiven || [];
+      const currentReviewsGivenCount = userData.reviewsGivenCount || 0;
+      
+      // 새로운 리뷰 정보 추가
+      const newReviewRecord = {
+        reviewId: reviewData.reviewId,
+        revieweeId: reviewData.revieweeId,
+        revieweeName: reviewData.revieweeName,
+        listingId: reviewData.listingId,
+        listingTitle: reviewData.listingTitle,
+        rating: reviewData.rating,
+        comment: reviewData.comment,
+        createdAt: reviewData.createdAt,
+        timestamp: new Date()
+      };
+      
+      // 리뷰 목록과 카운트 업데이트
+      await updateDoc(reviewerRef, {
+        reviewsGiven: [...currentReviewsGiven, newReviewRecord],
+        reviewsGivenCount: currentReviewsGivenCount + 1,
+        lastReviewGiven: reviewData.createdAt
+      });
+      
+      console.log(`Updated reviewer ${reviewerId} stats: ${currentReviewsGivenCount + 1} reviews given`);
+    } else {
+      // 새 사용자인 경우 초기 리뷰 통계 생성
+      await updateDoc(reviewerRef, {
+        reviewsGiven: [{
+          reviewId: reviewData.reviewId,
+          revieweeId: reviewData.revieweeId,
+          revieweeName: reviewData.revieweeName,
+          listingId: reviewData.listingId,
+          listingTitle: reviewData.listingTitle,
+          rating: reviewData.rating,
+          comment: reviewData.comment,
+          createdAt: reviewData.createdAt,
+          timestamp: new Date()
+        }],
+        reviewsGivenCount: 1,
+        lastReviewGiven: reviewData.createdAt
+      });
+      
+      console.log(`Created initial reviewer stats for ${reviewerId}`);
+    }
+  } catch (error) {
+    console.error('Error updating reviewer stats:', error);
+  }
+};
+
+
 const addReview = async () => {
   if (!newReviewComment.trim()) {
     alert('Please write a comment for your review.');
@@ -1361,6 +1477,16 @@ const addReview = async () => {
     // Update the host's review statistics (you might want to do this server-side with Cloud Functions)
     await updateHostReviewStats(listing.hostId, newReviewRating);
 
+    await updateReviewerStats(user.uid, {
+      reviewId: reviewRef.id,
+      revieweeId: listing.hostId,
+      revieweeName: listing.hostName,
+      listingId: listing.id,
+      listingTitle: listing.title,
+      rating: newReviewRating,
+      comment: newReviewComment.trim(),
+      createdAt: new Date()
+    });
     // Reset form
     setShowReviewModal(false);
     setNewReviewComment('');
@@ -1445,13 +1571,15 @@ const fetchHostReviews = async () => {
       const data = doc.data();
       return {
         id: doc.id,
+        reviewerId: data.reviewerId,
         name: data.reviewerName,
         date: data.createdAt?.toDate().toLocaleDateString('en-US', {
           year: 'numeric',
           month: 'long'
         }) || 'Recent',
         comment: data.comment,
-        rating: data.rating
+        rating: data.rating,
+        isEdited: data.isEdited || false 
       };
     });
     
@@ -1466,6 +1594,268 @@ const fetchHostReviews = async () => {
     ? (hostReviews.reduce((sum, review) => sum + review.rating, 0) / hostReviews.length).toFixed(1)
     : "0.0";
 
+    const fetchUserReviewStats = async (userId: string) => {
+  try {
+    const userRef = doc(db, 'users', userId);
+    const userDoc = await getDoc(userRef);
+    
+    if (userDoc.exists()) {
+      const userData = userDoc.data();
+      return {
+        reviewsGivenCount: userData.reviewsGivenCount || 0,
+        reviewsGiven: userData.reviewsGiven || [],
+        lastReviewGiven: userData.lastReviewGiven || null
+      };
+    }
+    
+    return {
+      reviewsGivenCount: 0,
+      reviewsGiven: [],
+      lastReviewGiven: null
+    };
+  } catch (error) {
+    console.error('Error fetching user review stats:', error);
+    return {
+      reviewsGivenCount: 0,
+      reviewsGiven: [],
+      lastReviewGiven: null
+    };
+  }
+};
+
+// 🆕 hostData에 리뷰어 정보도 포함시키기 (Badge 컴포넌트에서 사용)
+// const [hostData, setHostData] = useState({
+//   totalReviews: 0,
+//   averageRating: 0,
+//   reviewsGivenCount: 0 // 리뷰어로서의 통계
+// });
+
+// const [currentUserReviewStats, setCurrentUserReviewStats] = useState({
+//   reviewsGivenCount: 0,
+//   reviewsGiven: [],
+//   lastReviewGiven: null
+// });
+
+const loadHostDataWithReviewerStats = async (userId: string) => {
+  try {
+    const userRef = doc(db, 'users', userId);
+    const userDoc = await getDoc(userRef);
+    
+    if (userDoc.exists()) {
+      const userData = userDoc.data();
+      setHostData({
+        totalReviews: userData.totalReviews || 0,
+        averageRating: userData.averageRating || 0,
+        reviewsGivenCount: userData.reviewsGivenCount || 0
+      });
+    }
+  } catch (error) {
+    console.error('Error loading host data:', error);
+  }
+};
+
+const deleteReview = async (reviewId, reviewData) => {
+  if (!window.confirm('Are you sure you want to delete this review?')) {
+    return;
+  }
+
+  try {
+    await deleteDoc(doc(db, 'reviews', reviewId));
+    
+    await removeRatingFromHostStats(reviewData.revieweeId, reviewData.rating);
+    
+    await removeReviewFromReviewerStats(reviewData.reviewerId, reviewId);
+    
+    const updatedReviews = hostReviews.filter(review => review.id !== reviewId);
+    setHostReviews(updatedReviews);
+    
+    alert('Review deleted successfully!');
+    
+  } catch (error) {
+    console.error('Error deleting review:', error);
+    alert('Failed to delete review. Please try again.');
+  }
+};
+
+const updateReview = async (reviewId, originalReviewData) => {
+  if (!editReviewComment.trim()) {
+    alert('Please write a comment for your review.');
+    return;
+  }
+
+  try {
+    const updatedAt = new Date();
+    
+    await updateDoc(doc(db, 'reviews', reviewId), {
+      rating: editReviewRating,
+      comment: editReviewComment.trim(),
+      updatedAt: updatedAt,
+      isEdited: true
+    });
+    
+    if (originalReviewData.rating !== editReviewRating) {
+      await updateHostRatingChange(
+        originalReviewData.revieweeId, 
+        originalReviewData.rating, 
+        editReviewRating
+      );
+    }
+    
+    await updateReviewerReviewData(originalReviewData.reviewerId, reviewId, {
+      rating: editReviewRating,
+      comment: editReviewComment.trim(),
+      updatedAt: updatedAt
+    });
+    
+    const updatedReviews = hostReviews.map(review => 
+      review.id === reviewId 
+        ? {
+            ...review,
+            rating: editReviewRating,
+            comment: editReviewComment.trim(),
+            isEdited: true
+          }
+        : review
+    );
+    setHostReviews(updatedReviews);
+    
+    setEditingReviewId(null);
+    setEditReviewComment('');
+    setEditReviewRating(5);
+    
+    alert('Review updated successfully!');
+    
+  } catch (error) {
+    console.error('Error updating review:', error);
+    alert('Failed to update review. Please try again.');
+  }
+};
+
+const removeRatingFromHostStats = async (hostId, removedRating) => {
+  try {
+    const userRef = doc(db, 'users', hostId);
+    const userDoc = await getDoc(userRef);
+    
+    if (userDoc.exists()) {
+      const userData = userDoc.data();
+      const currentStats = userData.reviewStats || {
+        averageRating: 0,
+        totalReviews: 0,
+        ratingDistribution: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 }
+      };
+      
+      if (currentStats.totalReviews <= 1) {
+        await updateDoc(userRef, {
+          reviewStats: {
+            averageRating: 0,
+            totalReviews: 0,
+            ratingDistribution: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 }
+          },
+          averageRating: 0,
+          totalReviews: 0
+        });
+      } else {
+        const newTotalReviews = currentStats.totalReviews - 1;
+        const newAverage = ((currentStats.averageRating * currentStats.totalReviews) - removedRating) / newTotalReviews;
+        
+        const newDistribution = { ...currentStats.ratingDistribution };
+        newDistribution[removedRating] = Math.max(0, (newDistribution[removedRating] || 1) - 1);
+        
+        await updateDoc(userRef, {
+          reviewStats: {
+            averageRating: Math.round(newAverage * 10) / 10,
+            totalReviews: newTotalReviews,
+            ratingDistribution: newDistribution
+          },
+          averageRating: Math.round(newAverage * 10) / 10,
+          totalReviews: newTotalReviews
+        });
+      }
+    }
+  } catch (error) {
+    console.error('Error removing rating from host stats:', error);
+  }
+};
+
+const updateHostRatingChange = async (hostId, oldRating, newRating) => {
+  try {
+    const userRef = doc(db, 'users', hostId);
+    const userDoc = await getDoc(userRef);
+    
+    if (userDoc.exists()) {
+      const userData = userDoc.data();
+      const currentStats = userData.reviewStats || {
+        averageRating: 0,
+        totalReviews: 0,
+        ratingDistribution: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 }
+      };
+      
+      const newAverage = ((currentStats.averageRating * currentStats.totalReviews) - oldRating + newRating) / currentStats.totalReviews;
+      
+      const newDistribution = { ...currentStats.ratingDistribution };
+      newDistribution[oldRating] = Math.max(0, (newDistribution[oldRating] || 1) - 1);
+      newDistribution[newRating] = (newDistribution[newRating] || 0) + 1;
+      
+      await updateDoc(userRef, {
+        reviewStats: {
+          averageRating: Math.round(newAverage * 10) / 10,
+          totalReviews: currentStats.totalReviews,
+          ratingDistribution: newDistribution
+        },
+        averageRating: Math.round(newAverage * 10) / 10
+      });
+    }
+  } catch (error) {
+    console.error('Error updating host rating change:', error);
+  }
+};
+
+const removeReviewFromReviewerStats = async (reviewerId, reviewId) => {
+  try {
+    const reviewerRef = doc(db, 'users', reviewerId);
+    const reviewerDoc = await getDoc(reviewerRef);
+    
+    if (reviewerDoc.exists()) {
+      const userData = reviewerDoc.data();
+      const currentReviewsGiven = userData.reviewsGiven || [];
+      const filteredReviews = currentReviewsGiven.filter(review => review.reviewId !== reviewId);
+      
+      await updateDoc(reviewerRef, {
+        reviewsGiven: filteredReviews,
+        reviewsGivenCount: filteredReviews.length,
+        lastReviewGiven: filteredReviews.length > 0 
+          ? filteredReviews[filteredReviews.length - 1].createdAt 
+          : null
+      });
+    }
+  } catch (error) {
+    console.error('Error removing review from reviewer stats:', error);
+  }
+};
+
+const updateReviewerReviewData = async (reviewerId, reviewId, updatedData) => {
+  try {
+    const reviewerRef = doc(db, 'users', reviewerId);
+    const reviewerDoc = await getDoc(reviewerRef);
+    
+    if (reviewerDoc.exists()) {
+      const userData = reviewerDoc.data();
+      const currentReviewsGiven = userData.reviewsGiven || [];
+      const updatedReviews = currentReviewsGiven.map(review => 
+        review.reviewId === reviewId 
+          ? { ...review, ...updatedData }
+          : review
+      );
+      
+      await updateDoc(reviewerRef, {
+        reviewsGiven: updatedReviews
+      });
+    }
+  } catch (error) {
+    console.error('Error updating reviewer review data:', error);
+  }
+};
+
   const handleTabClick = (tab: string) => {
     // Handle tab clicks for profile dropdown
     setShowProfile(false);
@@ -1478,286 +1868,237 @@ const fetchHostReviews = async () => {
        <div className="bg-white border-b border-gray-200 sticky top-0 z-50">
          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
            <div className="flex items-center justify-between h-16">
-              <div className='hidden md:flex'>
-                {/* Enhanced Subox Logo */}
+              <div className="flex items-center space-x-3 hidden md:flex">
                 <motion.div 
-                  className="flex items-center space-x-4 relative"
-                  whileHover={{ scale: 1.05 }}
+                    className="flex items-center space-x-7 relative"
+                    whileHover={{ scale: 1.05 }}
                 >
-                  {/* Main Subox Logo */}
-                  <motion.div className="relative mt-2">
-                    {/* House Icon */}
-                    <motion.svg 
-                      className="w-12 h-12" 
-                      viewBox="0 0 100 100" 
-                      fill="none"
-                      whileHover={{ rotate: [0, -5, 5, 0] }}
-                      transition={{ duration: 0.5 }}
-                    >
-                      {/* House Base */}
-                      <motion.path
-                        d="M20 45L50 20L80 45V75C80 78 77 80 75 80H25C22 80 20 78 20 75V45Z"
-                        fill="#E97451"
-                        animate={{ 
-                          fill: ["#E97451", "#F59E0B", "#E97451"],
-                          scale: [1, 1.02, 1]
-                        }}
-                        transition={{ duration: 3, repeat: Infinity }}
-                      />
-                      {/* House Roof */}
-                      <motion.path
-                        d="M15 50L50 20L85 50L50 15L15 50Z"
-                        fill="#D97706"
-                        animate={{ rotate: [0, 1, 0] }}
-                        transition={{ duration: 4, repeat: Infinity }}
-                      />
-                      {/* Window */}
-                      <motion.rect
-                        x="40"
-                        y="50"
-                        width="20"
-                        height="15"
-                        fill="white"
-                        animate={{ 
-                          opacity: [1, 0.8, 1],
-                          scale: [1, 1.1, 1]
-                        }}
-                        transition={{ duration: 2, repeat: Infinity }}
-                      />
-                      {/* Door */}
-                      <motion.rect
-                        x="45"
-                        y="65"
-                        width="10"
-                        height="15"
-                        fill="white"
-                        animate={{ scaleY: [1, 1.05, 1] }}
-                        transition={{ duration: 2.5, repeat: Infinity }}
-                      />
-                    </motion.svg>
+                {/* Main Subox Logo */}
+                <motion.div className="relative mt-3">
+                {/* House Icon */}
+                <motion.svg 
+                    className="w-12 h-12" 
+                    viewBox="0 0 100 100" 
+                    fill="none"
+                    whileHover={{ rotate: [0, -5, 5, 0] }}
+                    transition={{ duration: 0.5 }}
+                >
+                    {/* House Base */}
+                    <motion.path
+                    d="M20 45L50 20L80 45V75C80 78 77 80 75 80H25C22 80 20 78 20 75V45Z"
+                    fill="#E97451"
+                    animate={{ 
+                        fill: ["#E97451", "#F59E0B", "#E97451"],
+                        scale: [1, 1.02, 1]
+                    }}
+                    transition={{ duration: 3, repeat: Infinity }}
+                    />
+                    {/* House Roof */}
+                    <motion.path
+                    d="M15 50L50 20L85 50L50 15L15 50Z"
+                    fill="#D97706"
+                    animate={{ rotate: [0, 1, 0] }}
+                    transition={{ duration: 4, repeat: Infinity }}
+                    />
+                    {/* Window */}
+                    <motion.rect
+                    x="40"
+                    y="50"
+                    width="20"
+                    height="15"
+                    fill="white"
+                    animate={{ 
+                        opacity: [1, 0.8, 1],
+                        scale: [1, 1.1, 1]
+                    }}
+                    transition={{ duration: 2, repeat: Infinity }}
+                    />
+                    {/* Door */}
+                    <motion.rect
+                    x="45"
+                    y="65"
+                    width="10"
+                    height="15"
+                    fill="white"
+                    animate={{ scaleY: [1, 1.05, 1] }}
+                    transition={{ duration: 2.5, repeat: Infinity }}
+                    />
+                </motion.svg>
 
-                    {/* Tag Icon */}
-                    <motion.svg 
-                      className="w-8 h-8 absolute -top-2 -right-2" 
-                      viewBox="0 0 60 60" 
-                      fill="none"
-                      whileHover={{ rotate: 360 }}
-                      transition={{ duration: 0.8 }}
-                    >
-                      <motion.path
-                        d="M5 25L25 5H50V25L30 45L5 25Z"
-                        fill="#E97451"
-                        animate={{ 
-                          rotate: [0, 5, -5, 0],
-                          scale: [1, 1.1, 1]
-                        }}
-                        transition={{ duration: 3, repeat: Infinity }}
-                      />
-                      <motion.circle
-                        cx="38"
-                        cy="17"
-                        r="4"
-                        fill="white"
-                        animate={{ 
-                          scale: [1, 1.3, 1],
-                          opacity: [1, 0.7, 1]
-                        }}
-                        transition={{ duration: 1.5, repeat: Infinity }}
-                      />
-                    </motion.svg>
-                  </motion.div>
+                {/* Tag Icon */}
+                <motion.svg 
+                    className="w-8 h-8 absolute -top-2 -right-2" 
+                    viewBox="0 0 60 60" 
+                    fill="none"
+                    whileHover={{ rotate: 360 }}
+                    transition={{ duration: 0.8 }}
+                >
+                    <motion.path
+                    d="M5 25L25 5H50V25L30 45L5 25Z"
+                    fill="#E97451"
+                    animate={{ 
+                        rotate: [0, 5, -5, 0],
+                        scale: [1, 1.1, 1]
+                    }}
+                    transition={{ duration: 3, repeat: Infinity }}
+                    />
+                    <motion.circle
+                    cx="38"
+                    cy="17"
+                    r="4"
+                    fill="white"
+                    animate={{ 
+                        scale: [1, 1.3, 1],
+                        opacity: [1, 0.7, 1]
+                    }}
+                    transition={{ duration: 1.5, repeat: Infinity }}
+                    />
+                </motion.svg>
+                </motion.div>
 
-                  {/* Subox Text */}
-                  <motion.div className="flex flex-col mb-1">
-                    <motion.span 
-                      className="text-3xl font-bold text-gray-900"
-                      animate={{
-                        background: [
-                          "linear-gradient(45deg, #1F2937, #374151)",
-                          "linear-gradient(45deg, #E97451, #F59E0B)",
-                          "linear-gradient(45deg, #1F2937, #374151)"
-                        ],
-                        backgroundClip: "text",
-                        WebkitBackgroundClip: "text",
-                        color: "transparent"
-                      }}
-                      transition={{ duration: 4, repeat: Infinity }}
-                    >
-                      Subox
-                    </motion.span>
-                    <motion.span 
-                      className="text-xs text-gray-500 font-medium tracking-wider ml-1"
-                      animate={{ opacity: [0.7, 1, 0.7] }}
-                      transition={{ duration: 2, repeat: Infinity }}
-                    >
-                      Subleases
-                    </motion.span>
-                  </motion.div>              
-                  {/* Interactive Follower Elements */}
-                  <motion.div className="absolute -inset-4 pointer-events-none">
-                    {Array.from({ length: 6 }, (_, i) => (
-                      <motion.div
-                        key={i}
-                        className="absolute w-1 h-1 bg-orange-300 rounded-full opacity-60"
-                        style={{
-                          left: `${20 + i * 15}%`,
-                          top: `${30 + Math.sin(i) * 20}%`,
-                        }}
-                        animate={{
-                          x: [0, 10, -10, 0],
-                          y: [0, -5, 5, 0],
-                          scale: [0.5, 1, 0.5],
-                          opacity: [0.3, 0.8, 0.3]
-                        }}
-                        transition={{
-                          duration: 3 + i * 0.5,
-                          repeat: Infinity,
-                          ease: "easeInOut"
-                        }}
-                      />
-                    ))}
-                  </motion.div>
+                {/* Subox Text */}
+                <motion.div className="flex flex-col -mx-4">
+                <motion.span 
+                    className="text-3xl font-bold text-gray-900"
+                    animate={{
+                    background: [
+                        "linear-gradient(45deg, #1F2937, #374151)",
+                        "linear-gradient(45deg, #E97451, #F59E0B)",
+                        "linear-gradient(45deg, #1F2937, #374151)"
+                    ],
+                    backgroundClip: "text",
+                    WebkitBackgroundClip: "text",
+                    color: "transparent"
+                    }}
+                    transition={{ duration: 4, repeat: Infinity }}
+                >
+                    Subox
+                </motion.span>
+                <motion.span 
+                    className="text-xs text-gray-500 font-medium tracking-wider"
+                    animate={{ opacity: [0.7, 1, 0.7] }}
+                    transition={{ duration: 2, repeat: Infinity }}
+                >
+                    Subleases
+                </motion.span>
+                </motion.div>
                 </motion.div>
               </div>
-              <div className='flex md:hidden'>
-                {/* Enhanced Subox Logo */}
+
+              <div className="flex items-center space-x-3 flex md:hidden">
                 <motion.div 
-                  className="flex items-center space-x-4 relative"
-                  whileHover={{ scale: 1.05 }}
+                    className="flex items-center space-x-7 relative"
+                    whileHover={{ scale: 1.05 }}
                 >
-                  {/* Main Subox Logo */}
-                  <motion.div className="relative mt-2">
-                    {/* House Icon */}
-                    <motion.svg 
-                      className="w-10 h-10" 
-                      viewBox="0 0 100 100" 
-                      fill="none"
-                      whileHover={{ rotate: [0, -5, 5, 0] }}
-                      transition={{ duration: 0.5 }}
-                    >
-                      {/* House Base */}
-                      <motion.path
-                        d="M20 45L50 20L80 45V75C80 78 77 80 75 80H25C22 80 20 78 20 75V45Z"
-                        fill="#E97451"
-                        animate={{ 
-                          fill: ["#E97451", "#F59E0B", "#E97451"],
-                          scale: [1, 1.02, 1]
-                        }}
-                        transition={{ duration: 3, repeat: Infinity }}
-                      />
-                      {/* House Roof */}
-                      <motion.path
-                        d="M15 50L50 20L85 50L50 15L15 50Z"
-                        fill="#D97706"
-                        animate={{ rotate: [0, 1, 0] }}
-                        transition={{ duration: 4, repeat: Infinity }}
-                      />
-                      {/* Window */}
-                      <motion.rect
-                        x="40"
-                        y="50"
-                        width="20"
-                        height="15"
-                        fill="white"
-                        animate={{ 
-                          opacity: [1, 0.8, 1],
-                          scale: [1, 1.1, 1]
-                        }}
-                        transition={{ duration: 2, repeat: Infinity }}
-                      />
-                      {/* Door */}
-                      <motion.rect
-                        x="45"
-                        y="65"
-                        width="10"
-                        height="15"
-                        fill="white"
-                        animate={{ scaleY: [1, 1.05, 1] }}
-                        transition={{ duration: 2.5, repeat: Infinity }}
-                      />
-                    </motion.svg>
+                {/* Main Subox Logo */}
+                <motion.div className="relative mt-3">
+                {/* House Icon */}
+                <motion.svg 
+                    className="w-10 h-10" 
+                    viewBox="0 0 100 100" 
+                    fill="none"
+                    whileHover={{ rotate: [0, -5, 5, 0] }}
+                    transition={{ duration: 0.5 }}
+                >
+                    {/* House Base */}
+                    <motion.path
+                    d="M20 45L50 20L80 45V75C80 78 77 80 75 80H25C22 80 20 78 20 75V45Z"
+                    fill="#E97451"
+                    animate={{ 
+                        fill: ["#E97451", "#F59E0B", "#E97451"],
+                        scale: [1, 1.02, 1]
+                    }}
+                    transition={{ duration: 3, repeat: Infinity }}
+                    />
+                    {/* House Roof */}
+                    <motion.path
+                    d="M15 50L50 20L85 50L50 15L15 50Z"
+                    fill="#D97706"
+                    animate={{ rotate: [0, 1, 0] }}
+                    transition={{ duration: 4, repeat: Infinity }}
+                    />
+                    {/* Window */}
+                    <motion.rect
+                    x="40"
+                    y="50"
+                    width="20"
+                    height="15"
+                    fill="white"
+                    animate={{ 
+                        opacity: [1, 0.8, 1],
+                        scale: [1, 1.1, 1]
+                    }}
+                    transition={{ duration: 2, repeat: Infinity }}
+                    />
+                    {/* Door */}
+                    <motion.rect
+                    x="45"
+                    y="65"
+                    width="10"
+                    height="15"
+                    fill="white"
+                    animate={{ scaleY: [1, 1.05, 1] }}
+                    transition={{ duration: 2.5, repeat: Infinity }}
+                    />
+                </motion.svg>
 
-                    {/* Tag Icon */}
-                    <motion.svg 
-                      className="w-6 h-6 absolute -top-1 -right-1" 
-                      viewBox="0 0 60 60" 
-                      fill="none"
-                      whileHover={{ rotate: 360 }}
-                      transition={{ duration: 0.8 }}
-                    >
-                      <motion.path
-                        d="M5 25L25 5H50V25L30 45L5 25Z"
-                        fill="#E97451"
-                        animate={{ 
-                          rotate: [0, 5, -5, 0],
-                          scale: [1, 1.1, 1]
-                        }}
-                        transition={{ duration: 3, repeat: Infinity }}
-                      />
-                      <motion.circle
-                        cx="38"
-                        cy="17"
-                        r="4"
-                        fill="white"
-                        animate={{ 
-                          scale: [1, 1.3, 1],
-                          opacity: [1, 0.7, 1]
-                        }}
-                        transition={{ duration: 1.5, repeat: Infinity }}
-                      />
-                    </motion.svg>
-                  </motion.div>
+                {/* Tag Icon */}
+                <motion.svg 
+                    className="w-6 h-6 absolute -top-1 -right-1" 
+                    viewBox="0 0 60 60" 
+                    fill="none"
+                    whileHover={{ rotate: 360 }}
+                    transition={{ duration: 0.8 }}
+                >
+                    <motion.path
+                    d="M5 25L25 5H50V25L30 45L5 25Z"
+                    fill="#E97451"
+                    animate={{ 
+                        rotate: [0, 5, -5, 0],
+                        scale: [1, 1.1, 1]
+                    }}
+                    transition={{ duration: 3, repeat: Infinity }}
+                    />
+                    <motion.circle
+                    cx="38"
+                    cy="17"
+                    r="4"
+                    fill="white"
+                    animate={{ 
+                        scale: [1, 1.3, 1],
+                        opacity: [1, 0.7, 1]
+                    }}
+                    transition={{ duration: 1.5, repeat: Infinity }}
+                    />
+                </motion.svg>
+                </motion.div>
 
-                  {/* Subox Text */}
-                  <motion.div className="flex flex-col mb-1">
-                    <motion.span 
-                      className="text-xl font-bold text-gray-900"
-                      animate={{
-                        background: [
-                          "linear-gradient(45deg, #1F2937, #374151)",
-                          "linear-gradient(45deg, #E97451, #F59E0B)",
-                          "linear-gradient(45deg, #1F2937, #374151)"
-                        ],
-                        backgroundClip: "text",
-                        WebkitBackgroundClip: "text",
-                        color: "transparent"
-                      }}
-                      transition={{ duration: 4, repeat: Infinity }}
-                    >
-                      Subox
-                    </motion.span>
-                    <motion.span 
-                      className="text-[10px] text-gray-500 font-medium tracking-wider"
-                      animate={{ opacity: [0.7, 1, 0.7] }}
-                      transition={{ duration: 2, repeat: Infinity }}
-                    >
-                      Subleases
-                    </motion.span>
-                  </motion.div>              
-                  {/* Interactive Follower Elements */}
-                  <motion.div className="absolute -inset-4 pointer-events-none">
-                    {Array.from({ length: 6 }, (_, i) => (
-                      <motion.div
-                        key={i}
-                        className="absolute w-1 h-1 bg-orange-300 rounded-full opacity-60"
-                        style={{
-                          left: `${20 + i * 15}%`,
-                          top: `${30 + Math.sin(i) * 20}%`,
-                        }}
-                        animate={{
-                          x: [0, 10, -10, 0],
-                          y: [0, -5, 5, 0],
-                          scale: [0.5, 1, 0.5],
-                          opacity: [0.3, 0.8, 0.3]
-                        }}
-                        transition={{
-                          duration: 3 + i * 0.5,
-                          repeat: Infinity,
-                          ease: "easeInOut"
-                        }}
-                      />
-                    ))}
-                  </motion.div>
+                {/* Subox Text */}
+                <motion.div className="flex flex-col -mx-4">
+                <motion.span 
+                    className="text-xl font-bold text-gray-900"
+                    animate={{
+                    background: [
+                        "linear-gradient(45deg, #1F2937, #374151)",
+                        "linear-gradient(45deg, #E97451, #F59E0B)",
+                        "linear-gradient(45deg, #1F2937, #374151)"
+                    ],
+                    backgroundClip: "text",
+                    WebkitBackgroundClip: "text",
+                    color: "transparent"
+                    }}
+                    transition={{ duration: 4, repeat: Infinity }}
+                >
+                    Subox
+                </motion.span>
+                <motion.span 
+                    className="text-[10px] text-gray-500 font-medium tracking-wider"
+                    animate={{ opacity: [0.7, 1, 0.7] }}
+                    transition={{ duration: 2, repeat: Infinity }}
+                >
+                    Subleases
+                </motion.span>
+                </motion.div>
                 </motion.div>
               </div>
 
@@ -1781,33 +2122,11 @@ const fetchHostReviews = async () => {
                  <motion.button
                    whileHover={{ scale: 1.05 }}
                    whileTap={{ scale: 0.95 }}
-                   onClick={() => setShowProfile(!showProfile)}
+                   onClick={() => router.push("/profile")}
                    className="p-2 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
                  >
                    <User className="w-5 h-5 text-gray-600" />
                  </motion.button>
- 
-                 <AnimatePresence>
-                   {showProfile && (
-                     <motion.div
-                       initial={{ opacity: 0, y: -10 }}
-                       animate={{ opacity: 1, y: 0 }}
-                       exit={{ opacity: 0, y: -10 }}
-                       className="absolute right-0 mt-2 w-64 bg-white rounded-lg shadow-lg border border-gray-200 z-50"
-                     >
-                       <div className="p-4 space-y-2">
-                         <button onClick={() => handleTabClick("purchased")} className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors">What I Purchased</button>
-                         <button onClick={() => handleTabClick("returned")} className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors">What I Returned</button>
-                         <button onClick={() => handleTabClick("cancelled")} className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors">What I Cancelled</button>
-                         <button onClick={() => handleTabClick("sold")} className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors">What I Sold</button>
-                         <button onClick={() => handleTabClick("sublease")} className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors">Sublease</button>
-                         <button onClick={() => handleTabClick("reviews")} className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors">Reviews</button>
-                         <hr className="my-2" />
-                         <button onClick={() => handleTabClick("history")} className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors">History</button>
-                       </div>
-                     </motion.div>
-                   )}
-                 </AnimatePresence>
                </div>
  
                {/* menu */}
@@ -2018,7 +2337,7 @@ const fetchHostReviews = async () => {
      )}
 
      {/* detail page */}
-     <div className=" pt-0">
+     <div className="pt-0">
        
        <div className="max-w-4xl mx-auto p-6">
          {/* back button*/}
@@ -2202,18 +2521,21 @@ const fetchHostReviews = async () => {
         />
         </div>
         <div className="flex-1">
-        <div className="flex items-center">
+        <div className="flex items-center ">
             <h3 className="font-medium text-lg text-gray-700">{listing.hostName || "Anonymous"}</h3>
             {/* UMN verified */}
-            {listing.isVerifiedUMN && (
+            {/* {listing.isVerifiedUMN && (
             <div className="ml-2 bg-orange-100 text-orange-800 text-xs px-2 py-1 rounded-full flex items-center">
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 mr-1" viewBox="0 0 20 20" fill="currentColor">
                 <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                 </svg>
                 UMN Verified
             </div>
-            )}
-        </div>
+            )} */}
+        
+
+       <Badges listing={listing} hostData={hostData} className = "mr-4" />
+</div>
         
    {/* Host Rating Display from Firebase */}
 <div className="flex items-center mt-2 mb-2">
@@ -2398,60 +2720,160 @@ const fetchHostReviews = async () => {
 
      {/* Host Ratings Section */}
      <div className="mb-8">
-       <h2 className="text-xl font-semibold text-gray-900 mt-8 mb-4">Host Ratings</h2>
-       
-       <div className="flex items-center gap-4  bg-gray-50 rounded-lg">
-
-           {[1, 2, 3, 4, 5].map((star) => (
-               <Star 
-               key={star} 
-               className={`w-5 h-5 ${star <= Math.round(hostRating) ? 'text-orange-400 fill-orange-400' : 'text-gray-300'}`} 
-               />
-           ))}
-           <span className="ml-2 text-gray-700 font-medium">
-               {hostRating}/5
-           </span>
-           <span className="ml-2 text-gray-600 text-sm">
-               ({hostReviewCount} reviews)
-           </span>
+  <h2 className="text-xl font-semibold text-gray-900 mt-8 mb-4">Host Ratings</h2>
+  
+  <div className="flex items-center gap-4 bg-gray-50 rounded-lg">
+    {[1, 2, 3, 4, 5].map((star) => (
+      <Star 
+        key={star} 
+        className={`w-5 h-5 ${star <= Math.round(hostRating) ? 'text-orange-400 fill-orange-400' : 'text-gray-300'}`} 
+      />
+    ))}
+    <span className="ml-2 text-gray-700 font-medium">
+      {hostRating}/5
+    </span>
+    <span className="ml-2 text-gray-600 text-sm">
+      ({hostReviewCount} reviews)
+    </span>
+  </div>
+  
+  {/* Reviews List with Edit/Delete functionality */}
+  <div className="mt-4 p-4 bg-orange-50 border border-orange-200 rounded-lg">
+    <div className="space-y-4">
+      {/* when no review */}
+      {hostReviews.length === 0 && (
+        <p className="text-gray-500 italic">No reviews yet. Be the first to leave a review!</p>
+      )}
+      
+      {/* review listings with edit/delete */}
+      {hostReviews.map((review) => {
+        const isMyReview = user && review.reviewerId === user.uid;
+        const isEditing = editingReviewId === review.id;
         
-       </div>
-       
-       {/* No Reviews Message */}
-       <div className="mt-4 p-4 bg-orange-50 border border-orange-200 rounded-lg">
-          {/* review listings*/}
-           <div className="space-y-4">
-               {/* when no review*/}
-               {hostReviews.length === 0 && (
-               <p className="text-gray-500 italic">No reviews yet. Be the first to leave a review!</p>
-               )}
-               
-               {/* review listings */}
-               {hostReviews.map((review) => (
-               <div key={review.id} className="border-b pb-4 last:border-0 last:pb-0">
-                   <div className="flex justify-between items-start mb-2">
-                   <div>
-                       <div className="font-medium text-gray-600">{review.name}</div>
-                       <div className="text-sm text-gray-500">{review.date}</div>
-                   </div>
-                   <div className="flex">
-                       {[1, 2, 3, 4, 5].map((star) => (
-                       <Star 
-                           key={star} 
-                           className={`w-3 h-3 ${star <= review.rating ? 'text-orange-400 fill-orange-400' : 'text-gray-300'}`} 
-                       />
-                       ))}
-                   </div>
-                   </div>
-                   <p className="text-gray-700">{review.comment}</p>
-               </div>
-               ))}
-           </div>
-       </div>
-     </div>
+        return (
+          <div key={review.id} className="border-b pb-4 last:border-0 last:pb-0">
+            <div className="flex justify-between items-start mb-2">
+              <div className="flex items-center">
+                <div>
+                  <div className="font-medium text-gray-600">{review.name}</div>
+                  <div className="text-sm text-gray-500 flex items-center">
+                    {review.date}
+                    {review.isEdited && (
+                      <span className="ml-2 text-xs text-gray-400">(edited)</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+              
+              <div className="flex items-center gap-3">
+                {/* Star Rating */}
+                <div className="flex">
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <Star 
+                      key={star} 
+                      className={`w-3 h-3 ${star <= review.rating ? 'text-orange-400 fill-orange-400' : 'text-gray-300'}`} 
+                    />
+                  ))}
+                </div>
+                
+                {/* Edit/Delete buttons for own reviews */}
+                {isMyReview && !isEditing && (
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => {
+                        setEditingReviewId(review.id);
+                        setEditReviewRating(review.rating);
+                        setEditReviewComment(review.comment);
+                      }}
+                      className="text-sm text-blue-600 hover:text-blue-800 font-medium"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      onClick={() => deleteReview(review.id, {
+                        reviewerId: review.reviewerId,
+                        revieweeId: listing.hostId,
+                        rating: review.rating
+                      })}
+                      className="text-sm text-red-600 hover:text-red-800 font-medium"
+                    >
+                      Delete
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+            
+            {/* Review Content - 편집 모드 vs 일반 모드 */}
+            {isEditing ? (
+              <div className="mt-3 bg-white p-4 rounded-lg border">
+                {/* Edit Rating */}
+                <div className="mb-3">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Rating</label>
+                  <div className="flex gap-1">
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <button
+                        key={star}
+                        onClick={() => setEditReviewRating(star)}
+                        className="transition-colors"
+                      >
+                        <Star
+                          size={20}
+                          className={`${
+                            editReviewRating >= star 
+                              ? 'text-yellow-400 fill-yellow-400' 
+                              : 'text-gray-300'
+                          } hover:text-yellow-400`}
+                        />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                
+                {/* Edit Comment */}
+                <textarea
+                  value={editReviewComment}
+                  onChange={(e) => setEditReviewComment(e.target.value)}
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent resize-none mb-3"
+                  rows={3}
+                />
+                
+                {/* Save/Cancel Buttons */}
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => updateReview(review.id, {
+                      reviewerId: review.reviewerId,
+                      revieweeId: listing.hostId,
+                      rating: review.rating
+                    })}
+                    disabled={!editReviewComment.trim()}
+                    className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 disabled:bg-gray-300 text-sm transition"
+                  >
+                    Save Changes
+                  </button>
+                  <button
+                    onClick={() => {
+                      setEditingReviewId(null);
+                      setEditReviewComment('');
+                      setEditReviewRating(5);
+                    }}
+                    className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-sm transition"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <p className="text-gray-700">{review.comment}</p>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  </div>
+</div>
 
-     {/* Write a Review Button */}
-    {/* Write a Review Button - Updated with permissions */}
+{/* Write a Review Button - 기존 그대로 */}
 {!isUserHost && user ? (
   <button 
     onClick={() => setShowReviewModal(!showReviewModal)}
@@ -2475,7 +2897,7 @@ const fetchHostReviews = async () => {
   </button>
 )}
 
-{/* Review Form Dropdown */}
+{/* Review Form Dropdown - 기존 그대로 */}
 {showReviewModal && (
   <div className="mb-8 bg-white border border-gray-200 rounded-lg p-6 shadow-lg animate-fadeIn">
     <div className="flex items-center justify-between mb-4">
@@ -2528,6 +2950,7 @@ const fetchHostReviews = async () => {
       >
         Submit Review
       </button>
+      
       <button
         onClick={() => {
           setShowReviewModal(false);
@@ -2576,7 +2999,7 @@ const fetchHostReviews = async () => {
       <footer className="bg-orange-300 text-white py-12 w-full">
         <div className="hidden md:block max-w-7xl mx-auto px-4">
           {/* Upper Grid: 4 columns from original + 4 new columns in two rows */}
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-8 mb-10">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-10">
             {/* Subox Brand */}
             <div>
               <ul className="space-y-2">
@@ -2697,15 +3120,6 @@ const fetchHostReviews = async () => {
               </ul>
             </div>
 
-            {/* Get Started */}
-            <div>
-              <h3 className="font-bold mb-4">Get Started</h3>
-              <ul className="space-y-2 text-lg">
-                <li><a href="auth" className="hover:underline">Log in</a></li>
-                <li><a href="auth?mode=signup" className="hover:underline">Sign up</a></li>
-              </ul>
-            </div>
-
             {/* Support */}
             <div>
               <h3 className="text-2xl font-bold mb-4">Support</h3>
@@ -2717,6 +3131,32 @@ const fetchHostReviews = async () => {
               >
                 Visit Help Center
               </a>
+            </div>
+          </div>
+
+          {/* Divider */}
+          <div className="border-t border-white/30 my-10"></div>
+
+          {/* Bottom Grid: 4 more sections */}
+          <div className="grid grid-cols-1 ml-75 md:grid-cols-4 gap-8 text-center md:text-left">
+
+            {/* Get Started */}
+            <div>
+              <h3 className="font-bold mb-4">Get Started</h3>
+              <ul className="space-y-2">
+                <li><a href="auth" className="hover:underline">Log in</a></li>
+                <li><a href="auth?mode=signup" className="hover:underline">Sign up</a></li>
+              </ul>
+            </div>
+
+            {/* Resources */}
+            <div>
+              <h3 className="font-bold mb-4">Resources</h3>
+              <ul className="space-y-2">
+                <li><a href="#features" className="hover:underline">Features</a></li>
+                <li><a href="#use-cases" className="hover:underline">Use Cases</a></li>
+                <li><a href="#how-it-works" className="hover:underline">How it Works</a></li>
+              </ul>
             </div>
           </div>
 
