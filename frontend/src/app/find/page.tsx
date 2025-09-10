@@ -1364,13 +1364,13 @@ const SuboxLogo = ({ size = 200, className = "" }) => (
               initial="hidden"
               animate="visible"
               exit="hidden"
-              className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-5xl mx-auto"
+              className="grid grid-cols-2 gap-8 max-w-5xl mx-auto text-xs md:text-[16px] mt-45 md:mt-0"
             >
               {/* Sublease Option */}
               <motion.div variants={itemVariants}>
                 <InteractiveCard
                   icon={<CustomIcons.Home size={32} />}
-                  title="Sublease Space"
+                  title=<h3 className="text-base md:text-xl">Sublease Space</h3>
                   description="List your apartment or find your next home with ease"
                   action="Get Started"
                   onClick={() => handleOptionSelect("sublease")}
@@ -1382,7 +1382,7 @@ const SuboxLogo = ({ size = 200, className = "" }) => (
               <motion.div variants={itemVariants}>
                 <InteractiveCard
                   icon={<CustomIcons.Package size={32} />}
-                  title="Moving Sale"
+                  title=<h3 className="text-base md:text-xl">Moving Sale</h3>
                   description="Sell items or find great deals from students near you"
                   action="Get Started"
                   onClick={() => handleOptionSelect("sale")}
@@ -1456,7 +1456,7 @@ const SuboxLogo = ({ size = 200, className = "" }) => (
               initial="hidden"
               animate="visible"
               exit="hidden"
-              className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-5xl mx-auto"
+              className="grid grid-cols-2 gap-8 max-w-5xl text-xs md:text-[16px] mx-auto"
             >
               {/* Sell Your Items */}
               <motion.div variants={itemVariants}>
@@ -1492,7 +1492,7 @@ const SuboxLogo = ({ size = 200, className = "" }) => (
                   authStatus={{
                     type: 'ready',
                     icon: <div className="w-3 h-3 rounded-full bg-green-500" />,
-                    text: 'No account needed to browse'
+                    text: 'No account needed'
                   }}
                   gradient="from-yellow-400 to-orange-600"
                 />
