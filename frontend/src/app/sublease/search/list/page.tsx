@@ -529,7 +529,7 @@ const ConversationListPage = () => {
                         {notifications.map(notif => (
                           <button
                             key={notif.id}
-                            onClick={() => router.push(`browse/notificationDetail/${notif.id}`)}
+                            onClick={() => router.push(`/notifications/${notif.id}`)}
                             className="w-full flex items-start space-x-3 p-2 rounded-lg hover:bg-gray-50 text-left transition-colors"
                           >
                             <div className="w-2 h-2 bg-orange-500 rounded-full mt-2 flex-shrink-0"></div>
@@ -541,7 +541,7 @@ const ConversationListPage = () => {
                         ))}
                       </div>
                       <button
-                        onClick={() => router.push('browse/notification/')}
+                        onClick={() => router.push('/notifications')}
                         className="mt-3 text-sm text-orange-600 hover:text-orange-700 transition-colors"
                       >
                         See all notifications

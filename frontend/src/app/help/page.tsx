@@ -6,6 +6,7 @@ import {
   Package, Menu, X, Send, Check, AlertCircle, ArrowLeft, MessagesSquare
 } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { auth } from '@/lib/firebase';
 
 // Define TypeScript interfaces
 interface FAQItem {
@@ -1032,11 +1033,16 @@ const HelpPage = () => {
                                 <hr className="my-2" />
                                   {/* log in/ out */}
                                   {isLoggedIn ? (
-                                    <button className="w-full text-left px-3 py-2 rounded-md text-sm text-red-600 hover:bg-red-50 hover:text-red-700 transition-colors">
+                                    <button 
+                                      className="w-full text-left px-3 py-2 rounded-md text-sm text-red-600 hover:bg-red-50 hover:text-red-700 transition-colors"
+                                    >
                                       Logout
                                     </button>
                                   ) : (
-                                    <button className="w-full text-left px-3 py-2 rounded-md text-sm text-blue-600 hover:bg-blue-50 hover:text-blue-700 transition-colors">
+                                    <button 
+                                      className="w-full text-left px-3 py-2 rounded-md text-sm text-blue-600 hover:bg-blue-50 hover:text-blue-700 transition-colors"
+                                      onClick={() => router.push('/auth')}
+                                    >
                                       Login
                                     </button>
                                   )}

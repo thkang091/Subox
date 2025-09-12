@@ -1155,7 +1155,7 @@ const SuboxLogo = ({ size = 200, className = "" }) => (
                     onClick={resetSelection}
                     className="flex items-center px-4 py-2 rounded-xl bg-gray-100 hover:bg-gray-200 transition-colors"
                   >
-                    <CustomIcons.ArrowLeft size={18} className="mr-2 text-gray-600" />
+                    <CustomIcons.ArrowLeft size={18} className="mr-2 text-gray-500" />
                     <span className="font-medium text-gray-700">Back</span>
                   </motion.button>
                 )}
@@ -1383,7 +1383,7 @@ const SuboxLogo = ({ size = 200, className = "" }) => (
                 <InteractiveCard
                   icon={<CustomIcons.Package size={32} />}
                   title={<h3 className="text-base md:text-xl">Moving Sale</h3>}
-                  description="Sell items or find great deals from students near you"
+                  description={<span className="text-[11px] md:text-base">Sell items or find great deals from students near you</span>}
                   action="Get Started"
                   onClick={() => handleOptionSelect("sale")}
                   gradient="from-orange-400 to-orange-600"

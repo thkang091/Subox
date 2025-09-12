@@ -1034,7 +1034,7 @@ useEffect(() => {
                   {notifications.map(notif => (
                     <button
                       key={notif.id}
-                      onClick={() => router.push(`browse/notification?id=${notif.id}`)}
+                      onClick={() => router.push(`/notifications?id=${notif.id}`)}
                       className="w-full flex items-start space-x-3 p-2 rounded-lg hover:bg-orange-50 text-left"
                     >
                       <div className="w-2 h-2 bg-orange-500 rounded-full mt-2"></div>
@@ -3541,11 +3541,16 @@ const renderCommuteInfo = (listing) => {
                           <hr className="my-2" />
                             {/* log in/ out */}
                             {isLoggedIn ? (
-                              <button className="w-full text-left px-3 py-2 rounded-md text-sm text-red-600 hover:bg-red-50 hover:text-red-700 transition-colors">
+                              <button 
+                                className="w-full text-left px-3 py-2 rounded-md text-sm text-red-600 hover:bg-red-50 hover:text-red-700 transition-colors"
+                              >
                                 Logout
                               </button>
                             ) : (
-                              <button className="w-full text-left px-3 py-2 rounded-md text-sm text-blue-600 hover:bg-blue-50 hover:text-blue-700 transition-colors">
+                              <button 
+                                className="w-full text-left px-3 py-2 rounded-md text-sm text-blue-600 hover:bg-blue-50 hover:text-blue-700 transition-colors"
+                                onClick={() => router.push('/auth')}
+                              >
                                 Login
                               </button>
                             )}
