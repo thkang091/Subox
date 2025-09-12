@@ -14,6 +14,8 @@ import {
   Bell,
   User,
   History,
+  Navigation,
+  AlertCircle,
   Bookmark,
   GitCompare,
   Map as MapIcon,
@@ -53,6 +55,7 @@ const MoveOutSalePage = () => {
   const [viewMode, setViewMode] = useState("grid");
   const [showFilters, setShowFilters] = useState(false);
   const [cart, setCart] = useState(new Map());
+  const [currentCalendarDate, setCurrentCalendarDate] = useState(new Date());
   const [compareItems, setCompareItems] = useState(new Set());
   const [showNotifications, setShowNotifications] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
@@ -115,36 +118,52 @@ const MoveOutSalePage = () => {
       console.error('Error loading favorites from localStorage:', error);
     }
   }, []);
+const loadGoogleMapsForLocationSearch = async () => {
+  const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+  
+  if (!apiKey) {
+    setMapsError('Google Maps API key not configured');
+    return;
+  }
 
-  const loadGoogleMapsForLocationSearch = async () => {
-    const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
-    
-    if (!apiKey) {
-      setMapsError('Google Maps API key not configured');
-      return;
+  // Check if Google Maps is already loaded
+  if (window.google && window.google.maps && window.google.maps.places) {
+    initializeGoogleMapsServices();
+    return;
+  }
+
+  // Check if script is already being loaded
+  const existingScript = document.querySelector('script[src*="maps.googleapis.com"]');
+  if (existingScript) {
+    // If script exists, wait for it to load
+    if (!existingScript.dataset.loading) {
+      existingScript.dataset.loading = 'true';
+      existingScript.addEventListener('load', () => {
+        delete existingScript.dataset.loading;
+        initializeGoogleMapsServices();
+      });
     }
+    return;
+  }
 
-    if (window.google && window.google.maps && window.google.maps.places) {
-      initializeGoogleMapsServices();
-      return;
-    }
-
-    const existingScript = document.querySelector('script[src*="maps.googleapis.com"]');
-    if (existingScript) {
-      existingScript.addEventListener('load', initializeGoogleMapsServices);
-      return;
-    }
-
-    const script = document.createElement('script');
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places&v=beta`;
-    script.async = true;
-    script.defer = true;
-    
-    script.onload = initializeGoogleMapsServices;
-    script.onerror = () => setMapsError('Failed to load Google Maps');
-    
-    document.head.appendChild(script);
+  // Create new script
+  const script = document.createElement('script');
+  script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places&v=beta`;
+  script.async = true;
+  script.defer = true;
+  script.dataset.loading = 'true';
+  
+  script.onload = () => {
+    delete script.dataset.loading;
+    initializeGoogleMapsServices();
   };
+  script.onerror = () => {
+    delete script.dataset.loading;
+    setMapsError('Failed to load Google Maps');
+  };
+  
+  document.head.appendChild(script);
+};
 
 
   // Add refs for Google Maps services
@@ -171,15 +190,6 @@ const MoveOutSalePage = () => {
     if (!query.trim()) {
       setLocationSuggestions([]);
       setShowLocationSuggestions(false);
-      return;
-    }
-
-    setIsLocationSearching(true);
-
-    if (!autocompleteService.current || !isGoogleMapsReady) {
-      setLocationSuggestions([]);
-      setShowLocationSuggestions(false);
-      setIsLocationSearching(false);
       return;
     }
 
@@ -210,14 +220,6 @@ const MoveOutSalePage = () => {
     );
   };
 
-  setIsLocationSearching(true);
-
-  if (!autocompleteService.current || !isGoogleMapsReady) {
-    setLocationSuggestions([]);
-    setShowLocationSuggestions(false);
-    setIsLocationSearching(false);
-    return;
-  }
 
 
   const selectLocationSuggestion = (suggestion) => {
@@ -389,6 +391,17 @@ const parseAddressComponents = (components) => {
       }
     );
   };
+
+
+  useEffect(() => {
+  return () => {
+    // Cleanup timeout on unmount
+    if (locationSearchTimeout.current) {
+      clearTimeout(locationSearchTimeout.current);
+    }
+  };
+}, []);
+
 
   const handleLocationSearchChange = (e) => {
     const value = e.target.value;
@@ -640,6 +653,43 @@ useEffect(() => {
     setShowProfile(false); // close dropdown
   };
 
+  const clearLocationSearch = () => {
+  setLocationSearchQuery('');
+  setSelectedCustomLocation(null);
+  setLocationSuggestions([]);
+  setShowLocationSuggestions(false);
+  setSelectedLocation('All Locations');
+  setLocationError(null);
+};
+
+const determineAreaType = (types, description) => {
+  if (types.includes('administrative_area_level_1')) return 'state';
+  if (types.includes('locality') || types.includes('administrative_area_level_2')) return 'city';
+  if (types.includes('neighborhood') || types.includes('sublocality')) return 'neighborhood';
+  return 'specific';
+};
+
+
+const getLocationIcon = (areaType) => {
+  switch (areaType) {
+    case 'state':
+      return <MapIcon size={16} className="text-purple-500" />;
+    case 'city':
+      return <MapPin size={16} className="text-blue-500" />;
+    case 'neighborhood':
+      return <MapPin size={16} className="text-green-500" />;
+    default:
+      return <MapPin size={16} className="text-gray-500" />;
+  }
+};
+
+const extractCityFromAddress = (address) => {
+  const parts = address.split(',');
+  return parts.length > 1 ? parts[1].trim() : parts[0].trim();
+};
+
+
+
   const handleSearchSubmit = (e) => {
   e.preventDefault();
   if (!searchQuery.trim()) return;
@@ -740,7 +790,7 @@ const NotificationsButton = ({ notifications }: { notifications: Notification[] 
                 {notifications.map(notif => (
                   <button
                     key={notif.id}
-                    onClick={() => router.push(`browse/notification?id=${notif.id}`)}
+                    onClick={() => router.push(`/notifications?id=${notif.id}`)}
                     className="w-full flex items-start space-x-3 p-2 rounded-lg hover:bg-orange-50 text-left"
                   >
                     <div className="w-2 h-2 bg-orange-500 rounded-full mt-2"></div>
@@ -753,7 +803,7 @@ const NotificationsButton = ({ notifications }: { notifications: Notification[] 
               </div>
 
               <button
-                onClick={() => router.push(`browse/notification/`)}
+                onClick={() => router.push(`/notifications`)}
                 className="mt-3 text-sm text-orange-600 hover:underline"
               >
                 See all notifications
@@ -826,6 +876,29 @@ const NotificationsButton = ({ notifications }: { notifications: Notification[] 
       </div>
     </div>
   );
+
+  const additionalCSS = `
+.line-clamp-1 {
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.line-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Ensure consistent heights on mobile */
+@media (max-width: 640px) {
+  .mobile-product-card {
+    min-height: 200px; /* Ensures 6+ cards fit vertically */
+  }
+}
+`;
 
   // Loading state
   if (loading) {
@@ -1170,6 +1243,7 @@ const NotificationsButton = ({ notifications }: { notifications: Notification[] 
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
                 className="p-2 bg-gray-200 rounded-lg hover:bg-gray-300 transition-colors"
+                onClick={() => router.push('/sublease/search/list')}
               >
                 <MessagesSquare className = "w-5 h-5 text-gray-500"/>
               </motion.button>
@@ -1270,7 +1344,7 @@ const NotificationsButton = ({ notifications }: { notifications: Notification[] 
                       <hr className="my-2" />
                       <button 
                           onClick={() => {
-                          router.push('../sale/browse');
+                          router.push('/sublease/search/list');
                           setShowMenu(false);
                           }} 
                           className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-orange-50 transition-colors"
@@ -1467,6 +1541,7 @@ const NotificationsButton = ({ notifications }: { notifications: Notification[] 
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
                 className="p-2 bg-gray-200 rounded-lg hover:bg-gray-300 transition-colors"
+                onClick={() => router.push('/sublease/search/list')}
               >
                 <MessagesSquare className = "w-5 h-5 text-gray-500"/>
               </motion.button>
@@ -1476,7 +1551,7 @@ const NotificationsButton = ({ notifications }: { notifications: Notification[] 
               <motion.button
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
-                  onClick={() => setShowProfile(!showProfile)}
+                  onClick={() => router.push("/profile")}
                   className="p-2 bg-gray-200 rounded-lg hover:bg-gray-300 transition-colors"
               >
                   <User className="w-5 h-5 text-gray-500" />
@@ -1507,121 +1582,137 @@ const NotificationsButton = ({ notifications }: { notifications: Notification[] 
               </div>
               {/* menu */}
               <div className="relative">
-              <motion.button
+                <motion.button
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                   onClick={() => setShowMenu(!showMenu)}
-                  className="p-2 bg-gray-200 rounded-lg hover:bg-gray-300 transition-colors"
-              >
-                  <Menu className="w-5 h-5 text-gray-500" />
-              </motion.button>
+                  className="p-2 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                >
+                  <Menu className="w-5 h-5 text-gray-600" />
+                </motion.button>
 
-              <AnimatePresence>
+                <AnimatePresence>
                   {showMenu && (
-                  <motion.div
+                    <motion.div
                       initial={{ opacity: 0, y: -10 }}
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, y: -10 }}
                       className="absolute right-0 mt-2 w-64 bg-white rounded-lg shadow-lg border border-gray-200 z-50"
-                  >
+                    >
                       <div className="p-4 space-y-2">
-                      <p className="text-medium font-semibold max-w-2xl mb-4 text-orange-700">
-                      Move Out Sale
-                      </p>
-                      <button 
+                        <p className="text-medium font-semibold max-w-2xl mb-4 text-orange-700">
+                        Move Out Sale
+                        </p>
+                        <button 
                           onClick={() => {
-                          router.push('../browse');
-                          setShowMenu(false);
+                            router.push('/sale/browse');
+                            setShowMenu(false);
                           }} 
-                          className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-orange-50 transition-colors"
-                      >
+                          className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors"
+                        >
                           Browse Items
-                      </button>                        
-                      <button 
+                        </button>                        
+                        <button 
                           onClick={() => {
-                          router.push('/sale/create');
-                          setShowMenu(false);
+                            router.push('/sale/create/options/nonai');
+                            setShowMenu(false);
                           }} 
-                          className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-orange-50 transition-colors"
-                      >
+                          className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors"
+                        >
                           Sell Items
-                      </button> 
-                      <button 
+                        </button> 
+                        <button 
                           onClick={() => {
-                          router.push('/sale/create');
-                          setShowMenu(false);
+                            router.push('/sale/browse');
+                            setShowMenu(false);
                           }} 
-                          className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-orange-50 transition-colors"
-                      >
+                          className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors"
+                        >
                           My Items
-                      </button>   
-                      
-                      <p className="text-medium font-semibold max-w-2xl mb-4 text-orange-700">
+                        </button>   
+                        
+                        <p className="text-medium font-semibold max-w-2xl mb-4 text-orange-700">
                           Sublease
-                      </p>
-                      <button 
+                        </p>
+                        <button 
                           onClick={() => {
-                          router.push('../search');
-                          setShowMenu(false);
+                            router.push('/sublease/search');
+                            setShowMenu(false);
                           }} 
-                          className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-orange-50 transition-colors"
-                      >
+                          className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors"
+                        >
                           Find Sublease
-                      </button>   
-                      <button 
+                        </button>   
+                        <button 
                           onClick={() => {
-                          router.push('../search');
-                          setShowMenu(false);
+                            router.push('/sublease/write/options/chat');
+                            setShowMenu(false);
                           }} 
-                          className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-orange-50 transition-colors"
-                      >
+                          className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors"
+                        >
                           Post Sublease
-                      </button>   
-                      <button 
+                        </button>   
+                        <button 
                           onClick={() => {
-                          router.push('../search');
-                          setShowMenu(false);
+                            router.push('../search');
+                            setShowMenu(false);
                           }} 
-                          className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-orange-50 transition-colors"
-                      >
+                          className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors"
+                        >
                           My Sublease Listing
-                      </button>
-                      <hr className="my-2" />
-                      <button 
+                        </button>
+                        <hr className="my-2" />
+                        <button                              
+                          onClick={() => {                               
+                            router.push('/favorite');                               
+                            setShowMenu(false);                             
+                          }}                              
+                          className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors flex items-center gap-2"
+                          >                             
+                          <Heart className="w-4 h-4 text-gray-600" />                             
+                          Favorites                           
+                        </button>
+                        <button 
                           onClick={() => {
-                          router.push('../sale/browse');
-                          setShowMenu(false);
+                            router.push('/sublease/search/list');
+                            setShowMenu(false);
                           }} 
-                          className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-orange-50 transition-colors"
-                      >
+                          className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors flex items-center gap-2"
+                        >
+                          <MessagesSquare className="w-4 h-4 text-gray-600" />                             
                           Messages
-                      </button>   
-                      <button 
+                        </button>   
+                        <button 
                           onClick={() => {
-                          router.push('../help');
-                          setShowMenu(false);
+                            router.push('../help');
+                            setShowMenu(false);
                           }} 
-                          className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-orange-50 transition-colors"
-                      >
+                          className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors"
+                        >
                           Help & Support
-                      </button>
+                        </button>
 
-                      {/* need change (when user didn't log in -> show log in button) */}
-                      <hr className="my-2" />
+                        {/* need change (when user didn't log in -> show log in button) */}
+                        <hr className="my-2" />
                           {/* log in/ out */}
                           {isLoggedIn ? (
-                          <button className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-orange-50 transition-colors">
+                            <button 
+                              className="w-full text-left px-3 py-2 rounded-md text-sm text-red-600 hover:bg-red-50 hover:text-red-700 transition-colors"
+                            >
                               Logout
-                          </button>
+                            </button>
                           ) : (
-                          <button className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-orange-50 transition-colors">
+                            <button 
+                              className="w-full text-left px-3 py-2 rounded-md text-sm text-blue-600 hover:bg-blue-50 hover:text-blue-700 transition-colors"
+                              onClick={() => router.push('/auth')}
+                            >
                               Login
-                          </button>
+                            </button>
                           )}
                       </div>
-                  </motion.div>
+                    </motion.div>
                   )}
-              </AnimatePresence>
+                </AnimatePresence>
               </div>
             </div>
             </div>
@@ -2266,195 +2357,197 @@ const NotificationsButton = ({ notifications }: { notifications: Notification[] 
           {/* Main Content */}
           <div className="flex-1">
             {/* Header Controls */}
-            <div className="flex items-center justify-between mb-6">
-              <div className="flex items-center space-x-4">
-                <h1 className="text-2xl font-bold text-gray-900">
-                  Move Out Sale Items
-                </h1>
-                <span className="px-3 py-1 bg-orange-100 text-orange-700 rounded-full text-sm font-medium">
-                  {filteredProducts.length} items
+          <div className="flex items-center justify-between mb-3 sm:mb-6">
+  <div className="flex items-center space-x-2 sm:space-x-4">
+    <h1 className="text-lg sm:text-2xl font-bold text-gray-900">
+      <span className="hidden sm:inline">Move Out Sale Items</span>
+      <span className="sm:hidden">Sale Items</span>
+    </h1>
+    <span className="px-2 py-1 bg-orange-100 text-orange-700 rounded-full text-xs sm:text-sm font-medium">
+      {filteredProducts.length}
+    </span>
+  </div>
+
+  <div className="flex items-center space-x-1 sm:space-x-2">
+    <motion.button
+      whileHover={{ scale: 1.05 }}
+      whileTap={{ scale: 0.95 }}
+      onClick={() => setViewMode("grid")}
+      className={`p-1.5 sm:p-2 rounded-lg transition-colors ${
+        viewMode === "grid" ? "bg-orange-100 text-orange-700" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+      }`}
+    >
+      <Grid3X3 className="w-4 h-4 sm:w-5 sm:h-5" />
+    </motion.button>
+  </div>
+</div>
+           <motion.div 
+  layout
+  className={`grid gap-3 ${
+    viewMode === "grid" 
+      ? "grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5" // Increased density
+      : "grid-cols-1"
+  }`}
+>
+  {filteredProducts.map(product => (
+    <motion.div
+      key={`product-${product.id}`}
+      layout
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      whileHover={{ y: -1 }} // Reduced hover effect for mobile
+      className={`bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-all relative ${
+        viewMode === "list" ? "flex" : ""
+      }`}
+    >
+      <Link href={`browse/product/${product.id}`} className="block flex-1">
+        <div className="cursor-pointer">
+          {/* Optimized Product Image - smaller on mobile */}
+          <div className={`relative ${
+            viewMode === "list" 
+              ? "w-24 sm:w-32 h-20 sm:h-24" // Smaller list view
+              : "aspect-square" // Keep square for grid
+          }`}>
+            <div className="w-full h-full bg-gray-200 flex items-center justify-center">
+              {product.image ? (
+                <img src={product.image} 
+                alt={product.name}
+                className="w-full h-full object-cover" />
+              ) : (
+                <div className="w-8 h-8 sm:w-12 sm:h-12 bg-gray-300 rounded-full" />
+              )}                        
+            </div>
+            
+            {/* Smaller condition badge for mobile */}
+            <div className="absolute bottom-1 left-1">
+              <span className={`px-1 py-0.5 rounded text-[10px] sm:text-xs font-medium ${
+                product.condition === "New" ? "bg-green-100 text-green-700" :
+                product.condition === "Like New" ? "bg-blue-100 text-blue-700" :
+                product.condition === "Good" ? "bg-yellow-100 text-yellow-700" :
+                "bg-gray-100 text-gray-700"
+              }`}>
+                {product.condition}
+              </span>
+            </div>
+            
+            {/* Smaller category badge */}
+            {product.category && (
+              <div className="absolute bottom-1 right-1">
+                <span className="px-1 py-0.5 rounded text-[10px] sm:text-xs font-medium bg-purple-100 text-purple-700">
+                  {product.category.length > 6 ? product.category.substring(0, 4) + '..' : product.category}
                 </span>
               </div>
- 
-              <div className="flex items-center space-x-2">
-                <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={() => setViewMode("grid")}
-                  className={`p-2 rounded-lg transition-colors ${
-                    viewMode === "grid" ? "bg-orange-100 text-orange-700" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                  }`}
-                >
-                  <Grid3X3 className="w-5 h-5" />
-                </motion.button>
-                
+            )}
+          </div>
+
+          {/* Condensed Product Info */}
+          <div className="p-2 sm:p-3 flex-1">
+            <div className="mb-1 sm:mb-2">
+              <h3 className="font-semibold text-gray-900 text-sm sm:text-base leading-tight line-clamp-2">
+                {product.name}
+              </h3>
+              <div className="text-lg sm:text-xl font-bold text-gray-900 mt-1">
+                ${product.price}
               </div>
             </div>
- 
-            {/* Products Grid/List */}
-            <motion.div 
-              layout
-              className={`grid gap-6 ${
-                viewMode === "grid" 
-                  ? "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3" 
-                  : "grid-cols-1"
-              }`}
-            >
-              {filteredProducts.map(product => (
-                <motion.div
-                  key={`product-${product.id}`}
-                  layout
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  whileHover={{ y: -2 }}
-                  className={`bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-all relative ${
-                    viewMode === "list" ? "flex" : ""
-                  }`}
-                >
-                  {/* Link wraps the main clickable area */}
-                  <Link href={`browse/product/${product.id}`} className="block flex-1">
-                    <div className="cursor-pointer">
-                      {/* Product Image */}
-                      <div className={`relative ${viewMode === "list" ? "w-48 h-32" : "aspect-square"}`}>
-                        <div className="w-full h-full bg-gray-200 flex items-center justify-center">
-                          {product.image ? (
-                              <img src={product.image} 
-                              alt={product.name}
-                              className="w-full h-full object-cover" />
-                            ) : (
-                              <div className="w-24 h-24 bg-gray-300 rounded-full" />
-                            )}                        
-                        </div>
-                        {/* Condition Badge */}
-                        <div className="absolute bottom-2 left-2">
-                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                            product.condition === "New" ? "bg-green-100 text-green-700" :
-                            product.condition === "Like New" ? "bg-blue-100 text-blue-700" :
-                            product.condition === "Good" ? "bg-yellow-100 text-yellow-700" :
-                            "bg-gray-100 text-gray-700"
-                          }`}>
-                            {product.condition}
-                          </span>
-                        </div>
-                        {/* Category Badge */}
-                        {product.category && (
-                          <div className="absolute bottom-2 right-2">
-                            <span className="px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-700">
-                              {product.category}
-                            </span>
-                          </div>
-                        )}
-                      </div>
- 
-                      {/* Product Info */}
-                      <div className="p-4 flex-1">
-                        <div className="flex items-start justify-between mb-2">
-                          <h3 className="font-semibold text-gray-900 text-lg">{product.name}</h3>
-                          <div className="text-right">
-                            <div className="text-xl font-bold text-gray-900">${product.price}</div>
-                      {/* for badge */}
-                      {products.map((product: any, index) => {
-                      const currentHostData = hostDataMap[product.hostId || product.sellerId] || {
-                        totalReviews: 0,
-                        averageRating: 0,
-                        reviewsGivenCount: 0
-                      };
-                    return(
-                      <div key = {product.id} className="absolute top-2 left-2">
-                          <BadgeMoveOutSale listing={product} hostData={currentHostData} className = "ml-2" />                
-                       </div>
-                      );
-                      })};
 
-                          </div>
-                        </div>
+            {/* Condensed description - hidden on small screens */}
+            <p className="text-gray-600 text-xs hidden sm:block mb-2 line-clamp-1">
+              {product.shortDescription || product.description}
+            </p>
 
-                        <p className="text-gray-600 text-sm mb-3 line-clamp-2">{product.shortDescription || product.description}</p>
- 
-                        <div className="flex items-center space-x-4 text-sm text-black mb-3">
-                          <div className="flex items-center space-x-1">
-                            <MapPin size={15} className="w-3 h-3" />
-                            <span className="capitalize">{product.location?.replace("-", " ")}</span>
-                          </div>
-                          <div className="flex items-center space-x-1">
-                            <Clock size={15} className="w-3 h-3" />
-                            <span>Until {product.availableUntil}</span>
-                          </div>
-                        </div>
- 
-                        <div className="flex items-center space-x-4 text-sm text-black mb-3">
-                        {product.deliveryAvailable && (
-                            <div className="flex items-center space-x-1">
-                              <Truck size={15} className="w-3 h-3" />
-                              <span>Delivery</span>
-                            </div>
-                          )}
-                          {product.pickupAvailable && (
-                              <div className="flex items-center space-x-1 ">
-                                <img 
-                                  src="../../../../images/heart-handshake.png" 
-                                  alt="pickup" 
-                                  className="w-3 h-3 object-cover rounded"
-                                />
-                                <span>Pick-up</span>
-                              </div>
-                          )}
-                        </div>
- 
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center space-x-2">
-                            <div className="flex items-center space-x-1">
-                              <Star className="w-4 h-4 text-yellow-400 fill-current" />
-                              <span className="text-sm font-medium text-gray-600">{product.sellerRating}</span>
-                            </div>
-                            <span className="text-gray-500 text-sm">• {product.views} views</span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </Link>
- 
-                  {/* Quick Actions Overlay - OUTSIDE the Link */}
-                  <div className="absolute top-2 right-2 flex space-x-1">
-                    <motion.button
-                      whileHover={{ scale: 1.1 }}
-                      whileTap={{ scale: 0.9 }}
-                      onClick={(e) => {
-                        e.preventDefault(); // Prevent link navigation
-                        e.stopPropagation(); // Stop event bubbling
-                        toggleFavorite(product);
-                      }}
-                      className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                        favoriteListings.some(item => item.id === product.id)  
-                          ? "bg-red-500 text-white" 
-                          : "bg-white/90 text-gray-600 hover:bg-red-50 hover:text-red-500"
-                      }`}
-                    >
-                      <Heart size={18} className={favoriteListings.some(item => item.id === product.id) ? 'fill-current' : ''}  />
-                    </motion.button>
-                    
-                    <motion.button
-                      whileHover={{ scale: 1.1 }}
-                      whileTap={{ scale: 0.9 }}
-                      onClick={(e) => {
-                        e.preventDefault(); // Prevent link navigation
-                        e.stopPropagation(); // Stop event bubbling
-                        toggleCompare(product.id);
-                      }}
-                      disabled={!compareItems.has(product.id) && compareItems.size >= 3}
-                      className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                        compareItems.has(product.id) 
-                          ? "bg-purple-500 text-white" 
-                          : "bg-white/90 text-gray-600 hover:bg-purple-50 hover:text-purple-500 disabled:opacity-50"
-                      }`}
-                    >
-                      <GitCompare className="w-4 h-4" />
-                    </motion.button>
-                  </div>
-                </motion.div>
-              ))}
-            </motion.div>
- 
+            {/* Compact location and time */}
+            <div className="flex items-center justify-between text-xs text-gray-600 mb-2">
+              <div className="flex items-center space-x-1">
+                <MapPin size={12} className="w-3 h-3 flex-shrink-0" />
+                <span className="capitalize truncate">
+                  {product.location?.replace("-", " ").substring(0, 8)}
+                  {product.location?.length > 8 ? '..' : ''}
+                </span>
+              </div>
+              <div className="flex items-center space-x-1">
+                <Clock size={12} className="w-3 h-3 flex-shrink-0" />
+                <span className="truncate">
+                  {product.availableUntil?.substring(5) || 'Soon'}
+                </span>
+              </div>
+            </div>
+
+            {/* Compact delivery options */}
+            <div className="flex items-center space-x-2 text-xs text-gray-600 mb-2">
+              {product.deliveryAvailable && (
+                <div className="flex items-center space-x-1">
+                  <Truck size={12} className="w-3 h-3" />
+                  <span className="hidden sm:inline">Delivery</span>
+                  <span className="sm:hidden">Del</span>
+                </div>
+              )}
+              {product.pickupAvailable && (
+                <div className="flex items-center space-x-1">
+                  <img 
+                    src="../../../../images/heart-handshake.png" 
+                    alt="pickup" 
+                    className="w-3 h-3 object-cover rounded"
+                  />
+                  <span className="hidden sm:inline">Pick-up</span>
+                  <span className="sm:hidden">Pick</span>
+                </div>
+              )}
+            </div>
+
+            {/* Compact rating and views */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-1">
+                <Star className="w-3 h-3 text-yellow-400 fill-current" />
+                <span className="text-xs font-medium text-gray-600">{product.sellerRating}</span>
+              </div>
+              <span className="text-gray-500 text-xs">{product.views}v</span>
+            </div>
+          </div>
+        </div>
+      </Link>
+
+      {/* Smaller Quick Actions - positioned better for mobile */}
+      <div className="absolute top-1 right-1 flex space-x-1">
+        <motion.button
+          whileHover={{ scale: 1.1 }}
+          whileTap={{ scale: 0.9 }}
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            toggleFavorite(product);
+          }}
+          className={`w-6 h-6 sm:w-7 sm:h-7 rounded-full flex items-center justify-center ${
+            favoriteListings.some(item => item.id === product.id)  
+              ? "bg-red-500 text-white" 
+              : "bg-white/90 text-gray-600 hover:bg-red-50 hover:text-red-500"
+          }`}
+        >
+          <Heart size={14} className={favoriteListings.some(item => item.id === product.id) ? 'fill-current' : ''} />
+        </motion.button>
+        
+        <motion.button
+          whileHover={{ scale: 1.1 }}
+          whileTap={{ scale: 0.9 }}
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            toggleCompare(product.id);
+          }}
+          disabled={!compareItems.has(product.id) && compareItems.size >= 3}
+          className={`w-6 h-6 sm:w-7 sm:h-7 rounded-full flex items-center justify-center ${
+            compareItems.has(product.id) 
+              ? "bg-purple-500 text-white" 
+              : "bg-white/90 text-gray-600 hover:bg-purple-50 hover:text-purple-500 disabled:opacity-50"
+          }`}
+        >
+          <GitCompare className="w-3 h-3 sm:w-4 sm:h-4" />
+        </motion.button>
+      </div>
+    </motion.div>
+  ))}
+</motion.div>
+
             {/* Empty State */}
             {filteredProducts.length === 0 && !loading && (
               <motion.div
@@ -2491,150 +2584,122 @@ const NotificationsButton = ({ notifications }: { notifications: Notification[] 
                 className="mt-12"
               >
                 <h2 className="text-xl font-bold text-gray-900 mb-6">Recommended for You</h2>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                  {recommended.map(product => (
-                    <motion.div
-                      key={`rec-${product.id}`}
-                      layout
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      whileHover={{ y: -2 }}
-                      className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-all relative"
-                    >
-                      <Link href={`browse/product/${product.id}`} className="block">
-                        <div className="cursor-pointer">
-                          {/* Product Image */}
-                          <div className="relative aspect-square">
-                            <div className="w-full h-full bg-gray-200 flex items-center justify-center">
-                              {product.image ? (
-                                <img src={product.image} 
-                                alt={product.name}
-                                className="w-full h-full object-cover" />
-                              ) : (
-                                <div className="w-24 h-24 bg-gray-300 rounded-full" />
-                              )}
-                            </div>
-                            {/* Condition Badge */}
-                            <div className="absolute bottom-2 left-2">
-                              <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                                product.condition === "New" ? "bg-green-100 text-green-700" :
-                                product.condition === "Like New" ? "bg-blue-100 text-blue-700" :
-                                product.condition === "Good" ? "bg-yellow-100 text-yellow-700" :
-                                "bg-gray-100 text-gray-700"
-                              }`}>
-                                {product.condition}
-                              </span>
-                            </div>
-                            {/* Category Badge */}
-                            {product.category && (
-                              <div className="absolute bottom-2 right-2">
-                                <span className="px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-700">
-                                  {product.category}
-                                </span>
-                              </div>
-                            )}
-                          </div>
- 
-                          {/* Product Info */}
-                          <div className="p-4 flex-1">
-                            <div className="flex items-start justify-between mb-2">
-                              <h3 className="font-semibold text-gray-900 text-lg">{product.name}</h3>
-                              <div className="text-right">
-                                <div className="text-xl font-bold text-gray-900">${product.price}</div>
-                                {product.originalPrice && (
-                                  <div className="text-sm text-gray-500 line-through">${product.originalPrice}</div>
-                                )}
-                              </div>
-                            </div>
- 
-                            <p className="text-gray-600 text-sm mb-3 line-clamp-2">{product.shortDescription || product.description}</p>
- 
-                            <div className="flex items-center space-x-4 text-sm text-black mb-3">
-                              <div className="flex items-center space-x-1">
-                                <MapPin size={15} className="w-3 h-3" />
-                                <span className="capitalize">{product.location?.replace("-", " ")}</span>
-                              </div>
-                              <div className="flex items-center space-x-1">
-                                <Clock size={15} className="w-3 h-3" />
-                                <span>Until {product.availableUntil}</span>
-                              </div>
-                            </div>
-                          <div className="flex items-center space-x-4 text-sm text-black mb-3">
-                          {product.deliveryAvailable && (
-                              <div className="flex items-center space-x-1">
-                                <Truck size={15} className="w-3 h-3" />
-                                <span>Delivery</span>
-                              </div>
-                            )}
-                            {product.pickupAvailable && (
-                                <div className="flex items-center space-x-1 ">
-                                  <img 
-                                    src="../../../../images/heart-handshake.png" 
-                                    alt="pickup" 
-                                    className="w-3 h-3 object-cover rounded"
-                                  />
-                                  <span>Pick-up</span>
-                                </div>
-                            )}
-                          </div>
- 
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center space-x-2">
-                                <div className="flex items-center space-x-1">
-                                  <Star className="w-4 h-4 text-yellow-400 fill-current" />
-                                  <span className="text-sm font-medium text-gray-600">{product.sellerRating}</span>
-                                </div>
-                                <span className="text-gray-500 text-sm">• {product.views} views</span>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      </Link>
- 
-                      {/* Quick Actions Overlay */}
-                      <div className="absolute top-2 right-2 flex space-x-1">
-                        <motion.button
-                          whileHover={{ scale: 1.1 }}
-                          whileTap={{ scale: 0.9 }}
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            toggleFavorite(product);
-                          }}
-                          className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                            favoriteListings.some(item => item.id === product.id) 
-                            ? "bg-red-500 text-white" 
-                            : "bg-white/90 text-gray-600 hover:bg-red-50 hover:text-red-500"
-                        }`}
-                      >
-                        <Heart size={18} className={favoriteListings.some(item => item.id === product.id) ? 'fill-current' : ''} 
-                         />
-                      </motion.button>
-                      
-                      
-                      <motion.button
-                        whileHover={{ scale: 1.1 }}
-                        whileTap={{ scale: 0.9 }}
-                        onClick={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          toggleCompare(product.id);
-                        }}
-                        disabled={!compareItems.has(product.id) && compareItems.size >= 3}
-                        className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                          compareItems.has(product.id) 
-                            ? "bg-purple-500 text-white" 
-                            : "bg-white/90 text-gray-600 hover:bg-purple-50 hover:text-purple-500 disabled:opacity-50"
-                        }`}
-                      >
-                        <GitCompare className="w-4 h-4" />
-                      </motion.button>
+         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3">
+  {recommended.map(product => (
+    <motion.div
+      key={`rec-${product.id}`}
+      layout
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      whileHover={{ y: -1 }}
+      className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-all relative"
+    >
+      <Link href={`browse/product/${product.id}`} className="block">
+        <div className="cursor-pointer">
+          {/* Smaller recommended product image */}
+          <div className="relative aspect-square">
+            <div className="w-full h-full bg-gray-200 flex items-center justify-center">
+              {product.image ? (
+                <img src={product.image} 
+                alt={product.name}
+                className="w-full h-full object-cover" />
+              ) : (
+                <div className="w-8 h-8 bg-gray-300 rounded-full" />
+              )}
+            </div>
+            
+            {/* Smaller badges */}
+            <div className="absolute bottom-1 left-1">
+              <span className={`px-1 py-0.5 rounded text-[10px] font-medium ${
+                product.condition === "New" ? "bg-green-100 text-green-700" :
+                product.condition === "Like New" ? "bg-blue-100 text-blue-700" :
+                product.condition === "Good" ? "bg-yellow-100 text-yellow-700" :
+                "bg-gray-100 text-gray-700"
+              }`}>
+                {product.condition}
+              </span>
+            </div>
+          </div>
 
-                    
-                    </div>
-                  </motion.div>
-                ))}
-              </div>
+          {/* Condensed recommended product info */}
+          <div className="p-2 flex-1">
+            <h3 className="font-semibold text-gray-900 text-xs sm:text-sm leading-tight line-clamp-2 mb-1">
+              {product.name}
+            </h3>
+            <div className="text-sm sm:text-base font-bold text-gray-900 mb-1">
+              ${product.price}
+            </div>
+            
+            {/* Compact location for recommended */}
+            <div className="flex items-center text-[10px] sm:text-xs text-gray-600 mb-1">
+              <MapPin size={10} className="w-2.5 h-2.5 mr-1" />
+              <span className="capitalize truncate">
+                {product.location?.replace("-", " ").substring(0, 6)}
+              </span>
+            </div>
+            
+            {/* Delivery options for recommended - very compact */}
+            <div className="flex items-center space-x-1 text-[10px] text-gray-600">
+              {product.deliveryAvailable && (
+                <div className="flex items-center">
+                  <Truck size={10} className="w-2.5 h-2.5" />
+                </div>
+              )}
+              {product.pickupAvailable && (
+                <div className="flex items-center">
+                  <img 
+                    src="../../../../images/heart-handshake.png" 
+                    alt="pickup" 
+                    className="w-2.5 h-2.5 object-cover rounded"
+                  />
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </Link>
+
+      {/* Smaller action buttons for recommended */}
+      <div className="absolute top-1 right-1 flex flex-col space-y-1">
+        <motion.button
+          whileHover={{ scale: 1.1 }}
+          whileTap={{ scale: 0.9 }}
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            toggleFavorite(product);
+          }}
+          className={`w-5 h-5 rounded-full flex items-center justify-center ${
+            favoriteListings.some(item => item.id === product.id) 
+            ? "bg-red-500 text-white" 
+            : "bg-white/90 text-gray-600 hover:bg-red-50 hover:text-red-500"
+          }`}
+        >
+          <Heart size={12} className={favoriteListings.some(item => item.id === product.id) ? 'fill-current' : ''} />
+        </motion.button>
+        
+        <motion.button
+          whileHover={{ scale: 1.1 }}
+          whileTap={{ scale: 0.9 }}
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            toggleCompare(product.id);
+          }}
+          disabled={!compareItems.has(product.id) && compareItems.size >= 3}
+          className={`w-5 h-5 rounded-full flex items-center justify-center ${
+            compareItems.has(product.id) 
+              ? "bg-purple-500 text-white" 
+              : "bg-white/90 text-gray-600 hover:bg-purple-50 hover:text-purple-500 disabled:opacity-50"
+          }`}
+        >
+          <GitCompare className="w-3 h-3" />
+        </motion.button>
+      </div>
+    </motion.div>
+  ))}
+</div>
+
             </motion.div>
           )}
         </div>
@@ -2702,7 +2767,6 @@ const NotificationsButton = ({ notifications }: { notifications: Notification[] 
       )}
     </AnimatePresence>
    {/*Enhanced super responsive and interactive comparison table*/}
-{/*Enhanced flexible priority-based comparison table*/}
 {showComparison && (
       <motion.div 
         initial={{ opacity: 0 }}

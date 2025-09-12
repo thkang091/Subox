@@ -810,7 +810,7 @@ const MoveOutSaleRoleSelection = ({
             </div>
             <div className='flex top-2 right-2'>
               {profileData.hostSaleItems.length > 0 && (
-                <span className="bg-teal-100 text-teal-800 px-3 py-1 transform translate-x-6 rounded-full text-[10px] md:text-sm font-medium">
+                <span className="bg-teal-100 text-teal-800 px-3 py-1 transform translate-x-6 rounded-full text-[8px] md:text-sm font-medium">
                   {profileData.hostSaleItems.length} active listing{profileData.hostSaleItems.length > 1 ? 's' : ''}
                 </span>
               )}
@@ -850,7 +850,8 @@ const MoveOutSaleRoleSelection = ({
 
 // Clean Host Activity Component
 const HostActivity = ({ 
-  hostListings,  
+  hostListings,
+  hostSaleItems,  
   hostTourRequests, 
   hostAvailabilities,
   onOpenCalendarModal
@@ -881,7 +882,7 @@ const HostActivity = ({
           <div className="flex items-center space-x-3">
             <Link 
               href="/sublease/" 
-              className="inline-flex items-center px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors"
+              className="inline-flex items-center text-xs md:text-[16px] mb-8 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors"
             >
               <Plus className="w-4 h-4 mr-2" />
               New Listing
@@ -2339,6 +2340,7 @@ const UserProfile = () => {
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <HostActivity 
                   hostListings={profileData.hostListings} 
+                  hostSaleItems={profileData.hostSaleItems}
                   hostTourRequests={profileData.hostTourRequests}
                   hostAvailabilities={profileData.hostAvailabilities}
                   onOpenCalendarModal={(listing) => {  // ADD THIS

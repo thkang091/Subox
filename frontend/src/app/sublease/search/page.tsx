@@ -2826,7 +2826,7 @@ useEffect(() => {
               </button>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
               {displayListings.map((listing) => {
                 const currentHostData = hostDataMap[listing.hostId] || {
                   totalReviews: 0,
@@ -2889,12 +2889,12 @@ useEffect(() => {
                       </div> */}
                     </div>
                     
-                    <div className="flex items-center mt-3 text-sm text-gray-500">
+                    <div className="flex items-center mt-3 text-[10px] md:text-sm text-gray-500">
                       <Calendar size={14} className="mr-1" />
                       <span>{listing.dateRange}</span>
                     </div>
                     
-                    <div className="mt-3 flex items-center text-sm text-gray-700">
+                    <div className="mt-3 flex items-center text-[10px] md:text-sm text-gray-700">
                       <BedDouble size={14} className="mr-1" />
                       <span>{listing.bedrooms} bedroom{listing.bedrooms !== 1 ? 's' : ''} · </span>
                       <Droplets size={14} className="mx-1" />
@@ -2904,7 +2904,7 @@ useEffect(() => {
                     {/* Show commute info if in commute mode */}
                     {isCommuteMode && renderCommuteInfo(listing)}
                     
-                    <div className="mt-3 flex flex-wrap gap-1">
+                    <div className="mt-3 flex flex-wrap gap-1 hidden md:flex">
                       {listing.amenities && listing.amenities.slice(0, 3).map((amenity, index) => (
                         <div key={index} className="bg-orange-50 text-orange-700 text-xs px-2 py-1 rounded-md flex items-center">
                           {getAmenityIcon(amenity)}
@@ -2914,6 +2914,19 @@ useEffect(() => {
                       {listing.amenities && listing.amenities.length > 3 && (
                         <div className="bg-gray-100 text-gray-600 text-xs px-2 py-1 rounded-md">
                           +{listing.amenities.length - 3} more
+                        </div>
+                      )}
+                    </div>
+                    <div className="mt-3 flex flex-wrap gap-1 flex md:hidden">
+                      {listing.amenities && listing.amenities.slice(0, 1).map((amenity, index) => (
+                        <div key={index} className="bg-orange-50 text-orange-700 text-[8px] px-2 py-1 rounded-md flex items-center">
+                          {getAmenityIcon(amenity)}
+                          <span className="ml-1">{amenity.charAt(0).toUpperCase() + amenity.slice(1)}</span>
+                        </div>
+                      ))}
+                      {listing.amenities && listing.amenities.length > 1 && (
+                        <div className="bg-gray-100 text-gray-600 text-xs px-2 py-1 rounded-md">
+                          +{listing.amenities.length - 1} more
                         </div>
                       )}
                     </div>
@@ -3705,7 +3718,7 @@ const renderCommuteInfo = (listing) => {
 
 {/* Buttons */}
 <div className="w-full max-w-5xl mx-auto px-4 -mt-10 relative z-10 animate-slideUp">
-      <div className="max-w-4xl mx-auto p-6 -mb-10 -ml-5">
+      <div className="max-w-4xl mx-auto p-6 -mb-10 md:-ml-5">
       {/* Compact Button Bar */}
       <div className="flex items-center gap-3 mb-6 ">
         
@@ -3713,7 +3726,7 @@ const renderCommuteInfo = (listing) => {
         <div className="relative">
           <button 
             onClick={() => setShowSavedSearches(!showSavedSearches)}
-            className="flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 hover:border-orange-300 transition-all duration-200 shadow-sm hover:shadow-md"
+            className="flex items-center gap-2 px-4 py-2.5 text-xs md:text-base bg-white border border-gray-200 rounded-lg hover:bg-gray-50 hover:border-orange-300 transition-all duration-200 shadow-sm hover:shadow-md"
           >
             <Bookmark size={18} className="text-orange-500" />
             <span className="font-medium text-gray-700">Saved Searches</span>
@@ -3726,7 +3739,7 @@ const renderCommuteInfo = (listing) => {
 
         {/* Save Current Search Button */}
         <button 
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-lg transition-all duration-200 font-medium shadow-sm hover:shadow-md ${
+          className={`flex items-center text-xs md:text-base gap-2 px-4 py-2.5 rounded-lg transition-all duration-200 font-medium shadow-sm hover:shadow-md ${
             hasSearchCriteria() 
               ? 'bg-orange-500 text-white hover:bg-orange-600' 
               : 'bg-gray-100 text-gray-400 cursor-not-allowed'
@@ -3741,7 +3754,7 @@ const renderCommuteInfo = (listing) => {
         {/* Commute Map Button */}
         <button 
         onClick={toggleMapView}
-        className="flex items-center gap-2 px-4 py-2.5 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-all duration-200 font-medium shadow-sm hover:shadow-md">
+        className="flex items-center gap-2 px-4 py-2.5 bg-blue-500 text-white text-xs md:text-base rounded-lg hover:bg-blue-600 transition-all duration-200 font-medium shadow-sm hover:shadow-md">
           <MapPin size={18} />
           <span className="ml-4">
             {showMapView ? "Hide map view" : "Commute Map"}
@@ -3759,7 +3772,7 @@ const renderCommuteInfo = (listing) => {
           
             <div className="bg-white rounded-xl shadow-xl transition-all duration-500 overflow-hidden hover:shadow-2xl transform hover:-translate-y-1">
               {/* Search Controls */}
-              <div className="flex flex-col md:flex-row md:items-center p-3 gap-2">
+              <div className="flex flex-col text-sm md:text-base md:flex-row md:items-center p-3 gap-2">
                 {/* Location */}
                 <div 
                   className={`flex-1 p-3 rounded-lg cursor-pointer transition-all duration-300 transform hover:scale-105 ${activeSection === 'location' ? 'bg-gray-100 border border-gray-200 shadow-inner' : 'hover:bg-gray-50 border border-transparent hover:shadow-md'}`}
