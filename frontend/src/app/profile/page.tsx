@@ -21,13 +21,16 @@ import {
   AlertCircle, MapPin, User, Settings, Bell, Home,
   ShoppingCart, Search, Plus, Eye, ArrowLeft, Building2,
   DollarSign, Package, UserPlus, X, UserCheck, TrendingUp,
-  Activity, Star, MessageSquare, Filter,ChevronLeft,ChevronRight,  Grid, List
+  Activity, Star, MessageSquare, Filter,ChevronLeft,ChevronRight,  Grid, List, Menu, MessagesSquare, Heart
 } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { useRouter } from 'next/navigation';
 
 import { 
   updateDoc, 
   serverTimestamp 
 } from 'firebase/firestore';
+import { notification } from '@/data/notificationlistings';
 
 // Type definitions
 interface UserInfo {
@@ -215,6 +218,7 @@ const useConversationsWithNames = (userId: string | undefined) => {
   return { conversations, loading, error, refetch: fetchConversationsWithNames };
 };
 
+
 // Utility functions
 const formatDate = (timestamp: Timestamp | any): string => {
   if (!timestamp) return 'N/A';
@@ -290,6 +294,7 @@ const AuthRequired = () => (
   </div>
 );
 
+
 const ErrorState = ({ error, onRetry }: { error: string; onRetry: () => void }) => (
   <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-gray-50 flex items-center justify-center">
     <div className="text-center max-w-md mx-auto p-8">
@@ -308,7 +313,70 @@ const ErrorState = ({ error, onRetry }: { error: string; onRetry: () => void }) 
   </div>
 );
 
-const ProfileHeader = ({ userInfo, user }: { userInfo: UserInfo | null; user: any }) => (
+const ProfileHeader = ({ userInfo, user }: { userInfo: UserInfo | null; user: any }) => {
+  const [showMenu, setShowMenu] = useState(false);
+  const router = useRouter();
+
+  // Notifications dropdown component
+  const NotificationsButton = ({ notifications }: { notifications: Notification[] }) => {
+    const [showNotifications, setShowNotifications] = useState(false);
+
+    return (
+      <div className="relative">
+        <motion.button
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          onClick={() => setShowNotifications(!showNotifications)}
+          className="p-2 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors relative"
+        >
+          <Bell className="w-4 md:w-5 h-4 md:h-5 text-gray-500" />
+          {notifications.length > 0 && (
+            <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center">
+              {notifications.length}
+            </span>
+          )}
+        </motion.button>
+
+        <AnimatePresence>
+          {showNotifications && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              className="absolute right-0 mt-2 w-70 bg-white rounded-lg shadow-lg border border-gray-200 z-50"
+            >
+              <div className="p-4">
+                <h3 className="font-semibold text-orange-600 mb-3">Notifications</h3>
+                <div className="space-y-3 max-h-64 overflow-y-auto">
+                  {notifications.map(notif => (
+                    <button
+                      key={notif.id}
+                      onClick={() => router.push(`browse/notification?id=${notif.id}`)}
+                      className="w-full flex items-start space-x-3 p-2 rounded-lg hover:bg-orange-50 text-left"
+                    >
+                      <div className="w-2 h-2 bg-orange-500 rounded-full mt-2"></div>
+                      <div className="flex-1">
+                        <p className="text-sm text-gray-900">{notif.message}</p>
+                        <p className="text-xs text-gray-500">{notif.time}</p>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+
+                <button
+                  onClick={() => router.push(`/notifications`)}
+                  className="mt-3 text-sm text-orange-600 hover:underline"
+                >
+                  See all notifications
+                </button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+    );
+  };
+  return (
   <div className="bg-white rounded-xl shadow-sm p-6 mb-6 border border-orange-100">
     <div className="flex items-center space-x-4">
       <div className="flex-shrink-0">
@@ -316,43 +384,173 @@ const ProfileHeader = ({ userInfo, user }: { userInfo: UserInfo | null; user: an
           <Image
             src={userInfo.profilePicture}
             alt="Profile"
-            width={80}
-            height={80}
-            className="rounded-full border-2 border-orange-200"
+            className="rounded-full border-2 border-orange-200 w-15 h-15 md:w-20 md:h-20"
           />
         ) : (
-          <div className="w-20 h-20 bg-gradient-to-br from-orange-100 to-orange-200 rounded-full flex items-center justify-center border-2 border-orange-300">
-            <span className="text-orange-800 text-xl font-semibold">
+          <div className="w-15 h-15 md:w-20 md:h-20 bg-gradient-to-br from-orange-100 to-orange-200 rounded-full flex items-center justify-center border-2 border-orange-300">
+            <span className="text-orange-800 text-sm md:text-xl font-semibold">
               {userInfo?.displayName?.charAt(0) || user.email?.charAt(0)?.toUpperCase()}
             </span>
           </div>
         )}
       </div>
       <div className="flex-1">
-        <h1 className="text-2xl font-bold text-gray-900">
+        <h1 className="text-[16px] md:text-2xl font-bold text-gray-900">
           {userInfo?.displayName || user.email}
         </h1>
-        <p className="text-gray-600">{user.email}</p>
+        <p className="text-gray-600 text-xs md:text-[16px]">{user.email}</p>
         <div className="flex flex-wrap gap-2 mt-2">
-  {Array.isArray(userInfo?.badges) && userInfo.badges.length > 0 ? (
-    userInfo.badges.map((badge, index) => (
-      <span
-        key={index}
-        className={`px-3 py-1 rounded-full text-xs font-medium ${getBadgeColor(badge)}`}
-      >
-        {badge}
-      </span>
-    ))
-  ) : (
-    <span className="px-3 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
-      New Member
-    </span>
-  )}
-</div>
+          {Array.isArray(userInfo?.badges) && userInfo.badges.length > 0 ? (
+            userInfo.badges.map((badge, index) => (
+              <span
+                key={index}
+                className={`px-3 py-1 rounded-full text-[9px] md:text-xs font-medium ${getBadgeColor(badge)}`}
+              >
+                {badge}
+              </span>
+            ))
+          ) : (
+            <span className="px-3 py-1 rounded-full text-[9px] md:text-xs font-medium bg-purple-100 text-purple-800">
+              New Member
+            </span>
+          )}
+        </div>
+      </div>
+      <div className='md:flex space-y-1 md:space-x-4 -mt-1 md:-mt-0 ml-15'>
+
+        <NotificationsButton notifications={notification}/>
+
+        {/* messages */}
+        <motion.button 
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          onClick={() => window.location.href = '/sublease/search/list'}
+          className="p-2 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+        >
+          <MessagesSquare className = "w-4 md:w-4 h-3 md:h-5 text-gray-600"/>
+        </motion.button>
+
+        {/* menu */}
+        <div className="relative">
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={() => setShowMenu(!showMenu)}
+            className="p-2 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+          >
+            <Menu className="w-4 md:w-5 h-4 md:h-5 text-gray-600" />
+          </motion.button>
+
+          <AnimatePresence>
+            {showMenu && (
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                className="absolute right-0 mt-2 w-64 bg-white rounded-lg shadow-lg border border-gray-200 z-50"
+              >
+                <div className="p-4 space-y-2">
+                  <p className="text-medium font-semibold max-w-2xl mb-4 text-orange-700">
+                  Move Out Sale
+                  </p>
+                  <button 
+                    onClick={() => {
+                      router.push('/sale/browse');
+                      setShowMenu(false);
+                    }} 
+                    className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors"
+                  >
+                    Browse Items
+                  </button>                        
+                  <button 
+                    onClick={() => {
+                      router.push('/sale/create/options/nonai');
+                      setShowMenu(false);
+                    }} 
+                    className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors"
+                  >
+                    Sell Items
+                  </button> 
+                  <button 
+                    onClick={() => {
+                      router.push('/sale/browse');
+                      setShowMenu(false);
+                    }} 
+                    className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors"
+                  >
+                    My Items
+                  </button>   
+                  
+                  <p className="text-medium font-semibold max-w-2xl mb-4 text-orange-700">
+                    Sublease
+                  </p>
+                  <button 
+                    onClick={() => {
+                      router.push('/sublease/search');
+                      setShowMenu(false);
+                    }} 
+                    className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors"
+                  >
+                    Find Sublease
+                  </button>   
+                  <button 
+                    onClick={() => {
+                      router.push('/sublease/write/options/chat');
+                      setShowMenu(false);
+                    }} 
+                    className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors"
+                  >
+                    Post Sublease
+                  </button>   
+                  <button 
+                    onClick={() => {
+                      router.push('../search');
+                      setShowMenu(false);
+                    }} 
+                    className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors"
+                  >
+                    My Sublease Listing
+                  </button>
+                  <hr className="my-2" />
+                  <button                              
+                    onClick={() => {                               
+                      router.push('/favorite');                               
+                      setShowMenu(false);                             
+                    }}                              
+                    className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors flex items-center gap-2"
+                    >                             
+                    <Heart className="w-4 h-4 text-gray-600" />                             
+                    Favorites                           
+                  </button>
+                  <button 
+                    onClick={() => {
+                      router.push('/sublease/search/list');
+                      setShowMenu(false);
+                    }} 
+                    className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors flex items-center gap-2"
+                  >
+                    <MessagesSquare className="w-4 h-4 text-gray-600" />                             
+                    Messages
+                  </button>   
+                  <button 
+                    onClick={() => {
+                      router.push('../help');
+                      setShowMenu(false);
+                    }} 
+                    className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors"
+                  >
+                    Help & Support
+                  </button>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
       </div>
     </div>
   </div>
-);
+  );
+}
 
 // Main Navigation Cards Component
 const MainNavigationCards = ({ onNavigate }: { onNavigate: (flow: NavigationFlow) => void }) => (
@@ -436,8 +634,8 @@ const SubleaseRoleSelection = ({
       </div>
       
       <div className="text-center mb-8">
-        <h2 className="text-3xl font-bold text-gray-900 mb-4 -mt-3">Sublease Dashboard</h2>
-        <p className="text-lg text-gray-600">Choose your role to access the right tools</p>
+        <h2 className="text-xl md:text-3xl font-bold text-gray-900 mb-4 -mt-3">Sublease Dashboard</h2>
+        <p className="text-sm md:text-lg -mt-3 text-gray-600">Choose your role to access the right tools</p>
       </div>
       
       <div className="grid grid-cols-2 text-[10px] md:text-lg gap-8 -mt-2">
@@ -480,7 +678,7 @@ const SubleaseRoleSelection = ({
               </div>
             </div>
             
-            <div className="mt-6 text-xs md:text-sm text-blue-600 font-medium group-hover:underline">
+            <div className="mt-4 md:mt-6 text-xs md:text-sm text-blue-600 font-medium group-hover:underline">
               Access guest dashboard
             </div>
           </div>
@@ -525,7 +723,7 @@ const SubleaseRoleSelection = ({
               </div>
             </div>
             
-            <div className="mt-6 text-sm text-purple-600 font-medium group-hover:underline">
+            <div className="mt-6 text-xs md:text-sm text-blue-600 font-medium group-hover:underline">
               Access host dashboard
             </div>
           </div>
@@ -557,8 +755,8 @@ const MoveOutSaleRoleSelection = ({
     </div>
     
     <div className="text-center mb-8">
-      <h2 className="text-3xl font-bold text-gray-900 mb-4 -mt-3">Move-Out Sale Dashboard</h2>
-      <p className="text-lg text-gray-600">Buy or sell items from students moving out</p>
+      <h2 className="text-xl md:text-3xl font-bold text-gray-900 mb-4 -mt-3">Move-Out Sale Dashboard</h2>
+      <p className="text-sm md:text-lg text-gray-600 -mt-3">Buy or sell items from students moving out</p>
     </div>
     
     <div className="grid grid-cols-2 text-[10px] md:text-lg gap-8 -mt-2">
@@ -608,11 +806,11 @@ const MoveOutSaleRoleSelection = ({
         <div className="p-8">
           <div className="flex items-center justify-between mb-6">
             <div className="w-16 h-16 bg-gradient-to-br from-teal-100 to-teal-200 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
-              <DollarSign className="w-8 h-8 text-teal-600" />
+              <DollarSign className="w-20 md:w-8 h-8 text-teal-600" />
             </div>
             <div className='flex top-2 right-2'>
               {profileData.hostSaleItems.length > 0 && (
-                <span className="bg-teal-100 text-teal-800 px-3 py-1 rounded-full text[10px] md:text-sm font-medium">
+                <span className="bg-teal-100 text-teal-800 px-3 py-1 transform translate-x-6 rounded-full text-[10px] md:text-sm font-medium">
                   {profileData.hostSaleItems.length} active listing{profileData.hostSaleItems.length > 1 ? 's' : ''}
                 </span>
               )}
@@ -652,14 +850,12 @@ const MoveOutSaleRoleSelection = ({
 
 // Clean Host Activity Component
 const HostActivity = ({ 
-  hostListings, 
-  hostSaleItems, 
+  hostListings,  
   hostTourRequests, 
   hostAvailabilities,
   onOpenCalendarModal
 }: { 
   hostListings: Listing[]; 
-  hostSaleItems: SaleItem[];
   hostTourRequests: TourRequest[];
   hostAvailabilities: HostAvailability[];
   onOpenCalendarModal: (listing: Listing) => void;
@@ -962,7 +1158,7 @@ const GuestActivity = ({ guestTourRequests }: { guestTourRequests: TourRequest[]
           <div className="flex items-center space-x-3">
             <Link 
               href="/sublease/search" 
-              className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              className="inline-flex items-center px-4 py-2 bg-blue-600 text-sm md:text-[16px] text-white rounded-lg hover:bg-blue-700 transition-colors -mt-7 md:-mt-8"
             >
               <Search className="w-4 h-4 mr-2" />
               Browse Listings
@@ -1287,7 +1483,7 @@ const BuyerDashboard = ({ profileData }: { profileData: ProfileData }) => (
         <div className="flex items-center space-x-3">
           <Link 
             href="/browse-sale-items" 
-            className="inline-flex items-center px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors"
+            className="inline-flex items-center text-sm md:text-[16px] -mt-7 md:-mt-8 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors"
           >
             <Search className="w-4 h-4 mr-2" />
             Browse Items
@@ -1374,7 +1570,7 @@ const SellerDashboard = ({ profileData }: { profileData: ProfileData }) => (
         <div className="flex items-center space-x-3">
           <Link 
             href="/create-sale-item" 
-            className="inline-flex items-center px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors"
+            className="inline-flex items-center text-xs md:text-[16px] mb-8 px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors"
           >
             <Plus className="w-4 h-4 mr-2" />
             New Item
@@ -1918,9 +2114,9 @@ const UserProfile = () => {
   const { conversations, loading: conversationsLoading } = useConversationsWithNames(user?.uid);
   const [navigationFlow, setNavigationFlow] = useState<NavigationFlow>('main');
   const [selectedRole, setSelectedRole] = useState<UserRole | null>(null);
-const [selectedListingForCalendar, setSelectedListingForCalendar] = useState<Listing | null>(null);
+  const [selectedListingForCalendar, setSelectedListingForCalendar] = useState<Listing | null>(null);
 
-const [showCalendarModal, setShowCalendarModal] = useState(false);
+  const [showCalendarModal, setShowCalendarModal] = useState(false);
 
   const [profileData, setProfileData] = useState<ProfileData>({
     userInfo: null,
@@ -2140,17 +2336,16 @@ const [showCalendarModal, setShowCalendarModal] = useState(false);
 
             {/* Sublease Host Dashboard */}
             {selectedRole === 'host' && (
-  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-    <HostActivity 
-      hostListings={profileData.hostListings} 
-      hostSaleItems={profileData.hostSaleItems}
-      hostTourRequests={profileData.hostTourRequests}
-      hostAvailabilities={profileData.hostAvailabilities}
-      onOpenCalendarModal={(listing) => {  // ADD THIS
-        setSelectedListingForCalendar(listing);
-        setShowCalendarModal(true);
-      }}
-    />
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <HostActivity 
+                  hostListings={profileData.hostListings} 
+                  hostTourRequests={profileData.hostTourRequests}
+                  hostAvailabilities={profileData.hostAvailabilities}
+                  onOpenCalendarModal={(listing) => {  // ADD THIS
+                    setSelectedListingForCalendar(listing);
+                    setShowCalendarModal(true);
+                  }}
+                />
                 <div className="space-y-6">
                   <RecentConversations 
                     conversations={conversations} 

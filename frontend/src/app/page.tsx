@@ -15,7 +15,7 @@ import {
   XCircle,
   GitCompare, SlidersHorizontal,
   Wifi, Car, Snowflake, Dumbbell, Eye, GraduationCap,
-  Building, TreePine, Coffee, Shield, Edit
+  Building, TreePine, Coffee, Shield, Edit, Menu
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { Swiper, SwiperSlide } from "swiper/react";
@@ -314,7 +314,7 @@ const SuboxHomepage = () => {
 
             {/* Navigation Links */}
             <div className="hidden md:flex items-center gap-8 whitespace-nowrap">
-              {['Use Cases', 'How it works', 'Pricing', 'Help'].map((item, i) => {
+              {['Use Cases', 'How it works', 'Help'].map((item, i) => {
                 const help = item === 'Help';
                 const link = help ? "/help" : `#${item.toLowerCase().replace(/ /g, '-')}`;
 
@@ -494,34 +494,10 @@ const SuboxHomepage = () => {
 
             {/* Menu Button */}
             <button
-              onClick={() => setShowMenu(!showMenu)}
-              className="p-2 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 -mt-2 -mx-4"
+              onClick={() => setShowMenu(true)}
+              className="p-2 rounded-md -mt-2 -mx-4"
             >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="h-7 w-7 text-gray-700"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                {showMenu ? (
-                  // X icon
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M6 18L18 6M6 6l12 12"
-                  />
-                ) : (
-                  // Hamburger icon
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M4 6h16M4 12h16M4 18h16"
-                  />
-                )}
-              </svg>
+              <Menu className='text-gray-600' />
             </button>
           </div>
         </div>
@@ -540,7 +516,7 @@ const SuboxHomepage = () => {
             >
               <X/>
             </button>
-            {["Use Cases", "How it works", "Pricing", "Help"].map((item) => {
+            {["Use Cases", "How it works", "Help"].map((item) => {
               const help = item === "Help";
               const link = help
                 ? "/help"
@@ -1497,7 +1473,7 @@ const SuboxHomepage = () => {
               <a
                 href="/help"
                 id='help'
-                className="inline-block mt-3 px-6 py-3 bg-white text-orange-600 font-semibold rounded-full shadow hover:bg-orange-600 hover:text-white transition"
+                className="inline-block mt-3 px-6 py-3 bg-white text-orange-400 font-semibold rounded-full shadow hover:bg-orange-400 hover:text-white transition"
               >
                 Visit Help Center
               </a>

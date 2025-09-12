@@ -561,61 +561,111 @@ const ConversationListPage = () => {
                 </button>
               </div>
 
-              {/* Menu */}
+              {/* menu */}
               <div className="relative">
-                <button
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
                   onClick={() => setShowMenu(!showMenu)}
                   className="p-2 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
                 >
                   <Menu className="w-5 h-5 text-gray-600" />
-                </button>
+                </motion.button>
 
-                {showMenu && (
-                  <div className="absolute right-0 mt-2 w-64 bg-white rounded-lg shadow-lg border border-gray-200 z-50">
-                    <div className="p-4 space-y-2">
-                      <p className="text-sm font-semibold text-orange-700 mb-2">Move Out Sale</p>
-                      <button 
-                        onClick={() => { router.push('../browse'); setShowMenu(false); }} 
-                        className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-orange-600 transition-colors"
-                      >
-                        Browse Items
-                      </button>                        
-                      <button 
-                        onClick={() => { router.push('/sale/create'); setShowMenu(false); }} 
-                        className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-orange-600 transition-colors"
-                      >
-                        Sell Items
-                      </button>
-                      
-                      <p className="text-sm font-semibold text-orange-700 mb-2 mt-4">Sublease</p>
-                      <button 
-                        onClick={() => { router.push('../search'); setShowMenu(false); }} 
-                        className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-orange-600 transition-colors"
-                      >
-                        Find Sublease
-                      </button>
-                      <button 
-                        onClick={() => { router.push('../search'); setShowMenu(false); }} 
-                        className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-orange-600 transition-colors"
-                      >
-                        Post Sublease
-                      </button>
-                      
-                      <hr className="my-2" />
-                      <button 
-                        onClick={() => { router.push('../help'); setShowMenu(false); }} 
-                        className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-orange-600 transition-colors"
-                      >
-                        Help & Support
-                      </button>
-                      <button 
-                        className="w-full text-left px-3 py-2 rounded-md text-sm text-red-600 hover:bg-red-50 hover:text-red-700 transition-colors"
-                      >
-                        Logout
-                      </button>
-                    </div>
-                  </div>
-                )}
+                <AnimatePresence>
+                  {showMenu && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -10 }}
+                      className="absolute right-0 mt-2 w-64 bg-white rounded-lg shadow-lg border border-gray-200 z-50"
+                    >
+                      <div className="p-4 space-y-2">
+                        <p className="text-medium font-semibold max-w-2xl mb-4 text-orange-700">
+                        Move Out Sale
+                        </p>
+                        <button 
+                          onClick={() => {
+                            router.push('/sale/browse');
+                            setShowMenu(false);
+                          }} 
+                          className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors"
+                        >
+                          Browse Items
+                        </button>                        
+                        <button 
+                          onClick={() => {
+                            router.push('/sale/create/options/nonai');
+                            setShowMenu(false);
+                          }} 
+                          className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors"
+                        >
+                          Sell Items
+                        </button> 
+                        <button 
+                          onClick={() => {
+                            router.push('/sale/browse');
+                            setShowMenu(false);
+                          }} 
+                          className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors"
+                        >
+                          My Items
+                        </button>   
+                        
+                        <p className="text-medium font-semibold max-w-2xl mb-4 text-orange-700">
+                          Sublease
+                        </p>
+                        <button 
+                          onClick={() => {
+                            router.push('/sublease/search');
+                            setShowMenu(false);
+                          }} 
+                          className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors"
+                        >
+                          Find Sublease
+                        </button>   
+                        <button 
+                          onClick={() => {
+                            router.push('/sublease/write/options/chat');
+                            setShowMenu(false);
+                          }} 
+                          className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors"
+                        >
+                          Post Sublease
+                        </button>   
+                        <button 
+                          onClick={() => {
+                            router.push('../search');
+                            setShowMenu(false);
+                          }} 
+                          className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors"
+                        >
+                          My Sublease Listing
+                        </button>
+                        <hr className="my-2" />
+                        <button                              
+                          onClick={() => {                               
+                            router.push('/favorite');                               
+                            setShowMenu(false);                             
+                          }}                              
+                          className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors flex items-center gap-2"
+                          >                             
+                          <Heart className="w-4 h-4 text-gray-600" />                             
+                          Favorites                           
+                        </button>  
+                        <button 
+                          onClick={() => {
+                            router.push('../help');
+                            setShowMenu(false);
+                          }} 
+                          className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors"
+                        >
+                          Help & Support
+                        </button>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
             </div>
           </div>
@@ -628,14 +678,14 @@ const ConversationListPage = () => {
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center space-x-4">
             <button 
-              onClick={() => router.push('/sublease/search')}
+              onClick={() => router.back()}
               className="flex items-center text-gray-600 hover:text-orange-600 transition-colors"
             >
               <ArrowLeft className="w-5 h-5 mr-1" />
               Back
             </button>
             <div>
-              <h1 className="text-3xl font-bold text-gray-900 flex items-center">
+              <h1 className="text-3xl font-bold text-gray-900 flex items-center transform translate-x-7">
                 <MessageCircle className="w-8 h-8 mr-3 text-orange-500" />
                 Messages
                 {totalUnreadCount > 0 && (
@@ -644,7 +694,7 @@ const ConversationListPage = () => {
                   </span>
                 )}
               </h1>
-              <p className="text-gray-600 mt-1">Your conversations about listings</p>
+              <p className="text-gray-600 mt-1 transform translate-x-4 md:translate-x-18">Your conversations about listings</p>
             </div>
           </div>
         </div>

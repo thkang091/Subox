@@ -1023,65 +1023,65 @@ const AvailabilityCalendar = () => {
   ];
 
   // Notifications dropdown component
-  const NotificationsButton = ({ notifications }: { notifications: Notification[] }) => {
-    const [showNotifications, setShowNotifications] = useState(false);
-    const router = useRouter();
+const NotificationsButton = ({ notifications }: { notifications: Notification[] }) => {
+  const [showNotifications, setShowNotifications] = useState(false);
+  const router = useRouter();
 
-    return (
-      <div className="relative">
-        <motion.button
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-          onClick={() => setShowNotifications(!showNotifications)}
-          className="p-2 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors relative"
-        >
-          <Bell className="w-5 h-5 text-gray-600" />
-          {notifications.length > 0 && (
-            <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center">
-              {notifications.length}
-            </span>
-          )}
-        </motion.button>
+  return (
+    <div className="relative">
+      <motion.button
+        whileHover={{ scale: 1.05 }}
+        whileTap={{ scale: 0.95 }}
+        onClick={() => setShowNotifications(!showNotifications)}
+        className="p-2 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors relative"
+      >
+        <Bell className="w-5 h-5 text-gray-500" />
+        {notifications.length > 0 && (
+          <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center">
+            {notifications.length}
+          </span>
+        )}
+      </motion.button>
 
-        <AnimatePresence>
-          {showNotifications && (
-            <motion.div
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              className="absolute right-0 mt-2 w-70 bg-white rounded-lg shadow-lg border border-gray-200 z-50"
-            >
-              <div className="p-4">
-                <h3 className="font-semibold text-gray-900 mb-3">Notifications</h3>
-                <div className="space-y-3 max-h-64 overflow-y-auto">
-                  {notifications.map(notif => (
-                    <button
-                      key={notif.id}
-                      onClick={() => router.push(`browse/notificationDetail/${notif.id}`)}
-                      className="w-full flex items-start space-x-3 p-2 rounded-lg hover:bg-gray-50 text-left"
-                    >
-                      <div className="w-2 h-2 bg-orange-500 rounded-full mt-2"></div>
-                      <div className="flex-1">
-                        <p className="text-sm text-gray-900">{notif.message}</p>
-                        <p className="text-xs text-gray-500">{notif.time}</p>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-
-                <button
-                  onClick={() => router.push(`browse/notification/`)}
-                  className="mt-3 text-sm text-blue-600 hover:underline"
-                >
-                  See all notifications
-                </button>
+      <AnimatePresence>
+        {showNotifications && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className="absolute right-0 mt-2 w-70 bg-white rounded-lg shadow-lg border border-gray-200 z-50"
+          >
+            <div className="p-4">
+              <h3 className="font-semibold text-orange-600 mb-3">Notifications</h3>
+              <div className="space-y-3 max-h-64 overflow-y-auto">
+                {notifications.map(notif => (
+                  <button
+                    key={notif.id}
+                    onClick={() => router.push(`browse/notification?id=${notif.id}`)}
+                    className="w-full flex items-start space-x-3 p-2 rounded-lg hover:bg-orange-50 text-left"
+                  >
+                    <div className="w-2 h-2 bg-orange-500 rounded-full mt-2"></div>
+                    <div className="flex-1">
+                      <p className="text-sm text-gray-900">{notif.message}</p>
+                      <p className="text-xs text-gray-500">{notif.time}</p>
+                    </div>
+                  </button>
+                ))}
               </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
-    );
-  };
+
+              <button
+                onClick={() => router.push(`/notifications`)}
+                className="mt-3 text-sm text-orange-600 hover:underline"
+              >
+                See all notifications
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+};
   
   // Rest of your component logic and functions...
   const toggleFavorite = (listing) => {

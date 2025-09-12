@@ -1370,7 +1370,7 @@ const SuboxLogo = ({ size = 200, className = "" }) => (
               <motion.div variants={itemVariants}>
                 <InteractiveCard
                   icon={<CustomIcons.Home size={32} />}
-                  title=<h3 className="text-base md:text-xl">Sublease Space</h3>
+                  title={<h3 className="text-base md:text-xl">Sublease Space</h3>}
                   description="List your apartment or find your next home with ease"
                   action="Get Started"
                   onClick={() => handleOptionSelect("sublease")}
@@ -1382,7 +1382,7 @@ const SuboxLogo = ({ size = 200, className = "" }) => (
               <motion.div variants={itemVariants}>
                 <InteractiveCard
                   icon={<CustomIcons.Package size={32} />}
-                  title=<h3 className="text-base md:text-xl">Moving Sale</h3>
+                  title={<h3 className="text-base md:text-xl">Moving Sale</h3>}
                   description="Sell items or find great deals from students near you"
                   action="Get Started"
                   onClick={() => handleOptionSelect("sale")}
@@ -1402,13 +1402,13 @@ const SuboxLogo = ({ size = 200, className = "" }) => (
               initial="hidden"
               animate="visible"
               exit="hidden"
-              className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-5xl mx-auto"
+              className="grid grid-cols-2 gap-8 max-w-5xl text-xs md:text-[16px] mx-auto"
             >
               {/* List Your Space */}
               <motion.div variants={itemVariants}>
                 <InteractiveCard
                   icon={<CustomIcons.Key size={35} className="mt-4" />}
-                  title="List Your Space"
+                  title={<h3 className="text-[16px] md:2xl">List Your Space</h3>}
                   description="Create a stunning listing for your apartment or room"
                   action="Create Listing"
                   isSelected={subleaseAction === "write"}
@@ -1420,7 +1420,7 @@ const SuboxLogo = ({ size = 200, className = "" }) => (
                   } : {
                     type: 'ready',
                     icon: <div className="w-3 h-3 rounded-full bg-green-500" />,
-                    text: 'Ready to create listings!'
+                    text: 'Ready for listings!'
                   }}
                   gradient="from-blue-400 to-purple-600"
                 />
@@ -1430,7 +1430,7 @@ const SuboxLogo = ({ size = 200, className = "" }) => (
               <motion.div variants={itemVariants}>
                 <InteractiveCard
                   icon={<CustomIcons.Search size={28} />}
-                  title="Find a Sublease"
+                  title={<h3 className="text-[16px] md:2xl">Find a Sublease</h3>}
                   description="Browse available spaces and find your perfect match"
                   action="Browse Listings"
                   isSelected={subleaseAction === "browse"}
@@ -1438,7 +1438,7 @@ const SuboxLogo = ({ size = 200, className = "" }) => (
                   authStatus={{
                     type: 'ready',
                     icon: <div className="w-3 h-3 rounded-full bg-green-500" />,
-                    text: 'No account needed to browse'
+                    text: 'No account needed'
                   }}
                   gradient="from-green-400 to-blue-600"
                 />
@@ -1462,7 +1462,7 @@ const SuboxLogo = ({ size = 200, className = "" }) => (
               <motion.div variants={itemVariants}>
                 <InteractiveCard
                   icon={<CustomIcons.Tag size={28} />}
-                  title="Sell Your Items"
+                  title={<h3 className="text-[16px] md:text-2xl">Sell Your Items</h3>}
                   description="List furniture and items with beautiful photos and descriptions"
                   action="Create Listing"
                   isSelected={saleAction === "sell"}
@@ -1484,7 +1484,7 @@ const SuboxLogo = ({ size = 200, className = "" }) => (
               <motion.div variants={itemVariants}>
                 <InteractiveCard
                   icon={<CustomIcons.ShoppingBag size={28} />}
-                  title="Browse Items"
+                  title={<h3 className="text-[16px] md:text-2xl">Browse Items</h3>}
                   description="Find amazing deals on furniture and essentials from fellow students"
                   action="Browse Items"
                   isSelected={saleAction === "buy"}

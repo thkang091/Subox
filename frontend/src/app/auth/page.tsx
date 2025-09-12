@@ -25,7 +25,7 @@ import {
   signInWithPopup,
   getAdditionalUserInfo
 } from "firebase/auth";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { 
   doc,
   setDoc,
@@ -60,6 +60,16 @@ export default function AuthPage() {
   // Signup fields - Required
   const [fullName, setFullName] = useState("");
   const [dob, setDob] = useState("");
+
+  // Mode for auth
+  const searchParams = useSearchParams();
+  const mode = searchParams.get("mode");
+
+  useEffect(() => {
+    if (mode === "signup") {
+      setIsLogin(false);
+    }
+  }, [mode]);
   
   // Signup fields - Optional
   const [schoolEmail, setSchoolEmail] = useState("");
@@ -1296,7 +1306,7 @@ export default function AuthPage() {
               }}
               className="text-orange-500 hover:text-orange-600 font-medium"
             >
-              {isLogin ? "Sign up" : "Sign in"}
+              {isLogin ? "Sign up" : "Login"}
             </button>
           </p>
 

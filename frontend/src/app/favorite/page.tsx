@@ -166,7 +166,7 @@ const FavoritesPage = () => {
         }
       </p>
       <button
-        onClick={() => router.push(activeTab === 'sales' ? '/sale/browse' : '/search')}
+        onClick={() => router.push(activeTab === 'sales' ? '/sale/browse' : '/sublease/search')}
         className="px-6 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors"
       >
         {activeTab === 'sales' ? 'Browse Sale Items' : 'Browse Subleases'}
