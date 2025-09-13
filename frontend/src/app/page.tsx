@@ -15,7 +15,7 @@ import {
   XCircle,
   GitCompare, SlidersHorizontal,
   Wifi, Car, Snowflake, Dumbbell, Eye, GraduationCap,
-  Building, TreePine, Coffee, Shield, Edit
+  Building, TreePine, Coffee, Shield, Edit, Menu
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { Swiper, SwiperSlide } from "swiper/react";
@@ -314,7 +314,7 @@ const SuboxHomepage = () => {
 
             {/* Navigation Links */}
             <div className="hidden md:flex items-center gap-8 whitespace-nowrap">
-              {['Use Cases', 'How it works', 'Pricing', 'Help'].map((item, i) => {
+              {['Use Cases', 'How it works', 'Help'].map((item, i) => {
                 const help = item === 'Help';
                 const link = help ? "/help" : `#${item.toLowerCase().replace(/ /g, '-')}`;
 
@@ -372,50 +372,134 @@ const SuboxHomepage = () => {
         initial={{ y: 0 }}
         animate={{ y: 0 }}
         transition={{ duration: 0.5, ease: "easeOut" }}
-        className="min-h-screen py-6 px-4 relative fixed"
+        className="pt-4 px-4 relative"
       >
         {/* Header Row with Logo + Menu Button */}
-        <div className="flex justify-between items-center mb-6">
-          {/* Logo */}
-          <motion.div
-            className="flex items-center space-x-3"
-            whileHover={{ scale: 1.05 }}
-          >
-            {/* Your Logo SVGs here (kept same as your original) */}
-            <span className="text-2xl font-bold">Subox</span>
-          </motion.div>
+        <div className='fixed inset-x-0 top-0 z-50 bg-white/30 backdrop-blur-2xl border-b border-gray-200/1'>
+          <div className="max-w-7xl mx-auto flex justify-between items-center px-4 py-2">
+            {/* Logo */}
+            <motion.div 
+              className="flex items-center space-x-2 -mx-1 mt-1"
+            >              
+            {/* Main Subox Logo */}
+              <motion.div className="relative">
+                {/* House Icon */}
+                <motion.svg 
+                  className="w-10 h-10" 
+                  viewBox="0 0 100 100" 
+                  fill="none"
+                  whileHover={{ rotate: [0, -5, 5, 0] }}
+                  transition={{ duration: 0.5 }}
+                >
+                  {/* House Base */}
+                  <motion.path
+                    d="M20 45L50 20L80 45V75C80 78 77 80 75 80H25C22 80 20 78 20 75V45Z"
+                    fill="#E97451"
+                    animate={{ 
+                      fill: ["#E97451", "#F59E0B", "#E97451"],
+                      scale: [1, 1.02, 1]
+                    }}
+                    transition={{ duration: 3, repeat: Infinity }}
+                  />
+                  {/* House Roof */}
+                  <motion.path
+                    d="M15 50L50 20L85 50L50 15L15 50Z"
+                    fill="#D97706"
+                    animate={{ rotate: [0, 1, 0] }}
+                    transition={{ duration: 4, repeat: Infinity }}
+                  />
+                  {/* Window */}
+                  <motion.rect
+                    x="40"
+                    y="50"
+                    width="20"
+                    height="15"
+                    fill="white"
+                    animate={{ 
+                      opacity: [1, 0.8, 1],
+                      scale: [1, 1.1, 1]
+                    }}
+                    transition={{ duration: 2, repeat: Infinity }}
+                  />
+                  {/* Door */}
+                  <motion.rect
+                    x="45"
+                    y="65"
+                    width="10"
+                    height="15"
+                    fill="white"
+                    animate={{ scaleY: [1, 1.05, 1] }}
+                    transition={{ duration: 2.5, repeat: Infinity }}
+                  />
+                </motion.svg>
 
-          {/* Menu Button */}
-          <button
-            onClick={() => setShowMenu(!showMenu)}
-            className="p-2 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 fixed top-4 right-4 z-50"
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-7 w-7 text-gray-700"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
+                {/* Tag Icon */}
+                <motion.svg 
+                  className="w-6 h-6 absolute -top-1 -right-1" 
+                  viewBox="0 0 60 60" 
+                  fill="none"
+                  whileHover={{ rotate: 360 }}
+                  transition={{ duration: 0.8 }}
+                >
+                  <motion.path
+                    d="M5 25L25 5H50V25L30 45L5 25Z"
+                    fill="#E97451"
+                    animate={{ 
+                      rotate: [0, 5, -5, 0],
+                      scale: [1, 1.1, 1]
+                    }}
+                    transition={{ duration: 3, repeat: Infinity }}
+                  />
+                  <motion.circle
+                    cx="38"
+                    cy="17"
+                    r="4"
+                    fill="white"
+                    animate={{ 
+                      scale: [1, 1.3, 1],
+                      opacity: [1, 0.7, 1]
+                    }}
+                    transition={{ duration: 1.5, repeat: Infinity }}
+                  />
+                </motion.svg>
+              </motion.div>
+
+              {/* Subox Text */}
+              <motion.div className="flex flex-col">
+                <motion.span 
+                  className="text-xl font-bold text-gray-900"
+                  animate={{
+                    background: [
+                      "linear-gradient(45deg, #1F2937, #374151)",
+                      "linear-gradient(45deg, #E97451, #F59E0B)",
+                      "linear-gradient(45deg, #1F2937, #374151)"
+                    ],
+                    backgroundClip: "text",
+                    WebkitBackgroundClip: "text",
+                    color: "transparent"
+                  }}
+                  transition={{ duration: 4, repeat: Infinity }}
+                >
+                  Subox
+                </motion.span>
+                <motion.span 
+                  className="text-[10px] text-gray-500 font-medium tracking-wider"
+                  animate={{ opacity: [0.7, 1, 0.7] }}
+                  transition={{ duration: 2, repeat: Infinity }}
+                >
+                  SUBLETS & MOVING SALES
+                </motion.span>
+              </motion.div>
+            </motion.div>
+
+            {/* Menu Button */}
+            <button
+              onClick={() => setShowMenu(true)}
+              className="p-2 rounded-md -mt-2 -mx-4"
             >
-              {showMenu ? (
-                // X icon
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M6 18L18 6M6 6l12 12"
-                />
-              ) : (
-                // Hamburger icon
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M4 6h16M4 12h16M4 18h16"
-                />
-              )}
-            </svg>
-          </button>
+              <Menu className='text-gray-600' />
+            </button>
+          </div>
         </div>
 
         {/* Dropdown Menu */}
@@ -426,7 +510,13 @@ const SuboxHomepage = () => {
             transition={{ duration: 0.3 }}
             className="fixed top-0 right-0 w-64 flex flex-col gap-4 mt-4 bg-white z-50 p-4"
           >
-            {["Use Cases", "How it works", "Pricing", "Help"].map((item) => {
+            <button
+              className='ml-auto'
+              onClick={() => setShowMenu(false)}
+            >
+              <X/>
+            </button>
+            {["Use Cases", "How it works", "Help"].map((item) => {
               const help = item === "Help";
               const link = help
                 ? "/help"
@@ -583,6 +673,7 @@ const SuboxHomepage = () => {
                 className="w-full sm:w-auto px-8 py-4 bg-gradient-to-r from-orange-500 to-orange-600 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all group"
                 whileHover={{ scale: 1.05, y: -2 }}
                 whileTap={{ scale: 0.95 }}
+                onClick={() => router.push("auth?mode=signup")}
               >
                 <span className="flex items-center justify-center gap-2">
                   Get Started Free
@@ -604,235 +695,237 @@ const SuboxHomepage = () => {
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 1, delay: 0.3 }}
           >
-            {/* L-shaped Sofa - Top Left Position */}
-            <motion.div
-              className="absolute z-10"
-              initial={{ 
-                x: -400,
-                y: -100,
-                scale: 1.4,
-                rotate: 0,
-                opacity: 0
-              }}
-              animate={{
-                x: 20,
-                y: 5,
-                scale: 1.8,
-                rotate: 0,
-                opacity: 1,
-              }}
-              transition={{ 
-                duration: 1.5, 
-                ease: [0.25, 0.46, 0.45, 0.94],
-                delay: 0.5
-              }}
-            >
-              <motion.img
-                src="Sofa_Left.png"
-                alt="L-shaped sofa"
-                className="w-80 h-80 object-contain drop-shadow-2xl"
-                whileHover={{ 
-                  scale: 1.05, 
-                  transition: { duration: 0.3 }
+            <div className='hidden md:block'>
+              {/* L-shaped Sofa - Top Left Position */}
+              <motion.div
+                className="absolute z-10"
+                initial={{ 
+                  x: -400,
+                  y: 600,
+                  scale: 1.4,
+                  rotate: 0,
+                  opacity: 0
                 }}
                 animate={{
-                  y: [0, -5, 0],
+                  x: 20,
+                  y: 5,
+                  scale: 1.8,
+                  rotate: 0,
+                  opacity: 1,
                 }}
-                transition={{
-                  y: { 
-                    duration: 3, 
-                    repeat: Infinity, 
-                    ease: "easeInOut",
-                    delay: 2
-                  }
+                transition={{ 
+                  duration: 1.5, 
+                  ease: [0.25, 0.46, 0.45, 0.94],
+                  delay: 0.5
                 }}
-              />
-              
-              {/* Sofa assembly particles */}
-              <motion.div
-                className="absolute inset-0 pointer-events-none"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 1.0, duration: 0.5 }}
               >
-                {[...Array(12)].map((_, i) => (
-                  <motion.div
-                    key={i}
-                    className="absolute w-3 h-3 bg-orange-400 rounded-full"
-                    style={{
-                      top: `${15 + i * 6}%`,
-                      left: `${10 + i * 7}%`,
-                    }}
-                    animate={{
-                      scale: [0, 1, 0],
-                      opacity: [0, 0.8, 0],
-                      y: [0, -30, -60],
-                      x: [0, Math.random() * 20 - 10],
-                    }}
-                    transition={{
-                      duration: 2,
-                      delay: 1.3 + i * 0.1,
-                      repeat: Infinity,
-                      repeatDelay: 4
-                    }}
-                  />
-                ))}
+                <motion.img
+                  src="Sofa_Left.png"
+                  alt="L-shaped sofa"
+                  className="w-80 h-80 object-contain drop-shadow-2xl"
+                  whileHover={{ 
+                    scale: 1.05, 
+                    transition: { duration: 0.3 }
+                  }}
+                  animate={{
+                    y: [0, -5, 0],
+                  }}
+                  transition={{
+                    y: { 
+                      duration: 3, 
+                      repeat: Infinity, 
+                      ease: "easeInOut",
+                      delay: 2
+                    }
+                  }}
+                />
+                
+                {/* Sofa assembly particles */}
+                <motion.div
+                  className="absolute inset-0 pointer-events-none"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: 1.0, duration: 0.5 }}
+                >
+                  {[...Array(12)].map((_, i) => (
+                    <motion.div
+                      key={i}
+                      className="absolute w-3 h-3 bg-orange-400 rounded-full"
+                      style={{
+                        top: `${15 + i * 6}%`,
+                        left: `${10 + i * 7}%`,
+                      }}
+                      animate={{
+                        scale: [0, 1, 0],
+                        opacity: [0, 0.8, 0],
+                        y: [0, -30, -60],
+                        x: [0, Math.random() * 20 - 10],
+                      }}
+                      transition={{
+                        duration: 2,
+                        delay: 1.3 + i * 0.1,
+                        repeat: Infinity,
+                        repeatDelay: 4
+                      }}
+                    />
+                  ))}
+                </motion.div>
               </motion.div>
-            </motion.div>
 
-            {/* Coffee Table - Center Bottom Position */}
-            <motion.div
-              className="absolute z-5"
-              initial={{ 
-                x: 0,
-                y: -400,
-                scale: 1.0,
-                rotate: 0,
-                opacity: 0
-              }}
-              animate={{
-                x: 120,
-                y: 200,
-                scale: 1.2,
-                rotate: 0,
-                opacity: 1,
-              }}
-              transition={{ 
-                duration: 1.2, 
-                ease: [0.25, 0.46, 0.45, 0.94],
-                delay: 1.5
-              }}
-            >
-              <motion.img
-                src="Table.png"
-                alt="Coffee table"
-                className="w-48 h-48 object-contain drop-shadow-xl"
-                whileHover={{ 
-                  scale: 1.05, 
-                  y: -10,
-                  transition: { duration: 0.3 }
+              {/* Coffee Table - Center Bottom Position */}
+              <motion.div
+                className="absolute z-5"
+                initial={{ 
+                  x: 0,
+                  y: 400,
+                  scale: 1.0,
+                  rotate: 0,
+                  opacity: 0
                 }}
                 animate={{
-                  x: [0, 3, 0, -3, 0],
+                  x: 120,
+                  y: 200,
+                  scale: 1.2,
+                  rotate: 0,
+                  opacity: 1,
                 }}
-                transition={{
-                  x: { 
-                    duration: 5, 
-                    repeat: Infinity, 
-                    ease: "easeInOut",
-                    delay: 3
-                  }
+                transition={{ 
+                  duration: 1.2, 
+                  ease: [0.25, 0.46, 0.45, 0.94],
+                  delay: 1.5
                 }}
-              />
-              
-              {/* Table assembly particles */}
-              <motion.div
-                className="absolute inset-0 pointer-events-none"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 1.8, duration: 0.5 }}
               >
-                {[...Array(15)].map((_, i) => (
-                  <motion.div
-                    key={i}
-                    className="absolute w-2 h-2 rounded-full"
-                    style={{
-                      background: `linear-gradient(45deg, #f97316, #8b5cf6)`,
-                      top: `${5 + i * 6}%`,
-                      left: `${5 + i * 6}%`,
-                    }}
-                    animate={{
-                      scale: [0, 1.5, 0],
-                      opacity: [0, 1, 0],
-                      y: [0, -40],
-                      rotate: [0, 360],
-                    }}
-                    transition={{
-                      duration: 2.2,
-                      delay: 2.1 + i * 0.1,
-                      repeat: Infinity,
-                      repeatDelay: 4
-                    }}
-                  />
-                ))}
+                <motion.img
+                  src="Table.png"
+                  alt="Coffee table"
+                  className="w-48 h-48 object-contain drop-shadow-xl"
+                  whileHover={{ 
+                    scale: 1.05, 
+                    y: -10,
+                    transition: { duration: 0.3 }
+                  }}
+                  animate={{
+                    x: [0, 3, 0, -3, 0],
+                  }}
+                  transition={{
+                    x: { 
+                      duration: 5, 
+                      repeat: Infinity, 
+                      ease: "easeInOut",
+                      delay: 3
+                    }
+                  }}
+                />
+                
+                {/* Table assembly particles */}
+                <motion.div
+                  className="absolute inset-0 pointer-events-none"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: 1.8, duration: 0.5 }}
+                >
+                  {[...Array(15)].map((_, i) => (
+                    <motion.div
+                      key={i}
+                      className="absolute w-2 h-2 rounded-full"
+                      style={{
+                        background: `linear-gradient(45deg, #f97316, #8b5cf6)`,
+                        top: `${5 + i * 6}%`,
+                        left: `${5 + i * 6}%`,
+                      }}
+                      animate={{
+                        scale: [0, 1.5, 0],
+                        opacity: [0, 1, 0],
+                        y: [0, -40],
+                        rotate: [0, 360],
+                      }}
+                      transition={{
+                        duration: 2.2,
+                        delay: 2.1 + i * 0.1,
+                        repeat: Infinity,
+                        repeatDelay: 4
+                      }}
+                    />
+                  ))}
+                </motion.div>
               </motion.div>
-            </motion.div>
 
-            {/* Single Chair - Right Center Position */}
-            <motion.div
-              className="absolute z-10"
-              initial={{ 
-                x: 600,
-                y: 100,
-                scale: 1.4,
-                rotate: 0,
-                opacity: 0
-              }}
-              animate={{
-                x: 320,
-                y: 260,
-                scale: 1.3,
-                rotate: -1,
-                opacity: 1,
-              }}
-              transition={{ 
-                duration: 1.5, 
-                ease: [0.25, 0.46, 0.45, 0.94],
-                delay: 0.8
-              }}
-            >
-              <motion.img
-                src="Sofa_Right.png"
-                alt="Single chair"
-                className="w-64 h-64 object-contain drop-shadow-2xl"
-                whileHover={{ 
-                  scale: 1.05, 
-                  transition: { duration: 0.3 }
+              {/* Single Chair - Right Center Position */}
+              <motion.div
+                className="absolute z-10"
+                initial={{ 
+                  x: 600,
+                  y: 600,
+                  scale: 1.4,
+                  rotate: 0,
+                  opacity: 0
                 }}
                 animate={{
-                  y: [0, -3, 0],
+                  x: 320,
+                  y: 260,
+                  scale: 1.3,
+                  rotate: -1,
+                  opacity: 1,
                 }}
-                transition={{
-                  y: { 
-                    duration: 3.5, 
-                    repeat: Infinity, 
-                    ease: "easeInOut",
-                    delay: 2.5
-                  }
+                transition={{ 
+                  duration: 1.5, 
+                  ease: [0.25, 0.46, 0.45, 0.94],
+                  delay: 0.8
                 }}
-              />
-              
-              {/* Chair assembly particles */}
-              <motion.div
-                className="absolute inset-0 pointer-events-none"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 1.3, duration: 0.5 }}
               >
-                {[...Array(8)].map((_, i) => (
-                  <motion.div
-                    key={i}
-                    className="absolute w-2 h-2 bg-purple-400 rounded-full"
-                    style={{
-                      top: `${25 + i * 8}%`,
-                      left: `${20 + i * 8}%`,
-                    }}
-                    animate={{
-                      scale: [0, 1.2, 0],
-                      opacity: [0, 0.9, 0],
-                      y: [0, -25, -50],
-                      rotate: [0, 180, 360],
-                    }}
-                    transition={{
-                      duration: 1.8,
-                      delay: 1.6 + i * 0.15,
-                      repeat: Infinity,
-                      repeatDelay: 3
-                    }}
-                  />
-                ))}
+                <motion.img
+                  src="Sofa_Right.png"
+                  alt="Single chair"
+                  className="w-64 h-64 object-contain drop-shadow-2xl"
+                  whileHover={{ 
+                    scale: 1.05, 
+                    transition: { duration: 0.3 }
+                  }}
+                  animate={{
+                    y: [0, -3, 0],
+                  }}
+                  transition={{
+                    y: { 
+                      duration: 3.5, 
+                      repeat: Infinity, 
+                      ease: "easeInOut",
+                      delay: 2.5
+                    }
+                  }}
+                />
+                
+                {/* Chair assembly particles */}
+                <motion.div
+                  className="absolute inset-0 pointer-events-none"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: 1.3, duration: 0.5 }}
+                >
+                  {[...Array(8)].map((_, i) => (
+                    <motion.div
+                      key={i}
+                      className="absolute w-2 h-2 bg-purple-400 rounded-full"
+                      style={{
+                        top: `${25 + i * 8}%`,
+                        left: `${20 + i * 8}%`,
+                      }}
+                      animate={{
+                        scale: [0, 1.2, 0],
+                        opacity: [0, 0.9, 0],
+                        y: [0, -25, -50],
+                        rotate: [0, 180, 360],
+                      }}
+                      transition={{
+                        duration: 1.8,
+                        delay: 1.6 + i * 0.15,
+                        repeat: Infinity,
+                        repeatDelay: 3
+                      }}
+                    />
+                  ))}
+                </motion.div>
               </motion.div>
-            </motion.div>
+            </div>
 
           <motion.section 
             className="relative z-10 max-w-7xl mx-auto px-4 py-12 sm:px-6 sm:py-20 block md:hidden"
@@ -862,7 +955,10 @@ const SuboxHomepage = () => {
                 </motion.p>
 
                 <motion.div className="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-3 sm:gap-4">
-                  <button className="w-full sm:w-auto px-6 py-3 bg-gradient-to-r from-orange-500 to-orange-600 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all">
+                  <button 
+                    className="w-full sm:w-auto px-6 py-3 bg-gradient-to-r from-orange-500 to-orange-600 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all"
+                    onClick={() => router.push("auth?mode=signup")}
+                  >
                     Get Started Free
                   </button>
                 </motion.div>
@@ -1092,7 +1188,10 @@ const SuboxHomepage = () => {
                   Learn More
                 </button>
                 
-                <button className="flex-1 bg-orange-500 text-white px-6 py-3 rounded-lg hover:bg-orange-600 transition border flex items-center justify-center cursor-pointer">
+                <button 
+                  className="flex-1 bg-orange-500 text-white px-6 py-3 rounded-lg hover:bg-orange-600 transition border flex items-center justify-center cursor-pointer"
+                  onClick={() => router.push("auth?mode=signup")}
+                >
                   Get Started
                 </button>
               </div>
@@ -1181,34 +1280,70 @@ const SuboxHomepage = () => {
       </motion.section>
 
 
-      <section className="text-center py-24 px-6 mt-20 mb-10">
-        <div className="max-w-4xl mx-auto">
-          <h1 className="text-4xl md:text-5xl font-bold font-sans text-gray-900 leading-tight">
-            Your Space. Your Stuff. <br className="hidden md:block" /> Your Time to Move.
-          </h1>
-          <p className="mt-6 text-lg md:text-xl text-gray-700 font-medium font-inter">
-            Find subleases and student essentials near you — <span className="text-orange-500 font-semibold">faster</span>, <span className="text-orange-500 font-semibold">safer</span>, <span className="text-orange-500 font-semibold">smarter</span>.
-          </p>
-        </div>
-      </section>
+    <section className="text-center px-6 mt-10 mb-10">
+      <div className="max-w-4xl mx-auto">
+        {/* Animated Heading */}
+        <motion.h1
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.8, delay: 0.4 }}
+          viewport={{ once: true }}
+          className="text-4xl md:text-5xl font-bold font-sans text-gray-900 leading-tight"
+        >
+          Your <span className="text-orange-500">Space</span>. Your <span className='text-orange-500'>Stuff</span>. <br className="hidden md:block" /> Your <span className='text-orange-500'>Time</span> to
+          <span className='text-orange-500'> Move</span>.
+        </motion.h1>
 
-      <UseCasesSection />
+        {/* Animated Paragraph */}
+        <motion.p
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.8, delay: 0.4 }}
+          viewport={{ once: true }}
+          className="mt-6 text-lg md:text-xl text-gray-700 font-medium font-inter"
+        >
+          Find subleases and student essentials near you —{" "}
+          <span className="text-orange-500 font-semibold">faster</span>,{" "}
+          <span className="text-orange-500 font-semibold">safer</span>,{" "}
+          <span className="text-orange-500 font-semibold">smarter</span>.
+        </motion.p>
+      </div>
+    </section>
 
-      <section className="text-center py-24 px-6 bg-white mt-20 mb-30">
-        <div className="max-w-4xl mx-auto">
-          <h2 className="text-4xl md:text-5xl font-bold text-gray-900 leading-tight font-sans">
-            Why waste it when you can <span className="text-orange-500">Subox</span> it?
-          </h2>
-          <p className="mt-6 text-lg md:text-xl text-gray-700 font-medium font-inter">
-            We connect students who need a place with those who are leaving one. <br className="hidden md:block" /> Simple.
-          </p>
-        </div>
-      </section>
+    <UseCasesSection />
+
+    <section className="text-center px-6 bg-white mt-10 mb-40">
+      <div className="max-w-4xl mx-auto">
+        {/* Animated Heading */}
+        <motion.h2
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.8, delay: 0.4 }}
+          viewport={{ once: true }}
+          className="text-4xl md:text-5xl font-bold text-gray-900 leading-tight font-sans"
+        >
+          Why waste it when you can{" "}
+          <span className="text-orange-500">Subox</span> it?
+        </motion.h2>
+
+        {/* Animated Paragraph */}
+        <motion.p
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.8, delay: 0.4 }}
+          viewport={{ once: true }}
+          className="mt-6 text-lg md:text-xl text-gray-700 font-medium font-inter"
+        >
+          We connect students who need a place with those who are leaving one.{" "}
+          <br className="hidden md:block" /> Simple.
+        </motion.p>
+      </div>
+    </section>
 
       <HowItWorksSection howY={howY} />
 
-      <footer className="bg-orange-600 text-white py-12 w-full">
-        <div className="max-w-7xl mx-auto px-4">
+      <footer className="bg-orange-300 text-white py-12 w-full">
+        <div className="hidden md:block max-w-7xl mx-auto px-4">
           {/* Upper Grid: 4 columns from original + 4 new columns in two rows */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-10">
             {/* Subox Brand */}
@@ -1216,87 +1351,87 @@ const SuboxHomepage = () => {
               <ul className="space-y-2">
                 <div className="flex items-center space-x-3 mt-3 px-5">
                   {/* Main Subox Logo */}
-                  <motion.div className="relative">
-                    {/* House Icon */}
-                    <motion.svg 
-                      className="w-12 h-12" 
-                      viewBox="0 0 100 100" 
-                      fill="none"
-                      whileHover={{ rotate: [0, -5, 5, 0] }}
-                      transition={{ duration: 0.5 }}
-                    >
-                      {/* House Base */}
-                      <motion.path
-                        d="M20 45L50 20L80 45V75C80 78 77 80 75 80H25C22 80 20 78 20 75V45Z"
-                        fill="#E97451"
-                        animate={{ 
-                          fill: ["#E97451", "#F59E0B", "#E97451"],
-                          scale: [1, 1.02, 1]
-                        }}
-                        transition={{ duration: 3, repeat: Infinity }}
-                      />
-                      {/* House Roof */}
-                      <motion.path
-                        d="M15 50L50 20L85 50L50 15L15 50Z"
-                        fill="#D97706"
-                        animate={{ rotate: [0, 1, 0] }}
-                        transition={{ duration: 4, repeat: Infinity }}
-                      />
-                      {/* Window */}
-                      <motion.rect
-                        x="40"
-                        y="50"
-                        width="20"
-                        height="15"
-                        fill="white"
-                        animate={{ 
-                          opacity: [1, 0.8, 1],
-                          scale: [1, 1.1, 1]
-                        }}
-                        transition={{ duration: 2, repeat: Infinity }}
-                      />
-                      {/* Door */}
-                      <motion.rect
-                        x="45"
-                        y="65"
-                        width="10"
-                        height="15"
-                        fill="white"
-                        animate={{ scaleY: [1, 1.05, 1] }}
-                        transition={{ duration: 2.5, repeat: Infinity }}
-                      />
-                    </motion.svg>
-    
-                    {/* Tag Icon */}
-                    <motion.svg 
-                      className="w-8 h-8 absolute -top-2 -right-2" 
-                      viewBox="0 0 60 60" 
-                      fill="none"
-                      whileHover={{ rotate: 360 }}
-                      transition={{ duration: 0.8 }}
-                    >
-                      <motion.path
-                        d="M5 25L25 5H50V25L30 45L5 25Z"
-                        fill="#E97451"
-                        animate={{ 
-                          rotate: [0, 5, -5, 0],
-                          scale: [1, 1.1, 1]
-                        }}
-                        transition={{ duration: 3, repeat: Infinity }}
-                      />
-                      <motion.circle
-                        cx="38"
-                        cy="17"
-                        r="4"
-                        fill="white"
-                        animate={{ 
-                          scale: [1, 1.3, 1],
-                          opacity: [1, 0.7, 1]
-                        }}
-                        transition={{ duration: 1.5, repeat: Infinity }}
-                      />
-                    </motion.svg>
-                  </motion.div>
+              <motion.div className="relative">
+                {/* House Icon */}
+                <motion.svg 
+                  className="w-12 h-12" 
+                  viewBox="0 0 100 100" 
+                  fill="none"
+                  whileHover={{ rotate: [0, -5, 5, 0] }}
+                  transition={{ duration: 0.5 }}
+                >
+                  {/* House Base */}
+                  <motion.path
+                    d="M20 45L50 20L80 45V75C80 78 77 80 75 80H25C22 80 20 78 20 75V45Z"
+                    fill="#E97451"
+                    animate={{ 
+                      fill: ["#E97451", "#F59E0B", "#E97451"],
+                      scale: [1, 1.02, 1]
+                    }}
+                    transition={{ duration: 3, repeat: Infinity }}
+                  />
+                  {/* House Roof */}
+                  <motion.path
+                    d="M15 50L50 20L85 50L50 15L15 50Z"
+                    fill="#D97706"
+                    animate={{ rotate: [0, 1, 0] }}
+                    transition={{ duration: 4, repeat: Infinity }}
+                  />
+                  {/* Window */}
+                  <motion.rect
+                    x="40"
+                    y="50"
+                    width="20"
+                    height="15"
+                    fill="white"
+                    animate={{ 
+                      opacity: [1, 0.8, 1],
+                      scale: [1, 1.1, 1]
+                    }}
+                    transition={{ duration: 2, repeat: Infinity }}
+                  />
+                  {/* Door */}
+                  <motion.rect
+                    x="45"
+                    y="65"
+                    width="10"
+                    height="15"
+                    fill="white"
+                    animate={{ scaleY: [1, 1.05, 1] }}
+                    transition={{ duration: 2.5, repeat: Infinity }}
+                  />
+                </motion.svg>
+ 
+                {/* Tag Icon */}
+                <motion.svg 
+                  className="w-8 h-8 absolute -top-2 -right-2" 
+                  viewBox="0 0 60 60" 
+                  fill="none"
+                  whileHover={{ rotate: 360 }}
+                  transition={{ duration: 0.8 }}
+                >
+                  <motion.path
+                    d="M5 25L25 5H50V25L30 45L5 25Z"
+                    fill="#E97451"
+                    animate={{ 
+                      rotate: [0, 5, -5, 0],
+                      scale: [1, 1.1, 1]
+                    }}
+                    transition={{ duration: 3, repeat: Infinity }}
+                  />
+                  <motion.circle
+                    cx="38"
+                    cy="17"
+                    r="4"
+                    fill="white"
+                    animate={{ 
+                      scale: [1, 1.3, 1],
+                      opacity: [1, 0.7, 1]
+                    }}
+                    transition={{ duration: 1.5, repeat: Infinity }}
+                  />
+                </motion.svg>
+              </motion.div>
     
                   {/* Subox Text */}
                   <motion.div className="flex flex-col text-3xl font-bold text-white">
@@ -1338,7 +1473,7 @@ const SuboxHomepage = () => {
               <a
                 href="/help"
                 id='help'
-                className="inline-block mt-3 px-6 py-3 bg-white text-orange-600 font-semibold rounded-full shadow hover:bg-orange-600 hover:text-white transition"
+                className="inline-block mt-3 px-6 py-3 bg-white text-orange-400 font-semibold rounded-full shadow hover:bg-orange-400 hover:text-white transition"
               >
                 Visit Help Center
               </a>
@@ -1349,19 +1484,12 @@ const SuboxHomepage = () => {
           <div className="border-t border-white/30 my-10"></div>
 
           {/* Bottom Grid: 4 more sections */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-8 text-center md:text-left">
-            {/* About Subox */}
-            <div>
-              <h3 className="text-2xl font-bold mb-4">About Subox</h3>
-              <p className="text-lg text-white text-sm">
-                A Minnesota-focused marketplace for sublets and moving sales. Built for speed, trust, and simplicity.
-              </p>
-            </div>
+          <div className="grid grid-cols-1 ml-75 md:grid-cols-4 gap-8 text-center md:text-left">
 
             {/* Get Started */}
             <div>
-              <h3 className="text-2xl font-bold mb-4">Get Started</h3>
-              <ul className="space-y-2 text-lg">
+              <h3 className="font-bold mb-4">Get Started</h3>
+              <ul className="space-y-2">
                 <li><a href="auth" className="hover:underline">Log in</a></li>
                 <li><a href="auth?mode=signup" className="hover:underline">Sign up</a></li>
               </ul>
@@ -1369,8 +1497,8 @@ const SuboxHomepage = () => {
 
             {/* Resources */}
             <div>
-              <h3 className="text-2xl font-bold mb-4">Resources</h3>
-              <ul className="space-y-2 text-lg">
+              <h3 className="font-bold mb-4">Resources</h3>
+              <ul className="space-y-2">
                 <li><a href="#features" className="hover:underline">Features</a></li>
                 <li><a href="#use-cases" className="hover:underline">Use Cases</a></li>
                 <li><a href="#how-it-works" className="hover:underline">How it Works</a></li>
@@ -1380,6 +1508,162 @@ const SuboxHomepage = () => {
 
           {/* Copyright */}
           <div className="mt-10 pt-10 border-t border-white/30 text-center text-sm text-orange-100">
+            © {new Date().getFullYear()} Subox. All rights reserved.
+          </div>
+        </div>
+        <div className="md:hidden max-w-7xl mx-auto px-4">
+          {/* Upper Grid: stacked on mobile, grid on desktop */}
+          <div className="flex flex-col gap-10 md:grid md:grid-cols-4 md:gap-8 mb-10">
+
+            {/* Subox Brand */}
+            <div>
+              <div className="flex items-center space-x-3 mt-3 px-2 md:px-5">
+                {/* Logo */}
+              <motion.div className="relative">
+                {/* House Icon */}
+                <motion.svg 
+                  className="w-12 h-12" 
+                  viewBox="0 0 100 100" 
+                  fill="none"
+                  whileHover={{ rotate: [0, -5, 5, 0] }}
+                  transition={{ duration: 0.5 }}
+                >
+                  {/* House Base */}
+                  <motion.path
+                    d="M20 45L50 20L80 45V75C80 78 77 80 75 80H25C22 80 20 78 20 75V45Z"
+                    fill="#E97451"
+                    animate={{ 
+                      fill: ["#E97451", "#F59E0B", "#E97451"],
+                      scale: [1, 1.02, 1]
+                    }}
+                    transition={{ duration: 3, repeat: Infinity }}
+                  />
+                  {/* House Roof */}
+                  <motion.path
+                    d="M15 50L50 20L85 50L50 15L15 50Z"
+                    fill="#D97706"
+                    animate={{ rotate: [0, 1, 0] }}
+                    transition={{ duration: 4, repeat: Infinity }}
+                  />
+                  {/* Window */}
+                  <motion.rect
+                    x="40"
+                    y="50"
+                    width="20"
+                    height="15"
+                    fill="white"
+                    animate={{ 
+                      opacity: [1, 0.8, 1],
+                      scale: [1, 1.1, 1]
+                    }}
+                    transition={{ duration: 2, repeat: Infinity }}
+                  />
+                  {/* Door */}
+                  <motion.rect
+                    x="45"
+                    y="65"
+                    width="10"
+                    height="15"
+                    fill="white"
+                    animate={{ scaleY: [1, 1.05, 1] }}
+                    transition={{ duration: 2.5, repeat: Infinity }}
+                  />
+                </motion.svg>
+ 
+                {/* Tag Icon */}
+                <motion.svg 
+                  className="w-8 h-8 absolute -top-2 -right-2" 
+                  viewBox="0 0 60 60" 
+                  fill="none"
+                  whileHover={{ rotate: 360 }}
+                  transition={{ duration: 0.8 }}
+                >
+                  <motion.path
+                    d="M5 25L25 5H50V25L30 45L5 25Z"
+                    fill="#E97451"
+                    animate={{ 
+                      rotate: [0, 5, -5, 0],
+                      scale: [1, 1.1, 1]
+                    }}
+                    transition={{ duration: 3, repeat: Infinity }}
+                  />
+                  <motion.circle
+                    cx="38"
+                    cy="17"
+                    r="4"
+                    fill="white"
+                    animate={{ 
+                      scale: [1, 1.3, 1],
+                      opacity: [1, 0.7, 1]
+                    }}
+                    transition={{ duration: 1.5, repeat: Infinity }}
+                  />
+                </motion.svg>
+              </motion.div>
+
+                <div className="text-3xl font-bold">Subox</div>
+              </div>
+              <p className="text-white text-sm mt-4 px-2 md:px-3">
+                Find the perfect short-term housing solution near your campus and needed items.
+              </p>
+            </div>
+
+            {/* Sublease and Move out Sale*/}
+            <div className='flex justify-center gap-4'>
+              <div>              
+                <h4 className="font-bold text-lg md:text-xl mb-3 border-b border-white/30 pb-2">Sublease</h4>
+                <ul className="space-y-2 text-sm md:text-base">
+                  <li><a href="/sale/browse" className="hover:underline">Home</a></li>
+                  <li><a href="/search" className="hover:underline">Search</a></li>
+                  <li><a href="#" className="hover:underline">List Your Space</a></li>
+                  <li><a href="/help" className="hover:underline">Campus Map</a></li>
+                </ul>
+              </div>
+              <div>              
+                <h4 className="font-bold text-lg md:text-xl mb-3 border-b border-white/30 pb-2">Move Out Sale</h4>
+                <ul className="space-y-2 text-sm md:text-base">
+                  <li><a href="/sale/browse" className="hover:underline">Browse Items</a></li>
+                  <li><a href="#" className="hover:underline">Post Your Items</a></li>
+                  <li><a href="#" className="hover:underline">See Favorites</a></li>
+                  <li><a href="#" className="hover:underline">Blog</a></li>
+                </ul>
+              </div>
+            </div>
+            <div className='flex justify-center gap-4'>
+              <div>
+                <h3 className="text-xl font-bold mb-3 border-b border-white/30 pb-2">Get Started</h3>
+                <ul className="space-y-2 text-sm md:text-lg">
+                  <li><a href="auth" className="hover:underline">Log in</a></li>
+                  <li><a href="auth?mode=signup" className="hover:underline">Sign up</a></li>
+                </ul>
+              </div>
+              <div>
+                <h3 className="text-xl font-bold mb-3 border-b border-white/30 pb-2">Resources</h3>
+                <ul className="space-y-2 text-sm md:text-lg">
+                  <li><a href="#features" className="hover:underline">Features</a></li>
+                  <li><a href="#use-cases" className="hover:underline">Use Cases</a></li>
+                  <li><a href="#how-it-works" className="hover:underline">How it Works</a></li>
+                </ul>
+              </div>
+            </div>
+
+
+            {/* Support */}
+            <div className="text-center md:text-left">
+              <h3 className="text-xl font-bold mb-3 border-b border-white/30 pb-2">Support</h3>
+              <p className="text-sm md:text-lg">Need help?</p>
+              <a
+                href="/help"
+                id="help"
+                className="inline-block mt-3 px-5 py-2 bg-white text-orange-600 font-semibold rounded-full shadow hover:bg-orange-600 hover:text-white transition"
+              >
+                Visit Help Center
+              </a>
+            </div>
+          </div>
+
+          {/* Copyright */}
+          <div className="mt-10 pt-6 border-t border-white/30 text-center text-xs md:text-sm text-orange-100">
             © {new Date().getFullYear()} Subox. All rights reserved.
           </div>
         </div>
@@ -1415,22 +1699,22 @@ const useCases = [
   {
     title: "Post",
     description: "Subox helps you post your sublease easy and fast with AI.",
-    image: "post.png",
+    image: "post-gif.gif",
   },
   {
     title: "Rent",
     description: "Subox helps you browse verified subleases and contact the host instantly.",
-    image: "rent.png",
+    image: "rent-gif.gif",
   },  
   {
     title: "Sell",
     description: "Subox helps you sell your product easy and fast through AI auto listing.",
-    image: ["movesale.png", "sell.png", "sell2.png"]
+    image: "sell-gif.gif"
   },
   {
     title: "Buy",
     description: "Subox helps you discover great deals on moving sale products from fellow students, alumnis, and users in Minnesota",
-    image: "movebrowse.png",
+    image: "buy-gif.gif",
   },
 ];
 
@@ -1449,7 +1733,7 @@ function UseCasesSection() {
       const scrollTop = window.scrollY + window.innerHeight / 2;
 
       for (let i = 0; i < sections.length; i++) {
-        const section = sections[i];
+        const section = sections[i] as HTMLElement;
         const offsetTop = section.offsetTop;
         const offsetBottom = offsetTop + section.offsetHeight;
 
@@ -1470,13 +1754,13 @@ function UseCasesSection() {
     <motion.section
       ref={containerRef}
       id="use-cases"
-      className='relative z-10 max-w-7x1 mx-auto px-6 py-20'
+      className="relative z-10 max-w-7xl mx-auto px-6 py-20"
     >
       <section
-        ref={containerRef}
         className="max-w-7xl mx-auto px-6 py-20 flex flex-col md:flex-row gap-10"
         style={{ minHeight: "600px" }}
       >
+        {/* Left side (desktop image) */}
         <div className="hidden md:block md:w-1/2 sticky top-20 h-[400px]">
           <AnimatePresence mode="wait">
             <motion.div
@@ -1487,7 +1771,7 @@ function UseCasesSection() {
               transition={{ duration: 0.5 }}
               className="w-full h-full"
             >
-            {Array.isArray(useCases[activeIndex].image) ? (
+              {Array.isArray(useCases[activeIndex].image) ? (
                 <Swiper
                   modules={[Navigation, Autoplay]}
                   spaceBetween={20}
@@ -1517,21 +1801,59 @@ function UseCasesSection() {
           </AnimatePresence>
         </div>
 
+        {/* Right side (titles + description + image for mobile) */}
         <div className="md:w-1/2 flex flex-col gap-20">
           {useCases.map((useCase, i) => (
             <div
               key={useCase.title}
-              className="use-case-explanation cursor-pointer"
+              className="use-case-explanation cursor-pointer flex flex-col gap-4"
               onClick={() => setActiveIndex(i)}
             >
-              <h3
-                className={`text-3xl font-bold mb-4 ${
-                  i === activeIndex ? "text-orange-500" : "text-gray-700"
-                }`}
-              >
-                {useCase.title}
-              </h3>
-              <p className="text-lg text-gray-600 max-w-xl">{useCase.description}</p>
+              {/* Title + Subtitle */}
+              <div>
+                <h3
+                  className={`text-3xl font-bold mb-2 ${
+                    i === activeIndex ? "text-orange-500" : "text-gray-700"
+                  }`}
+                >
+                  {useCase.title}
+                </h3>
+                <p className="text-lg text-gray-600 max-w-xl">
+                  {useCase.description}
+                </p>
+              </div>
+
+              {/* Show image under text on mobile only when clicked */}
+              {i === activeIndex && (
+                <div className="md:hidden mt-4">
+                  {Array.isArray(useCase.image) ? (
+                    <Swiper
+                      modules={[Navigation, Autoplay]}
+                      spaceBetween={20}
+                      slidesPerView={1}
+                      navigation
+                      autoplay={{ delay: 3000, disableOnInteraction: false }}
+                      loop
+                    >
+                      {useCase.image.map((imgSrc, idx) => (
+                        <SwiperSlide key={imgSrc}>
+                          <img
+                            src={imgSrc}
+                            alt={`Slide ${idx}`}
+                            className="w-full h-64 object-contain rounded-xl shadow-lg"
+                          />
+                        </SwiperSlide>
+                      ))}
+                    </Swiper>
+                  ) : (
+                    <img
+                      src={useCase.image}
+                      alt={useCase.title}
+                      className="w-full h-64 object-contain rounded-xl shadow-lg"
+                    />
+                  )}
+                </div>
+              )}
             </div>
           ))}
         </div>
@@ -1566,30 +1888,77 @@ const HowItWorksSection = ({ howY }) => {
             A quick look at how to post and rent subleases or sell and buy moving items on Subox.
           </p>
         </motion.div>
-        <div className="flex flex-col gap-16">
+        <div className="md:hidden flex flex-col gap-16">
           {[
             {
               title: <>Post a <span className="text-orange-500">Sublease</span></>,
-              image: "post.png",
-              hoverImage: "/how/post-sublease-anim.gif",
+              image: "post-gif.gif",
               description: <>Easily post your sublease with a <span className="text-orange-500">few clicks</span> and <span className="text-orange-500">photos</span>.</>,
             },            
             {
               title: <><span className='text-orange-500'>Rent </span>a Place</>,
-              image: "rent.png",
-              hoverImage: "/how/rent-sublease-anim.gif",
+              image: "rent-gif.gif",
               description: <>Browse local subleases from trusted <span className="text-orange-500">students</span>, <span className="text-orange-500">alumnis</span>, and <span className="text-orange-500">users in Minnesota</span> and contact directly.</>,
             },
             {
               title: <>Sell a <span className='text-orange-500'>Product</span></>,
-              image: "sell.png",
-              hoverImage: "/how/post-product-anim.gif",
+              image: "sell-gif.gif",
               description: <>Snap a photo and let <span className="text-orange-500">AI</span> handle the rest of your <span className="text-orange-500">item listing</span>.</>,
             },
             {
               title: <><span className='text-orange-500'>Buy </span>a Product</>,
-              image: "movebrowse.png",
-              hoverImage: "/how/buy-product-anim.gif",
+              image: "buy-gif.gif",
+              description: <>Buy what you need <span className="text-orange-500">easily</span> and <span className="text-orange-500">quickly</span> by contacting directly.</>,
+            },
+          ].map((step, index) => {
+            const isImageLeft = index % 2 === 0;
+            return (
+              <motion.div
+                key={index}
+                initial={{ opacity: 0, y: 40 }}
+                animate={isInView ? { opacity: 1, y: 0 } : { opacity: 0, y: 40 }}
+                transition={{ duration: 0.6, delay: 0.1 * index }}
+                className={`flex flex-col md:flex-row items-center gap-10 ${
+                  isImageLeft ? '' : 'md:flex-row-reverse'
+                }`}
+              >                
+              {/* Text */}
+                <div className="md:w-1/2 text-center md:text-left">
+                  <h3 className="text-2xl font-bold text-gray-800 mb-2">{step.title}</h3>
+                  <p className="text-lg text-gray-600">{step.description}</p>
+                </div>
+
+              {/* Image */}
+                <div className="relative w-full md:w-1/2 h-64 overflow-hidden rounded-xl shadow-lg">
+                  <img
+                    src={step.image}
+                    className="w-full h-full object-cover transition-opacity duration-300 group-hover:opacity-0"
+                  />
+                </div>
+              </motion.div>
+            );
+          })}
+        </div>
+        <div className="hidden md:block flex flex-col gap-16">
+          {[
+            {
+              title: <>Post a <span className="text-orange-500">Sublease</span></>,
+              image: "post-gif.gif",
+              description: <>Easily post your sublease with a <span className="text-orange-500">few clicks</span> and <span className="text-orange-500">photos</span>.</>,
+            },            
+            {
+              title: <><span className='text-orange-500'>Rent </span>a Place</>,
+              image: "rent-gif.gif",
+              description: <>Browse local subleases from trusted <span className="text-orange-500">students</span>, <span className="text-orange-500">alumnis</span>, and <span className="text-orange-500">users in Minnesota</span> and contact directly.</>,
+            },
+            {
+              title: <>Sell a <span className='text-orange-500'>Product</span></>,
+              image: "sell-gif.gif",
+              description: <>Snap a photo and let <span className="text-orange-500">AI</span> handle the rest of your <span className="text-orange-500">item listing</span>.</>,
+            },
+            {
+              title: <><span className='text-orange-500'>Buy </span>a Product</>,
+              image: "buy-gif.gif",
               description: <>Buy what you need <span className="text-orange-500">easily</span> and <span className="text-orange-500">quickly</span> by contacting directly.</>,
             },
           ].map((step, index) => {

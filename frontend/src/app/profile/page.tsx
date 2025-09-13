@@ -669,7 +669,7 @@ const HostActivity = ({
   
   // Add this line to define listing
   const listing = hostListings.length > 0 ? hostListings[0] : null
-
+  
 
   return (
     <div className="space-y-6">
@@ -740,7 +740,7 @@ const HostActivity = ({
         <div className="flex items-center justify-between mb-6">
           <h3 className="text-xl font-semibold text-gray-900">Tour Management</h3>
           <Link 
-  href={`/sublease/search/${listing.id}/tour`}
+  href={'/sublease/search/${listing.id}/tour'}
   className="text-blue-600 hover:text-blue-700 font-medium text-sm transition-colors"
 >
   View All Tours
@@ -903,7 +903,7 @@ const HostActivity = ({
                       </Link>
                       {!availabilitySet && (
                         <Link 
-                          href={`/sublease/search/${id}/tour`}
+                          href={'sublease/search/${listing.id}/tour'}
                           className="px-3 py-1 bg-orange-100 text-orange-700 rounded text-xs hover:bg-orange-200 transition-colors text-center"
                         >
                           Setup Tours
@@ -1007,7 +1007,7 @@ const GuestActivity = ({ guestTourRequests }: { guestTourRequests: TourRequest[]
         <div className="flex items-center justify-between mb-6">
           <h3 className="text-xl font-semibold text-gray-900">Your Tour Requests</h3>
           <Link 
-            href="/sublease/search/${listing.id}/tour/" 
+            href='/sublease/search/${listing.id}/tour/' 
             className="text-blue-600 hover:text-blue-700 font-medium text-sm transition-colors"
           >
             View All Tours
