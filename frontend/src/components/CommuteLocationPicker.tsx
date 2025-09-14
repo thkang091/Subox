@@ -892,7 +892,7 @@ export default function CommuteLocationPicker({
 
       {/* Transport Mode Selection */}
       <div className="bg-white border border-gray-200 rounded-lg p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Transportation</h3>
+        <h3 className="text-z font-semibold text-gray-900 mb-4">Transportation</h3>
         <div className="grid grid-cols-5 gap-3">
           {[
             { mode: 'walking' as TransportMode, label: 'Walk', icon: <PersonStanding size={20} /> },
@@ -914,7 +914,7 @@ export default function CommuteLocationPicker({
               <div className={selectedTransportMode === mode ? 'text-orange-600' : 'text-gray-400'}>
                 {icon}
               </div>
-              <span className="text-sm font-medium">{label}</span>
+              <span className="text-[10px] md:text-sm font-medium">{label}</span>
             </button>
           ))}
         </div>

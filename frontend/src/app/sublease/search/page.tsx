@@ -3720,13 +3720,13 @@ const renderCommuteInfo = (listing) => {
 <div className="w-full max-w-5xl mx-auto px-4 -mt-10 relative z-10 animate-slideUp">
       <div className="max-w-4xl mx-auto p-6 -mb-10 md:-ml-5">
       {/* Compact Button Bar */}
-      <div className="flex items-center gap-3 mb-6 ">
+      <div className="flex items-center gap-3 mb-6">
         
         {/* Saved Searches Compact Button */}
         <div className="relative">
           <button 
             onClick={() => setShowSavedSearches(!showSavedSearches)}
-            className="flex items-center gap-2 px-4 py-2.5 text-xs md:text-base bg-white border border-gray-200 rounded-lg hover:bg-gray-50 hover:border-orange-300 transition-all duration-200 shadow-sm hover:shadow-md"
+            className="flex items-center gap-2 px-4 py-2.5 text-[10px] md:text-base bg-white border border-gray-200 rounded-lg hover:bg-gray-50 hover:border-orange-300 transition-all duration-200 shadow-sm hover:shadow-md"
           >
             <Bookmark size={18} className="text-orange-500" />
             <span className="font-medium text-gray-700">Saved Searches</span>
@@ -3739,7 +3739,7 @@ const renderCommuteInfo = (listing) => {
 
         {/* Save Current Search Button */}
         <button 
-          className={`flex items-center text-xs md:text-base gap-2 px-4 py-2.5 rounded-lg transition-all duration-200 font-medium shadow-sm hover:shadow-md ${
+          className={`flex items-center text-[10px] md:text-base gap-2 px-4 py-2.5 rounded-lg transition-all duration-200 font-medium shadow-sm hover:shadow-md ${
             hasSearchCriteria() 
               ? 'bg-orange-500 text-white hover:bg-orange-600' 
               : 'bg-gray-100 text-gray-400 cursor-not-allowed'
@@ -3754,9 +3754,9 @@ const renderCommuteInfo = (listing) => {
         {/* Commute Map Button */}
         <button 
         onClick={toggleMapView}
-        className="flex items-center gap-2 px-4 py-2.5 bg-blue-500 text-white text-xs md:text-base rounded-lg hover:bg-blue-600 transition-all duration-200 font-medium shadow-sm hover:shadow-md">
+        className="flex items-center gap-2 px-4 py-2.5 bg-blue-500 text-white text-[10px] md:text-base rounded-lg hover:bg-blue-600 transition-all duration-200 font-medium shadow-sm hover:shadow-md">
           <MapPin size={18} />
-          <span className="ml-4">
+          <span>
             {showMapView ? "Hide map view" : "Commute Map"}
           </span>
         </button>

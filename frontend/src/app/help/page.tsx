@@ -1168,7 +1168,7 @@ const HelpPage = () => {
                 <div className="max-w-4xl mx-auto px-4">
                   <div className="flex gap-4 mb-10">
                     {/* Left grid: first half of helpSections */}
-                    <div className="grid grid-cols-1 gap-4 flex-1">
+                    <div className="grid grid-cols-1 gap-4 flex-1 overflow-hidden">
                       {helpSections.slice(0, Math.ceil(helpSections.length / 2)).map((section) => (
                         <div
                           key={section.id}
@@ -1182,17 +1182,17 @@ const HelpPage = () => {
                           <div className="absolute top-4 left-4 h-6 w-6 text-orange-500">
                             {section.icon}
                           </div>
-                          <h3 className="text-xl font-semibold text-orange-600 mb-2 mt-12">
+                          <h3 className="text-base md:text-xl font-semibold text-orange-600 mb-2 mt-12">
                             {section.title}
                           </h3>
-                          <p className="text-sm text-gray-600">{section.description}</p>
-                          <p className="text-xs text-gray-400 mt-3">{section.count} articles</p>
+                          <p className="text-xs md:text-sm text-gray-600">{section.description}</p>
+                          <p className="text-[10px] md:text-xs text-gray-400 mt-3">{section.count} articles</p>
                         </div>
                       ))}
                     </div>
 
                     {/* Right grid: second half of helpSections */}
-                    <div className="grid grid-cols-1 gap-4 flex-1">
+                    <div className="grid grid-cols-1 gap-4 flex-1 overflow-hidden">
                       {helpSections.slice(Math.ceil(helpSections.length / 2)).map((section) => (
                         <div
                           key={section.id}
@@ -1206,11 +1206,11 @@ const HelpPage = () => {
                           <div className="absolute -top-2 left-5 h-6 w-6 text-orange-500">
                             {section.icon}
                           </div>
-                          <h3 className="text-xl font-semibold text-orange-600 mb-2 mt-11">
+                          <h3 className="tesxt-base md:text-xl font-semibold text-orange-600 mb-2 mt-11">
                             {section.title}
                           </h3>
-                          <p className="text-sm text-gray-600">{section.description}</p>
-                          <p className="text-xs text-gray-400 mt-3">{section.count} articles</p>
+                          <p className="text-xs md:text-sm text-gray-600">{section.description}</p>
+                          <p className="text-[10px] md:text-xss text-gray-400 mt-3">{section.count} articles</p>
                         </div>
                       ))}
                     </div>

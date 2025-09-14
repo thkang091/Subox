@@ -1193,14 +1193,240 @@ const ProductDetailPage = () => {
       <div className="bg-white border-b border-gray-200 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
-            {/* Logo */}
-            <div className="flex items-center space-x-3">
-              <div className="w-8 h-8 bg-gradient-to-br from-orange-500 to-red-600 rounded-lg flex items-center justify-center">
-                <Package className="w-5 h-5 text-white" />
+              <div className="flex items-center space-x-3 hidden md:flex">
+                <motion.div 
+                    className="flex items-center space-x-7 relative"
+                    whileHover={{ scale: 1.05 }}
+                >
+                {/* Main Subox Logo */}
+                <motion.div className="relative mt-3">
+                {/* House Icon */}
+                <motion.svg 
+                    className="w-12 h-12" 
+                    viewBox="0 0 100 100" 
+                    fill="none"
+                    whileHover={{ rotate: [0, -5, 5, 0] }}
+                    transition={{ duration: 0.5 }}
+                >
+                    {/* House Base */}
+                    <motion.path
+                    d="M20 45L50 20L80 45V75C80 78 77 80 75 80H25C22 80 20 78 20 75V45Z"
+                    fill="#E97451"
+                    animate={{ 
+                        fill: ["#E97451", "#F59E0B", "#E97451"],
+                        scale: [1, 1.02, 1]
+                    }}
+                    transition={{ duration: 3, repeat: Infinity }}
+                    />
+                    {/* House Roof */}
+                    <motion.path
+                    d="M15 50L50 20L85 50L50 15L15 50Z"
+                    fill="#D97706"
+                    animate={{ rotate: [0, 1, 0] }}
+                    transition={{ duration: 4, repeat: Infinity }}
+                    />
+                    {/* Window */}
+                    <motion.rect
+                    x="40"
+                    y="50"
+                    width="20"
+                    height="15"
+                    fill="white"
+                    animate={{ 
+                        opacity: [1, 0.8, 1],
+                        scale: [1, 1.1, 1]
+                    }}
+                    transition={{ duration: 2, repeat: Infinity }}
+                    />
+                    {/* Door */}
+                    <motion.rect
+                    x="45"
+                    y="65"
+                    width="10"
+                    height="15"
+                    fill="white"
+                    animate={{ scaleY: [1, 1.05, 1] }}
+                    transition={{ duration: 2.5, repeat: Infinity }}
+                    />
+                </motion.svg>
+
+                {/* Tag Icon */}
+                <motion.svg 
+                    className="w-8 h-8 absolute -top-2 -right-2" 
+                    viewBox="0 0 60 60" 
+                    fill="none"
+                    whileHover={{ rotate: 360 }}
+                    transition={{ duration: 0.8 }}
+                >
+                    <motion.path
+                    d="M5 25L25 5H50V25L30 45L5 25Z"
+                    fill="#E97451"
+                    animate={{ 
+                        rotate: [0, 5, -5, 0],
+                        scale: [1, 1.1, 1]
+                    }}
+                    transition={{ duration: 3, repeat: Infinity }}
+                    />
+                    <motion.circle
+                    cx="38"
+                    cy="17"
+                    r="4"
+                    fill="white"
+                    animate={{ 
+                        scale: [1, 1.3, 1],
+                        opacity: [1, 0.7, 1]
+                    }}
+                    transition={{ duration: 1.5, repeat: Infinity }}
+                    />
+                </motion.svg>
+                </motion.div>
+
+                {/* Subox Text */}
+                <motion.div className="flex flex-col -mx-4">
+                <motion.span 
+                    className="text-3xl font-bold text-gray-900"
+                    animate={{
+                    background: [
+                        "linear-gradient(45deg, #1F2937, #374151)",
+                        "linear-gradient(45deg, #E97451, #F59E0B)",
+                        "linear-gradient(45deg, #1F2937, #374151)"
+                    ],
+                    backgroundClip: "text",
+                    WebkitBackgroundClip: "text",
+                    color: "transparent"
+                    }}
+                    transition={{ duration: 4, repeat: Infinity }}
+                >
+                    Subox
+                </motion.span>
+                <motion.span 
+                    className="text-xs text-gray-500 font-medium tracking-wider"
+                    animate={{ opacity: [0.7, 1, 0.7] }}
+                    transition={{ duration: 2, repeat: Infinity }}
+                >
+                    Subleases
+                </motion.span>
+                </motion.div>
+                </motion.div>
               </div>
-              <span className="text-2xl font-bold text-gray-900">Subox</span>
-              <span className="text-sm text-gray-500 hidden sm:block">Move Out Sales</span>
-            </div>
+
+              <div className="flex items-center space-x-3 flex md:hidden">
+                <motion.div 
+                    className="flex items-center space-x-7 relative"
+                    whileHover={{ scale: 1.05 }}
+                >
+                {/* Main Subox Logo */}
+                <motion.div className="relative mt-3">
+                {/* House Icon */}
+                <motion.svg 
+                    className="w-10 h-10" 
+                    viewBox="0 0 100 100" 
+                    fill="none"
+                    whileHover={{ rotate: [0, -5, 5, 0] }}
+                    transition={{ duration: 0.5 }}
+                >
+                    {/* House Base */}
+                    <motion.path
+                    d="M20 45L50 20L80 45V75C80 78 77 80 75 80H25C22 80 20 78 20 75V45Z"
+                    fill="#E97451"
+                    animate={{ 
+                        fill: ["#E97451", "#F59E0B", "#E97451"],
+                        scale: [1, 1.02, 1]
+                    }}
+                    transition={{ duration: 3, repeat: Infinity }}
+                    />
+                    {/* House Roof */}
+                    <motion.path
+                    d="M15 50L50 20L85 50L50 15L15 50Z"
+                    fill="#D97706"
+                    animate={{ rotate: [0, 1, 0] }}
+                    transition={{ duration: 4, repeat: Infinity }}
+                    />
+                    {/* Window */}
+                    <motion.rect
+                    x="40"
+                    y="50"
+                    width="20"
+                    height="15"
+                    fill="white"
+                    animate={{ 
+                        opacity: [1, 0.8, 1],
+                        scale: [1, 1.1, 1]
+                    }}
+                    transition={{ duration: 2, repeat: Infinity }}
+                    />
+                    {/* Door */}
+                    <motion.rect
+                    x="45"
+                    y="65"
+                    width="10"
+                    height="15"
+                    fill="white"
+                    animate={{ scaleY: [1, 1.05, 1] }}
+                    transition={{ duration: 2.5, repeat: Infinity }}
+                    />
+                </motion.svg>
+
+                {/* Tag Icon */}
+                <motion.svg 
+                    className="w-6 h-6 absolute -top-1 -right-1" 
+                    viewBox="0 0 60 60" 
+                    fill="none"
+                    whileHover={{ rotate: 360 }}
+                    transition={{ duration: 0.8 }}
+                >
+                    <motion.path
+                    d="M5 25L25 5H50V25L30 45L5 25Z"
+                    fill="#E97451"
+                    animate={{ 
+                        rotate: [0, 5, -5, 0],
+                        scale: [1, 1.1, 1]
+                    }}
+                    transition={{ duration: 3, repeat: Infinity }}
+                    />
+                    <motion.circle
+                    cx="38"
+                    cy="17"
+                    r="4"
+                    fill="white"
+                    animate={{ 
+                        scale: [1, 1.3, 1],
+                        opacity: [1, 0.7, 1]
+                    }}
+                    transition={{ duration: 1.5, repeat: Infinity }}
+                    />
+                </motion.svg>
+                </motion.div>
+
+                {/* Subox Text */}
+                <motion.div className="flex flex-col -mx-4">
+                <motion.span 
+                    className="text-xl font-bold text-gray-900"
+                    animate={{
+                    background: [
+                        "linear-gradient(45deg, #1F2937, #374151)",
+                        "linear-gradient(45deg, #E97451, #F59E0B)",
+                        "linear-gradient(45deg, #1F2937, #374151)"
+                    ],
+                    backgroundClip: "text",
+                    WebkitBackgroundClip: "text",
+                    color: "transparent"
+                    }}
+                    transition={{ duration: 4, repeat: Infinity }}
+                >
+                    Subox
+                </motion.span>
+                <motion.span 
+                    className="text-[10px] text-gray-500 font-medium tracking-wider"
+                    animate={{ opacity: [0.7, 1, 0.7] }}
+                    transition={{ duration: 2, repeat: Infinity }}
+                >
+                    Subleases
+                </motion.span>
+                </motion.div>
+                </motion.div>
+              </div>
+
  
             {/* Header Actions */}
             <div className="flex items-center space-x-4">
@@ -1524,15 +1750,15 @@ const ProductDetailPage = () => {
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center space-x-4">
               {seller.photoURL ? (
-                <img src={seller.photoURL} alt="Seller" className="w-24 h-24 rounded-full border-2 border-gray-300" />
+                <img src={seller.photoURL} alt="Seller" className="w-15 md:w-24 h-15 md:h-24 rounded-full border-2 border-gray-300" />
               ) : (
                 <div className="w-24 h-24 bg-gray-300 rounded-full flex items-center justify-center">
                   <User className="w-12 h-12 text-gray-500" />
                 </div>
               )}
               <div className = "">
-                <h2 className="text-xl font-bold text-gray-700">{seller.name}
-                 <p className="text-gray-500 text-sm">{seller.email}</p>
+                <h2 className="text-sm md:text-xl font-bold text-gray-700">{seller.name}
+                 <p className="text-gray-500 text-[10px] md:text-sm">{seller.email}</p>
                    <BadgeMoveOutSale listing={product} hostData={hostData} className = "ml-15" />                
                  {isCurrentUserSeller && (
                   <p className="text-orange-600 text-sm font-medium mt-1">This is your listing</p>

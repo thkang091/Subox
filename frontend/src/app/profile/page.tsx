@@ -416,7 +416,7 @@ const ProfileHeader = ({ userInfo, user }: { userInfo: UserInfo | null; user: an
           )}
         </div>
       </div>
-      <div className='md:flex space-y-1 md:space-x-4 -mt-1 md:-mt-0 ml-15'>
+      <div className='md:flex space-y-1 md:space-x-4 -mt-1 md:-mt-0'>
 
         <NotificationsButton notifications={notification}/>
 
@@ -808,13 +808,11 @@ const MoveOutSaleRoleSelection = ({
             <div className="w-16 h-16 bg-gradient-to-br from-teal-100 to-teal-200 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
               <DollarSign className="w-20 md:w-8 h-8 text-teal-600" />
             </div>
-            <div className='flex top-2 right-2'>
               {profileData.hostSaleItems.length > 0 && (
-                <span className="bg-teal-100 text-teal-800 px-3 py-1 transform translate-x-6 rounded-full text-[8px] md:text-sm font-medium">
+                <span className="bg-teal-100 text-teal-800 px-3 py-1 transform translate-x-5 rounded-full text-[8px] md:text-sm font-medium overflow-hidden">
                   {profileData.hostSaleItems.length} active listing{profileData.hostSaleItems.length > 1 ? 's' : ''}
                 </span>
               )}
-            </div>
           </div>
           
           <h3 className="text-2xl font-bold text-gray-900 mb-3 group-hover:text-teal-600 transition-colors">
@@ -1359,7 +1357,7 @@ const RecentConversations = ({
         <h3 className="text-xl font-semibold text-gray-900">{getConversationTitle()}</h3>
         <Link 
           href="/sublease/search/list" 
-          className="text-orange-600 hover:text-orange-700 font-medium text-sm transition-colors"
+          className="text-orange-600 hover:text-orange-700 font-medium text-sm transition-colors overflow-hidden"
         >
           View All Messages
         </Link>
