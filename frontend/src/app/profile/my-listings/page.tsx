@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/app/contexts/AuthInfo';
 import { 
   collection, 
@@ -9,8 +9,8 @@ import {
   orderBy, 
   getDocs,
   doc,
-  updateDoc,
   deleteDoc,
+  updateDoc,
   Timestamp 
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
@@ -27,7 +27,9 @@ import {
   Edit, 
   ArrowLeft,
   AlertTriangle,
-  RotateCcw
+  RotateCcw,
+  Trash2,
+  Clock
 } from 'lucide-react';
 
 // Types
@@ -43,6 +45,7 @@ interface Listing {
   images?: string[];
   additionalImages?: string[];  // Your actual field name
   deliveryAvailable?: boolean;
+  deactivatedAt?: Timestamp;
   pickupAvailable?: boolean;
   availableFrom?: Timestamp;
   availableTo?: Timestamp;
@@ -57,10 +60,27 @@ interface Listing {
 }
 
 // Utility functions
-const formatDate = (timestamp: Timestamp | any): string => {
+const formatDate = (timestamp?: Timestamp): string => {
   if (!timestamp) return 'N/A';
   const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
   return date.toLocaleDateString();
+};
+
+// NEW: Calculate days remaining for reactivation
+const getDaysRemainingForReactivation = (deactivatedAt: Timestamp | undefined): number => {
+  if (!deactivatedAt) return 0;
+  
+  const deactivatedDate = deactivatedAt.toDate ? deactivatedAt.toDate() : new Date(deactivatedAt);
+  const now = new Date();
+  const diffTime = now.getTime() - deactivatedDate.getTime();
+  const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+  
+  return Math.max(0, 5 - diffDays);
+};
+
+// NEW: Check if item can be reactivated (within 5 days)
+const canReactivate = (deactivatedAt: Timestamp | undefined): boolean => {
+  return getDaysRemainingForReactivation(deactivatedAt) > 0;
 };
 
 const formatRent = (rent: number | undefined): string => {
@@ -95,7 +115,7 @@ const EmptyState = () => (
   <div className="text-center py-16">
     <Home className="mx-auto h-16 w-16 text-gray-400 mb-4" />
     <h2 className="text-2xl font-bold text-gray-900 mb-2">No Listings Yet</h2>
-    <p className="text-gray-600 mb-6">You haven't created any sublease listings. Start listing your space today!</p>
+    <p className="text-gray-600 mb-6">You haven&apos;t created any sublease listings. Start listing your space today!</p>
     <Link 
       href="/create-listing" 
       className="inline-flex items-center px-6 py-3 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors"
@@ -106,7 +126,12 @@ const EmptyState = () => (
   </div>
 );
 
-const ListingCard = ({ listing, onStatusUpdate }: { listing: Listing; onStatusUpdate: (id: string, status: string) => void }) => {
+const ListingCard = ({ listing, onStatusUpdate, onListDelete  }
+  : { 
+    listing: Listing; 
+    onStatusUpdate: (id: string, status: string) => void; 
+    onListDelete: (id: string) => void; 
+  }) => {
   const [updating, setUpdating] = useState(false);
   const [imageError, setImageError] = useState(false);
 
@@ -123,16 +148,49 @@ const ListingCard = ({ listing, onStatusUpdate }: { listing: Listing; onStatusUp
     }
   };
 
+  const handlePermanentDelete = async () => {
+    if (!confirm('This item will be permanently deleted. This action cannot be undone. Are you sure?')) {
+      return;
+    }
+
+    setUpdating(true);
+    try {
+      await deleteDoc(doc(db, 'listing', listing.id));
+      onListDelete(listing.id);
+      alert('Item permanently deleted.');
+    } catch (error) {
+      console.error('Error deleting item:', error);
+      alert('Failed to delete item. Please try again.');
+    } finally {
+      setUpdating(false);
+    }
+  };
+
+  const daysRemaining = getDaysRemainingForReactivation(listing.deactivatedAt);
+  const canReactivateItem = canReactivate(listing.deactivatedAt);
+
   const handleStatusChange = async (newStatus: string) => {
     setUpdating(true);
     try {
-      await updateDoc(doc(db, 'listings', listing.id), {
+      const updateData = {
         status: newStatus,
         updatedAt: new Date()
-      });
+      };
+
+      // If changing to unavailable, set deactivatedAt timestamp
+      if (newStatus === 'unavailable') {
+        updateData.deactivatedAt = new Date();
+      }
+      // If reactivating, remove deactivatedAt timestamp
+      else if (newStatus === 'active' && listing.status === 'unavailable') {
+        updateData.deactivatedAt = null;
+      }
+
+      await updateDoc(doc(db, 'listing', listing.id), updateData);
       onStatusUpdate(listing.id, newStatus);
     } catch (error) {
       console.error('Error updating status:', error);
+      alert('Failed to update status. Please try again.');
     } finally {
       setUpdating(false);
     }
@@ -172,6 +230,31 @@ const ListingCard = ({ listing, onStatusUpdate }: { listing: Listing; onStatusUp
             </span>
           </div>
         )}
+
+        {/* Status Badge */}
+        <div className="absolute top-3 right-3">
+          <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(listing.status)}`}>
+            {listing.status}
+          </span>
+        </div>
+
+        {/* NEW: Grace Period Warning */}
+        {listing.status === 'unavailable' && listing.deactivatedAt && (
+          <div className="absolute top-3 left-3">
+            {canReactivateItem ? (
+              <span className="px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 flex items-center">
+                <Clock className="mr-1 h-3 w-3" />
+                {daysRemaining} days to reactivate
+              </span>
+            ) : (
+              <span className="px-2 py-1 rounded-full text-xs font-medium bg-red-200 text-red-900 flex items-center">
+                <AlertTriangle className="mr-1 h-3 w-3" />
+                Grace period expired
+              </span>
+            )}
+          </div>
+        )}
+
       </div>
 
       {/* Content */}
@@ -287,6 +370,33 @@ const ListingCard = ({ listing, onStatusUpdate }: { listing: Listing; onStatusUp
               {updating ? 'Updating...' : 'Mark Unavailable'}
             </button>
           )}
+
+          {/* NEW: Enhanced reactivation logic */}
+          {listing.status === 'unavailable' && (
+            <>
+              {canReactivateItem ? (
+                <button
+                  onClick={() => handleStatusChange('active')}
+                  disabled={updating}
+                  className="flex-1 px-3 py-2 text-sm bg-orange-100 text-orange-700 rounded-lg hover:bg-orange-200 transition-colors disabled:opacity-50 flex items-center justify-center"
+                  title={`You have ${daysRemaining} days left to reactivate this item`}
+                >
+                  <RotateCcw className="mr-1 h-3 w-3" />
+                  {updating ? 'Updating...' : `Reactivate (${daysRemaining}d left)`}
+                </button>
+              ) : (
+                <button
+                  onClick={handlePermanentDelete}
+                  disabled={updating}
+                  className="flex-1 px-3 py-2 text-sm bg-red-200 text-red-800 rounded-lg hover:bg-red-300 transition-colors disabled:opacity-50 flex items-center justify-center"
+                  title="Grace period expired. Item will be permanently deleted."
+                >
+                  <Trash2 className="mr-1 h-3 w-3" />
+                  {updating ? 'Deleting...' : 'Delete Permanently'}
+                </button>
+              )}
+            </>
+          )}
           
           {listing.status !== 'active' && (
             <button
@@ -312,8 +422,59 @@ const MyListings = () => {
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<'all' | 'active' | 'rented' | 'unavailable'>('all');
 
+
+  // Handle status update
+  const handleStatusUpdate = (listingId: string, newStatus: string) => {
+    setListings(prev => 
+      prev.map(listing => 
+        listing.id === listingId 
+          ? { ...listing, status: newStatus as 'active' | 'rented' | 'unavailable' }
+          : listing
+      )
+    );
+  };
+
+  const handleListingDelete = (listId: string) => {
+    setListings(prev => prev.filter(listing => listing.id !== listId));
+  };
+
+  // Filter listings
+  const filteredListings = listings.filter(listing => {
+    if (filter === 'all') return true;
+    return listing.status === filter;
+  });
+
+  // NEW: Clean up expired items
+  const cleanupExpiredLists = useCallback(async () => {
+    if (!user?.uid) return;
+
+    try {
+      const expiredLists = listings.filter(list => 
+        list.status === 'unavailable' && 
+        list.deactivatedAt && 
+        !canReactivate(list.deactivatedAt)
+      );
+
+      for (const list of expiredLists) {
+        try {
+          await deleteDoc(doc(db, 'listing', list.id));
+          console.log(`Cleaned up expired item: ${list.id}`);
+        } catch (error) {
+          console.error(`Failed to cleanup item ${list.id}:`, error);
+        }
+      }
+
+      if (expiredLists.length > 0) {
+        // Refresh the list after cleanup
+        fetchListings();
+      }
+    } catch (error) {
+      console.error('Error during cleanup:', error);
+    }
+  }, [user?.uid]);
+
   // Fetch listings
-  const fetchListings = async () => {
+  const fetchListings = useCallback(async () => {
     if (!user?.uid) return;
     
     try {
@@ -333,6 +494,7 @@ const MyListings = () => {
           where('hostId', '==', user.uid),
           orderBy('createdAt', 'desc')
         );
+        console.log("Error occured", error);
       }
       
       const querySnapshot = await getDocs(q);
@@ -351,30 +513,16 @@ const MyListings = () => {
       
       setListings(items);
       setError(null);
-    } catch (error: any) {
+
+      // NEW: Run cleanup after fetching items
+      setTimeout(() => cleanupExpiredLists(), 1000);
+    } catch (error) {
       console.error('Error fetching listings:', error);
       setError('Failed to load listings');
     } finally {
       setLoading(false);
     }
-  };
-
-  // Handle status update
-  const handleStatusUpdate = (listingId: string, newStatus: string) => {
-    setListings(prev => 
-      prev.map(listing => 
-        listing.id === listingId 
-          ? { ...listing, status: newStatus as 'active' | 'rented' | 'unavailable' }
-          : listing
-      )
-    );
-  };
-
-  // Filter listings
-  const filteredListings = listings.filter(listing => {
-    if (filter === 'all') return true;
-    return listing.status === filter;
-  });
+  }, [user?.uid, cleanupExpiredLists]);
 
   // Effects
   useEffect(() => {
@@ -383,7 +531,15 @@ const MyListings = () => {
     } else if (!authLoading && !user) {
       setLoading(false);
     }
-  }, [user, authLoading]);
+  }, [user, authLoading, fetchListings]);
+
+  // NEW: Set up periodic cleanup (check every hour)
+  useEffect(() => {
+    if (user?.uid && listings.length > 0) {
+      const interval = setInterval(cleanupExpiredLists, 60 * 60 * 1000); // 1 hour
+      return () => clearInterval(interval);
+    }
+  }, [user, listings, cleanupExpiredLists]);
 
   // Render states
   if (authLoading || loading) {
@@ -474,6 +630,7 @@ const MyListings = () => {
                 key={listing.id}
                 listing={listing}
                 onStatusUpdate={handleStatusUpdate}
+                onListDelete={handleListingDelete}
               />
             ))}
           </div>

@@ -9,9 +9,9 @@ import { doc, getDoc, updateDoc, increment, collection, query, where,
   getDocs, limit, orderBy, addDoc, deleteDoc, serverTimestamp } from 'firebase/firestore';
 import { useAuth } from '@/app/contexts/AuthInfo';
 import { MapPin, Heart, User, Package, Bell, X,
-        ChevronLeft, Plus, Flag, MessagesSquare, Menu,  ArrowLeft, ArrowRight,Video, 
-        MessageCircle, AlertCircle, Info, DollarSign, BedDouble, Calendar, Users, 
-        Expand, Eye, EyeOff, Navigation, Check, Volume2,CalendarCheck,Zap,Cigarette, BookOpen, Star
+        ChevronLeft, Plus, Flag, MessagesSquare, Menu,  ArrowLeft, ArrowRight,
+        MessageCircle, Info, DollarSign, Calendar,
+        Check, Star
       } from 'lucide-react';
 import BadgeMoveOutSale from '@/data/badgeMoveOutSale';
 
@@ -88,8 +88,7 @@ const ProductDetailPage = () => {
   const [activeImage, setActiveImage] = useState(0);
   const [showAllImages, setShowAllImages] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
-  const [favoriteListings, setFavoriteListings] = useState<any[]>([]);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [favoriteListings, setFavoriteListings] = useState<[]>([]);
   const [isMounted, setIsMounted] = useState(false);
   const [showConnectOptions, setShowConnectOptions] = useState(false);
   const [product, setProduct] = useState<ProductData | null>(null);
@@ -99,7 +98,6 @@ const ProductDetailPage = () => {
   const [similarProducts, setSimilarProducts] = useState<ProductData[]>([]);
   const [loadingRecommendations, setLoadingRecommendations] = useState(false);
   const [creatingConversation, setCreatingConversation] = useState(false);
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
    const [showReviewModal, setShowReviewModal] = useState(false);
     const [newReviewRating, setNewReviewRating] = useState(5);
@@ -509,105 +507,14 @@ const ProductDetailPage = () => {
       console.error('Error updating host review stats:', error);
     }
   };
-  
-  const fetchHostReviews = async () => {
-    if (!product?.hostId) return;
-  
-    try {
-      const reviewsQuery = query(
-        collection(db, 'reviews'),
-        where('revieweeId', '==', product.hostId),
-        orderBy('createdAt', 'desc')
-      );
-      
-      const reviewsSnapshot = await getDocs(reviewsQuery);
-      const reviews = reviewsSnapshot.docs.map(doc => {
-        const data = doc.data();
-        return {
-          id: doc.id,
-          reviewerId: data.reviewerId,
-          name: data.reviewerName,
-          date: data.createdAt?.toDate().toLocaleDateString('en-US', {
-            year: 'numeric',
-            month: 'long'
-          }) || 'Recent',
-          comment: data.comment,
-          rating: data.rating,
-          isEdited: data.isEdited || false 
-        };
-      });
-      
-      setHostReviews(reviews);
-    } catch (error) {
-      console.error('Error fetching reviews:', error);
-    }
-  };
+
     //calculate the average rating
     const hostReviewCount = hostReviews.length;
     const hostRating = hostReviews.length > 0 
       ? (hostReviews.reduce((sum, review) => sum + review.rating, 0) / hostReviews.length).toFixed(1)
       : "0.0";
   
-      const fetchUserReviewStats = async (userId: string) => {
-    try {
-      const userRef = doc(db, 'users', userId);
-      const userDoc = await getDoc(userRef);
-      
-      if (userDoc.exists()) {
-        const userData = userDoc.data();
-        return {
-          reviewsGivenCount: userData.reviewsGivenCount || 0,
-          reviewsGiven: userData.reviewsGiven || [],
-          lastReviewGiven: userData.lastReviewGiven || null
-        };
-      }
-      
-      return {
-        reviewsGivenCount: 0,
-        reviewsGiven: [],
-        lastReviewGiven: null
-      };
-    } catch (error) {
-      console.error('Error fetching user review stats:', error);
-      return {
-        reviewsGivenCount: 0,
-        reviewsGiven: [],
-        lastReviewGiven: null
-      };
-    }
-  };
-  
-  // 🆕 hostData에 리뷰어 정보도 포함시키기 (Badge 컴포넌트에서 사용)
-  // const [hostData, setHostData] = useState({
-  //   totalReviews: 0,
-  //   averageRating: 0,
-  //   reviewsGivenCount: 0 // 리뷰어로서의 통계
-  // });
-  
-  // const [currentUserReviewStats, setCurrentUserReviewStats] = useState({
-  //   reviewsGivenCount: 0,
-  //   reviewsGiven: [],
-  //   lastReviewGiven: null
-  // });
-  
-  const loadHostDataWithReviewerStats = async (userId: string) => {
-    try {
-      const userRef = doc(db, 'users', userId);
-      const userDoc = await getDoc(userRef);
-      
-      if (userDoc.exists()) {
-        const userData = userDoc.data();
-        setHostData({
-          totalReviews: userData.totalReviews || 0,
-          averageRating: userData.averageRating || 0,
-          reviewsGivenCount: userData.reviewsGivenCount || 0
-        });
-      }
-    } catch (error) {
-      console.error('Error loading host data:', error);
-    }
-  };
-  
+    
   const deleteReview = async (reviewId, reviewData) => {
     if (!window.confirm('Are you sure you want to delete this review?')) {
       return;
@@ -1013,7 +920,7 @@ const ProductDetailPage = () => {
     };
     
     fetchProduct();
-  }, [params, router]);
+  }, [params, router, extractProductId]);
 
   const handleTabClick = (tab: string) => {
     if (actualId || id) {
@@ -1065,9 +972,9 @@ const ProductDetailPage = () => {
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [showAllImages, allImages.length]);
+  }, [showAllImages, allImages.length, goToNextImage]);
 
-  const NotificationsButton = ({ notifications }: { notifications: any[] }) => {
+  const NotificationsButton = ({ notifications }: { notifications: [] }) => {
     const [showNotifications, setShowNotifications] = useState(false);
 
     return (

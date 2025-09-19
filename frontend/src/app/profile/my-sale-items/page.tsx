@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/app/contexts/AuthInfo';
 import { 
   collection, 
@@ -64,7 +64,7 @@ interface SaleItem {
 }
 
 // Utility functions
-const formatDate = (timestamp: Timestamp | any): string => {
+const formatDate = (timestamp?: Timestamp): string => {
   if (!timestamp) return 'N/A';
   const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
   return date.toLocaleDateString();
@@ -119,7 +119,7 @@ const EmptyState = () => (
   <div className="text-center py-16">
     <DollarSign className="mx-auto h-16 w-16 text-gray-400 mb-4" />
     <h2 className="text-2xl font-bold text-gray-900 mb-2">No Sale Items Yet</h2>
-    <p className="text-gray-600 mb-6">You haven't created any sale items. Start selling your items today!</p>
+    <p className="text-gray-600 mb-6">You haven&apos;t created any sale items. Start selling your items today!</p>
     <Link 
       href="/create-sale-item" 
       className="inline-flex items-center px-6 py-3 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors"
@@ -174,7 +174,7 @@ const SaleItemCard = ({
   const handleStatusChange = async (newStatus: string) => {
     setUpdating(true);
     try {
-      const updateData: any = {
+      const updateData = {
         status: newStatus,
         updatedAt: new Date()
       };
@@ -460,8 +460,42 @@ const MySaleItems = () => {
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<'all' | 'active' | 'sold' | 'unavailable'>('all');
 
+  // Handle status update
+  const handleStatusUpdate = (itemId: string, newStatus: string) => {
+    setSaleItems(prev => 
+      prev.map(item => 
+        item.id === itemId 
+          ? { 
+              ...item, 
+              status: newStatus as 'active' | 'sold' | 'unavailable',
+              deactivatedAt: newStatus === 'unavailable' ? Timestamp.now() : null
+            }
+          : item
+      )
+    );
+  };
+
+  // NEW: Handle item deletion
+  const handleItemDelete = (itemId: string) => {
+    setSaleItems(prev => prev.filter(item => item.id !== itemId));
+  };
+
+  // Filter items
+  const filteredItems = saleItems.filter(item => {
+    if (filter === 'all') return true;
+    return item.status === filter;
+  });
+
+  // NEW: Get count of items needing attention (grace period ending soon)
+  const itemsNeedingAttention = saleItems.filter(item => 
+    item.status === 'unavailable' && 
+    item.deactivatedAt &&
+    getDaysRemainingForReactivation(item.deactivatedAt) <= 2 &&
+    getDaysRemainingForReactivation(item.deactivatedAt) > 0
+  ).length;
+
   // NEW: Clean up expired items
-  const cleanupExpiredItems = async () => {
+  const cleanupExpiredItems = useCallback(async () => {
     if (!user?.uid) return;
 
     try {
@@ -487,10 +521,10 @@ const MySaleItems = () => {
     } catch (error) {
       console.error('Error during cleanup:', error);
     }
-  };
+  },[user?.uid]);
 
   // Fetch sale items
-  const fetchSaleItems = async () => {
+  const fetchSaleItems = useCallback(async () => {
     if (!user?.uid) return;
     
     try {
@@ -539,47 +573,13 @@ const MySaleItems = () => {
 
       // NEW: Run cleanup after fetching items
       setTimeout(() => cleanupExpiredItems(), 1000);
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error fetching sale items:', error);
       setError('Failed to load sale items');
     } finally {
       setLoading(false);
     }
-  };
-
-  // Handle status update
-  const handleStatusUpdate = (itemId: string, newStatus: string) => {
-    setSaleItems(prev => 
-      prev.map(item => 
-        item.id === itemId 
-          ? { 
-              ...item, 
-              status: newStatus as 'active' | 'sold' | 'unavailable',
-              deactivatedAt: newStatus === 'unavailable' ? Timestamp.now() : null
-            }
-          : item
-      )
-    );
-  };
-
-  // NEW: Handle item deletion
-  const handleItemDelete = (itemId: string) => {
-    setSaleItems(prev => prev.filter(item => item.id !== itemId));
-  };
-
-  // Filter items
-  const filteredItems = saleItems.filter(item => {
-    if (filter === 'all') return true;
-    return item.status === filter;
-  });
-
-  // NEW: Get count of items needing attention (grace period ending soon)
-  const itemsNeedingAttention = saleItems.filter(item => 
-    item.status === 'unavailable' && 
-    item.deactivatedAt &&
-    getDaysRemainingForReactivation(item.deactivatedAt) <= 2 &&
-    getDaysRemainingForReactivation(item.deactivatedAt) > 0
-  ).length;
+  }, [user?.uid, cleanupExpiredItems]);
 
   // Effects
   useEffect(() => {
@@ -588,7 +588,7 @@ const MySaleItems = () => {
     } else if (!authLoading && !user) {
       setLoading(false);
     }
-  }, [user, authLoading]);
+  }, [user, authLoading, fetchSaleItems]);
 
   // NEW: Set up periodic cleanup (check every hour)
   useEffect(() => {
@@ -596,7 +596,7 @@ const MySaleItems = () => {
       const interval = setInterval(cleanupExpiredItems, 60 * 60 * 1000); // 1 hour
       return () => clearInterval(interval);
     }
-  }, [user, saleItems]);
+  }, [user, saleItems, cleanupExpiredItems]);
 
   // Render states
   if (authLoading || loading) {
@@ -695,7 +695,7 @@ const MySaleItems = () => {
                 No {filter} items found
               </h2>
               <p className="text-gray-600 mb-4">
-                You don't have any {filter} sale items.
+                You don&apos;t have any {filter} sale items.
               </p>
               <button
                 onClick={() => setFilter('all')}

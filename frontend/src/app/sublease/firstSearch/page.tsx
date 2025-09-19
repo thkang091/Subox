@@ -4,12 +4,12 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { 
   Calendar, ChevronLeft, ChevronRight, MapPin, Users, Home, 
-  Search, X, Bookmark, Star, Wifi, Droplets, Tv, Sparkles, 
-  Filter, BedDouble, DollarSign, LogIn, Heart, User, CircleUser,
-  Clock, TrendingUp, TrendingDown, Utensils, ArrowUp, Shield, BookOpen, Waves, Flame,
-  Building, Route, Car, Layers
+  Search, X, Star, Wifi, Droplets, Sparkles, 
+  Filter, BedDouble, DollarSign, Heart, User,
+  Clock, Utensils, ArrowUp, Shield, BookOpen, Waves, Flame,
+  Building, Layers
 } from 'lucide-react';
-import { collection, getDocs, query, orderBy, where, limit } from 'firebase/firestore';
+import { collection, getDocs, query, orderBy } from 'firebase/firestore';
 import { Bed, Cigarette } from 'lucide-react';
 import { db } from '@/lib/firebase';
 import SearchLocationPicker from '../../../components/SearchLocationPicker';
@@ -48,42 +48,6 @@ const calculateDistanceFromCenter = (coordinates, locationData) => {
 };
 
 
-const calculateAverageDistance = (listings, locationData) => {
-  if (!listings.length) return 0;
-  
-  const totalDistance = listings.reduce((sum, listing) => {
-    return sum + calculateDistanceFromCenter({ lat: listing.lat, lng: listing.lng }, locationData);
-  }, 0);
-  
-  return Math.round((totalDistance / listings.length) * 10) / 10;
-};
-
-
-const convertPrice = (monthlyPrice, type) => {
-  switch(type) {
-    case 'weekly':
-      return Math.round(monthlyPrice / 4);
-    case 'daily':
-      return Math.round(monthlyPrice / 30);
-    case 'monthly':
-    default:
-      return monthlyPrice;
-  }
-};
-
-const getPriceUnit = (type) => {
-  switch(type) {
-    case 'weekly':
-      return '/week';
-    case 'daily':
-      return '/day';
-    case 'monthly':
-    default:
-      return '/mo';
-  }
-};
-
-
 
 const FirstSearchPage = ({ userData = null }) => { 
   // =========================
@@ -94,9 +58,8 @@ const FirstSearchPage = ({ userData = null }) => {
   const [bedrooms, setBedrooms] = useState('any');   // Change from 1 to
   const [location, setLocation] = useState([]);
   const [neighborhoods, setNeighborhoods] = useState([]);
-const [isLoadingNeighborhoods, setIsLoadingNeighborhoods] = useState(false);
-const [hasLoadedUserLocation, setHasLoadedUserLocation] = useState(false);
-const [isGoogleMapsReady, setIsGoogleMapsReady] = useState(false);
+  const [isLoadingNeighborhoods, setIsLoadingNeighborhoods] = useState(false);
+  const [isGoogleMapsReady, setIsGoogleMapsReady] = useState(false);
 
   
   const [currentMonth, setCurrentMonth] = useState(new Date().getMonth());
@@ -109,10 +72,7 @@ const [isGoogleMapsReady, setIsGoogleMapsReady] = useState(false);
   const [selectedAmenities, setSelectedAmenities] = useState([]);
   const [searchResults, setSearchResults] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
-  const [userListings, setUserListings] = useState([]);
   const [allListings, setAllListings] = useState([]);  
-  const [showMap, setShowMap] = useState(false);
-  const [mapListings, setMapListings] = useState([]);
   const [favoriteListings, setFavoriteListings] = useState([]);
   const router = useRouter(); 
   const [preferredGender, setPreferredGender] = useState(null); 
@@ -203,32 +163,6 @@ const detectCityFromCoordinates = async (lat, lng) => {
 };
 
 
-const getListingCoordinates = (listing) => {
-  // Priority 1: customLocation coordinates
-  if (listing.customLocation?.lat && listing.customLocation?.lng) {
-    return {
-      lat: Number(listing.customLocation.lat),
-      lng: Number(listing.customLocation.lng)
-    };
-  }
-  
-  // Priority 2: direct coordinates
-  if (listing.lat && listing.lng) {
-    return {
-      lat: Number(listing.lat),
-      lng: Number(listing.lng)
-    };
-  }
-  
-  // Priority 3: neighborhood coordinates
-  if (listing.location && neighborhoodCoords[listing.location]) {
-    return neighborhoodCoords[listing.location];
-  }
-  
-  // Fallback to Minneapolis center
-  return minneapolisCenter; // <- This was missing!
-};
-
 
 const getNeighborhoodCount = (neighborhoodName) => {
   return allListings.filter(listing => {
@@ -238,17 +172,6 @@ const getNeighborhoodCount = (neighborhoodName) => {
   }).length;
 };
 
-const handleNeighborhoodClick = (neighborhoodName) => {
-  setLocation([neighborhoodName]);
-  
-  setTimeout(() => {
-    handleSearch();
-    window.scrollTo({
-      top: 0,
-      behavior: 'smooth'
-    });
-  }, 100);
-};
 
 
 const generateNearbyNeighborhoods = async (userLocation) => {
@@ -715,7 +638,6 @@ const fetchListingsWithExpandedArea = async (locationData) => {
     }
 
     setSearchResults(listings);
-    setMapListings(listings);
     
     // Update search stats for expanded searches
     if (locationData?.areaType === 'expanded_region') {
@@ -892,13 +814,6 @@ const handleSearch = () => {
     }
   }, [favoriteListings, isMounted]);
 
-  const toggleLocation = (loc) => {
-    if (location.includes(loc)) {
-      setLocation(location.filter(item => item !== loc));
-    } else {
-      setLocation([...location, loc]);
-    }
-  };
 
   const monthNames = [
     'January', 'February', 'March', 'April', 'May', 'June',
@@ -1012,22 +927,6 @@ const toggleSection = (section) => {
       setSelectedAmenities(selectedAmenities.filter(a => a !== amenity));
     } else {
       setSelectedAmenities([...selectedAmenities, amenity]);
-    }
-  };
-
-  const toggleGender = (gender) => {
-    if (preferredGender === gender) {
-      setPreferredGender(null); 
-    } else {
-      setPreferredGender(gender); 
-    }
-  };
-
-  const toggleSmoking = (smoking) => {
-    if (smokingPreference === smoking) {
-      setSmokingPreference(null); 
-    } else {
-      setSmokingPreference(smoking); 
     }
   };
 
@@ -1946,234 +1845,6 @@ const renderFiltersSection = () => {
   );
 };
 
-  // =========================
-  // 🔥 UNIFIED: Enhanced Listings Display with Expansion Info - SAME AS SEARCHPAGE
-  // =========================
-
-  const renderFeaturedListings = () => {
-    const displayListings = searchResults;
-    
-    let sectionTitle = 'All Subleases';
-    if (selectedLocationData) {
-      if (selectedLocationData.areaType === 'expanded_region') {
-        sectionTitle = `${selectedLocationData.expandedArea?.regionName || 'Expanded Area'} (${displayListings.length} found)`;
-      } else {
-        sectionTitle = `Listings in ${selectedLocationData.placeName || selectedLocationData.address} (${displayListings.length} found)`;
-      }
-    } else if (hasSearchCriteria()) {
-      sectionTitle = `Search Results (${displayListings.length} found)`;
-    }
-
-    return (
-      <div className="w-full md:pl-16 px-4 mt-12 mb-16 md:pr-0">
-        <div className="max-w-7xl mx-auto px-4">
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="text-2xl font-bold text-orange-600 flex items-center gap-2">
-              {expandedSearchActive && <Layers size={24} className="text-purple-500" />}
-              {sectionTitle}
-            </h2>
-            <button 
-              onClick={resetSearch} 
-              className="text-gray-700 hover:underline font-medium cursor-pointer"
-            >
-              {selectedLocationData ? 'Clear location filter' : 'View all'}
-            </button>
-          </div>
-
-          {/* Enhanced Area Info for Expanded Searches - SAME AS SEARCHPAGE */}
-          {expandedSearchActive && expandedAreaInfo && (
-            <div className="mb-6 p-6 bg-gradient-to-r from-purple-50 to-indigo-50 border border-purple-200 rounded-xl">
-              <div className="flex items-center gap-3 mb-4">
-                <Layers size={24} className="text-purple-600" />
-                <div>
-                  <h3 className="font-bold text-purple-800 text-lg">Smart Area Expansion Active</h3>
-                  <p className="text-purple-600 text-sm">Automatically expanded your search to find the best options</p>
-                </div>
-              </div>
-              
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="bg-white p-4 rounded-lg border border-purple-200">
-                  <div className="text-2xl font-bold text-purple-800">{searchStats.neighborhoodsSearched}</div>
-                  <div className="text-sm text-purple-600">Neighborhoods Searched</div>
-                  <div className="text-xs text-gray-500 mt-1">
-                    {expandedAreaInfo.neighborhoods.slice(0, 3).join(', ')}{expandedAreaInfo.neighborhoods.length > 3 && ` +${expandedAreaInfo.neighborhoods.length - 3} more`}
-                  </div>
-                </div>
-                
-                <div className="bg-white p-4 rounded-lg border border-purple-200">
-                  <div className="text-2xl font-bold text-purple-800">{searchStats.totalListings}</div>
-                  <div className="text-sm text-purple-600">Total Listings Found</div>
-                  <div className="text-xs text-gray-500 mt-1">
-                    Across {(expandedAreaInfo.searchRadius / 1000).toFixed(1)}km radius
-                  </div>
-                </div>
-                
-                <div className="bg-white p-4 rounded-lg border border-purple-200">
-                  <div className="text-2xl font-bold text-purple-800">{searchStats.averageDistance}</div>
-                  <div className="text-sm text-purple-600">Avg Distance (miles)</div>
-                  <div className="text-xs text-gray-500 mt-1">
-                    From search center
-                  </div>
-                </div>
-              </div>
-              
-              <div className="mt-4 p-3 bg-purple-100 rounded-lg">
-                <div className="text-sm text-purple-800">
-                  <strong>Search Strategy:</strong> Instead of just searching "{selectedLocationData?.placeName}", we automatically expanded to include {expandedAreaInfo.neighborhoods.length} relevant neighborhoods to give you more housing options.
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Standard Area Info for Non-Expanded Searches - SAME AS SEARCHPAGE */}
-          {selectedLocationData && !expandedSearchActive && (
-            <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-              <div className="flex items-center gap-3">
-                {selectedLocationData.areaType === 'city' && <Building size={20} className="text-blue-500" />}
-                {selectedLocationData.areaType === 'neighborhood' && <Home size={20} className="text-green-500" />}
-                {selectedLocationData.areaType === 'university' && <Building size={20} className="text-purple-500" />}
-                <div>
-                  <div className="font-medium text-blue-800">
-                    Searching in: {selectedLocationData.placeName || selectedLocationData.address}
-                  </div>
-                  <div className="text-sm text-blue-600">
-                    {selectedLocationData.areaType === 'city' && 'Covering the entire city area including all neighborhoods'}
-                    {selectedLocationData.areaType === 'neighborhood' && 'Focused on this specific neighborhood'}
-                    {selectedLocationData.areaType === 'university' && 'Campus area and nearby student housing'}
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-        
-          {/* Listings Grid - SAME AS SEARCHPAGE */}
-          {displayListings.length === 0 ? (
-            <div className="text-center py-12">
-              <div className="text-gray-500 mb-4">
-                <Home size={48} className="mx-auto mb-2 opacity-50" />
-                <p className="text-lg">
-                  {selectedLocationData 
-                    ? `No listings found in ${selectedLocationData.placeName || 'this area'}` 
-                    : 'No listings found matching your criteria'}
-                </p>
-                <p className="text-sm mt-2">
-                  Try expanding your search area or adjusting your filters
-                </p>
-              </div>
-              <button 
-                onClick={resetSearch}
-                className="mt-4 px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
-              >
-                Reset Filters
-              </button>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {displayListings.map((listing) => (
-                <div 
-                  key={listing.id} 
-                  onClick={() => handleListingClick(listing)}
-                  className="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-lg transition-all cursor-pointer transform hover:-translate-y-1"
-                >
-                  <div 
-                    className="h-48 bg-gray-200 relative" 
-                    style={{backgroundImage: `url(${listing.image})`, backgroundSize: 'cover', backgroundPosition: 'center'}}
-                  >
-                    <div className="absolute top-2 right-2 bg-white px-2 py-1 rounded-lg text-xs font-bold text-gray-700">
-                      ${convertPrice(listing.price, priceType)}{getPriceUnit(priceType)}
-                    </div>
-                    <button 
-                      className={`absolute top-2 left-2 p-2 rounded-full transition-all cursor-pointer ${
-                        favoriteListings.some(item => item.id === listing.id) 
-                          ? 'bg-red-500 text-white' 
-                          : 'bg-white text-gray-500 hover:text-red-500'
-                      }`}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        toggleFavorite(listing);
-                      }}
-                    >
-                      <Heart 
-                        size={18} 
-                        className={favoriteListings.some(item => item.id === listing.id) ? 'fill-current' : ''} 
-                      />
-                    </button>
-                    
-                    {/* Enhanced badges for expanded search results - SAME AS SEARCHPAGE */}
-                    {expandedSearchActive && listing.searchMetadata?.foundViaExpansion && (
-                      <div className="absolute bottom-2 left-2 bg-purple-600 text-white px-2 py-1 rounded-lg text-xs font-bold flex items-center gap-1">
-                        <Layers size={12} />
-                        <span>Smart Match</span>
-                      </div>
-                    )}
-                    
-                    {/* Distance badge */}
-                    {listing.distance > 0 && (
-                      <div className="absolute bottom-2 right-2 bg-green-600 text-white px-2 py-1 rounded-lg text-xs font-bold">
-                        {listing.distance} mi
-                      </div>
-                    )}
-                  </div>
-                  
-                  <div className="p-4">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <div className="font-bold text-gray-800">{listing.title}</div>
-                        <div className="text-gray-500 text-sm flex items-center gap-1">
-                          <MapPin size={12} />
-                          {listing.location}
-                          {expandedSearchActive && listing.searchMetadata?.foundViaExpansion && (
-                            <span className="text-purple-600 text-xs">• via expansion</span>
-                          )}
-                        </div>
-                      </div>
-                      <div className="flex items-center text-amber-500">
-                        <Star size={16} className="fill-current" />
-                        <span className="ml-1 text-sm font-medium">{listing.rating}</span>
-                      </div>
-                    </div>
-                    
-                    <div className="flex items-center mt-3 text-sm text-gray-500">
-                      <Calendar size={14} className="mr-1" />
-                      <span>{listing.dateRange}</span>
-                    </div>
-                    
-                    <div className="mt-3 flex items-center text-sm text-gray-700">
-                      <BedDouble size={14} className="mr-1" />
-                      <span>{listing.bedrooms} bedroom{listing.bedrooms !== 1 ? 's' : ''} · </span>
-                      <Droplets size={14} className="mx-1" />
-                      <span>{listing.bathrooms} bath{listing.bathrooms !== 1 ? 's' : ''}</span>
-                    </div>
-                    
-                    {/* Enhanced metadata display for expanded searches - SAME AS SEARCHPAGE */}
-                    {expandedSearchActive && listing.searchMetadata?.foundViaExpansion && (
-                      <div className="mt-2 text-xs text-purple-600 bg-purple-50 px-2 py-1 rounded-md">
-                        Found in {listing.searchMetadata.matchingLocationTag} • {listing.searchMetadata.distanceFromCenter} mi from center
-                      </div>
-                    )}
-                    
-                    <div className="mt-3 flex flex-wrap gap-1">
-                      {listing.amenities && listing.amenities.slice(0, 3).map((amenity, index) => (
-                        <div key={index} className="bg-orange-50 text-orange-700 text-xs px-2 py-1 rounded-md flex items-center">
-                          {getAmenityIcon(amenity)}
-                          <span className="ml-1">{amenity.charAt(0).toUpperCase() + amenity.slice(1)}</span>
-                        </div>
-                      ))}
-                      {listing.amenities && listing.amenities.length > 3 && (
-                        <div className="bg-gray-100 text-gray-600 text-xs px-2 py-1 rounded-md">
-                          +{listing.amenities.length - 3} more
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-    );
-  };
 
   // =========================
   // Main Render

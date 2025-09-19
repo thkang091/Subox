@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/app/contexts/AuthInfo';
 import { 
   collection, 
@@ -20,8 +20,8 @@ import {
   Calendar, Clock, Video, Users, CheckCircle, XCircle, 
   AlertCircle, MapPin, User, Settings, Bell, Home,
   ShoppingCart, Search, Plus, Eye, ArrowLeft, Building2,
-  DollarSign, Package, UserPlus, X, UserCheck, TrendingUp,
-  Activity, Star, MessageSquare, Filter,ChevronLeft,ChevronRight,  Grid, List, Menu, MessagesSquare, Heart
+  DollarSign, Package, X, UserCheck,
+  MessageSquare,ChevronLeft,ChevronRight, Menu, MessagesSquare, Heart
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useRouter } from 'next/navigation';
@@ -30,7 +30,7 @@ import {
   updateDoc, 
   serverTimestamp 
 } from 'firebase/firestore';
-import { notification } from '@/data/notificationlistings';
+import { useNotifications } from '@/data/notificationlistings';
 
 // Type definitions
 interface UserInfo {
@@ -53,12 +53,12 @@ interface Listing {
   availableTo?: Timestamp;
   bedrooms?: number;
   bathrooms?: number;
-  contactInfo?: any;
+  contactInfo?: unknown;
   createdAt: Timestamp;
   deliveryAvailable?: boolean;
   hostId: string;
   status?: 'active' | 'rented' | 'unavailable';
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 interface SaleItem {
@@ -67,7 +67,7 @@ interface SaleItem {
   createdAt: Timestamp;
   pickupAvailable?: boolean;
   hostId: string;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 interface TourRequest {
@@ -88,19 +88,19 @@ interface TourRequest {
   createdAt: Timestamp;
   approvedAt?: Timestamp;
   rejectedAt?: Timestamp;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 interface HostAvailability {
   id: string;
   listingId: string;
   hostId: string;
-  availability: any;
+  availability: unknown;
   appointmentDuration: number;
   bufferTime: number;
   advanceBooking: number;
   maxBookings: number;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 interface Conversation {
@@ -109,7 +109,7 @@ interface Conversation {
   participantNames: { [uid: string]: string };
   lastMessageTime: Timestamp;
   otherParticipantName: string;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 interface ConversationWithNames {
@@ -123,7 +123,7 @@ interface ConversationWithNames {
   guestId?: string;
   hostId?: string;
   lastMessage?: string;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 interface ProfileData {
@@ -148,7 +148,7 @@ const useConversationsWithNames = (userId: string | undefined) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchConversationsWithNames = async () => {
+  const fetchConversationsWithNames = useCallback(async () => {
     if (!userId) {
       setLoading(false);
       return;
@@ -203,30 +203,30 @@ const useConversationsWithNames = (userId: string | undefined) => {
       
       setConversations(conversationsWithNames);
       setError(null);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error fetching conversations:', error);
       setError(error.message);
     } finally {
       setLoading(false);
     }
-  };
+  }, [userId]);
 
   useEffect(() => {
     fetchConversationsWithNames();
-  }, [userId]);
+  }, [userId, fetchConversationsWithNames]);
 
   return { conversations, loading, error, refetch: fetchConversationsWithNames };
 };
 
 
 // Utility functions
-const formatDate = (timestamp: Timestamp | any): string => {
+const formatDate = (timestamp?: Timestamp): string => {
   if (!timestamp) return 'N/A';
   const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
   return date.toLocaleDateString();
 };
 
-const formatTime = (timestamp: Timestamp | any): string => {
+const formatTime = (timestamp?: Timestamp): string => {
   if (!timestamp) return 'N/A';
   const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
   return date.toLocaleString();
@@ -313,20 +313,22 @@ const ErrorState = ({ error, onRetry }: { error: string; onRetry: () => void }) 
   </div>
 );
 
-const ProfileHeader = ({ userInfo, user }: { userInfo: UserInfo | null; user: any }) => {
+const ProfileHeader = ({ userInfo, user }: { userInfo: UserInfo | null; user: unknown }) => {
   const [showMenu, setShowMenu] = useState(false);
   const router = useRouter();
+  const [showNotifications, setShowNotifications] = useState(false);
+  const {notifications: uNotifications } = useNotifications();
+
 
   // Notifications dropdown component
-  const NotificationsButton = ({ notifications }: { notifications: Notification[] }) => {
-    const [showNotifications, setShowNotifications] = useState(false);
+  const NotificationsButton = ({ notifications } : { notifications: [] }) => {
 
     return (
       <div className="relative">
         <motion.button
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
-          onClick={() => setShowNotifications(!showNotifications)}
+          onClick={() => setShowNotifications(prev => !prev)}
           className="p-2 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors relative"
         >
           <Bell className="w-4 md:w-5 h-4 md:h-5 text-gray-500" />
@@ -343,23 +345,26 @@ const ProfileHeader = ({ userInfo, user }: { userInfo: UserInfo | null; user: an
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
-              className="absolute right-0 mt-2 w-70 bg-white rounded-lg shadow-lg border border-gray-200 z-50"
+              className="absolute right-0 top-full mt-1 w-64 bg-white rounded-lg shadow-lg border border-gray-200 z-50 pointer-events-auto"
             >
               <div className="p-4">
                 <h3 className="font-semibold text-orange-600 mb-3">Notifications</h3>
                 <div className="space-y-3 max-h-64 overflow-y-auto">
-                  {notifications.map(notif => (
-                    <button
+                  {notifications.map((notif) => (
+                    <div
                       key={notif.id}
-                      onClick={() => router.push(`browse/notification?id=${notif.id}`)}
                       className="w-full flex items-start space-x-3 p-2 rounded-lg hover:bg-orange-50 text-left"
                     >
                       <div className="w-2 h-2 bg-orange-500 rounded-full mt-2"></div>
-                      <div className="flex-1">
+                      <button 
+                        className="flex-1"
+                        onClick={() => router.push(`/notifications`)}  
+                      >
+                        <p className="text-base text-orange-400">{notif.title}</p>
                         <p className="text-sm text-gray-900">{notif.message}</p>
-                        <p className="text-xs text-gray-500">{notif.time}</p>
-                      </div>
-                    </button>
+                        <p className="text-xs text-gray-500">{notif.createdAt?.toLocalString()}</p>
+                      </button>
+                    </div>
                   ))}
                 </div>
 
@@ -376,6 +381,7 @@ const ProfileHeader = ({ userInfo, user }: { userInfo: UserInfo | null; user: an
       </div>
     );
   };
+
   return (
   <div className="bg-white rounded-xl shadow-sm p-6 mb-6 border border-orange-100">
     <div className="flex items-center space-x-4">
@@ -418,7 +424,7 @@ const ProfileHeader = ({ userInfo, user }: { userInfo: UserInfo | null; user: an
       </div>
       <div className='md:flex space-y-1 md:space-x-4 -mt-1 md:-mt-0'>
 
-        <NotificationsButton notifications={notification}/>
+        <NotificationsButton notifications={uNotifications}/>
 
         {/* messages */}
         <motion.button 
@@ -848,24 +854,19 @@ const MoveOutSaleRoleSelection = ({
 
 // Clean Host Activity Component
 const HostActivity = ({ 
-  hostListings,
-  hostSaleItems,  
-  hostTourRequests, 
-  hostAvailabilities,
+  profileData,
   onOpenCalendarModal
 }: { 
-  hostListings: Listing[]; 
-  hostTourRequests: TourRequest[];
-  hostAvailabilities: HostAvailability[];
+  profileData: ProfileData
   onOpenCalendarModal: (listing: Listing) => void;
 }) => {
-  const pendingTours = hostTourRequests.filter(tour => tour.status === 'pending');
-  const upcomingTours = hostTourRequests.filter(tour => 
+  const pendingTours = profileData.hostTourRequests.filter(tour => tour.status === 'pending');
+  const upcomingTours = profileData.hostTourRequests.filter(tour => 
     tour.status === 'approved' && isUpcoming(tour.date)
   );
   
   // Add this line to define listing
-  const listing = hostListings.length > 0 ? hostListings[0] : null
+  const listing = profileData.hostListings.length > 0 ? profileData.hostListings[0] : null
 
 
   return (
@@ -894,7 +895,7 @@ const HostActivity = ({
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-blue-800">Active Listings</p>
-                <p className="text-2xl font-bold text-blue-900">{hostListings.length}</p>
+                <p className="text-2xl font-bold text-blue-900">{profileData.hostListings.length}</p>
               </div>
               <Building2 className="w-6 h-6 text-blue-600" />
             </div>
@@ -919,16 +920,27 @@ const HostActivity = ({
               <Calendar className="w-6 h-6 text-green-600" />
             </div>
           </div>
-          
-          <div className="bg-gradient-to-br from-purple-50 to-purple-100 p-4 rounded-lg border border-purple-200">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-purple-800">Available Settings</p>
-                <p className="text-2xl font-bold text-purple-900">{hostAvailabilities.length}</p>
+          {profileData.hostListings.length > 0 ? (
+            <div className="bg-gradient-to-br from-purple-50 to-purple-100 p-4 rounded-lg border border-purple-200">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-purple-800">Available Settings</p>
+                  <p className="text-2xl font-bold text-purple-900">{profileData.hostListings.length}</p>
+                </div>
+                <Settings className="w-6 h-6 text-purple-600" />
               </div>
-              <Settings className="w-6 h-6 text-purple-600" />
             </div>
-          </div>
+          ) : (
+            <div className="bg-gradient-to-br from-purple-50 to-purple-100 p-4 rounded-lg border border-purple-200">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-purple-800">No listings</p>
+                  <p className="text-2xl font-bold text-purple-900">0</p>
+                </div>
+                <Settings className="w-6 h-6 text-purple-600" />
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -936,18 +948,26 @@ const HostActivity = ({
       <div className="bg-white rounded-xl shadow-sm p-6 border border-orange-100">
         <div className="flex items-center justify-between mb-6">
           <h3 className="text-xl font-semibold text-gray-900">Tour Management</h3>
+          {listing != null ? (
           <Link 
-  href={`/sublease/search/${listing.id}/tour`}
-  className="text-blue-600 hover:text-blue-700 font-medium text-sm transition-colors"
->
-  View All Tours
-</Link>
+            href={`/sublease/search/${listing.id}/tour`}
+            className="text-blue-600 hover:text-blue-700 font-medium text-sm transition-colors"
+          >
+            View All Tours
+          </Link>
+          ) : (
+          <div 
+            className="text-blue-600 hover:text-blue-700 font-medium text-sm transition-colors"
+          >
+            No Tours
+          </div>
+          )}
         </div>
 
         {/* Recent Tour Requests */}
-        {hostTourRequests.length > 0 ? (
+        {profileData.hostTourRequests.length > 0 ? (
           <div className="space-y-4">
-            {hostTourRequests.slice(0, 4).map(tour => (
+            {profileData.hostTourRequests.slice(0, 4).map(tour => (
               <div key={tour.id} className="border border-gray-200 rounded-lg p-4 hover:border-gray-300 transition-colors">
                 <div className="flex justify-between items-start">
                   <div className="flex-1">
@@ -1014,7 +1034,7 @@ const HostActivity = ({
         <div className="flex items-center justify-between mb-6">
           <h3 className="text-xl font-semibold text-gray-900">Your Sublease Listings</h3>
           <div className="flex items-center space-x-3">
-            <span className="text-sm text-gray-500">{hostListings.length} total</span>
+            <span className="text-sm text-gray-500">{profileData.hostListings.length} total</span>
             <Link 
               href="/profile/my-listings" 
               className="text-orange-600 hover:text-orange-700 font-medium text-sm transition-colors"
@@ -1024,10 +1044,10 @@ const HostActivity = ({
           </div>
         </div>
 
-        {hostListings.length > 0 ? (
+        {profileData.hostListings.length > 0 ? (
           <div className="space-y-4">
-            {hostListings.slice(0, 3).map(listing => {
-              const availabilitySet = hostAvailabilities.some(avail => avail.listingId === listing.id);
+            {profileData.hostListings.slice(0, 3).map(listing => {
+              const availabilitySet = profileData.hostAvailabilities.some(avail => avail.listingId === listing.id);
               let statusColor = 'bg-green-100 text-green-800';
               let statusText = 'Available';
               
@@ -1107,13 +1127,13 @@ const HostActivity = ({
                         </Link>
                       )}
                       {listing.partialDatesOk && (
-  <button
-    onClick={() => onOpenCalendarModal(listing)}  // CHANGE THIS
-    className="px-3 py-1 bg-blue-100 text-blue-700 rounded text-xs hover:bg-blue-200 transition-colors"
-  >
-    Manage Calendar
-  </button>
-)}
+                        <button
+                          onClick={() => onOpenCalendarModal(listing)}  // CHANGE THIS
+                          className="px-3 py-1 bg-blue-100 text-blue-700 rounded text-xs hover:bg-blue-200 transition-colors"
+                        >
+                          Manage Calendar
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -1293,7 +1313,7 @@ const RecentConversations = ({
   navigationFlow 
 }: { 
   conversations: Conversation[]; 
-  user?: any; 
+  user?: unknown; 
   selectedRole?: UserRole | null;
   navigationFlow?: NavigationFlow;
 }) => {
@@ -1375,7 +1395,7 @@ const RecentConversations = ({
                 <div className="flex items-start space-x-3">
                   {/* Listing/Item Image */}
                   <div className="w-12 h-12 rounded-lg overflow-hidden flex-shrink-0 relative bg-gray-100">
-                    <img 
+                    <Image 
                       src={conversation.listingImage || '/api/placeholder/48/48'}
                       alt={conversation.listingTitle || 'Listing'}
                       className="w-full h-full object-cover"
@@ -1434,7 +1454,7 @@ const RecentConversations = ({
                         {conversation.lastMessage && (
                           <div className="text-xs text-gray-600">
                             <span className="truncate">
-                              "{conversation.lastMessage}"
+                              &quot;{conversation.lastMessage}&quot;
                             </span>
                           </div>
                         )}
@@ -1470,7 +1490,7 @@ const RecentConversations = ({
 };
 
 // Clean Buyer Dashboard
-const BuyerDashboard = ({ profileData }: { profileData: ProfileData }) => (
+const BuyerDashboard = () => (
   <div className="space-y-6">
     {/* Header */}
     <div className="bg-white rounded-xl shadow-sm p-6 border border-orange-100">
@@ -1539,7 +1559,6 @@ const BuyerDashboard = ({ profileData }: { profileData: ProfileData }) => (
     {/* Recent Activity */}
     <div className="bg-white rounded-xl shadow-sm p-6 border border-orange-100">
       <h3 className="text-xl font-semibold text-gray-900 mb-6">Shopping Activity</h3>
-      
       <div className="text-center py-8">
         <ShoppingCart className="w-12 h-12 text-gray-300 mx-auto mb-3" />
         <h4 className="text-lg font-medium text-gray-900 mb-2">Start Your Shopping Journey</h4>
@@ -1789,19 +1808,7 @@ const CalendarManagementModal = ({
   const [currentMonth, setCurrentMonth] = useState<Date>(new Date());
   const [loading, setLoading] = useState(false);
 
-  // Fetch unavailable dates when modal opens
-  useEffect(() => {
-    if (isOpen && listing?.id) {
-      fetchUnavailableDates();
-      // Set current month to listing's start date
-      if (listing.availableFrom) {
-        const startDate = listing.availableFrom.toDate ? listing.availableFrom.toDate() : new Date(listing.availableFrom);
-        setCurrentMonth(new Date(startDate.getFullYear(), startDate.getMonth(), 1));
-      }
-    }
-  }, [isOpen, listing?.id]);
-
-  const fetchUnavailableDates = async () => {
+  const fetchUnavailableDates = useCallback(async () => {
     if (!listing?.id) return;
     
     try {
@@ -1819,7 +1826,20 @@ const CalendarManagementModal = ({
     } finally {
       setLoading(false);
     }
-  };
+  }, [listing?.id]);
+
+  // Fetch unavailable dates when modal opens
+  useEffect(() => {
+    if (isOpen && listing?.id) {
+      fetchUnavailableDates();
+      // Set current month to listing's start date
+      if (listing.availableFrom) {
+        const startDate = listing.availableFrom.toDate ? listing.availableFrom.toDate() : new Date(listing.availableFrom);
+        setCurrentMonth(new Date(startDate.getFullYear(), startDate.getMonth(), 1));
+      }
+    }
+  }, [isOpen, listing?.id, fetchUnavailableDates, listing?.availableFrom]);
+
 
   const saveUnavailableDates = async (dates: string[]) => {
     if (!listing?.id) return;
@@ -2110,11 +2130,10 @@ const CalendarManagementModal = ({
 // Main Profile Component
 const UserProfile = () => {
   const { user, loading: authLoading } = useAuth();
-  const { conversations, loading: conversationsLoading } = useConversationsWithNames(user?.uid);
+  const { conversations } = useConversationsWithNames(user?.uid);
   const [navigationFlow, setNavigationFlow] = useState<NavigationFlow>('main');
   const [selectedRole, setSelectedRole] = useState<UserRole | null>(null);
   const [selectedListingForCalendar, setSelectedListingForCalendar] = useState<Listing | null>(null);
-
   const [showCalendarModal, setShowCalendarModal] = useState(false);
 
   const [profileData, setProfileData] = useState<ProfileData>({
@@ -2130,7 +2149,7 @@ const UserProfile = () => {
   });
 
   // Fetch user profile data
-  const fetchUserProfile = async () => {
+  const fetchUserProfile = useCallback(async () => {
     if (!user?.uid) return;
     
     try {
@@ -2160,7 +2179,7 @@ const UserProfile = () => {
           return bTime.getTime() - aTime.getTime();
         });
       } catch (error) {
-        console.log('Listings collection might not exist or no index, using saleItems');
+        console.log('Listings collection might not exist or no index, using saleItems', error);
         hostListings = [];
       }
 
@@ -2213,7 +2232,7 @@ const UserProfile = () => {
           ...doc.data()
         } as HostAvailability));
       } catch (error) {
-        console.log('Host availability collection might not exist');
+        console.log('Host availability collection might not exist', error);
         hostAvailabilities = [];
       }
 
@@ -2229,7 +2248,7 @@ const UserProfile = () => {
         error: null
       });
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error fetching profile data:', error);
       setProfileData(prev => ({
         ...prev,
@@ -2237,7 +2256,7 @@ const UserProfile = () => {
         error: 'Failed to load profile data'
       }));
     }
-  };
+  },[user?.uid]);
 
   // Navigation handlers
   const handleNavigate = (flow: NavigationFlow) => {
@@ -2261,7 +2280,7 @@ const UserProfile = () => {
     } else if (!authLoading && !user) {
       setProfileData(prev => ({ ...prev, loading: false }));
     }
-  }, [user, authLoading]);
+  }, [user, authLoading, fetchUserProfile]);
 
   // Render loading state
   if (authLoading || profileData.loading) {
@@ -2337,10 +2356,7 @@ const UserProfile = () => {
             {selectedRole === 'host' && (
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <HostActivity 
-                  hostListings={profileData.hostListings} 
-                  hostSaleItems={profileData.hostSaleItems}
-                  hostTourRequests={profileData.hostTourRequests}
-                  hostAvailabilities={profileData.hostAvailabilities}
+                  profileData={profileData}
                   onOpenCalendarModal={(listing) => {  // ADD THIS
                     setSelectedListingForCalendar(listing);
                     setShowCalendarModal(true);

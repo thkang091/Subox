@@ -88,7 +88,7 @@ const useVisionAnalysis = () => {
         throw new Error(data.error || 'Analysis failed');
       }
 
-      const detectedItems: DetectedItem[] = data.suggestions.map((suggestion: any, index: number) => ({
+      const detectedItems: DetectedItem[] = data.suggestions.map((suggestion, index: number) => ({
         id: `item-${index}`,
         name: suggestion.itemName,
         confidence: Math.round(suggestion.confidence * 100),
@@ -961,7 +961,7 @@ if (step === "item-selection") {
       />
       
       {/* Bounding boxes overlay - COMPLETELY REDESIGNED */}
-      {detectedItems.map((item, index) => (
+      {detectedItems.map((item) => (
         item.boundingBox && (
           <div key={item.id}>
             {/* Main bounding box */}

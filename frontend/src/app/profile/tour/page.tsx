@@ -1,17 +1,17 @@
 "use client"
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { 
-  Calendar, Clock, Video, Users, Check, X, ChevronRight, 
-  MapPin, User, Mail, Phone, AlertCircle, CheckCircle, 
-  XCircle, Filter, Search, RefreshCw, Bell, Settings,
+  Calendar, Clock, Video, Users, Check, X, 
+  MapPin, User, AlertCircle, CheckCircle, 
+  XCircle, Search, RefreshCw, Bell, Settings,
   Eye, MessageSquare, ChevronLeft, Plus, Trash2, Save,
-  ChevronDown, ChevronUp, Info, Home, Building2, Edit
+  Home, Building2
 } from 'lucide-react';
 import { 
   collection, query, where, orderBy, onSnapshot, doc, updateDoc, 
-  addDoc, serverTimestamp, getDocs, getDoc, setDoc
+  addDoc, serverTimestamp, getDocs, setDoc
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/app/contexts/AuthInfo';
@@ -49,8 +49,12 @@ const ProfileTourPage = () => {
     upcoming: 0
   });
 
+  const isUpcoming = useCallback((date) => {
+    return new Date(date) > new Date();
+  }, []);
+
   // Helper function to determine the most relevant default role
-  const determineDefaultRole = (listings, guestTours, hostTours) => {
+  const determineDefaultRole = useCallback((listings, guestTours, hostTours) => {
     // If user has pending host requests, show host view
     const pendingHostRequests = hostTours.filter(tour => tour.status === 'pending').length;
     if (pendingHostRequests > 0) return 'host';
@@ -66,6 +70,68 @@ const ProfileTourPage = () => {
     
     // Otherwise, default to guest
     return 'guest';
+  }, [isUpcoming]);
+
+  // Load host-specific data
+  const loadHostData = () => {
+    if (!user?.uid) return;
+
+    // Load host tour requests
+    const hostTourQuery = query(
+      collection(db, 'tourRequests'),
+      where('hostId', '==', user.uid),
+      orderBy('createdAt', 'desc')
+    );
+
+    const unsubscribeHostTours = onSnapshot(hostTourQuery, (querySnapshot) => {
+      const requests = querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+        createdAt: doc.data().createdAt?.toDate(),
+        approvedAt: doc.data().approvedAt?.toDate(),
+        rejectedAt: doc.data().rejectedAt?.toDate(),
+        updatedAt: doc.data().updatedAt?.toDate()
+      }));
+      setHostTourRequests(requests);
+      calculateHostStats(requests);
+    });
+
+    // Load host availability settings
+    loadHostAvailabilities();
+
+    return () => {
+      unsubscribeHostTours();
+    };
+  };
+
+
+  
+  // Load guest-specific data
+  const loadGuestData = () => {
+    if (!user?.uid) return;
+
+    const guestTourQuery = query(
+      collection(db, 'tourRequests'),
+      where('guestId', '==', user.uid),
+      orderBy('createdAt', 'desc')
+    );
+
+    const unsubscribeGuestTours = onSnapshot(guestTourQuery, (querySnapshot) => {
+      const requests = querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+        createdAt: doc.data().createdAt?.toDate(),
+        approvedAt: doc.data().approvedAt?.toDate(),
+        rejectedAt: doc.data().rejectedAt?.toDate(),
+        updatedAt: doc.data().updatedAt?.toDate()
+      }));
+      setGuestTourRequests(requests);
+      calculateGuestStats(requests);
+    });
+
+    return () => {
+      unsubscribeGuestTours();
+    };
   };
 
   // Determine user role and load data
@@ -144,69 +210,9 @@ const ProfileTourPage = () => {
     };
 
     loadUserData();
-  }, [user?.uid]);
-
-  // Load host-specific data
-  const loadHostData = () => {
-    if (!user?.uid) return;
-
-    // Load host tour requests
-    const hostTourQuery = query(
-      collection(db, 'tourRequests'),
-      where('hostId', '==', user.uid),
-      orderBy('createdAt', 'desc')
-    );
-
-    const unsubscribeHostTours = onSnapshot(hostTourQuery, (querySnapshot) => {
-      const requests = querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-        createdAt: doc.data().createdAt?.toDate(),
-        approvedAt: doc.data().approvedAt?.toDate(),
-        rejectedAt: doc.data().rejectedAt?.toDate(),
-        updatedAt: doc.data().updatedAt?.toDate()
-      }));
-      setHostTourRequests(requests);
-      calculateHostStats(requests);
-    });
-
-    // Load host availability settings
-    loadHostAvailabilities();
-
-    return () => {
-      unsubscribeHostTours();
-    };
-  };
+  }, [user?.uid, determineDefaultRole, loadGuestData, loadHostData]);
 
 
-  
-  // Load guest-specific data
-  const loadGuestData = () => {
-    if (!user?.uid) return;
-
-    const guestTourQuery = query(
-      collection(db, 'tourRequests'),
-      where('guestId', '==', user.uid),
-      orderBy('createdAt', 'desc')
-    );
-
-    const unsubscribeGuestTours = onSnapshot(guestTourQuery, (querySnapshot) => {
-      const requests = querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-        createdAt: doc.data().createdAt?.toDate(),
-        approvedAt: doc.data().approvedAt?.toDate(),
-        rejectedAt: doc.data().rejectedAt?.toDate(),
-        updatedAt: doc.data().updatedAt?.toDate()
-      }));
-      setGuestTourRequests(requests);
-      calculateGuestStats(requests);
-    });
-
-    return () => {
-      unsubscribeGuestTours();
-    };
-  };
 
   // Switch between host and guest roles
   const switchToRole = (role) => {
@@ -360,9 +366,6 @@ const ProfileTourPage = () => {
     }
   };
 
-  const isUpcoming = (date) => {
-    return new Date(date) > new Date();
-  };
 
   // Filter tour requests
   const getFilteredRequests = () => {
@@ -387,7 +390,6 @@ const ProfileTourPage = () => {
 
   // Availability Setup Component (Host only)
   const AvailabilitySetupModal = () => {
-    const [currentStep, setCurrentStep] = useState(1);
     const [appointmentDuration, setAppointmentDuration] = useState(60);
     const [availability, setAvailability] = useState({
       0: { available: false, times: [] },
@@ -422,7 +424,7 @@ const ProfileTourPage = () => {
           setMaxBookings(existingAvailability.maxBookings || 3);
         }
       }
-    }, [selectedListing, showAvailabilityModal]);
+    }, [selectedListing, showAvailabilityModal, availability, selectedListing, showAvailabilityModal]);
 
     const toggleDayAvailability = (dayIndex) => {
       setAvailability(prev => ({
@@ -1572,7 +1574,7 @@ const ProfileTourPage = () => {
                       {selectedRequest.tourType === 'virtual' ? (
                         <div className="flex items-center text-sm text-green-700">
                           <Video className="w-4 h-4 mr-2" />
-                          Virtual tour - wait for host's video link
+                          Virtual tour - wait for host&apos;s video link
                         </div>
                       ) : (
                         <div className="flex items-center text-sm text-green-700">

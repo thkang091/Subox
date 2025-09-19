@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/app/contexts/AuthInfo';
 import { 
@@ -86,7 +86,7 @@ interface ListingData {
   hostId: string;
   hostImage: string;
   hostName: string;
-  hostReviews: any[];
+  hostReviews: string[];
   image: string;
   includedItems: string[];
   isPrivateRoom: boolean;
@@ -127,18 +127,11 @@ const EditListingPage = () => {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [imageUploading, setImageUploading] = useState(false);
-  const [selectedImages, setSelectedImages] = useState<File[]>([]);
 
   // Form state
   const [formData, setFormData] = useState<Partial<ListingData>>({});
 
-  useEffect(() => {
-    if (!authLoading && user && id) {
-      fetchListing();
-    }
-  }, [user, authLoading, id]);
-
-  const fetchListing = async () => {
+  const fetchListing = useCallback(async () => {
     try {
       setLoading(true);
       const listingDoc = await getDoc(doc(db, 'listings', id as string));
@@ -180,30 +173,29 @@ const EditListingPage = () => {
 
       setListing(updatedListingData);
       setFormData(updatedListingData);
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error fetching listing:', error);
       setError('Failed to load listing');
     } finally {
       setLoading(false);
     }
-  };
+  },[id, user?.uid]);
 
-  const handleInputChange = (field: string, value: any) => {
+  useEffect(() => {
+    if (!authLoading && user && id) {
+      fetchListing();
+    }
+  }, [user, authLoading, id, fetchListing]);
+
+
+
+  const handleInputChange = (field: string, value) => {
     setFormData(prev => ({
       ...prev,
       [field]: value
     }));
   };
 
-  const handleNestedInputChange = (parentField: string, childField: string, value: any) => {
-    setFormData(prev => ({
-      ...prev,
-      [parentField]: {
-        ...prev[parentField],
-        [childField]: value
-      }
-    }));
-  };
 
   const handleImageUpload = async (files: FileList) => {
     if (!files.length) return;
@@ -266,7 +258,7 @@ const EditListingPage = () => {
       
       alert('Listing updated successfully!');
       router.push('/profile/my-listings');
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error updating listing:', error);
       alert('Failed to update listing');
     } finally {
@@ -274,7 +266,7 @@ const EditListingPage = () => {
     }
   };
 
-  const formatDateForInput = (timestamp: Timestamp | any): string => {
+  const formatDateForInput = (timestamp?: Timestamp): string => {
     if (!timestamp) return '';
     const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
     return date.toISOString().split('T')[0];

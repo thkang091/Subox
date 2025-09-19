@@ -2,8 +2,10 @@
 
 import { 
   useState,
-  useEffect
+  useEffect,
+  useCallback
 } from "react";
+import Image from "next/image";
 import { 
   auth,
   db,
@@ -73,7 +75,6 @@ export default function AuthPage() {
   
   // Signup fields - Optional
   const [schoolEmail, setSchoolEmail] = useState("");
-  const [schoolEmailError, setSchoolEmailError] = useState('');
   const [phoneNumber, setPhoneNumber] = useState("");
   const [socialLink, setSocialLink] = useState("");
   const [quickBio, setQuickBio] = useState("");
@@ -85,8 +86,6 @@ export default function AuthPage() {
   
   // Phone verification
   const [isPhoneVerified, setIsPhoneVerified] = useState(false);
-  const [phoneVerificationCode, setPhoneVerificationCode] = useState("");
-  const [showPhoneVerification, setShowPhoneVerification] = useState(false);
 
   // Rate for caculation
   const [rated, setRated] = useState<number[]>([]);
@@ -135,33 +134,8 @@ export default function AuthPage() {
   const [graduationDate, setGraduationDate] = useState("");
   const [error, setError] = useState("");
 
-  // Auto-login effect
-  useEffect(() => {
-    const savedEmail = localStorage.getItem("savedEmail");
-    const savedPassword = localStorage.getItem("savedPassword");
-
-    if (savedEmail && savedPassword) {
-      setEmail(savedEmail);
-      setPassword(savedPassword);
-      setRememberMe(true);
-
-      signInWithEmailAndPassword(auth, savedEmail, savedPassword)
-        .then(async (userCredential) => {
-          const user = userCredential.user;
-          if (user.emailVerified) {
-            await checkUserLocationAndRedirect(user);
-          }
-        })
-        .catch((error) => {
-          console.error("Auto login failed:", error);
-          localStorage.removeItem("savedEmail");
-          localStorage.removeItem("savedPassword");
-        });
-    }
-  }, [router]);
-
   // Check if user has location and redirect or show location picker
-  const checkUserLocationAndRedirect = async (user: any) => {
+  const checkUserLocationAndRedirect = useCallback(async (user) => {
     try {
       const userDoc = await getDoc(doc(db, "users", user.uid));
       
@@ -211,10 +185,35 @@ export default function AuthPage() {
       // If there's an error, still proceed to app
       router.push("/find");
     }
-  };
+  },[router]);
+
+  // Auto-login effect
+  useEffect(() => {
+    const savedEmail = localStorage.getItem("savedEmail");
+    const savedPassword = localStorage.getItem("savedPassword");
+
+    if (savedEmail && savedPassword) {
+      setEmail(savedEmail);
+      setPassword(savedPassword);
+      setRememberMe(true);
+
+      signInWithEmailAndPassword(auth, savedEmail, savedPassword)
+        .then(async (userCredential) => {
+          const user = userCredential.user;
+          if (user.emailVerified) {
+            await checkUserLocationAndRedirect(user);
+          }
+        })
+        .catch((error) => {
+          console.error("Auto login failed:", error);
+          localStorage.removeItem("savedEmail");
+          localStorage.removeItem("savedPassword");
+        });
+    }
+  }, [router, checkUserLocationAndRedirect]);
 
   // Handle location selection for already authenticated user
-  const handlePostAuthLocationSelect = async (location: any) => {
+  const handlePostAuthLocationSelect = async (location: unknown) => {
     if (!currentUser) return;
     
     try {
@@ -282,8 +281,6 @@ export default function AuthPage() {
     setIsPhoneVerified(false);
     setUserLocation(null);
     setShowLocationPicker(false);
-    setPhoneVerificationCode("");
-    setShowPhoneVerification(false);
     setIsAlumni(false);
     setRated([]);
     setAverageRate([]);
@@ -351,28 +348,6 @@ export default function AuthPage() {
     });
   };
 
-  const sendPhoneVerification = async () => {
-    if (!phoneNumber) {
-      alert("Please enter your phone number");
-      return;
-    }
-    
-    // Demo verification code (replace with real SMS service)
-    const code = Math.floor(100000 + Math.random() * 900000).toString();
-    console.log("Verification code:", code);
-    setShowPhoneVerification(true);
-    alert(`Demo: Verification code is ${code}`);
-  };
-
-  const verifyPhoneCode = () => {
-    if (phoneVerificationCode.length === 6) {
-      setIsPhoneVerified(true);
-      setShowPhoneVerification(false);
-      alert("Phone number verified!");
-    } else {
-      alert("Please enter a valid 6-digit code");
-    }
-  };
 
   const forgotPassword = () => {
     setForgotMode(true);
@@ -387,7 +362,7 @@ export default function AuthPage() {
     try {
       await sendPasswordResetEmail(auth, email);
       alert("Password reset email sent!");
-    } catch (error: any) {
+    } catch (error) {
       console.error(error);
       if (error.code === "auth/invalid-credential") {
         alert("No account found");
@@ -438,7 +413,7 @@ export default function AuthPage() {
   };
 
   // Save user data to Firestore
-  const saveUserData = async (user: any, photoURL: string) => {
+  const saveUserData = async (user, photoURL: string) => {
     await updateProfile(user, {
       displayName: fullName
     });
@@ -545,7 +520,7 @@ export default function AuthPage() {
             return;
           }
         } catch (emailCheckError) {
-          console.log("Could not check email existence, proceeding with signup");
+          console.log("Could not check email existence, proceeding with signup ", emailCheckError);
         }
         
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
@@ -570,7 +545,7 @@ export default function AuthPage() {
         resetForm();
         setIsLogin(true);
       }
-    } catch (error: any) {
+    } catch (error) {
       console.error(error);
       
       // Handle specific error codes
@@ -673,9 +648,8 @@ export default function AuthPage() {
 
       // Check if user has location before redirecting
       await checkUserLocationAndRedirect(user);
-    } catch (error: any) {
+    } catch (error) {
       if (error.code === "auth/account-exists-with-different-credential") {
-        const pendingCred = FacebookAuthProvider.credentialFromError(error);
         const email = error.customData?.email;
 
         if (email) {
@@ -830,7 +804,7 @@ export default function AuthPage() {
               <div className="flex items-center space-x-4">
                 <div className="w-20 h-20 rounded-full bg-orange-100 flex items-center justify-center overflow-hidden">
                   {previewUrl ? (
-                    <img src={previewUrl} alt="Profile preview" className="w-full h-full object-cover" />
+                    <Image src={previewUrl} alt="Profile preview" className="w-full h-full object-cover" />
                   ) : (
                     <svg className="w-10 h-10 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
@@ -1031,7 +1005,7 @@ export default function AuthPage() {
                                   {isPhoneVerified ? "Verified" : "Verify"}
                                 </button>
                               </div>
-                              <p className="text-xs text-blue-600 mt-1">Verified phones earn a "📱 Verified" badge</p>
+                              <p className="text-xs text-blue-600 mt-1">Verified phones earn a &quot;📱 Verified&quot; badge</p>
                             </div>
                             
 
@@ -1080,7 +1054,7 @@ export default function AuthPage() {
                                 Where is your school campus or where do you live?
                               </label>
                               <p className="text-xs text-gray-500 mb-4">
-                                This will help you find nearby sublets and move-out items. We'll provide more interaction even if you're not familiar with the location.
+                                This will help you find nearby sublets and move-out items. We&apos;ll provide more interaction even if you&apos;re not familiar with the location.
                               </p>
                               
                               {!userLocation ? (
@@ -1342,7 +1316,7 @@ export default function AuthPage() {
               <div className="bg-white rounded-lg w-full max-w-lg max-h-[90vh] flex flex-col">
                 {/* Fixed Header */}
                 <div className="p-4 border-b border-gray-200 flex-shrink-0">
-                  <h3 className="text-lg font-semibold text-center">Welcome! Let's set your location</h3>
+                  <h3 className="text-lg font-semibold text-center">Welcome! Let&apos;s set your location</h3>
                   <p className="text-sm text-gray-600 text-center mt-2">
                     Help us show you nearby sublets and moving sales by selecting your location.
                   </p>

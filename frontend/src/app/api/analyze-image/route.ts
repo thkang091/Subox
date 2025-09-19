@@ -6,42 +6,6 @@ const openai = new OpenAI({
 });
 
 // Comprehensive criteria list based on your chat form
-const LISTING_CRITERIA = {
-  essential: [
-    'listingType', // Sublet, Lease Takeover, Room in Shared Unit
-    'availability', // Start and end dates
-    'location', // Address or neighborhood
-    'rent', // Monthly rent amount
-    'utilities', // Included or not
-    'bedrooms', // Number of bedrooms
-    'bathrooms', // Number of bathrooms
-    'contactInfo' // How to contact
-  ],
-  important: [
-    'roomType', // Private or shared room
-    'furnished', // Furnished status
-    'deposit', // Security deposit
-    'rentNegotiable', // If rent is negotiable
-    'amenities', // List of amenities
-    'photos', // Photos of the space
-    'partialDates', // Flexible with partial rental periods
-  ],
-  roommate_related: [
-    'hasRoommates', // Will there be roommates
-    'roommateGender', // Gender preferences
-    'roommatePersonality', // Quiet/loud, smoking, pets
-    'roommatePreferences', // Cleanliness, noise level
-    'currentRoommateInfo' // Info about current occupant
-  ],
-  additional: [
-    'subleaseReason', // Why subletting
-    'includedItems', // Furniture/items included
-    'additionalDetails', // Extra features, neighborhood info
-    'roomTours', // Available for tours
-    'exactAddress', // Show exact address or just neighborhood
-    'priceRange' // If negotiable, what's the range
-  ]
-};
 
 export async function POST(request: NextRequest) {
   try {

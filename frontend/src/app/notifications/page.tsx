@@ -2,23 +2,22 @@
 
 import React, { useState, useEffect } from 'react';
 import { 
-  Bell, MessageSquare, Calendar, Clock, CheckCircle, XCircle,
-  User, MapPin, ArrowLeft, Filter, Trash2, Home,
-  Video, Users, Mail, AlertCircle, RefreshCw, Eye, EyeOff, Menu, MessagesSquare, Heart
+  Bell, MessageSquare, Calendar, Clock, CheckCircle,
+  User, ArrowLeft, Trash2, Home, AlertCircle, RefreshCw, Eye, Menu, MessagesSquare, Heart
 } from 'lucide-react';
 import { 
-  collection, query, where, orderBy, onSnapshot, doc, updateDoc,
-  deleteDoc, writeBatch, or
+  collection, query, where, onSnapshot, doc, updateDoc,
+  deleteDoc, writeBatch
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/app/contexts/AuthInfo';
+import { useNotifications } from '@/data/notificationlistings';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export default function NotificationDashboard() {
   const { user, loading: authLoading } = useAuth();
-  const [notifications, setNotifications] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const { notifications, loading, error: useNError } = useNotifications();
   const [filter, setFilter] = useState('all'); // all, messages, tours, unread
   const [selectedNotification, setSelectedNotification] = useState(null);
   const [updating, setUpdating] = useState(null);
@@ -58,47 +57,12 @@ export default function NotificationDashboard() {
   // For router
   const router = useRouter();
 
-  // Load notifications for current user
-  useEffect(() => {
-    if (!user?.uid) return;
-
-    const q = query(
-      collection(db, 'notifications'),
-      where('recipientId', '==', user.uid)
-    );
-
-    const unsubscribe = onSnapshot(
-      q,
-      (querySnapshot) => {
-        const allNotifications = new Map();
-        
-        querySnapshot.docs.forEach(doc => {
-          const notifData = {
-            id: doc.id,
-            ...doc.data(),
-            createdAt: doc.data().createdAt?.toDate()
-          };
-          allNotifications.set(doc.id, notifData);
-        });
-
-        const notificationsArray = Array.from(allNotifications.values())
-          .sort((a, b) => {
-            if (!a.createdAt || !b.createdAt) return 0;
-            return b.createdAt - a.createdAt;
-          });
-
-        setNotifications(notificationsArray);
-        setLoading(false);
-      },
-      (error) => {
-        console.error('Error loading notifications:', error);
-        setError('Failed to load notifications: ' + error.message);
-        setLoading(false);
-      }
-    );
-
-    return () => unsubscribe();
-  }, [user?.uid]);
+  // Checking error from the useNotification
+  useEffect (() => {
+    if (useNError) {
+      setError(useNError);
+    }
+  }, [useNError]);
 
   const determineNotificationRole = (notification) => {
     if (notification.type === 'tour_request') {
@@ -337,7 +301,7 @@ export default function NotificationDashboard() {
 
                   {notification.type === 'new_message' && notification.messagePreview && (
                     <div className="bg-gray-100 p-2 rounded text-xs text-gray-700 mb-2">
-                      "{notification.messagePreview}"
+                      &quot;{notification.messagePreview}&quot;
                     </div>
                   )}
 
@@ -420,144 +384,144 @@ export default function NotificationDashboard() {
               </div>
             </div>
             <div className='flex items-center space-x-4'>
-            {/* messages */}
-            <motion.button 
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={() => window.location.href = '/sublease/search/list'}
-              className="p-2 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
-            >
-              <MessagesSquare size={20} className = "w-5 h-5 text-gray-600"/>
-            </motion.button>
-
-            {/* Profile */}
-            <div className="relative">
-              <motion.button
+              {/* messages */}
+              <motion.button 
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
-                onClick={() => router.push("/profile")}
+                onClick={() => window.location.href = '/sublease/search/list'}
                 className="p-2 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
               >
-                <User className="w-5 h-5 text-gray-600" />
-              </motion.button>
-            </div>
-
-            {/* menu */}
-            <div className="relative">
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={() => setShowMenu(!showMenu)}
-                className="p-2 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
-              >
-                <Menu className="w-5 h-5 text-gray-600" />
+                <MessagesSquare size={20} className = "w-5 h-5 text-gray-600"/>
               </motion.button>
 
-              <AnimatePresence>
-                {showMenu && (
-                  <motion.div
-                    initial={{ opacity: 0, y: -10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -10 }}
-                    className="absolute right-0 mt-2 w-64 bg-white rounded-lg shadow-lg border border-gray-200 z-50"
-                  >
-                    <div className="p-4 space-y-2">
-                      <p className="text-medium font-semibold max-w-2xl mb-4 text-orange-700">
-                      Move Out Sale
-                      </p>
-                      <button 
-                        onClick={() => {
-                          router.push('/sale/browse');
-                          setShowMenu(false);
-                        }} 
-                        className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors"
-                      >
-                        Browse Items
-                      </button>                        
-                      <button 
-                        onClick={() => {
-                          router.push('/sale/create/options/nonai');
-                          setShowMenu(false);
-                        }} 
-                        className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors"
-                      >
-                        Sell Items
-                      </button> 
-                      <button 
-                        onClick={() => {
-                          router.push('/sale/browse');
-                          setShowMenu(false);
-                        }} 
-                        className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors"
-                      >
-                        My Items
-                      </button>   
-                      
-                      <p className="text-medium font-semibold max-w-2xl mb-4 text-orange-700">
-                        Sublease
-                      </p>
-                      <button 
-                        onClick={() => {
-                          router.push('/sublease/search');
-                          setShowMenu(false);
-                        }} 
-                        className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors"
-                      >
-                        Find Sublease
-                      </button>   
-                      <button 
-                        onClick={() => {
-                          router.push('/sublease/write/options/chat');
-                          setShowMenu(false);
-                        }} 
-                        className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors"
-                      >
-                        Post Sublease
-                      </button>   
-                      <button 
-                        onClick={() => {
-                          router.push('../search');
-                          setShowMenu(false);
-                        }} 
-                        className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors"
-                      >
-                        My Sublease Listing
-                      </button>
-                      <hr className="my-2" />
-                      <button                              
-                        onClick={() => {                               
-                          router.push('/favorite');                               
-                          setShowMenu(false);                             
-                        }}                              
-                        className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors flex items-center gap-2"
-                        >                             
-                        <Heart className="w-4 h-4 text-gray-600" />                             
-                        Favorites                           
-                      </button>
-                      <button 
-                        onClick={() => {
-                          router.push('/sublease/search/list');
-                          setShowMenu(false);
-                        }} 
-                        className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors flex items-center gap-2"
-                      >
-                        <MessagesSquare className="w-4 h-4 text-gray-600" />                             
-                        Messages
-                      </button>   
-                      <button 
-                        onClick={() => {
-                          router.push('../help');
-                          setShowMenu(false);
-                        }} 
-                        className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors"
-                      >
-                        Help & Support
-                      </button>
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
+              {/* Profile */}
+              <div className="relative">
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => router.push("/profile")}
+                  className="p-2 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                >
+                  <User className="w-5 h-5 text-gray-600" />
+                </motion.button>
+              </div>
+
+              {/* menu */}
+              <div className="relative">
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => setShowMenu(!showMenu)}
+                  className="p-2 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                >
+                  <Menu className="w-5 h-5 text-gray-600" />
+                </motion.button>
+
+                <AnimatePresence>
+                  {showMenu && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -10 }}
+                      className="absolute right-0 mt-2 w-64 bg-white rounded-lg shadow-lg border border-gray-200 z-50"
+                    >
+                      <div className="p-4 space-y-2">
+                        <p className="text-medium font-semibold max-w-2xl mb-4 text-orange-700">
+                        Move Out Sale
+                        </p>
+                        <button 
+                          onClick={() => {
+                            router.push('/sale/browse');
+                            setShowMenu(false);
+                          }} 
+                          className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors"
+                        >
+                          Browse Items
+                        </button>                        
+                        <button 
+                          onClick={() => {
+                            router.push('/sale/create/options/nonai');
+                            setShowMenu(false);
+                          }} 
+                          className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors"
+                        >
+                          Sell Items
+                        </button> 
+                        <button 
+                          onClick={() => {
+                            router.push('/sale/browse');
+                            setShowMenu(false);
+                          }} 
+                          className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors"
+                        >
+                          My Items
+                        </button>   
+                        
+                        <p className="text-medium font-semibold max-w-2xl mb-4 text-orange-700">
+                          Sublease
+                        </p>
+                        <button 
+                          onClick={() => {
+                            router.push('/sublease/search');
+                            setShowMenu(false);
+                          }} 
+                          className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors"
+                        >
+                          Find Sublease
+                        </button>   
+                        <button 
+                          onClick={() => {
+                            router.push('/sublease/write/options/chat');
+                            setShowMenu(false);
+                          }} 
+                          className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors"
+                        >
+                          Post Sublease
+                        </button>   
+                        <button 
+                          onClick={() => {
+                            router.push('../search');
+                            setShowMenu(false);
+                          }} 
+                          className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors"
+                        >
+                          My Sublease Listing
+                        </button>
+                        <hr className="my-2" />
+                        <button                              
+                          onClick={() => {                               
+                            router.push('/favorite');                               
+                            setShowMenu(false);                             
+                          }}                              
+                          className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors flex items-center gap-2"
+                          >                             
+                          <Heart className="w-4 h-4 text-gray-600" />                             
+                          Favorites                           
+                        </button>
+                        <button 
+                          onClick={() => {
+                            router.push('/sublease/search/list');
+                            setShowMenu(false);
+                          }} 
+                          className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors flex items-center gap-2"
+                        >
+                          <MessagesSquare className="w-4 h-4 text-gray-600" />                             
+                          Messages
+                        </button>   
+                        <button 
+                          onClick={() => {
+                            router.push('../help');
+                            setShowMenu(false);
+                          }} 
+                          className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600 transition-colors"
+                        >
+                          Help & Support
+                        </button>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
             </div>
           </div>
 
@@ -732,7 +696,7 @@ export default function NotificationDashboard() {
                     <div>
                       <h3 className="font-medium text-gray-800 mb-2">Message Preview:</h3>
                       <div className="bg-blue-50 p-3 rounded-lg">
-                        <p className="text-blue-800 text-sm">"{selectedNotification.messagePreview}"</p>
+                        <p className="text-blue-800 text-sm">&quot;{selectedNotification.messagePreview}&quot;</p>
                       </div>
                     </div>
                   )}

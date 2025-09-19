@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/app/contexts/AuthInfo';
 import { 
@@ -75,13 +75,8 @@ const EditSaleItemPage = () => {
   // Form state
   const [formData, setFormData] = useState<Partial<SaleItemData>>({});
 
-  useEffect(() => {
-    if (!authLoading && user && id) {
-      fetchSaleItem();
-    }
-  }, [user, authLoading, id]);
 
-  const fetchSaleItem = async () => {
+  const fetchSaleItem = useCallback(async () => {
     try {
       setLoading(true);
       const saleItemDoc = await getDoc(doc(db, 'saleItems', id as string));
@@ -130,7 +125,6 @@ const EditSaleItemPage = () => {
       const uniqueImages = [...new Set(allImages)].filter(img => img && img.trim() !== '');
       
       console.log('Combined unique images:', uniqueImages);
-      
       // Update the sale item data with all combined images
       const updatedSaleItemData = {
         ...saleItemData,
@@ -139,15 +133,21 @@ const EditSaleItemPage = () => {
 
       setSaleItem(updatedSaleItemData);
       setFormData(updatedSaleItemData);
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error fetching sale item:', error);
       setError('Failed to load sale item');
     } finally {
       setLoading(false);
     }
-  };
+  },[id, user?.uid]);
 
-  const handleInputChange = (field: string, value: any) => {
+  useEffect(() => {
+    if (!authLoading && user && id) {
+      fetchSaleItem();
+    }
+  }, [user, authLoading, id, fetchSaleItem]);
+
+  const handleInputChange = (field: string, value) => {
     setFormData(prev => ({
       ...prev,
       [field]: value
@@ -226,7 +226,7 @@ const EditSaleItemPage = () => {
       
       alert('Sale item updated successfully!');
       router.push('/profile/my-sale-items');
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error updating sale item:', error);
       alert('Failed to update sale item: ' + error.message);
     } finally {

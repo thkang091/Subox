@@ -330,16 +330,6 @@ const InteractiveBackground = () => {
     duration: Math.random() * 30 + 20
   }));
 
-  // Generate grid dots that respond to mouse
-  const gridDots = Array.from({ length: 80 }, (_, i) => {
-    const row = Math.floor(i / 10);
-    const col = i % 10;
-    return {
-      id: i,
-      x: (col * 10) + 10,
-      y: (row * 12.5) + 10,
-    };
-  });
 
   const ShapeComponent = ({ shape, size, className }) => {
     switch (shape) {
@@ -672,19 +662,9 @@ function MoveOutPageContent() {
   const [subleaseAction, setSubleaseAction] = useState<string | null>(null);
   const [saleAction, setSaleAction] = useState<string | null>(null);
   const [showUserMenu, setShowUserMenu] = useState(false);
-  const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
   
   const router = useRouter();
   const { user, loading, signOut } = useAuth();
-
-  // Mouse tracking for interactive effects
-  useEffect(() => {
-    const handleMouseMove = (e) => {
-      setMousePosition({ x: e.clientX, y: e.clientY });
-    };
-    window.addEventListener('mousemove', handleMouseMove);
-    return () => window.removeEventListener('mousemove', handleMouseMove);
-  }, []);
 
   // Event handlers
   const handleOptionSelect = (option: string) => {
@@ -762,62 +742,6 @@ function MoveOutPageContent() {
       }
     }
   };
-// Add this new logo component
-const SuboxLogo = ({ size = 200, className = "" }) => (
-  <motion.div 
-    className={`flex items-center justify-center ${className}`}
-    whileHover={{ scale: 1.05 }}
-    transition={{ duration: 0.3 }}
-  >
-    <svg width={size} height={size * 0.4} viewBox="0 0 400 160" fill="none">
-      {/* House icon */}
-      <motion.g
-        animate={{ rotate: [0, 2, -2, 0] }}
-        transition={{ duration: 4, repeat: Infinity }}
-      >
-        <path
-          d="M45 55L65 40L85 55V75C85 77 83 79 81 79H49C47 79 45 77 45 75V55Z"
-          fill="#E97451"
-        />
-        <path
-          d="M40 60L65 40L90 60L65 35L40 60Z"
-          fill="#D97706"
-        />
-        <rect x="60" y="65" width="10" height="8" fill="white" />
-        <rect x="62" y="70" width="6" height="9" fill="white" />
-      </motion.g>
-      
-      {/* Tag icon */}
-      <motion.g
-        animate={{ rotate: [0, -3, 3, 0] }}
-        transition={{ duration: 3, repeat: Infinity, delay: 0.5 }}
-      >
-        <path
-          d="M95 50L105 40H120V50L115 60L95 50Z"
-          fill="#E97451"
-        />
-        <circle cx="112" cy="45" r="2" fill="white" />
-      </motion.g>
-
-      {/* Subox text */}
-      <motion.g
-        animate={{ 
-          fill: ["#2D3748", "#E97451", "#2D3748"]
-        }}
-        transition={{ duration: 4, repeat: Infinity }}
-      >
-        <text x="140" y="55" fontSize="28" fontWeight="bold" fill="currentColor" fontFamily="Inter, sans-serif">
-          Subox
-        </text>
-      </motion.g>
-      
-      {/* Subtitle */}
-      <text x="140" y="75" fontSize="10" fill="#6B7280" fontFamily="Inter, sans-serif" letterSpacing="2">
-        SUBLETS & MOVING SALES
-      </text>
-    </svg>
-  </motion.div>
-);
 
   const itemVariants = {
     hidden: { y: 30, opacity: 0 },

@@ -1,30 +1,55 @@
-// Notification mock datas 
-export const notification = [ 
-    { 
-        id: 1, 
-        type: "price-drop", 
-        productId: 2,
-        message: "MacBook Pro price dropped by $50!", 
-        time: "2h ago" 
-    }, 
-    { 
-        id: 2, 
-        type: "new-item", 
-        productId: 1,
-        message: "New furniture items in Dinkytown", 
-        time: "4h ago" 
-    }, 
-    { 
-        id: 3, 
-        type: "favorite", 
-        message: "Your favorited item is ending soon", 
-        time: "1d ago" 
-    }, 
-    { 
-        id: 4, 
-        type: "message from Jordan T.", 
-        productId: 5,
-        message: "Is it okay to have a deal in Quad? I think Quad is right between your place and mine.", 
-        time: "30min ago" 
-    } 
-]
+import { useEffect, useState } from "react";
+import { db } from "@/lib/firebase";
+import { collection, query, where, onSnapshot } from "firebase/firestore";
+import { useAuth } from "@/app/contexts/AuthInfo";
+
+export function useNotifications() {
+  const { user } = useAuth();
+  const [notifications, setNotifications] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string>("");
+
+  useEffect(() => {
+    if (!user?.uid) return;
+
+    const q = query(
+      collection(db, "notifications"),
+      where("recipientId", "==", user.uid)
+    );
+
+    const unsubscribe = onSnapshot(
+      q,
+      (querySnapshot) => {
+        const allNotifications = new Map();
+
+        querySnapshot.docs.forEach((doc) => {
+          const notifData = {
+            id: doc.id,
+            ...doc.data(),
+            createdAt: doc.data().createdAt?.toDate(),
+          };
+          allNotifications.set(doc.id, notifData);
+        });
+
+        const notificationsArray = Array.from(allNotifications.values()).sort(
+          (a: any, b: any) => {
+            if (!a.createdAt || !b.createdAt) return 0;
+            return b.createdAt - a.createdAt;
+          }
+        );
+
+        setNotifications(notificationsArray);
+        setLoading(false);
+      },
+      (error) => {
+        console.error("Error loading notifications:", error);
+        setError("Failed to load notifications: " + error.message);
+        setLoading(false);
+      }
+    );
+
+    return () => unsubscribe();
+  }, [user?.uid]);
+
+  return { notifications, loading, error };
+}

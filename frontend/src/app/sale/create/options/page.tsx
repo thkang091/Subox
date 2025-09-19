@@ -10,8 +10,6 @@ import {
   Brain, 
   Zap, 
   Sparkles, 
-  Target, 
-  Clock, 
   DollarSign, 
   Package, 
   CheckCircle,
@@ -19,18 +17,12 @@ import {
   Wand2,
   Eye,
   Plus,
-  RefreshCw,
   Lightbulb,
   Star,
   TrendingUp,
   ChevronLeft,
   ChevronRight,
-  MapPin,
-  Truck,
-  Home,
-  Search,
-  X,
-  Check
+  MapPin
 } from "lucide-react";
 import RealPhotoDetection from "../../../../components/image"
 
@@ -42,15 +34,6 @@ import RealPhotoDetection from "../../../../components/image"
 type ListingOption = "ai" | "traditional" | null;
 type PreviewStep = "photo" | "detection" | "details" | "description";
 
-// ===============================
-// MOCK DATA
-// ===============================
-
-const mockDetectedItems = [
-  { id: 1, name: "Wooden Desk", confidence: 92, price: 85, selected: true },
-  { id: 2, name: "Office Chair", confidence: 88, price: 45, selected: true },
-  { id: 3, name: "Table Lamp", confidence: 79, price: 25, selected: false }
-];
 
 const mockTraditionalItems = [
   { 

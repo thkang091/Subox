@@ -3,13 +3,13 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { 
-  MessageCircle, Search, User, ChevronLeft, Clock, 
-  Star, MapPin, Calendar, Bell, Filter, X, Home,
-  Heart, Plus, Package, Menu, MessagesSquare, ArrowLeft
+  MessageCircle, Search, User, 
+  MapPin,Bell,Home,
+  Heart,Package, Menu, ArrowLeft
 } from 'lucide-react';
 import { 
   collection, query, where, orderBy, onSnapshot, 
-  doc, updateDoc, increment, limit, getDocs 
+  limit, getDocs 
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/app/contexts/AuthInfo';
@@ -24,9 +24,7 @@ const ConversationListPage = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState('all');
   const [activeTab, setActiveTab] = useState('sublease');
-  const [showProfile, setShowProfile] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
-  const [notifications, setNotifications] = useState([]);
   const [showNotifications, setShowNotifications] = useState(false);
 
 

@@ -1,32 +1,25 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
+import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
-  Search,  Filter, 
+  Search, 
   Heart, 
-  ShoppingCart, 
   MapPin, 
   Clock, 
   Star,
   Grid3X3,
-  List,
   Bell,
   User,
-  History,
   Navigation,
   AlertCircle,
-  Bookmark,
   GitCompare,
   Map as MapIcon,
   Package,
   Truck,
   DollarSign,
-  Calendar,
   X,
-  ChevronDown,
-  Plus,
-  Minus,
   SlidersHorizontal,
   MessagesSquare,
   Menu,
@@ -35,14 +28,12 @@ import {
   ChevronLeft
 } from "lucide-react";
 import React from "react";
-import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { auth, db } from "@/lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
 import { collection, query, where, orderBy, onSnapshot, limit , doc, getDoc} from 'firebase/firestore';
-import BadgeMoveOutSale from '@/data/badgeMoveOutSale';
 
 const MoveOutSalePage = () => {
   const [searchQuery, setSearchQuery] = useState("");
@@ -54,15 +45,10 @@ const MoveOutSalePage = () => {
   const [selectedLocation, setSelectedLocation] = useState("All Locations");
   const [viewMode, setViewMode] = useState("grid");
   const [showFilters, setShowFilters] = useState(false);
-  const [cart, setCart] = useState(new Map());
   const [currentCalendarDate, setCurrentCalendarDate] = useState(new Date());
   const [compareItems, setCompareItems] = useState(new Set());
-  const [showNotifications, setShowNotifications] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
-  const [openFilterSection, setOpenFilterSection] = useState(null);
-  const [showCart, setShowCart] = useState(false);
   const [favoriteListings, setFavoriteListings] = useState([]);
-  const [activeTab, setActiveTab] = useState('favorites');
   const [searchHistory, setSearchHistory] = useState([]);
   const [showHistory, setShowHistory] = useState(false);
   const [selectedDelivery, setSelectedDelivery] = useState(false);
@@ -70,10 +56,8 @@ const MoveOutSalePage = () => {
   const [showAvailableDate, setShowAvailableDate] = useState(null);
   const router = useRouter();
   const [showComparison, setShowComparison] = useState(false);
-  const [showLocationDropdown, setShowLocationDropdown] = useState(false);
   const [userId, setUserId] = useState(null);
   const [isMounted, setIsMounted] = useState(false);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [locationSearchQuery, setLocationSearchQuery] = useState("");
@@ -118,7 +102,23 @@ const MoveOutSalePage = () => {
       console.error('Error loading favorites from localStorage:', error);
     }
   }, []);
-const loadGoogleMapsForLocationSearch = async () => {
+
+  const initializeGoogleMapsServices = () => {
+    if (window.google && window.google.maps && window.google.maps.places) {
+      try {
+        autocompleteService.current = new window.google.maps.places.AutocompleteService();
+        const div = document.createElement('div');
+        placesService.current = new window.google.maps.places.PlacesService(div);
+        setIsGoogleMapsReady(true);
+        setMapsError(null);
+      } catch (error) {
+        console.error('Error initializing Google Maps services:', error);
+        setMapsError('Error initializing Google Maps');
+      }
+    }
+  };
+
+const loadGoogleMapsForLocationSearch = useCallback(async () => {
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
   
   if (!apiKey) {
@@ -163,7 +163,7 @@ const loadGoogleMapsForLocationSearch = async () => {
   };
   
   document.head.appendChild(script);
-};
+},[initializeGoogleMapsServices]);
 
 
   // Add refs for Google Maps services
@@ -172,7 +172,7 @@ const loadGoogleMapsForLocationSearch = async () => {
   const locationSearchTimeout = useRef();
   useEffect(() => {
     loadGoogleMapsForLocationSearch();
-  }, []);
+  }, [loadGoogleMapsForLocationSearch]);
   
 
   const handleLocationSelection = (displayAddress, locationData) => {
@@ -388,6 +388,7 @@ const parseAddressComponents = (components) => {
       (error) => {
         setIsGettingCurrentLocation(false);
         setLocationError('Could not get your current location');
+        console.error('Error occured! ', error)
       }
     );
   };
@@ -419,21 +420,6 @@ const parseAddressComponents = (components) => {
     }, 300);
   };
 
-  const initializeGoogleMapsServices = () => {
-    if (window.google && window.google.maps && window.google.maps.places) {
-      try {
-        autocompleteService.current = new window.google.maps.places.AutocompleteService();
-        const div = document.createElement('div');
-        placesService.current = new window.google.maps.places.PlacesService(div);
-        setIsGoogleMapsReady(true);
-        setMapsError(null);
-      } catch (error) {
-        console.error('Error initializing Google Maps services:', error);
-        setMapsError('Error initializing Google Maps');
-      }
-    }
-  };
-
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       if (user) {
@@ -460,10 +446,6 @@ const parseAddressComponents = (components) => {
       console.error('Error loading favorites from localStorage:', error);
     }
   }, []);
-
-
-  // Badge function
-  const [badgeList, setBadgeList] = useState([]);
   
  
 
@@ -540,6 +522,7 @@ useEffect(() => {
       } else {
         q = query(q, limit(50));
       }
+      console.error('Error occured!', error)
     }
     
     const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -583,7 +566,6 @@ useEffect(() => {
   ];
   
   const conditions = ["All Conditions", "New", "Like New", "Good", "Fair", "Used"];
-  const locations = ["All Locations", "Dinkytown", "Eastbank", "Westbank", "Como", "Marcy-holmes"];
 
   const notifications = [
     { id: 1, type: "price-drop", message: "MacBook Pro price dropped by $50!", time: "2h ago" },
@@ -621,22 +603,9 @@ useEffect(() => {
       };
       
       setFavoriteListings([favoriteItem, ...favoriteListings]);
-      // open sidebar
-      setIsSidebarOpen(true);
-      // change the tap into favorites
-      setActiveTab('favorites');
     }
   };
 
-  const updateCart = (productId, quantity) => {
-    const newCart = new Map(cart);
-    if (quantity === 0) {
-      newCart.delete(productId);
-    } else {
-      newCart.set(productId, quantity);
-    }
-    setCart(newCart);
-  };
 
   const toggleCompare = (productId) => {
     const newCompare = new Set(compareItems);
@@ -662,7 +631,7 @@ useEffect(() => {
   setLocationError(null);
 };
 
-const determineAreaType = (types, description) => {
+const determineAreaType = (types) => {
   if (types.includes('administrative_area_level_1')) return 'state';
   if (types.includes('locality') || types.includes('administrative_area_level_2')) return 'city';
   if (types.includes('neighborhood') || types.includes('sublocality')) return 'neighborhood';
@@ -713,22 +682,10 @@ const extractCityFromAddress = (address) => {
     setSearchHistory(stored);
   }, []);
 
-  const FilterSection = ({ title, id, children }) => (
-    <div className="border border-gray-200 rounded-lg">
-      <button
-        onClick={() => setOpenFilterSection(openFilterSection === id ? null : id)}
-        className="w-full flex justify-between items-center px-4 py-3 text-left text-gray-900 font-medium hover:bg-gray-50"
-      >
-        <span>{title}</span>
-        <span>{openFilterSection === id ? "▲" : "▼"}</span>
-      </button>
-      {openFilterSection === id && <div className="p-4 space-y-2">{children}</div>}
-    </div>
-  );
 
  const [hostDataMap, setHostDataMap] = useState({});
 
-const fetchHostData = async (hostId) => {
+const fetchHostData = useCallback(async (hostId) => {
   if (!hostId || hostDataMap[hostId]) return;
   
   try {
@@ -745,15 +702,14 @@ const fetchHostData = async (hostId) => {
   } catch (error) {
     console.error('Error fetching host data:', error);
   }
-};
+},[hostDataMap]);
 
 useEffect(() => {
   const uniqueHostIds = [...new Set(products.map(product => product.hostId || product.sellerId).filter(Boolean))];
   uniqueHostIds.forEach(hostId => {
     fetchHostData(hostId);
   });
-}, [products]);
-
+}, [products, fetchHostData]);
 
 
 const NotificationsButton = ({ notifications }: { notifications: Notification[] }) => {
@@ -782,7 +738,7 @@ const NotificationsButton = ({ notifications }: { notifications: Notification[] 
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
-            className="absolute right-0 mt-2 w-70 bg-white rounded-lg shadow-lg border border-gray-200 z-50"
+            className="absolute right-0 mt-2 w-64 bg-white rounded-lg shadow-lg border border-gray-200 z-50 pointer-events-auto"
           >
             <div className="p-4">
               <h3 className="font-semibold text-orange-600 mb-3">Notifications</h3>
@@ -815,90 +771,6 @@ const NotificationsButton = ({ notifications }: { notifications: Notification[] 
     </div>
   );
 };
-
-
-  // Favorites Sidebar
-  const renderFavoritesSidebar = () => (
-    <div className={`fixed left-0 top-16 h-[calc(100vh-4rem)] w-72 bg-white shadow-xl z-40 transform transition-transform duration-300 ease-in-out ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} overflow-auto`}>                
-      <div className="p-4 border-b">
-        <div className="flex justify-between items-center">
-          <h2 className="font-bold text-lg text-orange-500">Favorites</h2>
-          <button 
-            onClick={() => setIsSidebarOpen(false)}
-            className="p-2 rounded-full hover:bg-gray-100"
-          >
-            <X size={20} />
-          </button>
-        </div>
-      </div>
-      
-      <div className="p-4">
-        {/* favorites list */}
-        {favoriteListings.length === 0 ? (
-          <div className="text-center py-8 text-gray-500">
-            <Heart size={40} className="mx-auto mb-2 opacity-50" />
-            <p>No favorite items yet</p>
-            <p className="text-sm mt-2">Click the heart icon on items to save them here</p>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {favoriteListings.map(product => (
-              <div key={product.id} className="border rounded-lg overflow-hidden hover:shadow-md transition cursor-pointer">
-                <div className="flex" onClick={() => {
-                  setIsSidebarOpen(false);
-                  router.push(`/sale/product/${product.id}/`);
-                }}>
-                  <div 
-                    className="w-20 h-20 bg-gray-200 flex-shrink-0" 
-                    style={{backgroundImage: `url(${product.image})`, backgroundSize: 'cover', backgroundPosition: 'center'}}
-                  ></div>
-                  <div className="p-3 flex-1">
-                    <div className="font-medium text-gray-700">{product.name}</div>
-                    <div className="text-sm text-gray-500">{product.location}</div>
-                    <div className="text-sm font-bold text-[#15361F] mt-1">
-                      ${product.price}
-                    </div>
-                  </div>
-                  <button 
-                    className="p-2 text-gray-400 hover:text-red-500 self-start"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      toggleFavorite(product);
-                    }}
-                  >
-                    <X size={16} />
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-
-  const additionalCSS = `
-.line-clamp-1 {
-  display: -webkit-box;
-  -webkit-line-clamp: 1;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-
-.line-clamp-2 {
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-
-/* Ensure consistent heights on mobile */
-@media (max-width: 640px) {
-  .mobile-product-card {
-    min-height: 200px; /* Ensures 6+ cards fit vertically */
-  }
-}
-`;
 
   // Loading state
   if (loading) {
@@ -1531,7 +1403,7 @@ const NotificationsButton = ({ notifications }: { notifications: Notification[] 
                 className="flex items-center gap-2 text-black hover:text-white transition-colors px-3 py-2 rounded-lg hover:bg-orange-600"
               >
                 <ArrowLeft size={20} />
-                <span className="hidden sm:inline">Back</span>
+                <div className="hidden sm:inline">Back</div>
               </button>
               
               {/* Notifications */}
@@ -2184,7 +2056,6 @@ const NotificationsButton = ({ notifications }: { notifications: Notification[] 
           const year = calendar.getFullYear();
           const month = calendar.getMonth();
           const firstDay = new Date(year, month, 1);
-          const lastDay = new Date(year, month + 1, 0);
           const startDate = new Date(firstDay);
           startDate.setDate(startDate.getDate() - firstDay.getDay());
           
@@ -2410,7 +2281,7 @@ const NotificationsButton = ({ notifications }: { notifications: Notification[] 
           }`}>
             <div className="w-full h-full bg-gray-200 flex items-center justify-center">
               {product.image ? (
-                <img src={product.image} 
+                <Image src={product.image} 
                 alt={product.name}
                 className="w-full h-full object-cover" />
               ) : (
@@ -2484,7 +2355,7 @@ const NotificationsButton = ({ notifications }: { notifications: Notification[] 
               )}
               {product.pickupAvailable && (
                 <div className="flex items-center space-x-1">
-                  <img 
+                  <Image 
                     src="../../../../images/heart-handshake.png" 
                     alt="pickup" 
                     className="w-3 h-3 object-cover rounded"
@@ -2600,7 +2471,8 @@ const NotificationsButton = ({ notifications }: { notifications: Notification[] 
           <div className="relative aspect-square">
             <div className="w-full h-full bg-gray-200 flex items-center justify-center">
               {product.image ? (
-                <img src={product.image} 
+                <Image
+                src={product.image} 
                 alt={product.name}
                 className="w-full h-full object-cover" />
               ) : (
@@ -2647,7 +2519,7 @@ const NotificationsButton = ({ notifications }: { notifications: Notification[] 
               )}
               {product.pickupAvailable && (
                 <div className="flex items-center">
-                  <img 
+                  <Image 
                     src="../../../../images/heart-handshake.png" 
                     alt="pickup" 
                     className="w-2.5 h-2.5 object-cover rounded"
@@ -2804,7 +2676,7 @@ const NotificationsButton = ({ notifications }: { notifications: Notification[] 
             <div className="mt-6 p-4 bg-white rounded-lg border border-gray-200 shadow-sm">
               <div className="flex items-center space-x-2 mb-3">
                 <SlidersHorizontal className="w-5 h-5 text-orange-600" />
-                <h3 className="font-semibold text-gray-900">What's Most Important to You?</h3>
+                <h3 className="font-semibold text-gray-900">What&apos;s Most Important to You?</h3>
                 <span className="text-xs text-gray-500">(Select multiple)</span>
               </div>
               
@@ -2882,7 +2754,6 @@ const NotificationsButton = ({ notifications }: { notifications: Notification[] 
 
                   let score = 0;
                   const prices = Array.from(compareItems).map(id => products.find(p => p.id === id)?.price || 0);
-                  const ratings = Array.from(compareItems).map(id => products.find(p => p.id === id)?.sellerRating || 0);
                   
                   if (comparisonPriorities.includes('price')) {
                     const minPrice = Math.min(...prices);
@@ -2937,7 +2808,7 @@ const NotificationsButton = ({ notifications }: { notifications: Notification[] 
                         <div className="relative flex-shrink-0">
                           <div className="w-20 h-20 rounded-lg overflow-hidden bg-gray-100">
                             {product.image ? (
-                              <img 
+                              <Image 
                                 src={product.image} 
                                 alt={product.name}
                                 className="w-full h-full object-cover"
@@ -3088,7 +2959,6 @@ const NotificationsButton = ({ notifications }: { notifications: Notification[] 
 
                     let score = 0;
                     const prices = Array.from(compareItems).map(id => products.find(p => p.id === id)?.price || 0);
-                    const ratings = Array.from(compareItems).map(id => products.find(p => p.id === id)?.sellerRating || 0);
                     
                     if (comparisonPriorities.includes('price')) {
                       const minPrice = Math.min(...prices);
@@ -3154,7 +3024,7 @@ const NotificationsButton = ({ notifications }: { notifications: Notification[] 
                         <div className="relative mb-4 group">
                           <div className="aspect-square rounded-xl overflow-hidden bg-gray-100 transition-transform duration-300 group-hover:scale-105">
                             {product.image ? (
-                              <img 
+                              <Image 
                                 src={product.image} 
                                 alt={product.name}
                                 className="w-full h-full object-cover"
@@ -3586,7 +3456,7 @@ const NotificationsButton = ({ notifications }: { notifications: Notification[] 
                                 : "bg-red-100 text-red-700"
                             }`}
                           >
-                            <img 
+                            <Image 
                               src="../../../../images/heart-handshake.png" 
                               alt="pickup" 
                               className="w-3 h-3 mr-1 object-cover rounded"

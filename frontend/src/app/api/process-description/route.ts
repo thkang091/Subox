@@ -42,7 +42,7 @@ Return only the description, nothing else.`;
     priceText = `$${price} OBO`;
   }
   
-  let deliveryText = delivery === 'pickup' ? 'pickup only' : 
+  const deliveryText = delivery === 'pickup' ? 'pickup only' : 
                    delivery === 'delivery' ? 'delivery available' : 
                    'pickup or delivery available';
   

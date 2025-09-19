@@ -2,32 +2,16 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from "framer-motion";
 import { 
-  Bell, User, Heart, 
-  Package, Menu, X, Send, Check, AlertCircle, ArrowLeft, MessagesSquare
+  Bell, Heart, 
+  Package, Menu, ArrowLeft, MessagesSquare
 } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { onAuthStateChanged, signOut } from "firebase/auth";
+import type { User } from "firebase/auth";
 import { auth } from '@/lib/firebase';
+import Image from 'next/image';
 
 // Define TypeScript interfaces
-interface FAQItem {
-  id: number;
-  question: string;
-  answer: string;
-}
-
-interface Product {
-  id: number;
-  name: string;
-  description: string;
-  category: string;
-  condition: string;
-  price: number;
-  location: string;
-  image: string;
-  deliveryAvailable: boolean;
-  pickupAvailable: boolean;
-  availableUntil: string;
-}
 
 interface Notification {
   id: number;
@@ -42,50 +26,6 @@ interface SearchResult {
   index: number;
 }
 
-// Individual FAQ item component
-const FAQItemComponent = ({ item, isOpen, onToggle }: { 
-  item: FAQItem; 
-  isOpen: boolean; 
-  onToggle: () => void 
-}) => {
-  return (
-    <div className={`border-b border-gray-700 ${isOpen ? 'bg-white' : ''}`}>
-      <button
-        className={`w-full flex justify-between items-center py-6 px-0 text-left hover:text-orange-400 transition-colors duration-300 ${
-          isOpen ? 'text-orange-600' : 'text-black'
-        }`}
-        onClick={onToggle}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault();
-            onToggle();
-          }
-        }}
-      >
-        <span className="text-lg font-medium pr-4">{item.question}</span>
-        <span
-          className={`text-xl transition-transform duration-300 text-gray-400 ${
-            isOpen ? 'rotate-90 text-orange-400' : ''
-          }`}
-        >
-          ›
-        </span>
-      </button>
-      
-      <div
-        className={`overflow-hidden transition-all duration-300 ease-in-out ${
-          isOpen ? 'max-h-96 pb-6' : 'max-h-0'
-        }`}
-      >
-        <div className="bg-orange-50 p-5 rounded-lg">
-          <p className="text-gray-700 leading-relaxed whitespace-pre-line">
-            {item.answer}
-          </p>
-        </div>
-      </div>
-    </div>
-  );
-};
 
 // Notifications dropdown component
   const NotificationsButton = ({ notifications }: { notifications: Notification[] }) => {
@@ -151,12 +91,8 @@ const FAQItemComponent = ({ item, isOpen, onToggle }: {
 // Main Help page component
 const HelpPage = () => {
   // State variables
-  const [openItem, setOpenItem] = useState<number | null>(null);
+  const [user, setUser] = useState<User | null>(null);
   const [showMenu, setShowMenu] = useState(false);
-  const [showProfile, setShowProfile] = useState(false);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [isMounted, setIsMounted] = useState(false);
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [firstPage, setFirstPage] = useState(true);
   const [secondPage, setSecondPage] = useState(false);
   const [thirdPage, setThirdPage] = useState(false);
@@ -166,6 +102,24 @@ const HelpPage = () => {
   const [query, setQuery] = useState("");
   const [filteredQuestions, setFilteredQuestions] = useState<SearchResult[]>([]);
 
+  // Logging in and out
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
+    });
+
+    // Cleanup subscription on unmount
+    return () => unsubscribe();
+  }, []);
+
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+      console.log("User logged out successfully");
+    } catch (error) {
+      console.error("Error logging out:", error);
+    }
+  };
   
   const router = useRouter();
 
@@ -450,7 +404,7 @@ const HelpPage = () => {
       ],
       answer: [
         <>
-            We're introducing several major updates in Subox 1.0, focusing on general things for easy use.
+            We&apos;re introducing several major updates in Subox 1.0, focusing on general things for easy use.
             <p className='mt-10'>Post your product through AI</p>
             <p>By using AI, we help you post your pdocut easy and fast</p>
             <p className='mt-10'>Post your sublease though chat.</p>
@@ -522,44 +476,7 @@ const HelpPage = () => {
     { id: 3, type: "favorite", message: "Your favorited item is ending soon", time: "1d ago" }
   ];
 
-
-  // Handle profile tab click
-  const handleTabClick = (tab: string) => {
-    router.push(`browse/profile/user?tab=${tab}/`);
-    setShowProfile(false); // close dropdown
-  };
-
-
-  const isFormValid = () => {
-  return formData.name.trim() !== '' && 
-         formData.email.trim() !== '' && 
-         formData.subject.trim() !== '' && 
-         formData.message.trim() !== '';
-  };
-
-  // Form state
-  const [formData, setFormData] = useState({
-    name: '',
-    email: '',
-    subject: '',
-    message: ''
-  });
   
-  // Form status
-  const [status, setStatus] = useState({
-    submitted: false,
-    submitting: false,
-    info: { error: false, msg: null as string | null }
-  });
-
-  // Handle form input changes
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const { id, value } = e.target;
-    setFormData((prevState) => ({
-      ...prevState,
-      [id]: value
-    }));
-  };
 
   //Search
   const handleSearch = () => {
@@ -584,56 +501,6 @@ const HelpPage = () => {
     setFilteredQuestions(results);
   };
 
-  // Handle form submission
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-     // Check if all fields are filled
-    if (!isFormValid()) {
-      setStatus({
-        submitted: false,
-        submitting: false,
-        info: { error: true, msg: "Please fill all entries." }
-      });
-      return;
-    }
-
-    try {
-
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      // Success state
-      setStatus({
-        submitted: true,
-        submitting: false,
-        info: { error: false, msg: "Your message sent successfully!" }
-      });
-      
-      // Reset form after successful submission
-      setFormData({
-        name: '',
-        email: '',
-        subject: '',
-        message: ''
-      });
-      
-      // Reset status after 5 seconds
-      setTimeout(() => {
-        setStatus({
-          submitted: false,
-          submitting: false,
-          info: { error: false, msg: null }
-        });
-      }, 5000);
-      
-    } catch (error) {
-      setStatus({
-        submitted: false,
-        submitting: false,
-        info: { error: true, msg: "You failed sent a message. Please try again." }
-      });
-    }
-  };
 
   return (
     <div className="min-h-screen bg-white text-black overflow-hidden">
@@ -888,7 +755,7 @@ const HelpPage = () => {
                       >
                         <ArrowLeft size={20} /> Back
                       </motion.button>
-                      {isLoggedIn && (
+                      {user && (
                         <div>
                           {/* Notifications */}
                           <NotificationsButton notifications={notifications} />
@@ -1032,9 +899,10 @@ const HelpPage = () => {
                                 {/* need change (when user didn't log in -> show log in button) */}
                                 <hr className="my-2" />
                                   {/* log in/ out */}
-                                  {isLoggedIn ? (
+                                  {user ? (
                                     <button 
                                       className="w-full text-left px-3 py-2 rounded-md text-sm text-red-600 hover:bg-red-50 hover:text-red-700 transition-colors"
+                                      onClick={handleLogout}
                                     >
                                       Logout
                                     </button>
@@ -1326,7 +1194,7 @@ const HelpPage = () => {
                       <p className="text-3xl font-bold text-orange-600 mb-4 mt-10">{section.question[thirdPageId]}</p>
                       <p className="text-sm font-inter text-gray-600 mb-4">Updated 1 day ago</p>
                       {section.img && section.img[thirdPageId] && section.img[thirdPageId].trim() !== "" && (
-                        <img 
+                        <Image 
                           src={section.img[thirdPageId]}
                           alt="Help section example"
                           className="w-full max-w-xl mx-auto rounded-lg mb-20 mt-20"

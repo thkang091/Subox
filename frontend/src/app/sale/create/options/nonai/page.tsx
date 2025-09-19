@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
   ArrowLeft, 
@@ -22,17 +22,12 @@ import {
   Trash2,
   Grid,
   AlertCircle,
-  Home,
   Star,
   BarChart3,
-  Clock,
   Target,
   Edit3,
-  Eye,
   Layers,
-  ShoppingBag,
   Settings,
-  Router
 } from "lucide-react";
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth } from '@/lib/firebase';
@@ -80,7 +75,7 @@ interface ItemData {
 }
 
  const useAuth = () => {
-  const [user, loading, error] = useAuthState(auth);
+  const [user, loading] = useAuthState(auth);
   return {
     user,
     loading,
@@ -117,7 +112,7 @@ export default function ItemListingPage() {
   const router = useRouter();
   
   // Location state
-  const [selectedLocation, setSelectedLocation] = useState<any>(null);
+  const [selectedLocation, setSelectedLocation] = useState(null);
   const [descriptionMode, setDescriptionMode] = useState<"choose" | "ai" | "manual">("choose");
   const [manualDescriptions, setManualDescriptions] = useState<string[]>([]);
   
@@ -426,7 +421,7 @@ const uploadImageToStorage = async (base64Image, itemName, imageIndex) => {
   };
 
   // Data Management Functions
- const updateItemData = (index: number, field: keyof ItemData, value: any) => {
+ const updateItemData = (index: number, field: keyof ItemData, value) => {
   setItems(prev => 
     prev.map((item, i) => 
       i === index ? { ...item, [field]: value } : item
@@ -484,19 +479,6 @@ const uploadImageToStorage = async (base64Image, itemName, imageIndex) => {
 
   // Validation Functions
   const canProceedToItems = items.length > 0;
-
-  const canProceedToDescription = items.length > 0 && items.every((item) => {
-    const basicValidation = (
-      item && 
-      typeof item.price === 'string' && item.price.trim() !== '' && 
-      typeof item.itemName === 'string' && item.itemName.trim() !== '' && 
-      typeof item.condition === 'string' && item.condition.trim() !== '' &&
-      typeof item.location === 'string' && item.location.trim() !== '' &&
-      typeof item.category === 'string' && item.category.trim() !== ''
-    );
-    
-    return basicValidation && validatePriceRange(item);
-  });
 
   // Helper Functions
   const getCompletionPercentage = (item: ItemData) => {
@@ -619,7 +601,7 @@ const submitListings = async () => {
 };
 
   // Shared UI Components
-const renderHeader = (title: string, onBack?: () => void) => (
+const renderHeader = () => (
     <div className="bg-white/90 backdrop-blur-sm border-b border-gray-100 sticky top-0 z-20">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex item-center justify-between h-16 flex md:hidden">

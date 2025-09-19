@@ -3,8 +3,8 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { 
   Heart, Package, Building, X, Search,
-  MapPin, DollarSign, Calendar, ChevronLeft,
-  Grid3X3, List, Filter, SlidersHorizontal
+  MapPin, Calendar, ChevronLeft,
+  Grid3X3, List, SlidersHorizontal
 } from 'lucide-react';
 
 
@@ -541,7 +541,7 @@ const FavoritesPage = () => {
                 <Search size={48} className="mx-auto text-gray-300 mb-4" />
                 <h3 className="text-xl font-medium text-gray-700 mb-2">No matches found</h3>
                 <p className="text-gray-500 mb-6">
-                  Try adjusting your search or filters to find what you're looking for
+                  Try adjusting your search or filters to find what you&apos;re looking for
                 </p>
                 <button
                   onClick={() => {
@@ -567,7 +567,7 @@ const FavoritesPage = () => {
                 <Search size={48} className="mx-auto text-gray-300 mb-4" />
                 <h3 className="text-xl font-medium text-gray-700 mb-2">No matches found</h3>
                 <p className="text-gray-500 mb-6">
-                  Try adjusting your search or filters to find what you're looking for
+                  Try adjusting your search or filters to find what you&apos;re looking for
                 </p>
                 <button
                   onClick={() => {
@@ -590,66 +590,5 @@ const FavoritesPage = () => {
   );
 };
 
-// Add dummy data for demonstration purposes
-// You can remove this in production and rely on the localStorage data
-const dummySaleItems: SaleItem[] = [
-  {
-    id: 1,
-    name: "IKEA MALM Desk",
-    price: 75,
-    location: "Dinkytown",
-    image: "https://images.unsplash.com/photo-1518455027359-f3f8164ba6bd?auto=format&fit=crop&w=800&h=500",
-    category: "Furniture",
-    condition: "Good",
-    postedDate: "2025-06-15"
-  },
-  {
-    id: 2,
-    name: "MacBook Pro 2023",
-    price: 1200,
-    location: "Eastbank",
-    image: "https://images.unsplash.com/photo-1517336714731-489689fd1ca8?auto=format&fit=crop&w=800&h=500",
-    category: "Electronics",
-    condition: "Like New",
-    postedDate: "2025-06-18"
-  },
-  {
-    id: 3,
-    name: "Textbooks Bundle",
-    price: 120,
-    location: "Westbank",
-    image: "https://images.unsplash.com/photo-1588580000645-f39a59f73ab7?auto=format&fit=crop&w=800&h=500",
-    category: "Books",
-    condition: "Good",
-    postedDate: "2025-06-20"
-  }
-];
-
-const dummySubleaseItems: SubleaseItem[] = [
-  {
-    id: 1,
-    title: "Cozy Studio near Campus",
-    price: 850,
-    location: "Dinkytown",
-    image: "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=800&h=500",
-    bedrooms: 0,
-    bathrooms: 1,
-    startDate: "Jul 1, 2025",
-    endDate: "Aug 31, 2025",
-    amenities: ["WiFi", "Laundry", "Parking"]
-  },
-  {
-    id: 2,
-    title: "Modern 2BR Apartment",
-    price: 1400,
-    location: "Como",
-    image: "https://images.unsplash.com/photo-1493809842364-78817add7ffb?auto=format&fit=crop&w=800&h=500",
-    bedrooms: 2,
-    bathrooms: 1,
-    startDate: "Jul 15, 2025",
-    endDate: "Dec 31, 2025",
-    amenities: ["WiFi", "Gym", "Dishwasher", "Parking"]
-  }
-];
 
 export default FavoritesPage;

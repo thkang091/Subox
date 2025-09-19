@@ -110,26 +110,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
 export function useAuth() {
   const context = useContext(AuthContext);
+  // Return a more robust fallback with actual auth state
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (auth) {
+      const unsubscribe = onAuthStateChanged(auth, (user) => {
+        console.log('🔐 Fallback auth state:', user ? `${user.email}` : 'No user');
+        setUser(user);
+        setLoading(false);
+      });
+      return unsubscribe;
+    } else {
+      setLoading(false);
+    }
+  }, []);
   
   if (context === undefined) {
     console.warn('⚠️ useAuth must be used within an AuthProvider. Creating fallback auth context.');
-    
-    // Return a more robust fallback with actual auth state
-    const [user, setUser] = useState<User | null>(null);
-    const [loading, setLoading] = useState(true);
 
-    useEffect(() => {
-      if (auth) {
-        const unsubscribe = onAuthStateChanged(auth, (user) => {
-          console.log('🔐 Fallback auth state:', user ? `${user.email}` : 'No user');
-          setUser(user);
-          setLoading(false);
-        });
-        return unsubscribe;
-      } else {
-        setLoading(false);
-      }
-    }, []);
 
     return {
       user,

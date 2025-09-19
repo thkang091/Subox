@@ -1,6 +1,5 @@
 import { doc, updateDoc, arrayUnion } from "firebase/firestore";
 import { db } from "@/lib/firebase";
-import { sub } from "framer-motion/client";
 
 export const updateUserHistoryAndBadges = async ({
   userId,
@@ -23,7 +22,7 @@ export const updateUserHistoryAndBadges = async ({
 }) => {
   const userRef = doc(db, "users", userId);
 
-  const updates: any = {};
+  const updates = {};
 
   // History Updates
   if (actionType && productId) {

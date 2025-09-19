@@ -2,9 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import { Search, MapPin, ChevronDown, Truck, ShoppingBag, Check } from 'lucide-react';
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import { auth, db } from '../../../lib/firebase';
-import { doc, getDoc, onSnapshot } from 'firebase/firestore';
+import { doc, onSnapshot } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
 import SearchLocationPicker from '../../../components/SearchLocationPicker';
 
@@ -18,7 +18,6 @@ const MoveOutSaleSearchPage = ({ userData = null }) => {
   });
 
   // Firebase user state
-  const [currentUser, setCurrentUser] = useState(null);
   const [firebaseUserData, setFirebaseUserData] = useState(null);
   const [isLoadingUser, setIsLoadingUser] = useState(true);
 
@@ -33,7 +32,6 @@ const MoveOutSaleSearchPage = ({ userData = null }) => {
   // Monitor authentication state
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
-      setCurrentUser(user);
       if (user) {
         // Set up real-time listener for user document
         const userDocRef = doc(db, 'users', user.uid);
