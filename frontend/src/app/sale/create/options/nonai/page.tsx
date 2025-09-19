@@ -2,6 +2,7 @@
 
 import { useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import Image from "next/image";
 import { 
   ArrowLeft, 
   Camera, 
@@ -14,7 +15,6 @@ import {
   ChevronRight,
   Sparkles,
   Check,
-  Image,
   RefreshCw,
   CheckCircle,
   Focus,
@@ -949,7 +949,12 @@ const renderHeader = () => (
                 onClick={() => fileInputRef.current?.click()}
                 className="w-full py-3.5 bg-gray-100 text-gray-700 font-medium rounded-lg hover:bg-gray-200 transition-colors flex items-center justify-center space-x-2"
               >
-                <Image size={18} />
+              <Image
+                src="/path/to/your-icon.svg"
+                alt="Image icon"       
+                width={18}
+                height={18}
+              />
                 <span>Choose Photos Instead</span>
               </motion.button>
             </div>
@@ -981,7 +986,7 @@ const renderHeader = () => (
             </div>
             
             <div className="relative aspect-square rounded-xl overflow-hidden mb-6 bg-gray-50">
-              <img 
+              <Image 
                 src={capturedPhoto} 
                 alt="Captured photo" 
                 className="w-full h-full object-cover"
@@ -1257,7 +1262,7 @@ const renderHeader = () => (
                       className="relative group bg-gray-25 rounded-lg p-4 border border-gray-100"
                     >
                       <div className="aspect-square rounded-lg overflow-hidden mb-3 bg-gray-100">
-                        <img 
+                        <Image 
                           src={item.images[0]} 
                           alt="" 
                           className="w-full h-full object-cover" 
@@ -1386,7 +1391,7 @@ const renderHeader = () => (
                 >
                   {/* Image Section */}
                   <div className="relative aspect-square bg-gray-50">
-                    <img 
+                    <Image 
                       src={item.images[0]} 
                       alt="" 
                       className="w-full h-full object-cover" 
@@ -1752,7 +1757,7 @@ const renderHeader = () => (
                   }`}
                 >
                   <div className="relative aspect-square">
-                    <img 
+                    <Image 
                       src={item.images[0]} 
                       alt="" 
                       className="w-full h-full object-cover rounded-t-xl" 
@@ -1971,7 +1976,7 @@ const renderHeader = () => (
                       index === currentPhotoIndex ? 'border-orange-400' : 'border-gray-200'
                     }`}
                   >
-                    <img src={image} alt="" className="w-full h-full object-cover" />
+                    <Image src={image} alt="" className="w-full h-full object-cover" />
                   </motion.button>
                 ))}
               </div>
@@ -2519,7 +2524,7 @@ const renderHeader = () => (
                   >
                     <div className="flex gap-4 mb-4">
                       <div className="relative w-20 h-20 rounded-lg overflow-hidden flex-shrink-0">
-                        <img src={item.images[0]} alt="" className="w-full h-full object-cover" />
+                        <Image src={item.images[0]} alt="" className="w-full h-full object-cover" />
                         {item.images.length > 1 && (
                           <div className="absolute -top-1 -right-1 bg-orange-400 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center">
                             {item.images.length}
@@ -2624,7 +2629,7 @@ const renderHeader = () => (
                     {items.map((item, index) => (
                       <div key={index} className="border border-gray-200 rounded-lg p-4">
                         <div className="flex gap-3 mb-3">
-                          <img 
+                          <Image 
                             src={item.images[0]} 
                             alt="" 
                             className="w-12 h-12 rounded-lg object-cover flex-shrink-0" 
@@ -2758,7 +2763,7 @@ const renderHeader = () => (
                   >
                     <div className="flex gap-4 mb-4">
                       <div className="relative w-20 h-20 rounded-lg overflow-hidden flex-shrink-0">
-                        <img src={item.images[0]} alt="" className="w-full h-full object-cover" />
+                        <Image src={item.images[0]} alt="" className="w-full h-full object-cover" />
                         {item.images.length > 1 && (
                           <div className="absolute -top-1 -right-1 bg-orange-400 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center">
                             {item.images.length}
@@ -2837,7 +2842,7 @@ const renderHeader = () => (
                     {items.map((item, index) => (
                       <div key={index} className="border border-gray-200 rounded-lg p-4">
                         <div className="flex gap-3 mb-3">
-                          <img 
+                          <Image 
                             src={item.images[0]} 
                             alt="" 
                             className="w-12 h-12 rounded-lg object-cover flex-shrink-0" 

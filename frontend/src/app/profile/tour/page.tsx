@@ -73,7 +73,7 @@ const ProfileTourPage = () => {
   }, [isUpcoming]);
 
   // Load host-specific data
-  const loadHostData = () => {
+  const loadHostData = useCallback(() => {
     if (!user?.uid) return;
 
     // Load host tour requests
@@ -102,12 +102,12 @@ const ProfileTourPage = () => {
     return () => {
       unsubscribeHostTours();
     };
-  };
+  },[user?.uid]);
 
 
   
   // Load guest-specific data
-  const loadGuestData = () => {
+  const loadGuestData = useCallback(() => {
     if (!user?.uid) return;
 
     const guestTourQuery = query(
@@ -132,7 +132,7 @@ const ProfileTourPage = () => {
     return () => {
       unsubscribeGuestTours();
     };
-  };
+  }, [user?.uid]);
 
   // Determine user role and load data
   useEffect(() => {
@@ -424,7 +424,7 @@ const ProfileTourPage = () => {
           setMaxBookings(existingAvailability.maxBookings || 3);
         }
       }
-    }, [selectedListing, showAvailabilityModal, availability, selectedListing, showAvailabilityModal]);
+    }, [availability, selectedListing, showAvailabilityModal]);
 
     const toggleDayAvailability = (dayIndex) => {
       setAvailability(prev => ({

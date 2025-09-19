@@ -103,7 +103,7 @@ const MoveOutSalePage = () => {
     }
   }, []);
 
-  const initializeGoogleMapsServices = () => {
+  const initializeGoogleMapsServices = useCallback(() => {
     if (window.google && window.google.maps && window.google.maps.places) {
       try {
         autocompleteService.current = new window.google.maps.places.AutocompleteService();
@@ -116,7 +116,7 @@ const MoveOutSalePage = () => {
         setMapsError('Error initializing Google Maps');
       }
     }
-  };
+  },[]);
 
 const loadGoogleMapsForLocationSearch = useCallback(async () => {
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
@@ -1399,7 +1399,7 @@ const NotificationsButton = ({ notifications }: { notifications: Notification[] 
 
               {/* Back Button */}
               <button
-                onClick={() => {isLoggedIn ? router.push("/find") : router.push("/")}}
+                onClick={() => isLoggedIn ? router.push("/find") : router.push("/")}
                 className="flex items-center gap-2 text-black hover:text-white transition-colors px-3 py-2 rounded-lg hover:bg-orange-600"
               >
                 <ArrowLeft size={20} />

@@ -494,35 +494,6 @@ const MySaleItems = () => {
     getDaysRemainingForReactivation(item.deactivatedAt) > 0
   ).length;
 
-  // NEW: Clean up expired items
-  const cleanupExpiredItems = useCallback(async () => {
-    if (!user?.uid) return;
-
-    try {
-      const expiredItems = saleItems.filter(item => 
-        item.status === 'unavailable' && 
-        item.deactivatedAt && 
-        !canReactivate(item.deactivatedAt)
-      );
-
-      for (const item of expiredItems) {
-        try {
-          await deleteDoc(doc(db, 'saleItems', item.id));
-          console.log(`Cleaned up expired item: ${item.id}`);
-        } catch (error) {
-          console.error(`Failed to cleanup item ${item.id}:`, error);
-        }
-      }
-
-      if (expiredItems.length > 0) {
-        // Refresh the list after cleanup
-        fetchSaleItems();
-      }
-    } catch (error) {
-      console.error('Error during cleanup:', error);
-    }
-  },[user?.uid]);
-
   // Fetch sale items
   const fetchSaleItems = useCallback(async () => {
     if (!user?.uid) return;
@@ -571,6 +542,35 @@ const MySaleItems = () => {
       setSaleItems(items);
       setError(null);
 
+      // NEW: Clean up expired items
+      const cleanupExpiredItems = async () => {
+        if (!user?.uid) return;
+
+        try {
+          const expiredItems = saleItems.filter(item => 
+            item.status === 'unavailable' && 
+            item.deactivatedAt && 
+            !canReactivate(item.deactivatedAt)
+          );
+
+          for (const item of expiredItems) {
+            try {
+              await deleteDoc(doc(db, 'saleItems', item.id));
+              console.log(`Cleaned up expired item: ${item.id}`);
+            } catch (error) {
+              console.error(`Failed to cleanup item ${item.id}:`, error);
+            }
+          }
+
+          if (expiredItems.length > 0) {
+            // Refresh the list after cleanup
+            fetchSaleItems();
+          }
+        } catch (error) {
+          console.error('Error during cleanup:', error);
+        }
+      };
+
       // NEW: Run cleanup after fetching items
       setTimeout(() => cleanupExpiredItems(), 1000);
     } catch (error) {
@@ -579,7 +579,7 @@ const MySaleItems = () => {
     } finally {
       setLoading(false);
     }
-  }, [user?.uid, cleanupExpiredItems]);
+  }, [user?.uid]);
 
   // Effects
   useEffect(() => {

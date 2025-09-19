@@ -1,6 +1,7 @@
 'use client'
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useParams } from 'next/navigation';
 import { motion, AnimatePresence } from "framer-motion";
@@ -67,7 +68,7 @@ const ProductDetailPage = () => {
   const { user } = useAuth();
   
   // Enhanced ID extraction
-  const extractProductId = (): string | null => {
+  const extractProductId = useCallback((): string | null => {
     if (params?.id) return params.id;
     
     if (typeof window !== 'undefined') {
@@ -79,7 +80,7 @@ const ProductDetailPage = () => {
     }
     
     return null;
-  };
+  },[params?.id, decodeURIComponent]);
 
   const id = extractProductId();
   const [actualId, setActualId] = useState<string | null>(null);
@@ -294,7 +295,7 @@ const ProductDetailPage = () => {
     listingTitle: string,
     rating: number,
     comment: string,
-    createdAt: any
+    createdAt: unknown
   }) => {
     try {
       const reviewerRef = doc(db, 'users', reviewerId);
@@ -972,7 +973,7 @@ const ProductDetailPage = () => {
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [showAllImages, allImages.length, goToNextImage]);
+  }, [showAllImages, allImages.length, goToNextImage, goToPrevImage]);
 
   const NotificationsButton = ({ notifications }: { notifications: [] }) => {
     const [showNotifications, setShowNotifications] = useState(false);
@@ -1531,7 +1532,7 @@ const ProductDetailPage = () => {
             
             <div className="relative mb-4">
               <div className="h-96 flex items-center justify-center">
-                <img 
+                <Image 
                   src={allImages[activeImage]} 
                   alt={`Image ${activeImage + 1}`}
                   className="max-h-full max-w-full object-contain"
@@ -1571,7 +1572,7 @@ const ProductDetailPage = () => {
                     className={`h-20 rounded-lg overflow-hidden cursor-pointer border-2 ${activeImage === index ? 'border-orange-500' : 'border-transparent'}`}
                     onClick={() => setActiveImage(index)}
                   >
-                    <img 
+                    <Image 
                       src={img}
                       alt={`Thumbnail ${index + 1}`}
                       className="w-full h-full object-cover"
@@ -1606,7 +1607,7 @@ const ProductDetailPage = () => {
             {/* Main Picture */}
             <div className="md:w-2/3 h-72 md:h-96 rounded-lg overflow-hidden mb-4 md:mb-0">
               {allImages.length > 0 ? (
-                <img 
+                <Image 
                   src={allImages[activeImage] || product.image}
                   alt={product.name}
                   className="w-full h-full object-cover cursor-pointer"
@@ -1630,7 +1631,7 @@ const ProductDetailPage = () => {
                       className={`h-24 md:h-auto rounded-lg overflow-hidden cursor-pointer border-2 ${activeImage === index ? 'border-orange-500' : 'border-transparent'}`}
                       onClick={() => setActiveImage(index)}
                     >
-                      <img 
+                      <Image 
                         src={img}
                         alt={`View ${index + 1}`}
                         className="w-full h-full object-cover"
@@ -1657,7 +1658,7 @@ const ProductDetailPage = () => {
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center space-x-4">
               {seller.photoURL ? (
-                <img src={seller.photoURL} alt="Seller" className="w-15 md:w-24 h-15 md:h-24 rounded-full border-2 border-gray-300" />
+                <Image src={seller.photoURL} alt="Seller" className="w-15 md:w-24 h-15 md:h-24 rounded-full border-2 border-gray-300" />
               ) : (
                 <div className="w-24 h-24 bg-gray-300 rounded-full flex items-center justify-center">
                   <User className="w-12 h-12 text-gray-500" />
@@ -2113,7 +2114,7 @@ const ProductDetailPage = () => {
                     onClick={() => router.push(`/sale/browse/product/${item.id}`)}
                     className="cursor-pointer bg-gray-50 rounded-lg overflow-hidden hover:shadow-md transition-shadow"
                   >
-                    <img 
+                    <Image 
                       src={item.image || '/api/placeholder/200/150'} 
                       alt={item.name}
                       className="w-full h-32 object-cover"
@@ -2157,7 +2158,7 @@ const ProductDetailPage = () => {
                       </div>
                     )}
                     
-                    <img 
+                    <Image 
                       src={item.image || '/api/placeholder/200/150'} 
                       alt={item.name}
                       className="w-full h-32 object-cover"
@@ -2201,7 +2202,7 @@ const ProductDetailPage = () => {
             <div className="text-center py-8 text-gray-500">
               <Package className="w-16 h-16 mx-auto mb-4 opacity-50" />
               <h3 className="text-lg font-medium mb-2">No recommendations available</h3>
-              <p className="text-sm">This seller has no other items, and we couldn't find similar products at the moment.</p>
+              <p className="text-sm">This seller has no other items, and we couldn&apos;t find similar products at the moment.</p>
               <button 
                 onClick={() => router.push('/sale/browse')}
                 className="mt-4 px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition"

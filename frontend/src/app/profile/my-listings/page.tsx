@@ -444,34 +444,6 @@ const MyListings = () => {
     return listing.status === filter;
   });
 
-  // NEW: Clean up expired items
-  const cleanupExpiredLists = useCallback(async () => {
-    if (!user?.uid) return;
-
-    try {
-      const expiredLists = listings.filter(list => 
-        list.status === 'unavailable' && 
-        list.deactivatedAt && 
-        !canReactivate(list.deactivatedAt)
-      );
-
-      for (const list of expiredLists) {
-        try {
-          await deleteDoc(doc(db, 'listing', list.id));
-          console.log(`Cleaned up expired item: ${list.id}`);
-        } catch (error) {
-          console.error(`Failed to cleanup item ${list.id}:`, error);
-        }
-      }
-
-      if (expiredLists.length > 0) {
-        // Refresh the list after cleanup
-        fetchListings();
-      }
-    } catch (error) {
-      console.error('Error during cleanup:', error);
-    }
-  }, [user?.uid]);
 
   // Fetch listings
   const fetchListings = useCallback(async () => {
@@ -514,6 +486,35 @@ const MyListings = () => {
       setListings(items);
       setError(null);
 
+      // NEW: Clean up expired items
+      const cleanupExpiredLists = async () => {
+        if (!user?.uid) return;
+
+        try {
+          const expiredLists = listings.filter(list => 
+            list.status === 'unavailable' && 
+            list.deactivatedAt && 
+            !canReactivate(list.deactivatedAt)
+          );
+
+          for (const list of expiredLists) {
+            try {
+              await deleteDoc(doc(db, 'listing', list.id));
+              console.log(`Cleaned up expired item: ${list.id}`);
+            } catch (error) {
+              console.error(`Failed to cleanup item ${list.id}:`, error);
+            }
+          }
+
+          if (expiredLists.length > 0) {
+            // Refresh the list after cleanup
+            fetchListings();
+          }
+        } catch (error) {
+          console.error('Error during cleanup:', error);
+        }
+      };
+
       // NEW: Run cleanup after fetching items
       setTimeout(() => cleanupExpiredLists(), 1000);
     } catch (error) {
@@ -522,7 +523,7 @@ const MyListings = () => {
     } finally {
       setLoading(false);
     }
-  }, [user?.uid, cleanupExpiredLists]);
+  }, [user?.uid]);
 
   // Effects
   useEffect(() => {

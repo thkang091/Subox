@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useRef } from "react";
+import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
   ArrowLeft, 
@@ -15,7 +16,6 @@ import {
   Sparkles,
   Target,
   Check,
-  Image,
   RefreshCw,
   CheckCircle,
   Focus,
@@ -622,7 +622,13 @@ export default function AISmartListingPage() {
                       onClick={() => fileInputRef.current?.click()}
                       className="flex items-center justify-center px-8 py-4 bg-gray-600 text-white text-lg font-semibold rounded-xl hover:bg-gray-700 transition-colors shadow-lg"
                     >
-                      <Image size={24} className="mr-3" />
+                      <Image
+                        src="/icons/my-icon.svg"
+                        alt="Image icon"
+                        width={24}
+                        height={24}
+                        className="mr-3"
+                      />
                       Upload Photo
                     </motion.button>
                   </div>
@@ -791,7 +797,7 @@ export default function AISmartListingPage() {
             
             {/* Photo preview */}
             <div className="relative aspect-square rounded-2xl overflow-hidden mb-6 bg-gray-100">
-              <img 
+              <Image 
                 src={capturedPhoto} 
                 alt="Captured photo" 
                 className="w-full h-full object-cover"
@@ -856,7 +862,7 @@ export default function AISmartListingPage() {
             <div className="mb-8">
               {currentImage && (
                 <div className="aspect-square rounded-2xl overflow-hidden mb-6 bg-gray-100 max-w-md mx-auto">
-                  <img 
+                  <Image 
                     src={currentImage} 
                     alt="Analyzing" 
                     className="w-full h-full object-cover"
@@ -950,7 +956,7 @@ if (step === "item-selection") {
 {currentImage && (
   <div className="relative mb-8">
     <div className="relative rounded-2xl overflow-hidden bg-gray-100 max-w-4xl mx-auto shadow-lg">
-      <img 
+      <Image 
         src={currentImage} 
         alt="Detected items" 
         className="w-full h-auto object-cover"
@@ -1221,7 +1227,7 @@ if (step === "item-selection") {
               className="relative mb-6"
             >
               <div className="relative aspect-square rounded-2xl overflow-hidden bg-gray-100 shadow-lg">
-                <img
+                <Image
                   src={currentImage}
                   alt="Item"
                   className="w-full h-full object-cover"
@@ -1282,7 +1288,7 @@ if (step === "item-selection") {
                   <div>
                     <h4 className="font-medium text-purple-900">AI Suggestions Applied</h4>
                     <p className="text-sm text-purple-700">
-                      We've pre-filled this information based on our AI analysis. Feel free to edit anything!
+                      We&apos;ve pre-filled this information based on our AI analysis. Feel free to edit anything!
                     </p>
                   </div>
                 </div>
@@ -1441,7 +1447,7 @@ if (step === "item-selection") {
               <div className="flex gap-4 mb-4">
                 {currentImage && (
                   <div className="w-20 h-20 rounded-lg overflow-hidden flex-shrink-0">
-                    <img src={currentImage} alt="" className="w-full h-full object-cover" />
+                    <Image src={currentImage} alt="" className="w-full h-full object-cover" />
                   </div>
                 )}
                 <div className="flex-1">
@@ -1524,7 +1530,7 @@ if (step === "item-selection") {
                 ) : (
                   <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
                     <p className="text-gray-500 text-sm">
-                      Click "Generate" to create an AI-powered description for your item
+                      Click &quot;Generate&quot; to create an AI-powered description for your item
                     </p>
                   </div>
                 )}

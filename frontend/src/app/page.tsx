@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence, useScroll, useTransform, useInView } from 'framer-motion';
 import {
-  Home, Search, Camera, Users, Star,
+  Search, Camera, Users, Star,
   ArrowRight, Check, Heart,
   Calendar, DollarSign, X,
   BedDouble, Menu
