@@ -1,11 +1,10 @@
 "use client"
 
 import React, { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
 import { 
   Calendar, ChevronLeft, ChevronRight, MapPin, Users, Home, 
-  Search, X, Star, Wifi, Droplets, Sparkles, 
-  Filter, BedDouble, DollarSign, Heart, User,
+  Search, X, Wifi, Droplets, Sparkles, 
+  Filter, BedDouble, DollarSign, User,
   Clock, Utensils, ArrowUp, Shield, BookOpen, Waves, Flame,
   Building, Layers
 } from 'lucide-react';
@@ -26,26 +25,6 @@ const neighborhoodCoords = {
   'Other': { lat: 44.9778, lng: -93.2358 }
 };
 
-
-
-
-const calculateDistanceFromCenter = (coordinates, locationData) => {
-  if (!coordinates || !locationData) return 0.5;
-  
-  const centerLat = locationData.expandedArea?.centerPoint?.lat || locationData.lat || 44.9778;
-  const centerLng = locationData.expandedArea?.centerPoint?.lng || locationData.lng || -93.2358;
-  
-  const R = 3959; // Earth's radius in miles
-  const dLat = (coordinates.lat - centerLat) * Math.PI / 180;
-  const dLng = (coordinates.lng - centerLng) * Math.PI / 180;
-  const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-            Math.cos(centerLat * Math.PI / 180) * Math.cos(coordinates.lat * Math.PI / 180) *
-            Math.sin(dLng/2) * Math.sin(dLng/2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-  const distance = R * c;
-  
-  return Math.round(distance * 10) / 10; // Round to 1 decimal place
-};
 
 
 
@@ -70,11 +49,9 @@ const FirstSearchPage = ({ userData = null }) => {
   const [priceRange, setPriceRange] = useState({ min: 500, max: 2000 });
   const [priceType, setPriceType] = useState('monthly');
   const [selectedAmenities, setSelectedAmenities] = useState([]);
-  const [searchResults, setSearchResults] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
   const [allListings, setAllListings] = useState([]);  
   const [favoriteListings, setFavoriteListings] = useState([]);
-  const router = useRouter(); 
   const [preferredGender, setPreferredGender] = useState(null); 
   const [smokingPreference, setSmokingPreference] = useState(null);
   const [isMounted, setIsMounted] = useState(false);
@@ -82,11 +59,7 @@ const FirstSearchPage = ({ userData = null }) => {
  const [selectedLocationData, setSelectedLocationData] = useState(null);
 const [expandedSearchActive, setExpandedSearchActive] = useState(false);
 const [expandedAreaInfo, setExpandedAreaInfo] = useState(null);
-const [searchStats, setSearchStats] = useState({ 
-  totalListings: 0, 
-  neighborhoodsSearched: 0,
-  averageDistance: 0 
-});
+
 
 
 
@@ -536,15 +509,11 @@ const generateCoordinatesForNeighborhood = (neighborhood) => {
         
         console.log("✅ FirstSearchPage: Successfully processed listings with detected cities:", listings.length);
         
-        setUserListings(listings);
         setAllListings(listings);
-        setSearchResults(listings);
         
       } catch (error) {
         console.error('❌ FirstSearchPage: Error fetching user listings:', error);
-        setUserListings([]);
         setAllListings([]);
-        setSearchResults([]);
       }
     };
 
@@ -636,54 +605,15 @@ const fetchListingsWithExpandedArea = async (locationData) => {
         )
       );
     }
-
-    setSearchResults(listings);
-    
-    // Update search stats for expanded searches
-    if (locationData?.areaType === 'expanded_region') {
-      setSearchStats({
-        totalListings: listings.length,
-        neighborhoodsSearched: locationData.expandedArea?.neighborhoods.length || 0,
-        averageDistance: calculateAverageDistance(listings, locationData)
-      });
-    }
     
   } catch (error) {
     console.error('Error in search:', error);
-    setSearchResults([]);
   } finally {
     setIsSearching(false);
   }
 };
       
-  // Helper functions from SearchPage
-  const calculateDistanceFromCenter = (coordinates, locationData) => {
-    if (!coordinates || !locationData) return 0.5;
-    
-    const centerLat = locationData.expandedArea?.centerPoint?.lat || locationData.lat || minneapolisCenter.lat;
-    const centerLng = locationData.expandedArea?.centerPoint?.lng || locationData.lng || minneapolisCenter.lng;
-    
-    const R = 3959; // Earth's radius in miles
-    const dLat = (coordinates.lat - centerLat) * Math.PI / 180;
-    const dLng = (coordinates.lng - centerLng) * Math.PI / 180;
-    const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-              Math.cos(centerLat * Math.PI / 180) * Math.cos(coordinates.lat * Math.PI / 180) *
-              Math.sin(dLng/2) * Math.sin(dLng/2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-    const distance = R * c;
-    
-    return Math.round(distance * 10) / 10; // Round to 1 decimal place
-  };
 
-  const calculateAverageDistance = (listings, locationData) => {
-    if (!listings.length) return 0;
-    
-    const totalDistance = listings.reduce((sum, listing) => {
-      return sum + calculateDistanceFromCenter({ lat: listing.lat, lng: listing.lng }, locationData);
-    }, 0);
-    
-    return Math.round((totalDistance / listings.length) * 10) / 10;
-  };
 
   // =========================
   // 🔥 UNIFIED: Enhanced Location Handling - SAME AS SEARCHPAGE
@@ -996,38 +926,6 @@ const hasSearchCriteria = () => {
   );
 };
 
-  const getAmenityIcon = (amenity) => {
-    switch (amenity) {
-      case 'wifi': return <Wifi size={16} />;
-      case 'parking': return <MapPin size={16} />;
-      case 'laundry': return <Droplets size={16} />;
-      case 'furnished': return <Home size={16} />;
-      case 'utilities': return <DollarSign size={16} />;
-      case 'ac': return <Sparkles size={16} />;
-      default: return <Star size={16} />;
-    }
-  };
-
-  const toggleFavorite = (listing) => {
-    const isFavorited = favoriteListings.some(item => item.id === listing.id);
-    
-    if (isFavorited) {
-      setFavoriteListings(favoriteListings.filter(item => item.id !== listing.id));
-    } else {
-      const favoriteItem = {
-        id: listing.id,
-        title: listing.title || 'Untitled Listing',
-        location: listing.location || 'Unknown Location',
-        price: listing.price || 0,
-        bedrooms: listing.bedrooms || 1,
-        ...(listing.bathrooms !== undefined && { bathrooms: listing.bathrooms }),
-        image: listing.image || '/api/placeholder/800/500',
-        ...(listing.dateRange && { dateRange: listing.dateRange })
-      };
-      
-      setFavoriteListings([favoriteItem, ...favoriteListings]);
-    }
-  };
 
 const resetSearch = () => {
   setDateRange({ checkIn: null, checkOut: null });
@@ -1044,21 +942,9 @@ const resetSearch = () => {
   
   // Reset expansion-related states
   setExpandedSearchActive(false);
-  setExpandedAreaInfo(null);
-  setSearchStats({ totalListings: 0, neighborhoodsSearched: 0, averageDistance: 0 });
-  
-  // Reset to show all listings
-  setSearchResults([...allListings]);
+  setExpandedAreaInfo(null);  
 };
 
-  const handleListingClick = (listing) => {
-    console.log('🔍 Navigating to listing:', listing.id);
-    try {
-      router.replace(`/sublease/search/${listing.id}`);
-    } catch (error) {
-      console.error('❌ Router.replace failed:', error);
-    }
-  };
 
 
 

@@ -34,6 +34,7 @@ import Link from "next/link";
 import { auth, db } from "@/lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
 import { collection, query, where, orderBy, onSnapshot, limit , doc, getDoc} from 'firebase/firestore';
+import { useNotifications } from '@/data/notificationlistings';
 
 const MoveOutSalePage = () => {
   const [searchQuery, setSearchQuery] = useState("");
@@ -69,6 +70,8 @@ const MoveOutSalePage = () => {
   const [locationError, setLocationError] = useState(null);
   const [mapsError, setMapsError] = useState(null);
   const [isGoogleMapsReady, setIsGoogleMapsReady] = useState(false);
+  const {notifications: uNotifications } = useNotifications();
+
 
   
   // Firebase state
@@ -567,12 +570,6 @@ useEffect(() => {
   
   const conditions = ["All Conditions", "New", "Like New", "Good", "Fair", "Used"];
 
-  const notifications = [
-    { id: 1, type: "price-drop", message: "MacBook Pro price dropped by $50!", time: "2h ago" },
-    { id: 2, type: "new-item", message: "New furniture items in Dinkytown", time: "4h ago" },
-    { id: 3, type: "favorite", message: "Your favorited item is ending soon", time: "1d ago" }
-  ];
-
   // Client-side filtering for additional filters not handled by Firestore
   const filteredProducts = products.filter(product => {
     const matchesSearch = product.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -712,7 +709,7 @@ useEffect(() => {
 }, [products, fetchHostData]);
 
 
-const NotificationsButton = ({ notifications }: { notifications: Notification[] }) => {
+const NotificationsButton = ({ notifications }: { notifications: [] }) => {
   const [showNotifications, setShowNotifications] = useState(false);
   const router = useRouter();
 
@@ -744,17 +741,20 @@ const NotificationsButton = ({ notifications }: { notifications: Notification[] 
               <h3 className="font-semibold text-orange-600 mb-3">Notifications</h3>
               <div className="space-y-3 max-h-64 overflow-y-auto">
                 {notifications.map(notif => (
-                  <button
+                  <div
                     key={notif.id}
-                    onClick={() => router.push(`/notifications?id=${notif.id}`)}
                     className="w-full flex items-start space-x-3 p-2 rounded-lg hover:bg-orange-50 text-left"
                   >
                     <div className="w-2 h-2 bg-orange-500 rounded-full mt-2"></div>
-                    <div className="flex-1">
+                    <button 
+                      className="flex-1"
+                      onClick={() => router.push(`/notifications`)}  
+                    >
+                      <p className="text-base text-orange-400">{notif.title}</p>
                       <p className="text-sm text-gray-900">{notif.message}</p>
-                      <p className="text-xs text-gray-500">{notif.time}</p>
-                    </div>
-                  </button>
+                      <p className="text-xs text-gray-500">{notif.createdAt?.toLocalString()}</p>
+                    </button>
+                  </div>
                 ))}
               </div>
 
@@ -1109,7 +1109,7 @@ const NotificationsButton = ({ notifications }: { notifications: Notification[] 
               </motion.button>
               
               {/* Notifications */}
-              <NotificationsButton notifications={notifications} />
+              <NotificationsButton notifications={uNotifications} />
 
               <motion.button
                 whileHover={{ scale: 1.05 }}
@@ -1407,7 +1407,7 @@ const NotificationsButton = ({ notifications }: { notifications: Notification[] 
               </button>
               
               {/* Notifications */}
-              <NotificationsButton notifications={notifications} />
+              <NotificationsButton notifications={uNotifications} />
 
               <motion.button
                 whileHover={{ scale: 1.05 }}

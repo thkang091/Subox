@@ -5,11 +5,12 @@ import { useRouter, useParams } from 'next/navigation';
 import { 
   Send, ArrowLeft, Phone, Video, MoreVertical, 
   Image as ImageIcon, Paperclip, Info, MapPin, 
-  Calendar, DollarSign, Star, User, Heart, X, 
-  ChevronLeft, ChevronRight, Wifi, Home, BedDouble, 
-  Plus, MessageCircle, Search, Package, Truck, 
-  Clock, Shield
+  DollarSign, Star, User, Heart, X, 
+  ChevronLeft, ChevronRight, Wifi, Home, 
+  MessageCircle, Search, Package, Truck, 
+  Shield
 } from 'lucide-react';
+import Image from 'next/image';
 import { 
   collection, query, orderBy, onSnapshot, where,
   addDoc, doc, getDoc, updateDoc, serverTimestamp,
@@ -28,9 +29,6 @@ const ConversationDetailPage = () => {
   const params = useParams();
   const conversationId = params?.id;
   const { user } = useAuth();
-
-  // For mobile form
-  const [showLeft, setShowLeft] = useState(false);
 
   
   // Core state
@@ -56,7 +54,6 @@ const ConversationDetailPage = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [showConversationList, setShowConversationList] = useState(true);
   const [activeTab, setActiveTab] = useState('all');
-  const [showMobileMenu, setShowMobileMenu] = useState(false);
   
   // Refs
   const messagesEndRef = useRef(null);
@@ -130,10 +127,9 @@ const ConversationDetailPage = () => {
 
 
   // Create notification for new message
-const createMessageNotification = async (messageData, conversation) => {
+const createMessageNotification = useCallback(async (messageData, conversation) => {
   try {
     const recipientId = conversation.isUserHost ? conversation.guestId : conversation.hostId;
-    const recipientName = conversation.isUserHost ? conversation.guestName : conversation.hostName;
     
     const notification = {
       recipientId: recipientId,
@@ -154,22 +150,8 @@ const createMessageNotification = async (messageData, conversation) => {
     console.error('Error creating message notification:', error);
     // Don't fail the message send if notification creation fails
   }
-};
+},[conversationId, user?.displayName, user?.email, user?.uid]);
 
-  // Check if image exists and is valid
-  const checkImageExists = useCallback((url) => {
-    return new Promise((resolve) => {
-      if (!url) {
-        resolve(false);
-        return;
-      }
-      
-      const img = new Image();
-      img.onload = () => resolve(true);
-      img.onerror = () => resolve(false);
-      img.src = url;
-    });
-  }, []);
 
   // Safe image helper with fallback
   const getSafeImageUrl = useCallback((imageUrl, fallbackType = 'user') => {
@@ -232,6 +214,8 @@ const createMessageNotification = async (messageData, conversation) => {
       setConversationsLoading(false);
       return;
     }
+
+    const unsubscribetemp = unsubscribeRefs.current
 
     let mounted = true;
 
@@ -324,7 +308,7 @@ const createMessageNotification = async (messageData, conversation) => {
           }
         );
 
-        unsubscribeRefs.current.conversations = unsubscribe;
+        unsubscribetemp.conversations = unsubscribe;
 
       } catch (error) {
         if (mounted) {
@@ -338,99 +322,12 @@ const createMessageNotification = async (messageData, conversation) => {
 
     return () => {
       mounted = false;
-      if (unsubscribeRefs.current.conversations) {
-        unsubscribeRefs.current.conversations();
+      if (unsubscribetemp.conversations) {
+        unsubscribetemp.conversations();
       }
     };
   }, [user?.uid, handleError]);
 
-  // Load conversation
-  useEffect(() => {
-    if (!conversationId || !user?.uid) {
-      setLoading(false);
-      return;
-    }
-
-    let mounted = true;
-
-    const loadConversation = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-
-        const conversationDoc = await getDoc(doc(db, 'conversations', conversationId));
-        
-        if (!mounted) return;
-
-        if (!conversationDoc.exists()) {
-          setLoading(false);
-          return;
-        }
-
-        const conversationData = conversationDoc.data();
-        
-        if (!conversationData.participants?.includes(user.uid)) {
-          setError('You do not have access to this conversation.');
-          setLoading(false);
-          return;
-        }
-
-        const isUserHost = conversationData.hostId === user.uid;
-        const otherParticipant = isUserHost ? {
-          id: conversationData.guestId,
-          name: conversationData.guestName || 'Unknown User',
-          email: conversationData.guestEmail || '',
-          image: conversationData.guestImage
-        } : {
-          id: conversationData.hostId,
-          name: conversationData.hostName || 'Unknown User',
-          email: conversationData.hostEmail || '',
-          image: conversationData.hostImage
-        };
-
-        const conversationWithType = {
-          id: conversationDoc.id,
-          ...conversationData,
-          isUserHost,
-          otherParticipant,
-          createdAt: conversationData.createdAt?.toDate() || new Date(),
-          updatedAt: conversationData.updatedAt?.toDate() || new Date(),
-          conversationType: conversationData.conversationType || (conversationData.listingType === 'moveout' ? 'moveout' : 'sublease')
-        };
-
-        if (mounted) {
-          setConversation(conversationWithType);
-          
-          if (conversationData.listingId) {
-            loadListingDetails(conversationData.listingId, conversationWithType.conversationType);
-          }
-
-          try {
-            await markMessagesAsRead(conversationDoc.id, isUserHost);
-          } catch (readError) {
-            console.warn('Failed to mark messages as read:', readError);
-          }
-        }
-        
-      } catch (error) {
-        if (mounted) {
-          handleError(error, 'Loading conversation');
-        }
-      } finally {
-        if (mounted) {
-          setLoading(false);
-        }
-      }
-    };
-
-    loadConversation();
-
-    return () => {
-      mounted = false;
-    };
-  }, [conversationId, user?.uid]);
-
-  // Load listing details
   const loadListingDetails = useCallback(async (listingId, conversationType = 'sublease') => {
     if (!listingId) return;
 
@@ -518,9 +415,109 @@ const createMessageNotification = async (messageData, conversation) => {
     }
   }, []);
 
+  // Mark messages as read
+  const markMessagesAsRead = useCallback(async (convId, isHost) => {
+    try {
+      const updateField = isHost ? 'hostUnreadCount' : 'guestUnreadCount';
+      await updateDoc(doc(db, 'conversations', convId), {
+        [updateField]: 0
+      });
+    } catch (error) {
+      console.error('Error marking messages as read:', error);
+    }
+  }, []);
+
+  // Load conversation
+  useEffect(() => {
+    if (!conversationId || !user?.uid) {
+      setLoading(false);
+      return;
+    }
+
+    let mounted = true;
+
+    const loadConversation = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+
+        const conversationDoc = await getDoc(doc(db, 'conversations', conversationId));
+        
+        if (!mounted) return;
+
+        if (!conversationDoc.exists()) {
+          setLoading(false);
+          return;
+        }
+
+        const conversationData = conversationDoc.data();
+        
+        if (!conversationData.participants?.includes(user.uid)) {
+          setError('You do not have access to this conversation.');
+          setLoading(false);
+          return;
+        }
+
+        const isUserHost = conversationData.hostId === user.uid;
+        const otherParticipant = isUserHost ? {
+          id: conversationData.guestId,
+          name: conversationData.guestName || 'Unknown User',
+          email: conversationData.guestEmail || '',
+          image: conversationData.guestImage
+        } : {
+          id: conversationData.hostId,
+          name: conversationData.hostName || 'Unknown User',
+          email: conversationData.hostEmail || '',
+          image: conversationData.hostImage
+        };
+
+        const conversationWithType = {
+          id: conversationDoc.id,
+          ...conversationData,
+          isUserHost,
+          otherParticipant,
+          createdAt: conversationData.createdAt?.toDate() || new Date(),
+          updatedAt: conversationData.updatedAt?.toDate() || new Date(),
+          conversationType: conversationData.conversationType || (conversationData.listingType === 'moveout' ? 'moveout' : 'sublease')
+        };
+
+        if (mounted) {
+          setConversation(conversationWithType);
+          
+          if (conversationData.listingId) {
+            loadListingDetails(conversationData.listingId, conversationWithType.conversationType);
+          }
+
+          try {
+            await markMessagesAsRead(conversationDoc.id, isUserHost);
+          } catch (readError) {
+            console.warn('Failed to mark messages as read:', readError);
+          }
+        }
+        
+      } catch (error) {
+        if (mounted) {
+          handleError(error, 'Loading conversation');
+        }
+      } finally {
+        if (mounted) {
+          setLoading(false);
+        }
+      }
+    };
+
+    loadConversation();
+
+    return () => {
+      mounted = false;
+    };
+  }, [conversationId, user?.uid, handleError, loadListingDetails, markMessagesAsRead]);
+
+
   // Messages listener
   useEffect(() => {
     if (!conversationId || !user?.uid) return;
+    const unsubscribetemp = unsubscribeRefs.current;
 
     let mounted = true;
 
@@ -553,27 +550,16 @@ const createMessageNotification = async (messageData, conversation) => {
       }
     );
 
-    unsubscribeRefs.current.messages = unsubscribe;
+    unsubscribetemp.messages = unsubscribe;
 
     return () => {
       mounted = false;
-      if (unsubscribeRefs.current.messages) {
-        unsubscribeRefs.current.messages();
+      if (unsubscribetemp.messages) {
+        unsubscribetemp.messages();
       }
     };
   }, [conversationId, user?.uid]);
 
-  // Mark messages as read
-  const markMessagesAsRead = useCallback(async (convId, isHost) => {
-    try {
-      const updateField = isHost ? 'hostUnreadCount' : 'guestUnreadCount';
-      await updateDoc(doc(db, 'conversations', convId), {
-        [updateField]: 0
-      });
-    } catch (error) {
-      console.error('Error marking messages as read:', error);
-    }
-  }, []);
 
   // Send message
 const sendMessage = useCallback(async (e, messageData = null) => {
@@ -626,7 +612,7 @@ const sendMessage = useCallback(async (e, messageData = null) => {
   } finally {
     setSending(false);
   }
-}, [newMessage, sending, conversation, user, conversationId, handleError]);
+}, [newMessage, sending, conversation, user, conversationId, handleError, createMessageNotification]);
   // File upload
   const handleFileUpload = useCallback(async (file, type = 'file') => {
     if (!file || !conversation) return;
@@ -997,7 +983,7 @@ const sendMessage = useCallback(async (e, messageData = null) => {
                     <div className="flex items-start space-x-3">
                       {/* Listing Image */}
                       <div className="w-12 h-12 rounded-lg flex-shrink-0 relative">
-                        <img 
+                        <Image 
                           src={getSafeImageUrl(conv.listingImage, 'listing')}
                           alt={conv.listingTitle || 'Listing'}
                           className="w-full h-full object-cover"
@@ -1091,7 +1077,7 @@ const sendMessage = useCallback(async (e, messageData = null) => {
               <div className="flex items-center">
                 <div className="w-10 h-10 rounded-full mr-3 flex-shrink-0">
                   {getSafeImageUrl(conversation.otherParticipant.image, 'user') ? (
-                    <img 
+                    <Image 
                       src={getSafeImageUrl(conversation.otherParticipant.image, 'user')}
                       alt={conversation.otherParticipant.name}
                       className="w-full h-full object-cover"
@@ -1297,7 +1283,7 @@ const sendMessage = useCallback(async (e, messageData = null) => {
                       {!isOwnMessage && (
                         <div className={`w-8 h-8 rounded-full mr-2 flex-shrink-0 ${showAvatar ? '' : 'invisible'}`}>
                           {getSafeImageUrl(conversation.otherParticipant.image, 'user') ? (
-                            <img 
+                            <Image 
                               src={getSafeImageUrl(conversation.otherParticipant.image, 'user')}
                               alt={conversation.otherParticipant.name}
                               className="w-full h-full object-cover"
@@ -1324,7 +1310,7 @@ const sendMessage = useCallback(async (e, messageData = null) => {
                         {message.type === 'image' ? (
                           <div className="mb-2">
                             <div className="rounded-2xl border border-gray-200 shadow-sm">
-                              <img 
+                              <Image 
                                 src={message.imageUrl} 
                                 alt="Shared image"
                                 className="w-full h-auto max-h-64 object-cover cursor-pointer"
@@ -1518,7 +1504,7 @@ const sendMessage = useCallback(async (e, messageData = null) => {
                     
                     <div className="relative mb-4">
                       <div className="h-96 flex items-center justify-center">
-                        <img 
+                        <Image
                           src={getSafeImageUrl(allImages[activeImage], 'listing')} 
                           alt={`Image ${activeImage + 1}`}
                           className="max-h-full max-w-full object-contain rounded-lg"
@@ -1551,7 +1537,7 @@ const sendMessage = useCallback(async (e, messageData = null) => {
                 </div>
               )}
               <div className="h-40 rounded-lg">
-                <img 
+                <Image 
                   src={getSafeImageUrl(allImages[activeImage] || listing.image, 'listing')}
                   alt={listing.title}
                   className="w-full h-full object-cover cursor-pointer"
@@ -1601,7 +1587,7 @@ const sendMessage = useCallback(async (e, messageData = null) => {
               <div className="flex items-center">
                 <div className="w-8 h-8 rounded-full mr-3">
                   {getSafeImageUrl(listing.hostImage, 'user') ? (
-                    <img 
+                    <Image 
                       src={getSafeImageUrl(listing.hostImage, 'user')}
                       alt={listing.hostName}
                       className="w-full h-full object-cover"

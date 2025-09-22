@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Calendar, Clock, Video, Users, CheckCircle, XCircle, 
-  AlertCircle, MapPin, User, Mail, RefreshCw, ChevronLeft,
+  AlertCircle, MapPin, User, RefreshCw, ChevronLeft,
   Bell, MessageSquare
 } from 'lucide-react';
 import { 
@@ -126,7 +126,7 @@ const GuestTourDashboard = ({ onBack }) => {
             <Calendar className="w-16 h-16 text-gray-300 mx-auto mb-4" />
             <h3 className="text-xl font-semibold text-gray-600 mb-2">No tour requests yet</h3>
             <p className="text-gray-500 mb-6">
-              You haven't requested any tours yet. Browse properties and book tours to see them here.
+              You haven&apos;t requested any tours yet. Browse properties and book tours to see them here.
             </p>
             <button
               onClick={onBack}

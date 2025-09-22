@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useParams } from 'next/navigation';
 import { 
@@ -21,7 +21,7 @@ export default function TourPage() {
   const router = useRouter();
   const params = useParams();
   const id = params?.id;
-  const { user, loading: authLoading, requireAuth } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(null);
@@ -70,7 +70,7 @@ const createTourRequestNotification = async (tourRequestData) => {
 
   
   // Check for existing bookings
-  const checkExistingBookings = async () => {
+  const checkExistingBookings = useCallback(async () => {
     if (!user || !id) return;
     
     try {
@@ -89,10 +89,10 @@ const createTourRequestNotification = async (tourRequestData) => {
     } catch (error) {
       console.error('Error checking existing bookings:', error);
     }
-  };
+  },[user, id]);
 
   // Load existing tour bookings for availability calculation
-  const loadExistingTours = async () => {
+  const loadExistingTours = useCallback(async () => {
     if (!id) return [];
     
     try {
@@ -115,10 +115,10 @@ const createTourRequestNotification = async (tourRequestData) => {
       console.error('Error loading existing tours:', error);
       return [];
     }
-  };
+  },[id]);
 
   // Load host availability from database
-  const loadHostAvailability = async () => {
+  const loadHostAvailability = useCallback(async () => {
     if (!id || !listing?.hostId) return;
 
     setAvailabilityLoading(true);
@@ -147,7 +147,7 @@ const createTourRequestNotification = async (tourRequestData) => {
     } finally {
       setAvailabilityLoading(false);
     }
-  };
+  },[id, listing?.hostId, user?.uid]);
   
   // Fetch listing data
   useEffect(() => {
@@ -200,14 +200,14 @@ const createTourRequestNotification = async (tourRequestData) => {
       loadHostAvailability();
       loadExistingTours();
     }
-  }, [listing, user]);
+  }, [listing, user, loadExistingTours, loadHostAvailability]);
   
   // Check existing bookings when user changes
   useEffect(() => {
     if (user && listing && !isHost) {
       checkExistingBookings();
     }
-  }, [user, listing, isHost, id]);
+  }, [user, listing, isHost, id, checkExistingBookings]);
 
   // Generate available time slots based on host availability
   const generateAvailableSlots = (date, hostAvailability) => {
@@ -220,7 +220,6 @@ const createTourRequestNotification = async (tourRequestData) => {
       return [];
     }
 
-    const dateString = date.toISOString().split('T')[0];
     const now = new Date();
     const minBookingTime = new Date(now.getTime() + (hostAvailability.advanceBooking || 24) * 60 * 60 * 1000);
     
@@ -637,7 +636,7 @@ const handleSubmit = async (e) => {
           
           <div className="bg-blue-50 p-4 rounded-lg mb-6">
             <p className="text-sm text-blue-800">
-              You'll receive a notification when {listing.hostName} responds to your request.
+              You&apos;ll receive a notification when {listing.hostName} responds to your request.
             </p>
           </div>
           
@@ -765,7 +764,7 @@ const handleSubmit = async (e) => {
                   <div>
                     <h3 className="font-semibold text-yellow-800 mb-1">No Availability Set</h3>
                     <p className="text-sm text-yellow-700">
-                      The host hasn't set up their tour availability yet. Please contact them directly or check back later.
+                      The host hasn&apos;t set up their tour availability yet. Please contact them directly or check back later.
                     </p>
                   </div>
                 </div>

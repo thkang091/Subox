@@ -47,8 +47,8 @@ const Badge = ({ bgColor, icon, title }: {
 )
 
 const BadgeMoveOutSale = ({ listing, hostData, className }: {
-  listing?: any
-  hostData?: any
+  listing?
+  hostData?
   className?: string
 }) => {
   // Badge conditions for move out sale

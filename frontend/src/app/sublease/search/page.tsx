@@ -1,435 +1,28 @@
 "use client"
 
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from "framer-motion";
 import { 
   Calendar, ChevronLeft, ChevronRight, MapPin, Users, Home, 
-  Search, X, Bookmark, Star, Wifi, Droplets, Tv, Sparkles, 
-  Filter, BedDouble, DollarSign, LogIn, Heart, User, CircleUser,
-  Clock, TrendingUp, TrendingDown, ChevronDown, Package, Bell, MessagesSquare, AlertCircle, Menu,
-  ArrowUp, Waves, Flame, Info, Thermoneter, Utensils, Dumbbell, Shield, Bookopen, Sofa, Trash2,
-   Accessibility, ChefHat, BookOpen,Settings, Bed, Minus, CigaretteOff, Check, Cigarette
+  Search, X, Bookmark, Star, Wifi, Droplets, Sparkles, 
+  Filter, BedDouble, DollarSign, Heart, User,
+  Clock, ChevronDown, Bell, MessagesSquare, Menu,
+  ArrowUp, Waves, Flame, Utensils, Shield,
+  BookOpen,Settings, Bed, Cigarette, Route, Car
 } from 'lucide-react';
-import { Route, Car, Users as TransitIcon } from 'lucide-react';
-import { doc, getDoc, addDoc, deleteDoc, updateDoc, collection, query, where, getDocs, serverTimestamp, increment, orderBy } from 'firebase/firestore';
+import { doc, getDoc, collection, query, getDocs, orderBy } from 'firebase/firestore';
 
 import { db } from '@/lib/firebase'; // Adjust path to your firebase config
+import { useNotifications } from '@/data/notificationlistings';
 
 import CommuteLocationPicker from '../../../components/CommuteLocationPicker'
 import CommuteResultsMap from '../../../components/CommuteMap' // Adjust path as needed
 import EnhancedCommuteResultsMap from '../../../components/CommuteMap' // Update path as needed
-import { address } from 'framer-motion/client';
 // Component imports - This should use the actual LocationPicker component
 import SearchLocationPicker from '../../../components/SearchLocationPicker';
 import Badges from '@/data/badge';
-
-const NeighborhoodDetectorWrapper = ({ listing, onNeighborhoodDetected }: { 
-  listing: any, 
-  onNeighborhoodDetected: (neighborhood: string, coordinates?: {lat: number, lng: number}) => void 
-}) => {
-  const [coordinates, setCoordinates] = useState<{lat: number, lng: number} | null>(null);
-  const [locationType, setLocationType] = useState<'specific' | 'neighborhood' | 'none'>('none');
-  const [locationName, setLocationName] = useState<string>('');
-  const [isSearching, setIsSearching] = useState(false);
-  const [googleMapsLoaded, setGoogleMapsLoaded] = useState(false);
-  const [loadError, setLoadError] = useState<string | null>(null);
-  const [distanceFromSearch, setDistanceFromSearch] = useState<number | null>(null);
-  const mapRef = useRef<HTMLDivElement>(null);
-  const [mapInstance, setMapInstance] = useState<google.maps.Map | null>(null);
-
-  // Helper function to calculate distance between two points
-  const calculateDistance = (lat1: number, lng1: number, lat2: number, lng2: number) => {
-    const R = 6371; // Earth's radius in kilometers
-    const dLat = (lat2 - lat1) * Math.PI / 180;
-    const dLng = (lng2 - lng1) * Math.PI / 180;
-    const a = 
-      Math.sin(dLat/2) * Math.sin(dLat/2) +
-      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
-      Math.sin(dLng/2) * Math.sin(dLng/2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-    return R * c; // Distance in kilometers
-  };
-
-  // Load Google Maps API
-  useEffect(() => {
-    const loadGoogleMaps = () => {
-      // Check if already loaded
-      if (window.google?.maps?.places) {
-        setGoogleMapsLoaded(true);
-        return;
-      }
-
-      // Check if script is already added
-      if (document.querySelector('script[src*="maps.googleapis.com"]')) {
-        // Wait for it to load
-        const checkInterval = setInterval(() => {
-          if (window.google?.maps?.places) {
-            setGoogleMapsLoaded(true);
-            clearInterval(checkInterval);
-          }
-        }, 500);
-        return;
-      }
-
-      const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
-      if (!apiKey) {
-        setLoadError('Google Maps API key not found');
-        return;
-      }
-
-      // Create and load the script
-      const script = document.createElement('script');
-      script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places&v=weekly`;
-      script.async = true;
-      script.defer = true;
-      
-      script.onload = () => {
-        setGoogleMapsLoaded(true);
-        setLoadError(null);
-      };
-      
-      script.onerror = () => {
-        setLoadError('Failed to load Google Maps');
-      };
-      
-      document.head.appendChild(script);
-    };
-
-    loadGoogleMaps();
-  }, []);
-
-  useEffect(() => {
-    const processListingLocation = () => {
-      if (!listing) return;
-      
-      // ✅ CASE 1: Has specific coordinates in customLocation
-      if (listing?.customLocation?.lat && listing?.customLocation?.lng) {
-        const coords = {
-          lat: Number(listing.customLocation.lat),
-          lng: Number(listing.customLocation.lng)
-        };
-        setCoordinates(coords);
-        setLocationType('specific');
-        
-        const locationDisplayName = listing.customLocation.placeName || 
-                                   listing.customLocation.address || 
-                                   'Specific Location';
-        setLocationName(locationDisplayName);
-        
-        // Pass coordinates along with neighborhood detection
-        if (listing.customLocation.placeName) {
-          onNeighborhoodDetected(listing.customLocation.placeName, coords);
-        } else {
-          onNeighborhoodDetected(locationDisplayName, coords);
-        }
-        return;
-      }
-      
-      // ✅ CASE 2: Has direct lat/lng coordinates
-      if (listing?.lat && listing?.lng) {
-        const coords = {
-          lat: Number(listing.lat),
-          lng: Number(listing.lng)
-        };
-        setCoordinates(coords);
-        setLocationType('specific');
-        
-        const locationDisplayName = listing.address || listing.location || 'Specific Location';
-        setLocationName(locationDisplayName);
-        onNeighborhoodDetected(locationDisplayName, coords);
-        return;
-      }
-      
-      // ✅ CASE 3: Has neighborhood name (but not "Other")
-      if (listing?.location && listing.location !== 'Other') {
-        setLocationName(listing.location);
-        setLocationType('neighborhood');
-        
-        // Default coordinates for Minneapolis
-        const defaultCoords = { lat: 44.9778, lng: -93.2650 };
-        setCoordinates(defaultCoords);
-        onNeighborhoodDetected(listing.location, defaultCoords);
-
-        // Search for the neighborhood if Google Maps is loaded
-        if (googleMapsLoaded) {
-          searchForNeighborhood(listing.location);
-        }
-        return;
-      }
-      
-      // ✅ CASE 4: Location is "Other" but no customLocation
-      if (listing?.location === 'Other' && !listing?.customLocation) {
-        setLocationName('Location not specified');
-        setLocationType('none');
-        return;
-      }
-      
-      // ✅ CASE 5: No location data at all
-      setLocationName('No location');
-      setLocationType('none');
-    };
-
-    processListingLocation();
-  }, [listing, googleMapsLoaded]);
-
-  // Enhanced geocoding for neighborhoods and addresses
-  const searchForNeighborhood = async (neighborhood: string) => {
-    if (!googleMapsLoaded || !window.google?.maps?.places?.PlacesService) {
-      return;
-    }
-
-    setIsSearching(true);
-    
-    try {
-      // Try multiple search strategies for better accuracy
-      const searchQueries = [
-        `${neighborhood}, Minneapolis, MN`,
-        `${neighborhood} neighborhood, Minneapolis, Minnesota`,
-        `${neighborhood}, University of Minnesota area`
-      ];
-
-      for (const query of searchQueries) {
-        const result = await performPlacesSearch(query);
-        if (result) {
-          const coords = {
-            lat: result.lat,
-            lng: result.lng
-          };
-          setCoordinates(coords);
-          // Update the parent with more accurate coordinates
-          onNeighborhoodDetected(neighborhood, coords);
-          setIsSearching(false);
-          return;
-        }
-      }
-      
-      setIsSearching(false);
-    } catch (error) {
-      console.error('Error searching for neighborhood:', error);
-      setIsSearching(false);
-    }
-  };
-
-  const performPlacesSearch = (query: string): Promise<{lat: number, lng: number} | null> => {
-    return new Promise((resolve) => {
-      try {
-        const mapDiv = document.createElement('div');
-        const map = new window.google.maps.Map(mapDiv, {
-          center: { lat: 44.9778, lng: -93.2650 },
-          zoom: 13
-        });
-
-        const service = new window.google.maps.places.PlacesService(map);
-        
-        const request = {
-          query: query,
-          fields: ['name', 'geometry', 'place_id', 'formatted_address', 'types'],
-          locationBias: {
-            center: { lat: 44.9778, lng: -93.2650 },
-            radius: 100000 // 50km radius around Minneapolis
-          }
-        };
-
-        service.textSearch(request, (results, status) => {
-          if (status === window.google.maps.places.PlacesServiceStatus.OK && results && results[0]) {
-            const place = results[0];
-            const location = place.geometry?.location;
-            
-            if (location) {
-              resolve({
-                lat: location.lat(),
-                lng: location.lng()
-              });
-              return;
-            }
-          }
-          resolve(null);
-        });
-      } catch (error) {
-        resolve(null);
-      }
-    });
-  };
-
-  // Calculate distance from current search location (if available)
-  useEffect(() => {
-    if (coordinates && window.searchLocationData?.lat && window.searchLocationData?.lng) {
-      const distance = calculateDistance(
-        window.searchLocationData.lat,
-        window.searchLocationData.lng,
-        coordinates.lat,
-        coordinates.lng
-      );
-      setDistanceFromSearch(distance);
-    }
-  }, [coordinates]);
-
-  // Create map when coordinates are available and Google Maps is loaded
-  useEffect(() => {
-    if (!mapRef.current || !googleMapsLoaded || !window.google?.maps || !coordinates || mapInstance) return;
-
-    try {
-      const map = new window.google.maps.Map(mapRef.current, {
-        center: { lat: coordinates.lat, lng: coordinates.lng },
-        zoom: locationType === 'specific' ? 16 : 14,
-        mapTypeControl: false,
-        streetViewControl: false,
-        fullscreenControl: false,
-        zoomControl: true,
-        styles: [
-          {
-            featureType: "poi",
-            elementType: "labels",
-            stylers: [{ visibility: "off" }]
-          },
-          {
-            featureType: "transit",
-            elementType: "labels",
-            stylers: [{ visibility: "off" }]
-          }
-        ]
-      });
-
-      // Add a marker with different colors based on type
-      const markerColor = locationType === 'specific' ? '#f97316' : '#3b82f6';
-      
-      new window.google.maps.Marker({
-        position: { lat: coordinates.lat, lng: coordinates.lng },
-        map: map,
-        title: locationName,
-        icon: {
-          url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
-            <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <circle cx="16" cy="16" r="12" fill="${markerColor}" stroke="#fff" stroke-width="2"/>
-              <circle cx="16" cy="16" r="4" fill="#fff"/>
-            </svg>
-          `),
-          scaledSize: new google.maps.Size(32, 32),
-          anchor: new google.maps.Point(16, 16)
-        }
-      });
-
-      // Add a circle to show approximate area for neighborhoods
-      if (locationType === 'neighborhood') {
-        new window.google.maps.Circle({
-          strokeColor: markerColor,
-          strokeOpacity: 0.8,
-          strokeWeight: 2,
-          fillColor: markerColor,
-          fillOpacity: 0.15,
-          map: map,
-          center: { lat: coordinates.lat, lng: coordinates.lng },
-          radius: 2000 // 2km radius for neighborhood
-        });
-      }
-
-      setMapInstance(map);
-    } catch (error) {
-      console.error('Error creating map:', error);
-    }
-  }, [coordinates, locationName, mapInstance, googleMapsLoaded, locationType]);
-
-  // Reset map instance when coordinates change
-  useEffect(() => {
-    setMapInstance(null);
-  }, [coordinates]);
-
-  // Show error if Google Maps failed to load
-  if (loadError) {
-    return (
-      <div className="flex items-center gap-3 p-4 bg-red-50 border border-red-200 rounded-lg">
-        <MapPin size={20} className="text-red-500" />
-        <div>
-          <span className="text-red-700 font-medium">Maps unavailable</span>
-          <p className="text-red-600 text-sm mt-1">Failed to load Google Maps</p>
-        </div>
-      </div>
-    );
-  }
-
-  // Show loading if searching
-  if (isSearching) {
-    return (
-      <div className="flex items-center gap-3 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-        <div className="animate-spin rounded-full h-5 w-5 border-2 border-blue-500 border-t-transparent"></div>
-        <span className="text-blue-700 font-medium">Finding {locationName} on map...</span>
-      </div>
-    );
-  }
-
-  // No location available
-  if (locationType === 'none' || !coordinates) {
-    return (
-      <div className="flex items-center gap-3 p-4 bg-gray-50 border border-gray-200 rounded-lg">
-        <MapPin size={20} className="text-gray-400" />
-        <div>
-          <span className="text-gray-700 font-medium">Location not available</span>
-          <p className="text-gray-500 text-sm mt-1">No location information provided for this listing</p>
-        </div>
-      </div>
-    );
-  }
-
-  // Show location with map
-  return (
-    <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-      {/* Header */}
-      <div className="p-4 border-b border-gray-100">
-        <div className="flex items-center gap-2">
-          <MapPin size={20} className="text-orange-500" />
-          <div className="flex-1">
-            <h3 className="font-semibold text-gray-900">Location</h3>
-            <p className="text-sm text-gray-600">{locationName}</p>
-            {distanceFromSearch !== null && (
-              <p className="text-xs text-blue-600 mt-1">
-                📍 {distanceFromSearch.toFixed(1)}km from search location
-              </p>
-            )}
-          </div>
-          {/* Coordinate info for debugging */}
-          <div className="text-xs text-gray-400">
-            {coordinates.lat.toFixed(4)}, {coordinates.lng.toFixed(4)}
-          </div>
-        </div>
-      </div>
-      
-      {/* Map */}
-      <div className="relative">
-        {googleMapsLoaded ? (
-          <div 
-            ref={mapRef}
-            className="w-full h-64"
-            style={{ minHeight: '256px' }}
-          />
-        ) : (
-          <div className="w-full h-64 bg-gray-200 flex items-center justify-center">
-            <div className="text-center">
-              <div className="animate-spin rounded-full h-6 w-6 border-2 border-orange-500 border-t-transparent mx-auto mb-2"></div>
-              <p className="text-gray-600">Loading map...</p>
-            </div>
-          </div>
-        )}
-        
-        {/* Map overlay info */}
-        {googleMapsLoaded && (
-          <div className="absolute top-3 left-3 bg-white/90 backdrop-blur-sm px-3 py-2 rounded-lg shadow-sm">
-            <p className="text-sm font-medium text-gray-900">{locationName}</p>
-            <p className="text-xs text-gray-600">
-              {locationType === 'specific' ? 'Exact location' : 'Neighborhood area'}
-            </p>
-            {distanceFromSearch !== null && (
-              <p className="text-xs text-blue-600 mt-1">
-                {distanceFromSearch.toFixed(1)}km away
-              </p>
-            )}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-};
 
 // Helper function for distance calculation
 const calculateDistance = (lat1, lng1, lat2, lng2) => {
@@ -494,30 +87,24 @@ const SearchPage = () => {
   const [enhancedRouteResults, setEnhancedRouteResults] = useState([]);
 const [showEnhancedCommute, setShowEnhancedCommute] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
-  const [userListings, setUserListings] = useState([]);
   const [allListings, setAllListings] = useState([]);  
   const [savedSearches, setSavedSearches] = useState([]);
   const [showMap, setShowMap] = useState(false);
-  const [mapListings, setMapListings] = useState([]);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [favoriteListings, setFavoriteListings] = useState([]);
-  const [activeTab, setActiveTab] = useState('favorites');
   const router = useRouter(); 
   const [commuteDestination, setCommuteDestination] = useState(null);
 const [commuteRoutes, setCommuteRoutes] = useState([]);
-const [showCommuteResults, setShowCommuteResults] = useState(false);
 const [isCommuteMode, setIsCommuteMode] = useState(false);
-const [isCalculatingRoutes, setIsCalculatingRoutes] = useState(false);
 const [showSavedSearches, setShowSavedSearches] = useState(false);
 const [preferredGender, setPreferredGender] = useState(null); 
 const [smokingPreference, setSmokingPreference] = useState(null);
-const [showProfile, setShowProfile] = useState(false);
 const [showMenu, setShowMenu] = useState(false);
-const [isLoggedIn, setIsLoggedIn] = useState(false);
 const [showMapView, setShowMapView] = useState(false);
 const [isMounted, setIsMounted] = useState(false);
-  const minneapolisCenter = { lat: 44.9778, lng: -93.2358 };
-  const neighborhoodCoords = {
+const [notifications] = useNotifications();
+const minneapolisCenter = useMemo( () => (
+  { lat: 44.9778, lng: -93.2358 }),[]);
+  const neighborhoodCoords = useMemo ( () => ({
     'Dinkytown': { lat: 44.9796, lng: -93.2354 },
     'East Bank': { lat: 44.9743, lng: -93.2277 },
     'Stadium Village': { lat: 44.9756, lng: -93.2189 },
@@ -525,7 +112,7 @@ const [isMounted, setIsMounted] = useState(false);
     'Southeast Como': { lat: 44.9815, lng: -93.2065 }, // Add this line!
     'St. Paul': { lat: 44.9537, lng: -93.0900 },
     'Other': { lat: 44.9778, lng: -93.2358 }
-  };
+  }), []);
 
  
   // =========================
@@ -533,719 +120,15 @@ const [isMounted, setIsMounted] = useState(false);
   // =========================
 
  // Update the generateCoordinatesForNeighborhood function to be more precise:
-const generateCoordinatesForNeighborhood = (neighborhood) => {
+const generateCoordinatesForNeighborhood = useCallback((neighborhood) => {
   const baseCoords = neighborhoodCoords[neighborhood] || minneapolisCenter;
   return {
     lat: baseCoords.lat + (Math.random() - 0.5) * 0.005, // Smaller random spread
     lng: baseCoords.lng + (Math.random() - 0.5) * 0.005
   };
-};
+},[neighborhoodCoords, minneapolisCenter]);
 
-// Add this helper function to SearchPage for consistent transport icons:
-const getTransportIcon = (mode) => {
-  switch (mode?.toLowerCase()) {
-    case 'walking': 
-      return <Users size={14} className="text-green-500" title="Walking" />;
-    case 'transit': 
-      return <Route size={14} className="text-blue-500" title="Public Transit" />;
-    case 'bicycling': 
-      return <Bike size={14} className="text-orange-500" title="Bicycle" />;
-    case 'driving': 
-      return <Car size={14} className="text-purple-500" title="Driving" />;
-    case 'scooter': 
-      return <Zap size={14} className="text-yellow-500" title="Scooter/E-bike" />;
-    default: 
-      return <Route size={14} className="text-gray-500" title="Transit" />;
-  }
-};
-  
- useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    
-    // Location parameter
-    const locationParam = urlParams.get('location');
-    if (locationParam) {
-      setLocation(locationParam.split(','));
-    }
-    
-    // Date parameter - change string to date object
-    const checkInParam = urlParams.get('checkIn');
-    const checkOutParam = urlParams.get('checkOut');
-    if (checkInParam || checkOutParam) {
-      setDateRange({
-        checkIn: checkInParam ? new Date(checkInParam) : null,
-        checkOut: checkOutParam ? new Date(checkOutParam) : null
-      });
-    }
-    
-    // Room parameter
-    const bedroomsParam = urlParams.get('bedrooms');
-    const bathroomsParam = urlParams.get('bathrooms');
-   if (bedroomsParam) setBedrooms(bedroomsParam === 'any' ? 'any' : parseInt(bedroomsParam));
-if (bathroomsParam) setBathrooms(bathroomsParam === 'any' ? 'any' : parseInt(bathroomsParam));
-
-// In handleSearch for URL generation:
-if (bedrooms !== 'any') {
-  searchParams.set('bedrooms', bedrooms);
-}
-if (bathrooms !== 'any') {
-  searchParams.set('bathrooms', bathrooms);
-}
- // Amenities parameter
-    const amenitiesParam = urlParams.get('amenities');
-    if (amenitiesParam) {
-      setSelectedAmenities(amenitiesParam.split(','));
-    }
-    
-    // Price parameter
-    const priceMinParam = urlParams.get('priceMin');
-    const priceMaxParam = urlParams.get('priceMax');
-    if (priceMinParam || priceMaxParam) {
-      setPriceRange({
-        min: priceMinParam ? parseInt(priceMinParam) : 500,
-        max: priceMaxParam ? parseInt(priceMaxParam) : 2000
-      });
-    }
-    
-    // automatically run if the url have parameter
-    if (urlParams.toString()) {
-      setTimeout(() => {
-        handleSearch();
-      }, 500); 
-    }
-  }, []);
-
-
-// Fetch user listings from Firestore
-// Fetch user listings from Firestore
-useEffect(() => {
-  const fetchUserListings = async () => {
-    try {
-      const q = query(collection(db, 'listings'), orderBy('createdAt', 'desc'));
-      const querySnapshot = await getDocs(q);
-      const listings = querySnapshot.docs.map(doc => {
-        const data = doc.data();
-        
-        // Validate and clean coordinate data
-        const validateCoordinate = (coord) => {
-          const num = Number(coord);
-          return !isNaN(num) && isFinite(num) ? num : null;
-        };
-        
-        let coordinates = null;
-        let displayName = '';
-        
-        // Priority 1: customLocation from Firebase
-        if (data.customLocation?.lat && data.customLocation?.lng) {
-          const lat = validateCoordinate(data.customLocation.lat);
-          const lng = validateCoordinate(data.customLocation.lng);
-          if (lat && lng) {
-            coordinates = {
-              lat,
-              lng,
-              source: 'customLocation'
-            };
-            displayName = data.customLocation.placeName || data.customLocation.address || 'Specific Location';
-          }
-        }
-        
-        // Priority 2: direct lat/lng fields
-        if (!coordinates && data.lat && data.lng) {
-          const lat = validateCoordinate(data.lat);
-          const lng = validateCoordinate(data.lng);
-          if (lat && lng) {
-            coordinates = {
-              lat,
-              lng,
-              source: 'direct'
-            };
-            displayName = data.address || data.location || 'Specific Location';
-          }
-        }
-        
-        // Priority 3: generate from neighborhood
-        if (!coordinates) {
-          const generated = generateCoordinatesForNeighborhood(data.location || 'Other');
-          coordinates = {
-            ...generated,
-            source: 'generated'
-          };
-          displayName = data.location || 'Campus Area';
-        }
-
-        const convertDate = (dateValue: any) => {
-          if (!dateValue) return new Date();
-          if (dateValue.toDate && typeof dateValue.toDate === 'function') {
-            return dateValue.toDate(); // Firestore Timestamp
-          }
-          if (typeof dateValue === 'string') {
-            const parsed = new Date(dateValue);
-            return isNaN(parsed.getTime()) ? new Date() : parsed;
-          }
-          return new Date();
-        };
-
-        return {
-          id: doc.id,
-          // Basic info with fallbacks
-          title: data.title || `${data.listingType || 'Sublease'} in ${data.location || 'Campus Area'}`,
-          listingType: data.listingType || 'Sublease',
-          location: data.location || 'Campus Area',
-          
-          // Enhanced coordinate handling
-          lat: coordinates.lat,
-          lng: coordinates.lng,
-          coordinateSource: coordinates.source,
-          displayName: displayName,
-          
-          // Preserve original customLocation data
-          customLocation: data.customLocation || null,
-          address: data.address || data.customLocation?.address || displayName,
-          
-          // Properly handle dates
-          availableFrom: convertDate(data.availableFrom || data.startDate),
-          availableTo: convertDate(data.availableTo || data.endDate),
-          dateRange: data.dateRange || `${new Date().toLocaleDateString()} - ${new Date().toLocaleDateString()}`,
-          
-          // Ensure numbers are properly typed
-          price: Number(data.price || data.rent || 0),
-          rent: Number(data.rent || data.price || 0),
-          bedrooms: Number(data.bedrooms || 1),
-          bathrooms: Number(data.bathrooms || 1),
-          distance: Number(data.distance || 0.5),
-          rating: Number(data.rating || 0),
-          reviews: Number(data.reviews || 0),
-          
-          // Handle booleans properly
-          isPrivateRoom: Boolean(data.isPrivateRoom),
-          utilitiesIncluded: Boolean(data.utilitiesIncluded),
-          hasRoommates: Boolean(data.hasRoommates),
-          
-          // Ensure strings
-          accommodationType: data.accommodationType || (data.isPrivateRoom ? 'private' : 'entire'),
-          description: data.description || data.additionalDetails || 'No description available',
-          hostId : data.hostId,
-          hostName: data.hostName || 'Anonymous',
-          hostEmail: data.hostEmail || '',
-          hostBio: data.hostBio || `Hello, I'm ${data.hostName || 'a student'} looking to sublease my place.`,
-          
-          // Handle arrays properly
-          amenities: Array.isArray(data.amenities) ? data.amenities : 
-           (typeof data.amenities === 'object' && data.amenities !== null) ? Object.values(data.amenities) : [],
-          includedItems: Array.isArray(data.includedItems) ? data.includedItems : [],
-          
-          // Default values for UI
-          image: data.image || "https://images.unsplash.com/photo-1543852786-1cf6624b9987?q=80&w=800&h=500&auto=format&fit=crop",
-          hostImage: data.hostImage || "https://images.unsplash.com/photo-1587300003388-59208cc962cb?q=80&w=800&h=500&auto=format&fit=crop",
-
-          // Handle complex objects
-          contactInfo: data.contactInfo || { methods: [], note: '' },
-          roommatePreferences: data.roommatePreferences || {},
-          currentRoommateInfo: data.currentRoommateInfo || {},
-          rentNegotiation: data.rentNegotiation || { isNegotiable: false, minPrice: 0, maxPrice: 0 },
-
-          preferredGender: data.preferredGender || 'any'
-        };
-      });
-      
-      console.log("✅ Successfully fetched listings:", listings.length);
-      setUserListings(listings);
-      setAllListings(listings);
-      setSearchResults(listings);
-      
-    } catch (error) {
-      console.error('❌ Error fetching user listings:', error);
-      // Don't leave empty arrays, use featured listings as fallback
-      setUserListings(featuredListings || []);
-      setAllListings(featuredListings || []);
-      setSearchResults(featuredListings || []);
-    }
-  };
-
-  fetchUserListings();
-}, []);
-
-
-
-useEffect(() => {
-  setIsMounted(true);
-  
-  // get favorites from localStorage
-  try {
-    const savedFavorites = localStorage.getItem('favoriteListings');
-    if (savedFavorites) {
-      setFavoriteListings(JSON.parse(savedFavorites));
-    }
-  } catch (error) {
-    console.error('Error loading favorites from localStorage:', error);
-  }
-}, []);
-
-// update localStorage when favoriteListings is changed
-useEffect(() => {
-  if (isMounted && favoriteListings.length > 0) {
-    try {
-      localStorage.setItem('favoriteListings', JSON.stringify(favoriteListings));
-    } catch (error) {
-      console.error('Error saving favorites to localStorage:', error);
-    }
-  }
-}, [favoriteListings, isMounted]);
-
-useEffect(() => {
-  setSearchResults(allListings); // This will use the data from fetchUserListings
-}, [allListings]);
-
-  // location toggle function
-  const toggleLocation = (loc) => {
-    if (location.includes(loc)) {
-      setLocation(location.filter(item => item !== loc));
-    } else {
-      setLocation([...location, loc]);
-    }
-  };
-
-  const monthNames = [
-    'January', 'February', 'March', 'April', 'May', 'June',
-    'July', 'August', 'September', 'October', 'November', 'December'
-  ];
-
-  // Calendar utilities
-  const getDaysInMonth = (month, year) => {
-    return new Date(year, month + 1, 0).getDate();
-  };
-
-  const getFirstDayOfMonth = (month, year) => {
-    return new Date(year, month, 1).getDay();
-  };
-
-  const generateCalendarDays = (month, year) => {
-    const daysInMonth = getDaysInMonth(month, year);
-    const firstDay = getFirstDayOfMonth(month, year);
-    const days = [];
-
-    // Add empty cells for days before the first day of the month
-    for (let i = 0; i < firstDay; i++) {
-      days.push(null);
-    }
-
-    // Add days of the month
-    for (let i = 1; i <= daysInMonth; i++) {
-      days.push(i);
-    }
-
-    return days;
-  };
-
-  // Calendar navigation
-  const goToPreviousMonth = () => {
-    if (currentMonth === 0) {
-      setCurrentMonth(11);
-      setCurrentYear(currentYear - 1);
-    } else {
-      setCurrentMonth(currentMonth - 1);
-    }
-  };
-
-  const goToNextMonth = () => {
-    if (currentMonth === 11) {
-      setCurrentMonth(0);
-      setCurrentYear(currentYear + 1);
-    } else {
-      setCurrentMonth(currentMonth + 1);
-    }
-  };
-
-  // Handle date selection
-  const handleDateClick = (day) => {
-    if (!day) return;
-
-    const newDate = new Date(currentYear, currentMonth, day);
-    
-    if (!dateRange.checkIn) {
-      setDateRange({ ...dateRange, checkIn: newDate });
-      setSelectedDates([day]);
-    } else if (!dateRange.checkOut) {
-      // Ensure checkout is after checkin
-      if (newDate > dateRange.checkIn) {
-        setDateRange({ ...dateRange, checkOut: newDate });
-        
-        // Select all dates in the range
-        const startDay = dateRange.checkIn.getDate();
-        const range = [];
-        for (let i = startDay; i <= day; i++) {
-          range.push(i);
-        }
-        setSelectedDates(range);
-      } else {
-        // If user selects a date before current checkin, reset and set as new checkin
-        setDateRange({ checkIn: newDate, checkOut: null });
-        setSelectedDates([day]);
-      }
-    } else {
-      // If both dates already selected, start over
-      setDateRange({ checkIn: newDate, checkOut: null });
-      setSelectedDates([day]);
-    }
-  };
-
-  // Format date for display
-const formatDate = (date) => {
-  if (!date) return '';
-  
-  if (date instanceof Date) {
-    return date.toLocaleDateString('en-US', { 
-      month: 'short', 
-      day: 'numeric' 
-    });
-  }
-  // parse it when it is a string
-  try {
-    if (typeof date === 'string') {
-      const [year, month, day] = date.split('-');
-      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-                     'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-      return `${months[parseInt(month) - 1]} ${parseInt(day)}`;
-    }
-    return '';
-  } catch (error) {
-    return '';
-  }
-};
-
-  // Section toggle
-
-  const toggleMapView = () => {
-  setShowMapView(prev => !prev);
-  };
-
-  // const toggleMapView = () => {
-  //   setShowMap(!showMap);
-  //   if (!showMap) {
-  //     setMapListings(searchResults);
-  //   }
-  // };
-
-  const handleCommuteFilter = (filteredListings) => {
-    setSearchResults(filteredListings);
-    setMapListings(filteredListings);
-  };
-  
- // Add these state variables with your other state
-const [isGoogleMapsLoading, setIsGoogleMapsLoading] = useState(false);
-const [googleMapsError, setGoogleMapsError] = useState(null);
-const [isGoogleMapsReady, setIsGoogleMapsReady] = useState(false);
-const [locationError, setLocationError] = useState(null);
-
-// Add this useEffect after your existing useEffects
-useEffect(() => {
-  const loadGoogleMaps = async () => {
-    const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
-    
-    if (!apiKey) {
-      setGoogleMapsError('Google Maps API key not configured');
-      return;
-    }
-
-    // Check if already loaded
-    if (window.google && window.google.maps && window.google.maps.places) {
-      setIsGoogleMapsReady(true);
-      return;
-    }
-
-    setIsGoogleMapsLoading(true);
-
-    try {
-      // Create script element
-      const script = document.createElement('script');
-      script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places,geometry&loading=async`;
-      script.async = true;
-      script.defer = true;
-      
-      script.onload = () => {
-        // Wait for Google Maps to be fully ready
-        const checkReady = setInterval(() => {
-          if (window.google && window.google.maps && window.google.maps.places) {
-            clearInterval(checkReady);
-            setIsGoogleMapsReady(true);
-            setIsGoogleMapsLoading(false);
-            console.log('✅ Google Maps loaded successfully');
-          }
-        }, 100);
-        
-        // Timeout after 5 seconds
- 
-      };
-      
-      script.onerror = () => {
-        setGoogleMapsError('Failed to load Google Maps');
-        setIsGoogleMapsLoading(false);
-      };
-      
-      document.head.appendChild(script);
-    } catch (error) {
-      setGoogleMapsError('Error loading Google Maps');
-      setIsGoogleMapsLoading(false);
-    }
-  };
-
-  loadGoogleMaps();
-}, []);
-
-  // Notification data
-  const notifications: Notification[] = [
-    { id: 1, type: "price-drop", message: "MacBook Pro price dropped by $50!", time: "2h ago" },
-    { id: 2, type: "new-item", message: "New furniture items in Dinkytown", time: "4h ago" },
-    { id: 3, type: "favorite", message: "Your favorited item is ending soon", time: "1d ago" }
-  ];
-
-// Notifications dropdown component
-  const NotificationsButton = ({ notifications }: { notifications: Notification[] }) => {
-    const [showNotifications, setShowNotifications] = useState(false);
-    const router = useRouter();
-
-    return (
-      <div className="relative">
-        <motion.button
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-          onClick={() => setShowNotifications(!showNotifications)}
-          className="p-2 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors relative"
-        >
-          <Bell className="w-5 h-5 text-gray-500" />
-          {notifications.length > 0 && (
-            <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center">
-              {notifications.length}
-            </span>
-          )}
-        </motion.button>
-
-        <AnimatePresence>
-          {showNotifications && (
-            <motion.div
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              className="absolute right-0 mt-2 w-70 bg-white rounded-lg shadow-lg border border-gray-200 z-50"
-            >
-              <div className="p-4">
-                <h3 className="font-semibold text-orange-600 mb-3">Notifications</h3>
-                <div className="space-y-3 max-h-64 overflow-y-auto">
-                  {notifications.map(notif => (
-                    <button
-                      key={notif.id}
-                      onClick={() => router.push(`/notifications?id=${notif.id}`)}
-                      className="w-full flex items-start space-x-3 p-2 rounded-lg hover:bg-orange-50 text-left"
-                    >
-                      <div className="w-2 h-2 bg-orange-500 rounded-full mt-2"></div>
-                      <div className="flex-1">
-                        <p className="text-sm text-gray-900">{notif.message}</p>
-                        <p className="text-xs text-gray-500">{notif.time}</p>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-
-                <button
-                  onClick={() => router.push(`/notifications`)}
-                  className="mt-3 text-sm text-orange-600 hover:underline"
-                >
-                  See all notifications
-                </button>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
-    );
-  };
-
-  // Handle amenity selection
-  const toggleAmenity = (amenity) => {
-    if (selectedAmenities.includes(amenity)) {
-      setSelectedAmenities(selectedAmenities.filter(a => a !== amenity));
-    } else {
-      setSelectedAmenities([...selectedAmenities, amenity]);
-    }
-  };
-    const toggleGender = (genderKey) => {
-  setPreferredGender(genderKey);
-};
-
-    const toggleSmoking = (smoking) => {
-    if (smokingPreference === smoking) {
-        setSmokingPreference(null); 
-    } else {
-        setSmokingPreference(smoking); 
-    }
-    };
-
-
-  // Handle commute location selection
-  const handleCommuteLocationSelect = (locationData) => {
-    setCommuteDestination(locationData);
-    setCommuteLocation(locationData.address);
-    setIsCommuteMode(true);
-    
-    // Check if this has enhanced features
-    if (locationData.commutePreferences.showAlternatives !== undefined) {
-      setShowEnhancedCommute(true);
-    }
-    
-    console.log('Enhanced commute destination selected:', locationData);
-  };
-  
-
-// Handle route calculation results
-const handleRouteCalculated = (routes) => {
-  // Check if routes have enhanced features (alternatives, transit details, etc.)
-  const hasEnhancedFeatures = routes.some(route => 
-    route.alternatives || route.transitDetails || route.transportMode
-  );
-  
-  if (hasEnhancedFeatures) {
-    setEnhancedRouteResults(routes);
-    setShowEnhancedCommute(true);
-  } else {
-    setCommuteRoutes(routes);
-    setShowEnhancedCommute(false);
-  }
-  
-  setShowCommuteResults(true);
-  setShowMap(true);
-  
-  // Filter and sort listings by commute time
-  const listingsWithRoutes = allListings.filter(listing => 
-    routes.some(route => route.listingId === listing.id)
-  );
-  
-  console.log('🎯 Enhanced route results processed:', listingsWithRoutes.length);
-  
-  const sortedListings = listingsWithRoutes.sort((a, b) => {
-    const routeA = routes.find(r => r.listingId === a.id);
-    const routeB = routes.find(r => r.listingId === b.id);
-    
-    if (!routeA || !routeB) return 0;
-    
-    const timeA = parseCommuteTime(routeA.duration);
-    const timeB = parseCommuteTime(routeB.duration);
-    
-    return timeA - timeB;
-  });
-  
-  setSearchResults(sortedListings);
-  setLocationError(null);
-  
-  // Auto-scroll to results
-  setTimeout(() => {
-    const mapSection = document.querySelector('.commute-results-section');
-    if (mapSection) {
-      mapSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
-  }, 500);
-};
-
-const resetSearch = () => {
-  setDateRange({ checkIn: null, checkOut: null });
-  setBathrooms('any'); // Change from 1 to 'any'
-  setBedrooms('any');  // Change from 1 to 'any'
-  setLocation([]);
-  setCommuteLocation('');
-  setSelectedDates([]);
-  setAccommodationType(null);
-  setPriceRange({ min: 500, max: 2000 });
-  setSelectedAmenities([]);
-  setCommuteDestination(null);
-  setCommuteRoutes([]);
-  setShowCommuteResults(false);
-  setIsCommuteMode(false);
-  
-  // Reset to show all listings
-  setSearchResults([...allListings]);
-};
-// Parse commute time string to minutes for sorting
-const parseCommuteTime = (timeString) => {
-  const hourMatch = timeString.match(/(\d+)\s*hour/);
-  const minMatch = timeString.match(/(\d+)\s*min/);
-  
-  let totalMinutes = 0;
-  if (hourMatch) totalMinutes += parseInt(hourMatch[1]) * 60;
-  if (minMatch) totalMinutes += parseInt(minMatch[1]);
-  
-  return totalMinutes;
-};
-
-// Get route info for a specific listing
-const getRouteInfo = (listingId) => {
-  return commuteRoutes.find(route => route.listingId === listingId);
-};
-
-// Clear commute search
-const clearCommuteSearch = () => {
-  setCommuteDestination(null);
-  setCommuteLocation('');
-  setCommuteRoutes([]);
-  setEnhancedRouteResults([]); // Add this line
-  setShowCommuteResults(false);
-  setShowEnhancedCommute(false); // Add this line
-  setIsCommuteMode(false);
-  setSearchResults(allListings);
-};
-
-
-
-  // Handle price range change
-  const handlePriceChange = (type, value) => {
-    const numValue = parseInt(value);
-
-    if (type === 'min') {
-      // check min value
-      if (numValue < 500) {
-        setPriceRange({ ...priceRange, min: 500 });
-      } else if (numValue >= priceRange.max) {
-        // min has not to over max
-        setPriceRange({ ...priceRange, min: priceRange.max - 50 });
-      } else {
-        setPriceRange({ ...priceRange, min: numValue });
-      }
-    } else {
-      // check max
-      if (numValue > 2000) {
-        setPriceRange({ ...priceRange, max: 2000 });
-      } else if (numValue <= priceRange.min) {
-        setPriceRange({ ...priceRange, max: priceRange.min + 50 });
-      } else {
-        setPriceRange({ ...priceRange, max: numValue });
-      }
-    }
-  };
-
-  const convertPrice = (monthlyPrice, type) => {
-    switch(type) {
-      case 'weekly':
-        return Math.round(monthlyPrice / 4); // 1/4 of monthly price
-      case 'daily':
-        return Math.round(monthlyPrice / 30); // 1/30 of monthly price
-      case 'monthly':
-      default:
-        return monthlyPrice;
-    }
-  };
-
-  // price type
-  const getPriceUnit = (type) => {
-    switch(type) {
-      case 'weekly':
-        return '/week';
-      case 'daily':
-        return '/day';
-      case 'monthly':
-      default:
-        return '/mo';
-    }
-  };
-
-const handleSearch = () => {
+const handleSearch = useCallback(() => {
   setIsSearching(true);
   
   // Store search location globally for distance calculations
@@ -1468,7 +351,609 @@ const handleSearch = () => {
     setIsSearching(false);
     setActiveSection(null);
   }, 1000);
+},[accommodationType, allListings, bathrooms, bedrooms, dateRange.checkIn, dateRange.checkOut, location, preferredGender, priceRange.max, priceRange.min, selectedAmenities, selectedLocationData, smokingPreference]);
+  
+ useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    
+    // Location parameter
+    const locationParam = urlParams.get('location');
+    if (locationParam) {
+      setLocation(locationParam.split(','));
+    }
+    
+    // Date parameter - change string to date object
+    const checkInParam = urlParams.get('checkIn');
+    const checkOutParam = urlParams.get('checkOut');
+    if (checkInParam || checkOutParam) {
+      setDateRange({
+        checkIn: checkInParam ? new Date(checkInParam) : null,
+        checkOut: checkOutParam ? new Date(checkOutParam) : null
+      });
+    }
+    
+    // Room parameter
+    const bedroomsParam = urlParams.get('bedrooms');
+    const bathroomsParam = urlParams.get('bathrooms');
+   if (bedroomsParam) setBedrooms(bedroomsParam === 'any' ? 'any' : parseInt(bedroomsParam));
+if (bathroomsParam) setBathrooms(bathroomsParam === 'any' ? 'any' : parseInt(bathroomsParam));
+
+// In handleSearch for URL generation:
+if (bedrooms !== 'any') {
+  searchParams.set('bedrooms', bedrooms);
+}
+if (bathrooms !== 'any') {
+  searchParams.set('bathrooms', bathrooms);
+}
+ // Amenities parameter
+    const amenitiesParam = urlParams.get('amenities');
+    if (amenitiesParam) {
+      setSelectedAmenities(amenitiesParam.split(','));
+    }
+    
+    // Price parameter
+    const priceMinParam = urlParams.get('priceMin');
+    const priceMaxParam = urlParams.get('priceMax');
+    if (priceMinParam || priceMaxParam) {
+      setPriceRange({
+        min: priceMinParam ? parseInt(priceMinParam) : 500,
+        max: priceMaxParam ? parseInt(priceMaxParam) : 2000
+      });
+    }
+    
+    // automatically run if the url have parameter
+    if (urlParams.toString()) {
+      setTimeout(() => {
+        handleSearch();
+      }, 500); 
+    }
+  }, [bathrooms, bedrooms, handleSearch]);
+
+
+// Fetch user listings from Firestore
+// Fetch user listings from Firestore
+useEffect(() => {
+  const fetchUserListings = async () => {
+    try {
+      const q = query(collection(db, 'listings'), orderBy('createdAt', 'desc'));
+      const querySnapshot = await getDocs(q);
+      const listings = querySnapshot.docs.map(doc => {
+        const data = doc.data();
+        
+        // Validate and clean coordinate data
+        const validateCoordinate = (coord) => {
+          const num = Number(coord);
+          return !isNaN(num) && isFinite(num) ? num : null;
+        };
+        
+        let coordinates = null;
+        let displayName = '';
+        
+        // Priority 1: customLocation from Firebase
+        if (data.customLocation?.lat && data.customLocation?.lng) {
+          const lat = validateCoordinate(data.customLocation.lat);
+          const lng = validateCoordinate(data.customLocation.lng);
+          if (lat && lng) {
+            coordinates = {
+              lat,
+              lng,
+              source: 'customLocation'
+            };
+            displayName = data.customLocation.placeName || data.customLocation.address || 'Specific Location';
+          }
+        }
+        
+        // Priority 2: direct lat/lng fields
+        if (!coordinates && data.lat && data.lng) {
+          const lat = validateCoordinate(data.lat);
+          const lng = validateCoordinate(data.lng);
+          if (lat && lng) {
+            coordinates = {
+              lat,
+              lng,
+              source: 'direct'
+            };
+            displayName = data.address || data.location || 'Specific Location';
+          }
+        }
+        
+        // Priority 3: generate from neighborhood
+        if (!coordinates) {
+          const generated = generateCoordinatesForNeighborhood(data.location || 'Other');
+          coordinates = {
+            ...generated,
+            source: 'generated'
+          };
+          displayName = data.location || 'Campus Area';
+        }
+
+        const convertDate = (dateValue) => {
+          if (!dateValue) return new Date();
+          if (dateValue.toDate && typeof dateValue.toDate === 'function') {
+            return dateValue.toDate(); // Firestore Timestamp
+          }
+          if (typeof dateValue === 'string') {
+            const parsed = new Date(dateValue);
+            return isNaN(parsed.getTime()) ? new Date() : parsed;
+          }
+          return new Date();
+        };
+
+        return {
+          id: doc.id,
+          // Basic info with fallbacks
+          title: data.title || `${data.listingType || 'Sublease'} in ${data.location || 'Campus Area'}`,
+          listingType: data.listingType || 'Sublease',
+          location: data.location || 'Campus Area',
+          
+          // Enhanced coordinate handling
+          lat: coordinates.lat,
+          lng: coordinates.lng,
+          coordinateSource: coordinates.source,
+          displayName: displayName,
+          
+          // Preserve original customLocation data
+          customLocation: data.customLocation || null,
+          address: data.address || data.customLocation?.address || displayName,
+          
+          // Properly handle dates
+          availableFrom: convertDate(data.availableFrom || data.startDate),
+          availableTo: convertDate(data.availableTo || data.endDate),
+          dateRange: data.dateRange || `${new Date().toLocaleDateString()} - ${new Date().toLocaleDateString()}`,
+          
+          // Ensure numbers are properly typed
+          price: Number(data.price || data.rent || 0),
+          rent: Number(data.rent || data.price || 0),
+          bedrooms: Number(data.bedrooms || 1),
+          bathrooms: Number(data.bathrooms || 1),
+          distance: Number(data.distance || 0.5),
+          rating: Number(data.rating || 0),
+          reviews: Number(data.reviews || 0),
+          
+          // Handle booleans properly
+          isPrivateRoom: Boolean(data.isPrivateRoom),
+          utilitiesIncluded: Boolean(data.utilitiesIncluded),
+          hasRoommates: Boolean(data.hasRoommates),
+          
+          // Ensure strings
+          accommodationType: data.accommodationType || (data.isPrivateRoom ? 'private' : 'entire'),
+          description: data.description || data.additionalDetails || 'No description available',
+          hostId : data.hostId,
+          hostName: data.hostName || 'Anonymous',
+          hostEmail: data.hostEmail || '',
+          hostBio: data.hostBio || `Hello, I'm ${data.hostName || 'a student'} looking to sublease my place.`,
+          
+          // Handle arrays properly
+          amenities: Array.isArray(data.amenities) ? data.amenities : 
+           (typeof data.amenities === 'object' && data.amenities !== null) ? Object.values(data.amenities) : [],
+          includedItems: Array.isArray(data.includedItems) ? data.includedItems : [],
+          
+          // Default values for UI
+          image: data.image || "https://images.unsplash.com/photo-1543852786-1cf6624b9987?q=80&w=800&h=500&auto=format&fit=crop",
+          hostImage: data.hostImage || "https://images.unsplash.com/photo-1587300003388-59208cc962cb?q=80&w=800&h=500&auto=format&fit=crop",
+
+          // Handle complex objects
+          contactInfo: data.contactInfo || { methods: [], note: '' },
+          roommatePreferences: data.roommatePreferences || {},
+          currentRoommateInfo: data.currentRoommateInfo || {},
+          rentNegotiation: data.rentNegotiation || { isNegotiable: false, minPrice: 0, maxPrice: 0 },
+
+          preferredGender: data.preferredGender || 'any'
+        };
+      });
+      
+      console.log("✅ Successfully fetched listings:", listings.length);
+      setAllListings(listings);
+      setSearchResults(listings);
+      
+    } catch (error) {
+      console.error('❌ Error fetching user listings:', error);
+      // Don't leave empty arrays, use featured listings as fallback
+      setAllListings(featuredListings || []);
+      setSearchResults(featuredListings || []);
+    }
+  };
+
+  fetchUserListings();
+}, [generateCoordinatesForNeighborhood]);
+
+
+
+useEffect(() => {
+  setIsMounted(true);
+  
+  // get favorites from localStorage
+  try {
+    const savedFavorites = localStorage.getItem('favoriteListings');
+    if (savedFavorites) {
+      setFavoriteListings(JSON.parse(savedFavorites));
+    }
+  } catch (error) {
+    console.error('Error loading favorites from localStorage:', error);
+  }
+}, []);
+
+// update localStorage when favoriteListings is changed
+useEffect(() => {
+  if (isMounted && favoriteListings.length > 0) {
+    try {
+      localStorage.setItem('favoriteListings', JSON.stringify(favoriteListings));
+    } catch (error) {
+      console.error('Error saving favorites to localStorage:', error);
+    }
+  }
+}, [favoriteListings, isMounted]);
+
+useEffect(() => {
+  setSearchResults(allListings); // This will use the data from fetchUserListings
+}, [allListings]);
+
+  // location toggle function
+  const toggleLocation = (loc) => {
+    if (location.includes(loc)) {
+      setLocation(location.filter(item => item !== loc));
+    } else {
+      setLocation([...location, loc]);
+    }
+  };
+
+  const monthNames = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December'
+  ];
+
+  // Calendar utilities
+  const getDaysInMonth = (month, year) => {
+    return new Date(year, month + 1, 0).getDate();
+  };
+
+  const getFirstDayOfMonth = (month, year) => {
+    return new Date(year, month, 1).getDay();
+  };
+
+  const generateCalendarDays = (month, year) => {
+    const daysInMonth = getDaysInMonth(month, year);
+    const firstDay = getFirstDayOfMonth(month, year);
+    const days = [];
+
+    // Add empty cells for days before the first day of the month
+    for (let i = 0; i < firstDay; i++) {
+      days.push(null);
+    }
+
+    // Add days of the month
+    for (let i = 1; i <= daysInMonth; i++) {
+      days.push(i);
+    }
+
+    return days;
+  };
+
+  // Calendar navigation
+  const goToPreviousMonth = () => {
+    if (currentMonth === 0) {
+      setCurrentMonth(11);
+      setCurrentYear(currentYear - 1);
+    } else {
+      setCurrentMonth(currentMonth - 1);
+    }
+  };
+
+  const goToNextMonth = () => {
+    if (currentMonth === 11) {
+      setCurrentMonth(0);
+      setCurrentYear(currentYear + 1);
+    } else {
+      setCurrentMonth(currentMonth + 1);
+    }
+  };
+
+  // Handle date selection
+  const handleDateClick = (day) => {
+    if (!day) return;
+
+    const newDate = new Date(currentYear, currentMonth, day);
+    
+    if (!dateRange.checkIn) {
+      setDateRange({ ...dateRange, checkIn: newDate });
+      setSelectedDates([day]);
+    } else if (!dateRange.checkOut) {
+      // Ensure checkout is after checkin
+      if (newDate > dateRange.checkIn) {
+        setDateRange({ ...dateRange, checkOut: newDate });
+        
+        // Select all dates in the range
+        const startDay = dateRange.checkIn.getDate();
+        const range = [];
+        for (let i = startDay; i <= day; i++) {
+          range.push(i);
+        }
+        setSelectedDates(range);
+      } else {
+        // If user selects a date before current checkin, reset and set as new checkin
+        setDateRange({ checkIn: newDate, checkOut: null });
+        setSelectedDates([day]);
+      }
+    } else {
+      // If both dates already selected, start over
+      setDateRange({ checkIn: newDate, checkOut: null });
+      setSelectedDates([day]);
+    }
+  };
+
+  // Format date for display
+const formatDate = (date) => {
+  if (!date) return '';
+  
+  if (date instanceof Date) {
+    return date.toLocaleDateString('en-US', { 
+      month: 'short', 
+      day: 'numeric' 
+    });
+  }
+  // parse it when it is a string
+  try {
+    if (typeof date === 'string') {
+      const [month, day] = date.split('-');
+      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+                     'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      return `${months[parseInt(month) - 1]} ${parseInt(day)}`;
+    }
+    return '';
+  } catch (error) {
+    console.error('Error occured!', error);
+    return '';
+  }
 };
+
+  // Section toggle
+
+  const toggleMapView = () => {
+  setShowMapView(prev => !prev);
+  };
+
+  // const toggleMapView = () => {
+  //   setShowMap(!showMap);
+  //   if (!showMap) {
+  //     setMapListings(searchResults);
+  //   }
+  // };
+
+  
+ // Add these state variables with your other state
+const [googleMapsError, setGoogleMapsError] = useState(null);
+const [isGoogleMapsReady, setIsGoogleMapsReady] = useState(false);
+
+// Add this useEffect after your existing useEffects
+useEffect(() => {
+  const loadGoogleMaps = async () => {
+    const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+    
+    if (!apiKey) {
+      setGoogleMapsError('Google Maps API key not configured');
+      return;
+    }
+
+    // Check if already loaded
+    if (window.google && window.google.maps && window.google.maps.places) {
+      setIsGoogleMapsReady(true);
+      return;
+    }
+
+
+    try {
+      // Create script element
+      const script = document.createElement('script');
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places,geometry&loading=async`;
+      script.async = true;
+      script.defer = true;
+      
+      script.onload = () => {
+        // Wait for Google Maps to be fully ready
+        const checkReady = setInterval(() => {
+          if (window.google && window.google.maps && window.google.maps.places) {
+            clearInterval(checkReady);
+            setIsGoogleMapsReady(true);
+            console.log('✅ Google Maps loaded successfully');
+          }
+        }, 100);
+        
+        // Timeout after 5 seconds
+ 
+      };
+      
+      script.onerror = () => {
+        setGoogleMapsError('Failed to load Google Maps');
+      };
+      
+      document.head.appendChild(script);
+    } catch (error) {
+      setGoogleMapsError('Error loading Google Maps');
+      console.error('Error occured!', error);
+    }
+  };
+
+  loadGoogleMaps();
+}, []);
+
+
+// Notifications dropdown component
+  const NotificationsButton = ({ notifications }: { notifications: [] }) => {
+    const [showNotifications, setShowNotifications] = useState(false);
+    const router = useRouter();
+
+    return (
+      <div className="relative">
+        <motion.button
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          onClick={() => setShowNotifications(!showNotifications)}
+          className="p-2 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors relative"
+        >
+          <Bell className="w-5 h-5 text-gray-500" />
+          {notifications.length > 0 && (
+            <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center">
+              {notifications.length}
+            </span>
+          )}
+        </motion.button>
+
+        <AnimatePresence>
+          {showNotifications && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              className="absolute right-0 mt-2 w-70 bg-white rounded-lg shadow-lg border border-gray-200 z-50"
+            >
+              <div className="p-4">
+                <h3 className="font-semibold text-orange-600 mb-3">Notifications</h3>
+                <div className="space-y-3 max-h-64 overflow-y-auto">
+                  {notifications.map(notif => (
+                    <div
+                      key={notif.id}
+                      className="w-full flex items-start space-x-3 p-2 rounded-lg hover:bg-orange-50 text-left"
+                    >
+                      <div className="w-2 h-2 bg-orange-500 rounded-full mt-2"></div>
+                      <button 
+                        className="flex-1"
+                        onClick={() => router.push(`/notifications`)}  
+                      >
+                        <p className="text-base text-orange-400">{notif.title}</p>
+                        <p className="text-sm text-gray-900">{notif.message}</p>
+                        <p className="text-xs text-gray-500">{notif.createdAt?.toLocalString()}</p>
+                      </button>
+                    </div>
+                  ))}
+                </div>
+
+                <button
+                  onClick={() => router.push(`/notifications`)}
+                  className="mt-3 text-sm text-orange-600 hover:underline"
+                >
+                  See all notifications
+                </button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+    );
+  };
+
+  // Handle amenity selection
+  const toggleAmenity = (amenity) => {
+    if (selectedAmenities.includes(amenity)) {
+      setSelectedAmenities(selectedAmenities.filter(a => a !== amenity));
+    } else {
+      setSelectedAmenities([...selectedAmenities, amenity]);
+    }
+  };
+    const toggleGender = (genderKey) => {
+  setPreferredGender(genderKey);
+};
+
+  
+
+const resetSearch = () => {
+  setDateRange({ checkIn: null, checkOut: null });
+  setBathrooms('any'); // Change from 1 to 'any'
+  setBedrooms('any');  // Change from 1 to 'any'
+  setLocation([]);
+  setCommuteLocation('');
+  setSelectedDates([]);
+  setAccommodationType(null);
+  setPriceRange({ min: 500, max: 2000 });
+  setSelectedAmenities([]);
+  setCommuteDestination(null);
+  setCommuteRoutes([]);
+  setIsCommuteMode(false);
+  
+  // Reset to show all listings
+  setSearchResults([...allListings]);
+};
+// Parse commute time string to minutes for sorting
+const parseCommuteTime = (timeString) => {
+  const hourMatch = timeString.match(/(\d+)\s*hour/);
+  const minMatch = timeString.match(/(\d+)\s*min/);
+  
+  let totalMinutes = 0;
+  if (hourMatch) totalMinutes += parseInt(hourMatch[1]) * 60;
+  if (minMatch) totalMinutes += parseInt(minMatch[1]);
+  
+  return totalMinutes;
+};
+
+// Get route info for a specific listing
+const getRouteInfo = (listingId) => {
+  return commuteRoutes.find(route => route.listingId === listingId);
+};
+
+// Clear commute search
+const clearCommuteSearch = () => {
+  setCommuteDestination(null);
+  setCommuteLocation('');
+  setCommuteRoutes([]);
+  setEnhancedRouteResults([]); // Add this line
+  setShowEnhancedCommute(false); // Add this line
+  setIsCommuteMode(false);
+  setSearchResults(allListings);
+};
+
+
+
+  // Handle price range change
+  const handlePriceChange = (type, value) => {
+    const numValue = parseInt(value);
+
+    if (type === 'min') {
+      // check min value
+      if (numValue < 500) {
+        setPriceRange({ ...priceRange, min: 500 });
+      } else if (numValue >= priceRange.max) {
+        // min has not to over max
+        setPriceRange({ ...priceRange, min: priceRange.max - 50 });
+      } else {
+        setPriceRange({ ...priceRange, min: numValue });
+      }
+    } else {
+      // check max
+      if (numValue > 2000) {
+        setPriceRange({ ...priceRange, max: 2000 });
+      } else if (numValue <= priceRange.min) {
+        setPriceRange({ ...priceRange, max: priceRange.min + 50 });
+      } else {
+        setPriceRange({ ...priceRange, max: numValue });
+      }
+    }
+  };
+
+  const convertPrice = (monthlyPrice, type) => {
+    switch(type) {
+      case 'weekly':
+        return Math.round(monthlyPrice / 4); // 1/4 of monthly price
+      case 'daily':
+        return Math.round(monthlyPrice / 30); // 1/30 of monthly price
+      case 'monthly':
+      default:
+        return monthlyPrice;
+    }
+  };
+
+  // price type
+  const getPriceUnit = (type) => {
+    switch(type) {
+      case 'weekly':
+        return '/week';
+      case 'daily':
+        return '/day';
+      case 'monthly':
+      default:
+        return '/mo';
+    }
+  };
+
+
 
   // Apply saved search
   const applySavedSearch = (search) => {
@@ -1617,12 +1102,6 @@ const handleSearch = () => {
     // Save updated favorites to localStorage
     localStorage.setItem(storageKey, JSON.stringify(updatedFavorites));
     
-    // Update local state if you're tracking favorites in the search page
-    if (listingType === 'sale') {
-      setFavoriteSales && setFavoriteSales(updatedFavorites);
-    } else {
-      setFavoriteSubleases && setFavoriteSubleases(updatedFavorites);
-    }
     
     return !isFavorited; // Return new favorite status
     
@@ -1645,27 +1124,9 @@ const isFavorited = (listingId, listingType = 'sublease') => {
   }
 };
 
-const [favoriteSales, setFavoriteSales] = useState([]);
-const [favoriteSubleases, setFavoriteSubleases] = useState([]);
-
-useEffect(() => {
-  try {
-    const savedSales = localStorage.getItem('favoriteSaleItems');
-    if (savedSales) {
-      setFavoriteSales(JSON.parse(savedSales));
-    }
-    
-    const savedSubleases = localStorage.getItem('favoriteSubleaseItems');
-    if (savedSubleases) {
-      setFavoriteSubleases(JSON.parse(savedSubleases));
-    }
-  } catch (error) {
-    console.error('Error loading favorites:', error);
-  }
-}, []);
 
   // date range
-  const updateSelectedDates = (start, end) => {
+  const updateSelectedDates = useCallback((start, end) => {
     if (!start || !end) return;
     
     if (start.getMonth() === currentMonth && start.getFullYear() === currentYear) {
@@ -1698,20 +1159,8 @@ useEffect(() => {
     } else {
       setSelectedDates([]);
     }
-  };
-// Add this function after your other helper functions
-const debugGoogleMaps = () => {
-  console.log('🗺️ Window.google exists:', !!window.google);
-  console.log('🗺️ Google.maps exists:', !!window.google?.maps);
-  console.log('🗺️ Google.maps.places exists:', !!window.google?.maps?.places);
-  console.log('🗺️ Google.maps.DirectionsService exists:', !!window.google?.maps?.DirectionsService);
-  
-  if (window.google?.maps) {
-    console.log('✅ Google Maps API is loaded and ready');
-  } else {
-    console.error('❌ Google Maps API is not loaded');
-  }
-};
+  },[currentMonth, currentYear]);
+
 
 // Call this when the location section opens
 const toggleSection = (section) => {
@@ -1727,14 +1176,13 @@ const handleCommuteResults = (routes, destination) => {
   
   if (routes.length === 0) {
     console.warn('⚠️ No routes received!');
-    setLocationError('No listings found within your commute preferences. Try increasing your max time or distance.');
+    console.error('No listings found within your commute preferences. Try increasing your max time or distance.');
     return;
   }
   
   setCommuteRoutes(routes);
   setCommuteDestination(destination);
   setIsCommuteMode(true);
-  setShowCommuteResults(true);
   setShowMap(true); // ✅ Make sure this is set immediately
   
   // Filter and sort listings by commute time
@@ -1758,8 +1206,6 @@ const handleCommuteResults = (routes, destination) => {
   
   setSearchResults(sortedListings);
   
-  // Clear any previous error
-  setLocationError(null);
   
   // ✅ Add this: Force scroll to map after a brief delay
   setTimeout(() => {
@@ -1775,7 +1221,7 @@ const handleCommuteResults = (routes, destination) => {
     if (dateRange.checkIn && dateRange.checkOut) {
       updateSelectedDates(dateRange.checkIn, dateRange.checkOut);
     }
-  }, [currentMonth, currentYear, dateRange.checkIn, dateRange.checkOut]);
+  }, [currentMonth, currentYear, dateRange.checkIn, dateRange.checkOut, updateSelectedDates]);
 
   // funtions for date change
   const setAvailableNow = () => {
@@ -1832,27 +1278,6 @@ const handleCommuteResults = (routes, destination) => {
 // Make sure your useEffect properly maps the Firestore data
 
 
-  // neighborhood click handler
-  const handleNeighborhoodClick = (neighborhoodName) => {
-    setLocation([neighborhoodName]);
-    
-    setTimeout(() => {
-      handleSearch();
-      window.scrollTo({
-        top: 0,
-        behavior: 'smooth'
-      });
-    }, 100);
-  };
-
-  const getNeighborhoodCount = (neighborhoodName) => {
-    return allListings.filter(listing => {
-      const listingLocation = listing.location || listing.neighborhood || '';
-      return listingLocation.toLowerCase().includes(neighborhoodName.toLowerCase()) ||
-             neighborhoodName.toLowerCase().includes(listingLocation.toLowerCase());
-    }).length;
-  };
-
 
   useEffect(() => {
     if (allListings.length > 0) {
@@ -1862,118 +1287,8 @@ const handleCommuteResults = (routes, destination) => {
     }
   }, [allListings]);
 
-// Add this helper function in your SearchPage component
-const parseAddressComponents = (components) => {
-  const addressInfo = {};
-  
-  components.forEach(component => {
-    const types = component.types;
-    
-    if (types.includes('street_number')) {
-      addressInfo.streetNumber = component.long_name;
-    } else if (types.includes('route')) {
-      addressInfo.route = component.long_name;
-    } else if (types.includes('locality')) {
-      addressInfo.city = component.long_name;
-    } else if (types.includes('administrative_area_level_1')) {
-      addressInfo.state = component.short_name;
-    } else if (types.includes('postal_code')) {
-      addressInfo.zipCode = component.long_name;
-    } else if (types.includes('country')) {
-      addressInfo.country = component.long_name;
-    }
-  });
-  
-  return addressInfo;
-};
 
 
-// Add this function in your SearchPage component
-const geocodeNeighborhood = async (neighborhood, city = 'Minneapolis, MN') => {
-  return new Promise((resolve) => {
-    if (!window.google?.maps?.Geocoder) {
-      console.warn('Geocoder not available, using fallback coordinates');
-      resolve(generateCoordinatesForNeighborhood(neighborhood));
-      return;
-    }
-
-    const geocoder = new window.google.maps.Geocoder();
-    const searchQuery = `${neighborhood}, ${city}`;
-    
-    console.log('🔍 Geocoding neighborhood:', searchQuery);
-    
-    geocoder.geocode(
-      { 
-        address: searchQuery,
-        componentRestrictions: { country: 'US' }
-      },
-      (results, status) => {
-        if (status === 'OK' && results?.[0]) {
-          const result = results[0];
-          const coords = {
-            lat: result.geometry.location.lat(),
-            lng: result.geometry.location.lng()
-          };
-          
-          console.log(`✅ Geocoded ${neighborhood}:`, coords);
-          resolve(coords);
-        } else {
-          console.warn(`❌ Geocoding failed for ${neighborhood}, using fallback`);
-          resolve(generateCoordinatesForNeighborhood(neighborhood));
-        }
-      }
-    );
-  });
-};
-
-// Enhanced function to process listings and get real coordinates
-const processListingsWithRealCoordinates = async (listings) => {
-  const processedListings = [];
-  
-  for (const listing of listings) {
-    let coords;
-    
-    // If listing has customLocation with specific coordinates, use those
-    if (listing.customLocation?.lat && listing.customLocation?.lng) {
-      coords = {
-        lat: listing.customLocation.lat,
-        lng: listing.customLocation.lng
-      };
-      console.log(`📍 Using customLocation for ${listing.id}:`, coords);
-    }
-    // If listing has direct lat/lng coordinates, use those
-    else if (listing.lat && listing.lng) {
-      coords = {
-        lat: listing.lat,
-        lng: listing.lng
-      };
-      console.log(`📍 Using direct coordinates for ${listing.id}:`, coords);
-    }
-    // If listing only has neighborhood/location name, geocode it
-    else if (listing.location) {
-      console.log(`🔍 Need to geocode neighborhood for ${listing.id}: ${listing.location}`);
-      coords = await geocodeNeighborhood(listing.location);
-    }
-    // Final fallback
-    else {
-      console.warn(`⚠️ No location info for ${listing.id}, using default coordinates`);
-      coords = generateCoordinatesForNeighborhood('Minneapolis');
-    }
-    
-    processedListings.push({
-      id: listing.id,
-      lat: coords.lat,
-      lng: coords.lng,
-      address: listing.customLocation?.address || listing.address || `${listing.location || 'Minneapolis'}, MN`,
-      title: listing.title,
-      price: listing.price,
-      location: listing.location,
-      customLocation: listing.customLocation
-    });
-  }
-  
-  return processedListings;
-};
 
 
   // =========================
@@ -2632,62 +1947,6 @@ const renderFiltersSection = () => {
 };
 
 
-  // Favorites Sidebar
-const renderFavoritesSidebar = () => (
-  <div className={`fixed left-0 top-0 md:top-0 top-16 h-full md:h-full h-[calc(100%-4rem)] w-72 bg-white shadow-xl z-40 transform transition-transform duration-300 ease-in-out ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} overflow-auto`}>
-    <div className="p-4 border-b">
-      <div className="flex justify-between items-center">
-        <h2 className="font-bold text-lg text-orange-500">Favorites</h2>
-        <button 
-          onClick={() => setIsSidebarOpen(false)}
-          className="p-2 rounded-full hover:bg-gray-100"
-        >
-          <X size={20} />
-        </button>
-      </div>
-    </div>
-    
-    <div className="p-4">
-      {/* favorites list */}
-      {favoriteListings.length === 0 ? (
-        <div className="text-center py-8 text-gray-500">
-          <Heart size={40} className="mx-auto mb-2 opacity-50" />
-          <p>No favorite listings yet</p>
-          <p className="text-sm mt-2">Click the heart icon on listings to save them here</p>
-        </div>
-      ) : (
-        <div className="space-y-4">
-          {favoriteListings.map(listing => (
-            <div key={listing.id} className="border rounded-lg overflow-hidden hover:shadow-md transition cursor-pointer">
-              <div className="flex">
-                <div 
-                  className="w-20 h-20 bg-gray-200 flex-shrink-0" 
-                  style={{backgroundImage: `url(${listing.image})`, backgroundSize: 'cover', backgroundPosition: 'center'}}
-                ></div>
-                <div className="p-3 flex-1">
-                  <div className="font-medium text-gray-700">{listing.title}</div>
-                  <div className="text-sm text-gray-500">{listing.location}</div>
-                  <div className="text-sm font-bold text-[#15361F] mt-1">
-                    ${convertPrice(listing.price, priceType)}{getPriceUnit(priceType)}
-                  </div>
-                </div>
-                <button 
-                  className="p-2 text-gray-400 hover:text-red-500 self-start"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    toggleFavorite(listing);}}
-                >
-                  <X size={16} />
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  </div>
-  );
-
   const saveSearch = () => {
     if (!hasSearchCriteria()) return;
     
@@ -2739,7 +1998,7 @@ const renderFavoritesSidebar = () => (
 
  const [hostDataMap, setHostDataMap] = useState({});
 
- const fetchHostData = async (hostId) => {
+ const fetchHostData = useCallback(async (hostId) => {
   if (!hostId || hostDataMap[hostId]) return; 
   
   try {
@@ -2769,7 +2028,7 @@ const renderFavoritesSidebar = () => (
       [hostId]: null
     }));
   }
-};
+},[hostDataMap]);
 
 useEffect(() => {
   const uniqueHostIds = [...new Set(searchResults.map(listing => listing.hostId).filter(Boolean))];
@@ -2777,7 +2036,7 @@ useEffect(() => {
  uniqueHostIds.forEach(hostId => {
     fetchHostData(hostId);
   });
-}, [searchResults]);
+}, [searchResults, fetchHostData]);
 
   // Featured Listings Section
   const renderFeaturedListings = () => {
@@ -3116,53 +2375,6 @@ const renderCommuteInfo = (listing) => {
   );
 };
 
-  // Footer
-  const renderFooter = () => (
-    <footer className="bg-orange-200 text-white py-12 w-full md:pl-16 md:pl-0">
-      <div className="max-w-7xl mx-auto px-4">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
-          <div>
-            <h3 className="font-bold text-lg mb-4">CampusSublease</h3>
-            <p className="text-gray-400 text-sm">Find the perfect short-term housing solution near your campus.</p>
-          </div>
-          
-          <div>
-            <h4 className="font-bold mb-4">Quick Links</h4>
-            <ul className="space-y-2">
-              <li><a href="#" className="text-gray-400 hover:text-white transition">Home</a></li>
-              <li><a href="#" className="text-gray-400 hover:text-white transition">Search</a></li>
-              <li><a href="#" className="text-gray-400 hover:text-white transition">List Your Space</a></li>
-              <li><a href="#" className="text-gray-400 hover:text-white transition">FAQ</a></li>
-            </ul>
-          </div>
-          
-          <div>
-            <h4 className="font-bold mb-4">Resources</h4>
-            <ul className="space-y-2">
-              <li><a href="#" className="text-gray-400 hover:text-white transition">Sublease Guide</a></li>
-              <li><a href="#" className="text-gray-400 hover:text-white transition">Neighborhoods</a></li>
-              <li><a href="#" className="text-gray-400 hover:text-white transition">Campus Map</a></li>
-              <li><a href="#" className="text-gray-400 hover:text-white transition">Blog</a></li>
-            </ul>
-          </div>
-          
-          <div>
-            <h4 className="font-bold mb-4">Contact</h4>
-            <ul className="space-y-2">
-              <li><a href="#" className="text-gray-400 hover:text-white transition">Help Center</a></li>
-              <li><a href="#" className="text-gray-400 hover:text-white transition">Email Us</a></li>
-              <li><a href="#" className="text-gray-400 hover:text-white transition">Terms of Service</a></li>
-              <li><a href="#" className="text-gray-400 hover:text-white transition">Privacy Policy</a></li>
-            </ul>
-          </div>
-        </div>
-        
-        <div className="mt-8 pt-8 border-t border-gray-700 text-gray-400 text-sm text-center">
-          <p>&copy; 2025 CampusSubleases. All rights reserved.</p>
-        </div>
-      </div>
-    </footer>
-  );
 
   // =========================
   // Main Render
@@ -3935,7 +3147,7 @@ const renderCommuteInfo = (listing) => {
                 </div>
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {savedSearches.map((search, index) => (
+                  {savedSearches.map((search) => (
                     <div 
                       key={search.id}
                       className="group bg-gray-50 rounded-lg p-4 hover:shadow-md transition-all duration-200 border border-gray-200 hover:border-orange-300 relative"

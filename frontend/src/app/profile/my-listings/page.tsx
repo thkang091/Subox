@@ -514,16 +514,22 @@ const MyListings = () => {
           console.error('Error during cleanup:', error);
         }
       };
+      
+    if (user?.uid && listings.length > 0) {
+      const interval = setInterval(cleanupExpiredLists, 60 * 60 * 1000); // 1 hour
+      return () => clearInterval(interval);
+    }
 
-      // NEW: Run cleanup after fetching items
-      setTimeout(() => cleanupExpiredLists(), 1000);
+    // NEW: Run cleanup after fetching items
+    setTimeout(() => cleanupExpiredLists(), 1000);
     } catch (error) {
       console.error('Error fetching listings:', error);
       setError('Failed to load listings');
     } finally {
       setLoading(false);
     }
-  }, [user?.uid]);
+
+  }, [user?.uid, listings]);
 
   // Effects
   useEffect(() => {
@@ -533,14 +539,6 @@ const MyListings = () => {
       setLoading(false);
     }
   }, [user, authLoading, fetchListings]);
-
-  // NEW: Set up periodic cleanup (check every hour)
-  useEffect(() => {
-    if (user?.uid && listings.length > 0) {
-      const interval = setInterval(cleanupExpiredLists, 60 * 60 * 1000); // 1 hour
-      return () => clearInterval(interval);
-    }
-  }, [user, listings, cleanupExpiredLists]);
 
   // Render states
   if (authLoading || loading) {

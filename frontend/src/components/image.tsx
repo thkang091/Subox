@@ -1,13 +1,11 @@
 // Real Photo Detection Component
 // Use this component to display your actual photo with precise bounding boxes
 
-import { useState } from "react";
 import { motion } from "framer-motion";
 import { Brain } from "lucide-react";
+import Image from "next/image";
 
-const RealPhotoDetection = () => {
-  const [imageLoaded, setImageLoaded] = useState(false);
-  
+const RealPhotoDetection = () => {  
   // Your actual detected items with accurate positioning based on the real photo
   const detectedItems = [
     { 
@@ -66,11 +64,10 @@ const RealPhotoDetection = () => {
         {/* Container for your actual photo */}
         <div className="relative aspect-square rounded-lg overflow-hidden border border-gray-300">
           
-          <img 
+          <Image 
   src="/Picture.png" 
   alt="Furniture detection"
   className="w-full h-full object-cover"
-  onLoad={() => setImageLoaded(true)}
 />
 
           {/* Accurate detection boxes positioned for your real photo */}
@@ -161,7 +158,7 @@ const RealPhotoDetection = () => {
         <div className="text-sm font-medium text-blue-900 mb-2">📋 Implementation Steps:</div>
         <ol className="text-xs text-blue-800 space-y-1 list-decimal list-inside">
           <li>Save your Picture.png to the <code>/public</code> directory</li>
-          <li>Replace the placeholder div with: <code>&lt;img src="/Picture.png" /&gt;</code></li>
+          <li>Replace the placeholder div with: <code>&lt;img src=&quot;/Picture.png&quot; /&gt;</code></li>
           <li>The bounding boxes are already positioned correctly</li>
           <li>Adjust percentages in the <code>position</code> object if needed</li>
         </ol>

@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
-import { Search, MapPin, X, Navigation, Home, Building, Coffee, ShoppingBag, Map, Users, AlertCircle, ChevronRight } from 'lucide-react';
+import { useEffect, useRef, useState, useCallback } from 'react';
+import { Search, MapPin, X, Navigation, Home, Building, Map, AlertCircle } from 'lucide-react';
 
 interface SearchLocationPickerProps {
   onLocationSelect: (location: { 
@@ -65,7 +65,6 @@ const extractCityFromAddress = (address) => {
 export default function SearchLocationPicker({ 
   onLocationSelect, 
   initialValue,
-  customLocationsData = []
 }: SearchLocationPickerProps) {
   // State management
   const [searchQuery, setSearchQuery] = useState(initialValue || '');
@@ -73,7 +72,7 @@ export default function SearchLocationPicker({
   const [isSearching, setIsSearching] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [isGettingCurrentLocation, setIsGettingCurrentLocation] = useState(false);
-  const [selectedLocation, setSelectedLocation] = useState<any>(null);
+  const [selectedLocation, setSelectedLocation] = useState(null);
   const [locationError, setLocationError] = useState<string | null>(null);
   const [isGoogleMapsReady, setIsGoogleMapsReady] = useState(false);
   const [mapsError, setMapsError] = useState<string | null>(null);
@@ -89,12 +88,22 @@ export default function SearchLocationPicker({
   const markerInstance = useRef<google.maps.Marker | null>(null);
   const searchTimeout = useRef<NodeJS.Timeout>();
 
-  // Initialize Google Maps
-  useEffect(() => {
-    loadGoogleMaps();
-  }, []);
+  const initializeServices = useCallback(() => {
+    if (window.google && window.google.maps && window.google.maps.places) {
+      try {
+        autocompleteService.current = new window.google.maps.places.AutocompleteService();
+        const div = document.createElement('div');
+        placesService.current = new window.google.maps.places.PlacesService(div);
+        setIsGoogleMapsReady(true);
+        setMapsError(null);
+      } catch (error) {
+        console.error('Error initializing Google Maps services:', error);
+        setMapsError('Error initializing Google Maps');
+      }
+    }
+  },[]);
 
-  const loadGoogleMaps = async () => {
+  const loadGoogleMaps = useCallback(async () => {
     const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
     
     if (!apiKey) {
@@ -122,22 +131,15 @@ export default function SearchLocationPicker({
     script.onerror = () => setMapsError('Failed to load Google Maps');
     
     document.head.appendChild(script);
-  };
+  },[initializeServices]);
 
-  const initializeServices = () => {
-    if (window.google && window.google.maps && window.google.maps.places) {
-      try {
-        autocompleteService.current = new window.google.maps.places.AutocompleteService();
-        const div = document.createElement('div');
-        placesService.current = new window.google.maps.places.PlacesService(div);
-        setIsGoogleMapsReady(true);
-        setMapsError(null);
-      } catch (error) {
-        console.error('Error initializing Google Maps services:', error);
-        setMapsError('Error initializing Google Maps');
-      }
-    }
-  };
+  // Initialize Google Maps
+  useEffect(() => {
+    loadGoogleMaps();
+  }, [loadGoogleMaps]);
+
+
+
 
   // Search functions
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -314,18 +316,9 @@ const selectPlace = (suggestion: PlaceSuggestion) => {
   });
 };;
 
-  const isSpecificAddress = (types: string[], formattedAddress: string): boolean => {
-    // Check if it's a specific address
-    const hasStreetNumber = formattedAddress.match(/^\d+/);
-    const isEstablishment = types.includes('establishment');
-    const isPremise = types.includes('premise');
-    const isStreetAddress = types.includes('street_address');
-    
-    return hasStreetNumber || isEstablishment || isPremise || isStreetAddress;
-  };
 
   const parseAddressComponents = (components: google.maps.GeocoderAddressComponent[]) => {
-    const addressInfo: any = {};
+    const addressInfo = {};
     
     components.forEach(component => {
       const types = component.types;
@@ -344,7 +337,7 @@ const selectPlace = (suggestion: PlaceSuggestion) => {
     return addressInfo;
   };
 
-  const handleLocationSelection = (displayAddress: string, locationData: any) => {
+  const handleLocationSelection = (displayAddress: string, locationData) => {
     setSearchQuery(displayAddress);
     setSelectedLocation(locationData);
     setSuggestions([]);
@@ -429,6 +422,7 @@ const selectPlace = (suggestion: PlaceSuggestion) => {
     (error) => {
       setIsGettingCurrentLocation(false);
       setLocationError('Could not get your current location');
+      console.error('Error occured!', error);
     }
   );
 };

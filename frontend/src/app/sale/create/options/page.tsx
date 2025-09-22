@@ -3,10 +3,10 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import { 
   ArrowLeft, 
   Camera, 
-  Image, 
   Brain, 
   Zap, 
   Sparkles, 
@@ -335,7 +335,7 @@ export default function MoveOutSaleNavigation() {
               </div>
               
               <div className="text-xs text-gray-700 leading-relaxed">
-                "🤖 AI-detected Wooden Desk in good condition - $85, pickup only! Perfect for students and anyone looking for quality furniture."
+                &quot;🤖 AI-detected Wooden Desk in good condition - $85, pickup only! Perfect for students and anyone looking for quality furniture.&quot;
               </div>
               
               <div className="flex items-center space-x-2 mt-2">
@@ -375,7 +375,13 @@ export default function MoveOutSaleNavigation() {
                 >
                   {photoIndex <= traditionalItemIndex ? (
                     <div className="w-full h-full flex items-center justify-center">
-                      <Image size={16} className="text-orange-500" />
+                      <Image
+                        src="/icons/image.svg"
+                        alt="Image icon"
+                        width={16}
+                        height={16}
+                        className="text-orange-500"
+                      />
                     </div>
                   ) : (
                     <div className="w-full h-full flex items-center justify-center">
@@ -666,7 +672,13 @@ export default function MoveOutSaleNavigation() {
                     ? 'bg-orange-600 shadow-lg transform scale-110' 
                     : 'bg-orange-500'
                 }`}>
-                  <Image size={28} className="text-white" />
+                    <Image
+                      src="/icons/image.svg"
+                      alt="Image icon"
+                      width={28}
+                      height={28}
+                      className="text-white"
+                    />
                 </div>
                 
                 <h3 className="text-2xl font-bold text-gray-900 mb-2">📸 Traditional Listing</h3>
@@ -788,7 +800,15 @@ export default function MoveOutSaleNavigation() {
                   <div className={`w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-3 ${
                     selectedOption === "ai" ? 'bg-gradient-to-r from-purple-600 to-blue-600' : 'bg-orange-600'
                   }`}>
-                    {selectedOption === "ai" ? <Brain size={24} className="text-white" /> : <Image size={24} className="text-white" />}
+                    {selectedOption === "ai" ? <Brain size={24} className="text-white" /> : 
+                      <Image
+                        src="/icons/image.svg"
+                        alt="Image icon"
+                        width={24}
+                        height={24}
+                        className="text-white"
+                      />
+                    }
                   </div>
                   <h3 className={`text-lg font-bold ${
                     selectedOption === "ai" ? 'text-purple-900' : 'text-orange-900'
@@ -833,7 +853,13 @@ export default function MoveOutSaleNavigation() {
                       {selectedOption === "ai" ? (
                         <Camera size={20} className="mr-2" />
                       ) : (
-                        <Image size={20} className="mr-2" />
+                        <Image
+                          src="/icons/image.svg"
+                          alt="Image icon"
+                          width={20}
+                          height={20}
+                          className="mr-2"
+                        />
                       )}
                     </motion.div>
                     {selectedOption === "ai" ? "Start AI Photo Detection" : "Start Photo Upload"}

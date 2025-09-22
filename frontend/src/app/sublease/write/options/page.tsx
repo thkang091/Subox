@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { ArrowLeft, MessageSquare, Edit3, Camera, Clock, Zap, CheckCircle, User, LogOut } from "lucide-react";
+import { ArrowLeft, MessageSquare, Edit3, Clock, Zap, CheckCircle, User, LogOut } from "lucide-react";
 import { AuthProvider, useAuth } from '../../../contexts/AuthInfo';
 
 
@@ -220,7 +220,7 @@ function SubleaseOptionsContent() {
             Create Your Sublease Listing
           </h1>
           <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-            Welcome back, {getUserDisplayName()}! Choose how you'd like to create your listing.
+            Welcome back, {getUserDisplayName()}! Choose how you&apos;d like to create your listing.
           </p>
         </motion.div>
         
@@ -279,7 +279,7 @@ function SubleaseOptionsContent() {
               <p className={`text-base leading-relaxed mb-6 ${
                 selectedOption === "chat" ? "text-blue-100" : "text-gray-600"
               }`}>
-                Text back and forth just like messaging a friend. We'll ask simple questions and you tap your answers.
+                Text back and forth just like messaging a friend. We&apos;ll ask simple questions and you tap your answers.
               </p>
               
               <div className="space-y-3 mb-8">
@@ -387,17 +387,17 @@ function SubleaseOptionsContent() {
               </div>
               
               <h3 className="text-2xl font-bold mb-4 text-gray-900">
-                Write & We'll Fix It
+                Write & We&apos;ll Fix It
               </h3>
               
               <p className="text-base leading-relaxed mb-6 text-gray-600">
-                Just dump everything in a text box - typos, different languages, whatever! We'll clean it up and ask for missing details through iMessage-style chat.
+                Just dump everything in a text box - typos, different languages, whatever! We&apos;ll clean it up and ask for missing details through iMessage-style chat.
               </p>
               
               <div className="space-y-3 mb-8">
                 <div className="p-4 rounded-xl border-2 border-dashed border-gray-200 bg-gray-50">
                   <span className="text-sm italic text-gray-600">
-                    "apartamento 2 cuartos cerca universidad. tiene muebles. disponible enero-mayo. $1200/mes incluye utilidades..."
+                    &quot;apartamento 2 cuartos cerca universidad. tiene muebles. disponible enero-mayo. $1200/mes incluye utilidades...&quot;
                   </span>
                 </div>
                 
@@ -438,7 +438,7 @@ function SubleaseOptionsContent() {
           className="mt-16 max-w-4xl mx-auto"
         >
           <div className="bg-gradient-to-r from-green-500 to-green-600 rounded-2xl p-8 text-white text-center">
-            <h3 className="text-2xl font-bold mb-4">You're Ready to Create!</h3>
+            <h3 className="text-2xl font-bold mb-4">You&apos;re Ready to Create!</h3>
             <p className="text-green-100 mb-6">
               Your account is verified and ready. Choose the chat-style option above to get started with your sublease listing.
             </p>

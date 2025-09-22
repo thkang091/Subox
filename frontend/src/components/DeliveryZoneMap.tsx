@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { Search, MapPin, Navigation, Truck, Check, X, AlertCircle } from 'lucide-react';
 
 interface DeliveryZoneMapProps {
@@ -75,7 +75,6 @@ export default function DeliveryZoneMap({
   } | null>(null);
   const [isGoogleMapsReady, setIsGoogleMapsReady] = useState(false);
   const [mapsError, setMapsError] = useState<string | null>(null);
-  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
   
   // Refs
   const mapRef = useRef<HTMLDivElement>(null);
@@ -86,82 +85,16 @@ export default function DeliveryZoneMap({
   const autocompleteService = useRef<google.maps.places.AutocompleteService | null>(null);
   const placesService = useRef<google.maps.places.PlacesService | null>(null);
   const searchTimeout = useRef<NodeJS.Timeout>();
-  
-  // Load Google Maps
-  useEffect(() => {
-    loadGoogleMaps();
-  }, []);
-  
-  const loadGoogleMaps = async () => {
-    const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
-    
-    if (!apiKey) {
-      setMapsError('Google Maps API key not configured');
-      return;
-    }
 
-    if (isGoogleMapsLoaded()) {
-      initializeServices();
-      return;
-    }
-
-    if (isGoogleMapsLoading && googleMapsLoadPromise) {
-      try {
-        await googleMapsLoadPromise;
-        initializeServices();
-      } catch (error) {
-        setMapsError('Failed to load Google Maps');
-      }
-      return;
-    }
-
-    isGoogleMapsLoading = true;
-    googleMapsLoadPromise = new Promise((resolve, reject) => {
-      const script = document.createElement('script');
-      script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places,geometry&v=beta`;
-      script.async = true;
-      script.defer = true;
-      
-      script.onload = () => {
-        isGoogleMapsLoading = false;
-        // Wait a bit for all libraries to be fully loaded
-        setTimeout(() => {
-          if (isGoogleMapsLoaded()) {
-            initializeServices();
-            resolve();
-          } else {
-            setMapsError('Google Maps geometry library failed to load');
-            reject(new Error('Google Maps geometry library failed to load'));
-          }
-        }, 100);
-      };
-      
-      script.onerror = () => {
-        isGoogleMapsLoading = false;
-        setMapsError('Failed to load Google Maps');
-        reject(new Error('Failed to load Google Maps'));
-      };
-      
-      document.head.appendChild(script);
-    });
-
-    try {
-      await googleMapsLoadPromise;
-    } catch (error) {
-      console.error('Error loading Google Maps:', error);
-    }
-  };
-
-  // Helper function to check if Google Maps is fully loaded
-  const isGoogleMapsLoaded = () => {
+  const isGoogleMapsLoaded = useCallback(() => {
     return window.google && 
            window.google.maps && 
            window.google.maps.places && 
            window.google.maps.geometry &&
            window.google.maps.geometry.spherical;
-  };
+  },[]); 
 
-  const initializeServices = () => {
+  const initializeServices = useCallback(() => {
     if (isGoogleMapsLoaded()) {
       try {
         autocompleteService.current = new window.google.maps.places.AutocompleteService();
@@ -171,72 +104,18 @@ export default function DeliveryZoneMap({
         setMapsError(null);
       } catch (error) {
         setMapsError('Error initializing Google Maps services');
+        console.error('Error occured!', error);
         setIsGoogleMapsReady(true);
       }
     } else {
       setMapsError('Google Maps libraries not fully loaded');
     }
-  };
+  },[isGoogleMapsLoaded]);
 
-  // Initialize map when Google Maps is ready
-  useEffect(() => {
-    if (isGoogleMapsReady && mapRef.current && isGoogleMapsLoaded()) {
-      initializeMap();
-    }
-  }, [isGoogleMapsReady, deliveryZone, pickupLocations, selectedMode]);
+  // Helper function to check if Google Maps is fully loaded
 
-  // Update selectedMode when mode prop changes
-  useEffect(() => {
-    if (mode !== 'both') {
-      setSelectedMode(mode);
-    }
-  }, [mode]);
 
-  const initializeMap = () => {
-    if (!mapRef.current || !isGoogleMapsLoaded()) return;
-
-    // Determine map center
-    let center = { lat: 44.9778, lng: -93.2650 }; // Minneapolis default
-    if (selectedMode === 'delivery' && deliveryZone) {
-      center = deliveryZone.center;
-    } else if (selectedMode === 'pickup' && pickupLocations.length > 0) {
-      center = pickupLocations[0];
-    } else if (deliveryZone) {
-      center = deliveryZone.center;
-    } else if (pickupLocations.length > 0) {
-      center = pickupLocations[0];
-    }
-
-    // Create map
-    const map = new window.google.maps.Map(mapRef.current, {
-      center,
-      zoom: 14,
-      mapTypeControl: false,
-      streetViewControl: false,
-      fullscreenControl: true,
-      styles: [
-        {
-          featureType: "poi",
-          elementType: "labels",
-          stylers: [{ visibility: "off" }]
-        }
-      ]
-    });
-
-    mapInstance.current = map;
-    
-    // Clear existing markers
-    clearMarkers();
-    
-    // Add appropriate elements based on mode
-    if (selectedMode === 'delivery' && deliveryZone) {
-      createDeliveryZone();
-    } else if (selectedMode === 'pickup' && pickupLocations.length > 0) {
-      createPickupMarkers();
-    }
-  };
-
-  const createDeliveryZone = () => {
+  const createDeliveryZone = useCallback(() => {
     console.log('createDeliveryZone called:', { 
       hasMapInstance: !!mapInstance.current, 
       hasDeliveryZone: !!deliveryZone,
@@ -297,9 +176,9 @@ export default function DeliveryZoneMap({
         window.google.maps.event.removeListener(listener);
       });
     }
-  };
+  },[deliveryZone, isGoogleMapsLoaded]);
 
-  const createPickupMarkers = () => {
+  const createPickupMarkers = useCallback(() => {
     if (!mapInstance.current || pickupLocations.length === 0 || !isGoogleMapsLoaded()) return;
 
     const map = mapInstance.current;
@@ -344,7 +223,7 @@ export default function DeliveryZoneMap({
       });
       map.fitBounds(bounds);
     }
-  };
+  },[isGoogleMapsLoaded, pickupLocations]);
 
   const clearMarkers = () => {
     markersRef.current.forEach(marker => marker.setMap(null));
@@ -360,6 +239,135 @@ export default function DeliveryZoneMap({
       userMarkerRef.current = null;
     }
   };
+
+  const loadGoogleMaps = useCallback(async () => {
+    const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+    
+    if (!apiKey) {
+      setMapsError('Google Maps API key not configured');
+      return;
+    }
+
+    if (isGoogleMapsLoaded()) {
+      initializeServices();
+      return;
+    }
+
+    if (isGoogleMapsLoading && googleMapsLoadPromise) {
+      try {
+        await googleMapsLoadPromise;
+        initializeServices();
+      } catch (error) {
+        setMapsError('Failed to load Google Maps');
+        console.error("Error occured!", error);
+      }
+      return;
+    }
+
+    isGoogleMapsLoading = true;
+    googleMapsLoadPromise = new Promise((resolve, reject) => {
+      const script = document.createElement('script');
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places,geometry&v=beta`;
+      script.async = true;
+      script.defer = true;
+      
+      script.onload = () => {
+        isGoogleMapsLoading = false;
+        // Wait a bit for all libraries to be fully loaded
+        setTimeout(() => {
+          if (isGoogleMapsLoaded()) {
+            initializeServices();
+            resolve();
+          } else {
+            setMapsError('Google Maps geometry library failed to load');
+            reject(new Error('Google Maps geometry library failed to load'));
+          }
+        }, 100);
+      };
+      
+      script.onerror = () => {
+        isGoogleMapsLoading = false;
+        setMapsError('Failed to load Google Maps');
+        reject(new Error('Failed to load Google Maps'));
+      };
+      
+      document.head.appendChild(script);
+    });
+
+    try {
+      await googleMapsLoadPromise;
+    } catch (error) {
+      console.error('Error loading Google Maps:', error);
+    }
+  },[initializeServices, isGoogleMapsLoaded]);
+
+  // Load Google Maps
+  useEffect(() => {
+    loadGoogleMaps();
+  }, [loadGoogleMaps]);
+  
+
+
+
+  const initializeMap = useCallback(() => {
+    if (!mapRef.current || !isGoogleMapsLoaded()) return;
+
+    // Determine map center
+    let center = { lat: 44.9778, lng: -93.2650 }; // Minneapolis default
+    if (selectedMode === 'delivery' && deliveryZone) {
+      center = deliveryZone.center;
+    } else if (selectedMode === 'pickup' && pickupLocations.length > 0) {
+      center = pickupLocations[0];
+    } else if (deliveryZone) {
+      center = deliveryZone.center;
+    } else if (pickupLocations.length > 0) {
+      center = pickupLocations[0];
+    }
+
+    // Create map
+    const map = new window.google.maps.Map(mapRef.current, {
+      center,
+      zoom: 14,
+      mapTypeControl: false,
+      streetViewControl: false,
+      fullscreenControl: true,
+      styles: [
+        {
+          featureType: "poi",
+          elementType: "labels",
+          stylers: [{ visibility: "off" }]
+        }
+      ]
+    });
+
+    mapInstance.current = map;
+    
+    // Clear existing markers
+    clearMarkers();
+    
+    // Add appropriate elements based on mode
+    if (selectedMode === 'delivery' && deliveryZone) {
+      createDeliveryZone();
+    } else if (selectedMode === 'pickup' && pickupLocations.length > 0) {
+      createPickupMarkers();
+    }
+  },[isGoogleMapsLoaded, createDeliveryZone, createPickupMarkers, deliveryZone, pickupLocations, selectedMode]);
+
+  // Initialize map when Google Maps is ready
+  useEffect(() => {
+    if (isGoogleMapsReady && mapRef.current && isGoogleMapsLoaded()) {
+      initializeMap();
+    }
+  }, [isGoogleMapsReady, deliveryZone, pickupLocations, selectedMode, initializeMap, isGoogleMapsLoaded]);
+
+  // Update selectedMode when mode prop changes
+  useEffect(() => {
+    if (mode !== 'both') {
+      setSelectedMode(mode);
+    }
+  }, [mode]);
+
+
 
   // Haversine formula fallback for distance calculation
   const calculateDistance = (lat1: number, lng1: number, lat2: number, lng2: number): number => {
@@ -433,7 +441,6 @@ export default function DeliveryZoneMap({
         };
         
         setSearchQuery(place.formatted_address || suggestion.description);
-        setUserLocation(location);
         setSuggestions([]);
         setShowSuggestions(false);
         
@@ -573,9 +580,7 @@ export default function DeliveryZoneMap({
           lat: position.coords.latitude,
           lng: position.coords.longitude
         };
-        
-        setUserLocation(location);
-        
+                
         if (isGoogleMapsLoaded()) {
           const geocoder = new window.google.maps.Geocoder();
           geocoder.geocode({ location }, (results, status) => {
@@ -725,7 +730,7 @@ export default function DeliveryZoneMap({
             ) : (
               <div className="p-3 bg-yellow-50 border border-yellow-200 rounded">
                 <p className="font-medium text-yellow-800">Delivery zone information not available</p>
-                <p className="text-yellow-700">This item shows as delivery available but doesn't have zone data configured.</p>
+                <p className="text-yellow-700">This item shows as delivery available but doesn&apos;t have zone data configured.</p>
               </div>
             )}
           </div>
@@ -736,7 +741,7 @@ export default function DeliveryZoneMap({
                 <p>• Orange markers show exact pickup locations</p>
                 <p>• Click on any marker for location details</p>
                 <p>• <strong>You must be at one of these exact locations to pickup</strong></p>
-                <p>• Search your address to check if you're at a pickup location</p>
+                <p>• Search your address to check if you&apos;re at a pickup location</p>
                 <p>• Total pickup locations: {pickupLocations.length}</p>
                 <div className="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded text-xs">
                   <strong>Note:</strong> Pickup is only available at the marked locations. You must be within 100m of a pickup marker.
@@ -745,7 +750,7 @@ export default function DeliveryZoneMap({
             ) : (
               <div className="p-3 bg-yellow-50 border border-yellow-200 rounded">
                 <p className="font-medium text-yellow-800">Pickup locations not configured</p>
-                <p className="text-yellow-700">This item shows as pickup available but doesn't have specific pickup locations set up.</p>
+                <p className="text-yellow-700">This item shows as pickup available but doesn&apos;t have specific pickup locations set up.</p>
               </div>
             )}
           </div>

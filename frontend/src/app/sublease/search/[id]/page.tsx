@@ -1,22 +1,24 @@
 "use client"
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useParams } from 'next/navigation';
 import { motion, AnimatePresence } from "framer-motion";
 import Script from "next/script"; // Add this import
 import { 
   Calendar, ChevronLeft, ChevronRight, MapPin, Users, Home, 
-  Search, X, Bookmark, Star, Wifi, Droplets, Sparkles, 
-  Filter, BedDouble, DollarSign, LogIn, Heart, User, Plus,
-  ArrowLeft, ArrowRight,Video, MessageCircle, Package, Bell, AlertCircle, Menu, MessagesSquare, Info,
-  Expand, Eye, EyeOff, Navigation, Check, Volume2,CalendarCheck,Zap,Cigarette, BookOpen, Thermometer, Utensils, Dumbbell, Trees,
+  X, Star, Wifi, Droplets, 
+  BedDouble, DollarSign, Heart, User, Plus,
+  ArrowLeft, ArrowRight,Video, MessageCircle, Package, Bell, Menu, MessagesSquare, Info,
+  Check, Volume2,CalendarCheck,Zap, BookOpen, Thermometer, Utensils, Dumbbell, Trees,
   Building, Flame, ArrowUp, Shield, Accessibility, Sofa, Gamepad2, Play, Trash2
 } from 'lucide-react';
-import { doc, getDoc, addDoc, deleteDoc, updateDoc, collection, query, where, getDocs, serverTimestamp, increment, orderBy } from 'firebase/firestore';import { db } from '@/lib/firebase';
+import { doc, getDoc, addDoc, deleteDoc, updateDoc, collection, query, where, getDocs, serverTimestamp, orderBy } from 'firebase/firestore';import { db } from '@/lib/firebase';
 import { useAuth } from '@/app/contexts/AuthInfo';
 import { featuredListings } from '../../../../data/listings';
 import Badges from '@/data/badge';
+import { useNotifications } from '@/data/notificationlistings';
+import Image from 'next/image';
 
 
 
@@ -34,7 +36,7 @@ const getGenderInfo = (preferredGender) => {
 };
 // Updated NeighborhoodDetectorWrapper with better error handling
 const NeighborhoodDetectorWrapper = ({ listing, onNeighborhoodDetected }: { 
-  listing: any, 
+  listing, 
   onNeighborhoodDetected: (neighborhood: string) => void 
 }) => {
   const [coordinates, setCoordinates] = useState<{lat: number, lng: number} | null>(null);
@@ -94,6 +96,54 @@ const NeighborhoodDetectorWrapper = ({ listing, onNeighborhoodDetected }: {
     loadGoogleMaps();
   }, []);
 
+  const performPlacesSearch = useCallback((neighborhood: string) => {
+    try {
+      const mapDiv = document.createElement('div');
+      const map = new window.google.maps.Map(mapDiv, {
+        center: { lat: 44.9778, lng: -93.2650 },
+        zoom: 13
+      });
+
+      const service = new window.google.maps.places.PlacesService(map);
+      
+      const request = {
+        query: `${neighborhood}, Minneapolis, MN`,
+        fields: ['name', 'geometry', 'place_id', 'formatted_address']
+      };
+
+      service.textSearch(request, (results, status) => {
+        setIsSearching(false);
+        
+        if (status === window.google.maps.places.PlacesServiceStatus.OK && results && results[0]) {
+          const place = results[0];
+          const location = place.geometry?.location;
+          
+          if (location) {
+            const coords = {
+              lat: location.lat(),
+              lng: location.lng()
+            };
+            
+            setCoordinates(coords);
+          }
+        }
+      });
+    } catch (error) {
+      setIsSearching(false);
+      console.error('Error occured!', error);
+    }
+  },[]);
+
+
+  const searchForNeighborhood = useCallback((neighborhood: string) => {
+    if (!googleMapsLoaded || !window.google?.maps?.places?.PlacesService) {
+      return;
+    }
+
+    setIsSearching(true);
+    performPlacesSearch(neighborhood);
+  },[performPlacesSearch, googleMapsLoaded]);
+
   useEffect(() => {
     const processListingLocation = () => {
       if (!listing) return;
@@ -149,53 +199,9 @@ const NeighborhoodDetectorWrapper = ({ listing, onNeighborhoodDetected }: {
     };
 
     processListingLocation();
-  }, [listing, googleMapsLoaded]);
+  }, [listing, googleMapsLoaded, onNeighborhoodDetected, searchForNeighborhood]);
 
-  const searchForNeighborhood = (neighborhood: string) => {
-    if (!googleMapsLoaded || !window.google?.maps?.places?.PlacesService) {
-      return;
-    }
 
-    setIsSearching(true);
-    performPlacesSearch(neighborhood);
-  };
-
-  const performPlacesSearch = (neighborhood: string) => {
-    try {
-      const mapDiv = document.createElement('div');
-      const map = new window.google.maps.Map(mapDiv, {
-        center: { lat: 44.9778, lng: -93.2650 },
-        zoom: 13
-      });
-
-      const service = new window.google.maps.places.PlacesService(map);
-      
-      const request = {
-        query: `${neighborhood}, Minneapolis, MN`,
-        fields: ['name', 'geometry', 'place_id', 'formatted_address']
-      };
-
-      service.textSearch(request, (results, status) => {
-        setIsSearching(false);
-        
-        if (status === window.google.maps.places.PlacesServiceStatus.OK && results && results[0]) {
-          const place = results[0];
-          const location = place.geometry?.location;
-          
-          if (location) {
-            const coords = {
-              lat: location.lat(),
-              lng: location.lng()
-            };
-            
-            setCoordinates(coords);
-          }
-        }
-      });
-    } catch (error) {
-      setIsSearching(false);
-    }
-  };
 
   // Create map when coordinates are available and Google Maps is loaded
   useEffect(() => {
@@ -242,7 +248,7 @@ const NeighborhoodDetectorWrapper = ({ listing, onNeighborhoodDetected }: {
 
       setMapInstance(map);
     } catch (error) {
-      // Silent error handling
+      console.error("Error occured!", error);
     }
   }, [coordinates, locationName, mapInstance, googleMapsLoaded]);
 
@@ -342,7 +348,6 @@ const [hostData, setHostData] = useState({
   reviewsGivenCount: 0
 });  
   // ALL useState hooks first
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [activeImage, setActiveImage] = useState(0);
   const [isCreatingConversation, setIsCreatingConversation] = useState(false);
   const [showAllImages, setShowAllImages] = useState(false);
@@ -356,14 +361,10 @@ const [hostData, setHostData] = useState({
   const [newReviewRating, setNewReviewRating] = useState(5);
   const [newReviewComment, setNewReviewComment] = useState('');
   const [hostReviews, setHostReviews] = useState([]);
-  const [showProfile, setShowProfile] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
   
   // Calendar-related state variables
-  const [showAvailabilityCalendar, setShowAvailabilityCalendar] = useState(false);
   const [unavailableDates, setUnavailableDates] = useState([]);
-  const [selectedDateRanges, setSelectedDateRanges] = useState([]);
   const [isSelectingRange, setIsSelectingRange] = useState(false);
   const [rangeStart, setRangeStart] = useState(null);
   const [currentMonth, setCurrentMonth] = useState(null); // Add this line
@@ -447,7 +448,7 @@ const [hostData, setHostData] = useState({
           const firestoreData = docSnap.data();
           
           // Helper function for date conversion
-          const convertFirestoreDate = (dateValue: any) => {
+          const convertFirestoreDate = (dateValue) => {
             if (!dateValue) return new Date();
             if (dateValue.toDate && typeof dateValue.toDate === 'function') {
               return dateValue.toDate();
@@ -551,12 +552,61 @@ totalReviews: Number(firestoreData.totalReviews || firestoreData.reviewStats?.to
     fetchListing();
   }, [id]);
 
+const fetchHostReviews = useCallback(async () => {
+  if (!listing?.hostId) return;
+
+  try {
+    const reviewsQuery = query(
+      collection(db, 'reviews'),
+      where('revieweeId', '==', listing.hostId),
+      orderBy('createdAt', 'desc')
+    );
+    
+    const reviewsSnapshot = await getDocs(reviewsQuery);
+    const reviews = reviewsSnapshot.docs.map(doc => {
+      const data = doc.data();
+      return {
+        id: doc.id,
+        reviewerId: data.reviewerId,
+        name: data.reviewerName,
+        date: data.createdAt?.toDate().toLocaleDateString('en-US', {
+          year: 'numeric',
+          month: 'long'
+        }) || 'Recent',
+        comment: data.comment,
+        rating: data.rating,
+        isEdited: data.isEdited || false 
+      };
+    });
+    
+    setHostReviews(reviews);
+  } catch (error) {
+    console.error('Error fetching reviews:', error);
+  }
+},[listing?.hostId]);
+
   // Host reviews effect
 useEffect(() => {
   if (listing?.hostId) {
     fetchHostReviews();
   }
-}, [listing?.hostId]);
+}, [listing?.hostId, fetchHostReviews]);
+
+  // all image array
+  const allImages = [
+    listing.image,
+    ...(Array.isArray(listing.additionalImages) ? listing.additionalImages : [])
+  ].filter(Boolean);
+
+  // go to previous image
+  const goToPrevImage = useCallback(() => {
+    setActiveImage((prev) => (prev === 0 ? allImages.length - 1 : prev - 1));
+  },[allImages]);
+  
+  // go to next image
+  const goToNextImage = useCallback(() => {
+    setActiveImage((prev) => (prev === allImages.length - 1 ? 0 : prev + 1));
+  },[allImages]);
 
   // Keyboard navigation effect
   useEffect(() => {
@@ -576,17 +626,9 @@ useEffect(() => {
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [showAllImages]);
+  }, [showAllImages, goToNextImage, goToPrevImage]);
 
-  // Fetch unavailable dates effect
-  useEffect(() => {
-    if (listing?.id && listing?.partialDatesOk) {
-      fetchUnavailableDates();
-    }
-  }, [listing?.id, listing?.partialDatesOk]);
-
-  // Calendar functions
-  const fetchUnavailableDates = async () => {
+  const fetchUnavailableDates = useCallback(async () => {
     if (!listing?.id) return;
     
     try {
@@ -601,7 +643,15 @@ useEffect(() => {
     } catch (error) {
       console.error('Error fetching unavailable dates:', error);
     }
-  };
+  },[listing?.id]);
+
+  // Fetch unavailable dates effect
+  useEffect(() => {
+    if (listing?.id && listing?.partialDatesOk) {
+      fetchUnavailableDates();
+    }
+  }, [listing?.id, listing?.partialDatesOk, fetchUnavailableDates]);
+
 
   const saveUnavailableDates = async (dates) => {
     if (!listing?.id) return;
@@ -643,9 +693,6 @@ useEffect(() => {
     return date.toISOString().split('T')[0];
   };
 
-  const parseDate = (dateString) => {
-    return new Date(dateString + 'T00:00:00');
-  };
 
   const isDateUnavailable = (date) => {
     const dateString = formatDateString(date);
@@ -886,6 +933,8 @@ const AvailabilityCalendar = () => {
   );
 };
 
+const [notifications] = useNotifications();
+
   useEffect(() => {
   if (listing?.availableFrom && !currentMonth) {
     const availableFrom = listing.availableFrom.toDate ? listing.availableFrom.toDate() : new Date(listing.availableFrom);
@@ -943,87 +992,10 @@ const AvailabilityCalendar = () => {
     setDetectedNeighborhood(neighborhood);
   };
 
-  const getListingCoordinates = () => {
-    // Try different possible coordinate sources from your listing data
-    
-    // Direct coordinates object
-    if (listing?.coordinates?.lat && listing?.coordinates?.lng) {
-      return {
-        lat: listing.coordinates.lat,
-        lng: listing.coordinates.lng
-      };
-    }
-    
-    // Separate lat/lng fields
-    if (listing?.lat && listing?.lng) {
-      return {
-        lat: listing.lat,
-        lng: listing.lng
-      };
-    }
-    
-    // Latitude/longitude fields
-    if (listing?.latitude && listing?.longitude) {
-      return {
-        lat: listing.latitude,
-        lng: listing.longitude
-      };
-    }
-    
-    // Location object with coordinates
-    if (listing?.location?.coordinates) {
-      if (Array.isArray(listing.location.coordinates) && listing.location.coordinates.length >= 2) {
-        // GeoJSON format [lng, lat]
-        return {
-          lat: listing.location.coordinates[1],
-          lng: listing.location.coordinates[0]
-        };
-      }
-      if (listing.location.coordinates.lat && listing.location.coordinates.lng) {
-        return {
-          lat: listing.location.coordinates.lat,
-          lng: listing.location.coordinates.lng
-        };
-      }
-    }
-    
-    // If no coordinates available, try to geocode the address using Google Maps
-    // This will be handled by the NeighborhoodDetector component itself
-    
-    return null;
-  };
 
-  const geocodeListingAddress = async (): Promise<{lat: number, lng: number} | null> => {
-    if (!listing?.location || !window.google?.maps) return null;
-    
-    return new Promise((resolve) => {
-      const geocoder = new window.google.maps.Geocoder();
-      geocoder.geocode(
-        { address: listing.location },
-        (results, status) => {
-          if (status === 'OK' && results?.[0]?.geometry?.location) {
-            const location = results[0].geometry.location;
-            resolve({
-              lat: location.lat(),
-              lng: location.lng()
-            });
-          } else {
-            resolve(null);
-          }
-        }
-      );
-    });
-  };
-  
-  // Notification data
-  const notifications: Notification[] = [
-    { id: 1, type: "price-drop", message: "MacBook Pro price dropped by $50!", time: "2h ago" },
-    { id: 2, type: "new-item", message: "New furniture items in Dinkytown", time: "4h ago" },
-    { id: 3, type: "favorite", message: "Your favorited item is ending soon", time: "1d ago" }
-  ];
 
   // Notifications dropdown component
-const NotificationsButton = ({ notifications }: { notifications: Notification[] }) => {
+const NotificationsButton = ({ notifications }: { notifications: [] }) => {
   const [showNotifications, setShowNotifications] = useState(false);
   const router = useRouter();
 
@@ -1055,17 +1027,20 @@ const NotificationsButton = ({ notifications }: { notifications: Notification[] 
               <h3 className="font-semibold text-orange-600 mb-3">Notifications</h3>
               <div className="space-y-3 max-h-64 overflow-y-auto">
                 {notifications.map(notif => (
-                  <button
-                    key={notif.id}
-                    onClick={() => router.push(`browse/notification?id=${notif.id}`)}
-                    className="w-full flex items-start space-x-3 p-2 rounded-lg hover:bg-orange-50 text-left"
-                  >
-                    <div className="w-2 h-2 bg-orange-500 rounded-full mt-2"></div>
-                    <div className="flex-1">
-                      <p className="text-sm text-gray-900">{notif.message}</p>
-                      <p className="text-xs text-gray-500">{notif.time}</p>
+                    <div
+                      key={notif.id}
+                      className="w-full flex items-start space-x-3 p-2 rounded-lg hover:bg-orange-50 text-left"
+                    >
+                      <div className="w-2 h-2 bg-orange-500 rounded-full mt-2"></div>
+                      <button 
+                        className="flex-1"
+                        onClick={() => router.push(`/notifications`)}  
+                      >
+                        <p className="text-base text-orange-400">{notif.title}</p>
+                        <p className="text-sm text-gray-900">{notif.message}</p>
+                        <p className="text-xs text-gray-500">{notif.createdAt?.toLocalString()}</p>
+                      </button>
                     </div>
-                  </button>
                 ))}
               </div>
 
@@ -1106,21 +1081,7 @@ const NotificationsButton = ({ notifications }: { notifications: Notification[] 
     }
   };
 
-  // all image array
-  const allImages = [
-    listing.image,
-    ...(Array.isArray(listing.additionalImages) ? listing.additionalImages : [])
-  ].filter(Boolean);
 
-  // go to previous image
-  const goToPrevImage = () => {
-    setActiveImage((prev) => (prev === 0 ? allImages.length - 1 : prev - 1));
-  };
-  
-  // go to next image
-  const goToNextImage = () => {
-    setActiveImage((prev) => (prev === allImages.length - 1 ? 0 : prev + 1));
-  };
 
   // check if the image already in the current listings
   const isCurrentListingFavorited = favoriteListings.some(item => item.id === listing?.id);
@@ -1340,16 +1301,17 @@ const NotificationsButton = ({ notifications }: { notifications: Notification[] 
     return <Star size={16} />;
   };
 
-const updateReviewerStats = async (reviewerId: string, reviewData: {
-  reviewId: string,
-  revieweeId: string,
-  revieweeName: string,
-  listingId: string,
-  listingTitle: string,
-  rating: number,
-  comment: string,
-  createdAt: any
-}) => {
+const updateReviewerStats = async (reviewerId: string, reviewData: 
+  {
+    reviewId: string,
+    revieweeId: string,
+    revieweeName: string,
+    listingId: string,
+    listingTitle: string,
+    rating: number,
+    comment: string,
+    createdAt: unknown
+  }) => {
   try {
     const reviewerRef = doc(db, 'users', reviewerId);
     const reviewerDoc = await getDoc(reviewerRef);
@@ -1556,72 +1518,12 @@ const updateHostReviewStats = async (hostId: string, newRating: number) => {
   }
 };
 
-const fetchHostReviews = async () => {
-  if (!listing?.hostId) return;
-
-  try {
-    const reviewsQuery = query(
-      collection(db, 'reviews'),
-      where('revieweeId', '==', listing.hostId),
-      orderBy('createdAt', 'desc')
-    );
-    
-    const reviewsSnapshot = await getDocs(reviewsQuery);
-    const reviews = reviewsSnapshot.docs.map(doc => {
-      const data = doc.data();
-      return {
-        id: doc.id,
-        reviewerId: data.reviewerId,
-        name: data.reviewerName,
-        date: data.createdAt?.toDate().toLocaleDateString('en-US', {
-          year: 'numeric',
-          month: 'long'
-        }) || 'Recent',
-        comment: data.comment,
-        rating: data.rating,
-        isEdited: data.isEdited || false 
-      };
-    });
-    
-    setHostReviews(reviews);
-  } catch (error) {
-    console.error('Error fetching reviews:', error);
-  }
-};
   //calculate the average rating
   const hostReviewCount = hostReviews.length;
   const hostRating = hostReviews.length > 0 
     ? (hostReviews.reduce((sum, review) => sum + review.rating, 0) / hostReviews.length).toFixed(1)
     : "0.0";
 
-    const fetchUserReviewStats = async (userId: string) => {
-  try {
-    const userRef = doc(db, 'users', userId);
-    const userDoc = await getDoc(userRef);
-    
-    if (userDoc.exists()) {
-      const userData = userDoc.data();
-      return {
-        reviewsGivenCount: userData.reviewsGivenCount || 0,
-        reviewsGiven: userData.reviewsGiven || [],
-        lastReviewGiven: userData.lastReviewGiven || null
-      };
-    }
-    
-    return {
-      reviewsGivenCount: 0,
-      reviewsGiven: [],
-      lastReviewGiven: null
-    };
-  } catch (error) {
-    console.error('Error fetching user review stats:', error);
-    return {
-      reviewsGivenCount: 0,
-      reviewsGiven: [],
-      lastReviewGiven: null
-    };
-  }
-};
 
 // 🆕 hostData에 리뷰어 정보도 포함시키기 (Badge 컴포넌트에서 사용)
 // const [hostData, setHostData] = useState({
@@ -1636,23 +1538,6 @@ const fetchHostReviews = async () => {
 //   lastReviewGiven: null
 // });
 
-const loadHostDataWithReviewerStats = async (userId: string) => {
-  try {
-    const userRef = doc(db, 'users', userId);
-    const userDoc = await getDoc(userRef);
-    
-    if (userDoc.exists()) {
-      const userData = userDoc.data();
-      setHostData({
-        totalReviews: userData.totalReviews || 0,
-        averageRating: userData.averageRating || 0,
-        reviewsGivenCount: userData.reviewsGivenCount || 0
-      });
-    }
-  } catch (error) {
-    console.error('Error loading host data:', error);
-  }
-};
 
 const deleteReview = async (reviewId, reviewData) => {
   if (!window.confirm('Are you sure you want to delete this review?')) {
@@ -1855,12 +1740,6 @@ const updateReviewerReviewData = async (reviewerId, reviewId, updatedData) => {
     console.error('Error updating reviewer review data:', error);
   }
 };
-
-  const handleTabClick = (tab: string) => {
-    // Handle tab clicks for profile dropdown
-    setShowProfile(false);
-    // Add navigation logic here based on tab
-  };
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
@@ -2285,7 +2164,7 @@ const updateReviewerReviewData = async (reviewerId, reviewId, updatedData) => {
            {/* showing image */}
            <div className="relative mb-4">
              <div className="h-96 flex items-center justify-center">
-               <img 
+               <Image 
                  src={allImages[activeImage]} 
                  alt={`Image ${activeImage + 1}`}
                  className="max-h-full max-w-full object-contain"
@@ -2324,7 +2203,7 @@ const updateReviewerReviewData = async (reviewerId, reviewId, updatedData) => {
                  className={`h-20 rounded-lg overflow-hidden cursor-pointer border-2 ${activeImage === index ? 'border-orange-500' : 'border-transparent'}`}
                  onClick={() => setActiveImage(index)}
                >
-                 <img 
+                 <Image 
                    src={img}
                    alt={`Thumbnail ${index + 1}`}
                    className="w-full h-full object-cover"
@@ -2360,7 +2239,7 @@ const updateReviewerReviewData = async (reviewerId, reviewId, updatedData) => {
            <div className="flex flex-col md:flex-row md:gap-4 mb-6">
              {/* main picture */}
              <div className="md:w-2/3 h-72 md:h-96 rounded-lg overflow-hidden mb-4 md:mb-0">
-               <img 
+               <Image 
                  src={allImages[activeImage] || listing.image}
                  alt={listing.title}
                  className="w-full h-full object-cover"
@@ -2374,7 +2253,7 @@ const updateReviewerReviewData = async (reviewerId, reviewId, updatedData) => {
                    className={`h-24 md:h-auto rounded-lg overflow-hidden cursor-pointer border-2 ${activeImage === 0 ? 'border-orange-500' : 'border-transparent'}`}
                    onClick={() => setActiveImage(0)}
                  >
-                   <img 
+                   <Image 
                      src={listing.image}
                      alt="Main view"
                      className="w-full h-full object-cover"
@@ -2387,7 +2266,7 @@ const updateReviewerReviewData = async (reviewerId, reviewId, updatedData) => {
                      className={`h-24 md:h-auto rounded-lg overflow-hidden cursor-pointer border-2 ${activeImage === index + 1 ? 'border-orange-500' : 'border-transparent'}`}
                      onClick={() => setActiveImage(index + 1)}
                    >
-                     <img 
+                     <Image 
                        src={img}
                        alt={`Additional view ${index + 1}`}
                        className="w-full h-full object-cover"
@@ -2519,7 +2398,7 @@ const updateReviewerReviewData = async (reviewerId, reviewId, updatedData) => {
     <h2 className="text-xl font-bold text-orange-800 mb-2">Host Information</h2>
     <div className="flex items-start">
         <div className="w-16 h-16 rounded-full overflow-hidden mr-4 flex-shrink-0">
-        <img 
+        <Image 
             src={listing.hostImage || "https://images.unsplash.com/photo-1543852786-1cf6624b9987?q=80&w=800&h=500&auto=format&fit=crop"} 
             alt="Host" 
             className="w-full h-full object-cover "

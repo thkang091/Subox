@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { MapPin, AlertCircle, Home, Maximize2 } from 'lucide-react';
 
 interface NeighborhoodDetectorProps {
@@ -28,9 +28,7 @@ export default function NeighborhoodDetector({
   locationName = ''
 }: NeighborhoodDetectorProps) {
   const mapRef = useRef<HTMLDivElement>(null);
-  const [map, setMap] = useState<google.maps.Map | null>(null);
   const [neighborhood, setNeighborhood] = useState<NeighborhoodInfo | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [googleMapsLoaded, setGoogleMapsLoaded] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -102,6 +100,44 @@ export default function NeighborhoodDetector({
     loadGoogleMaps();
   }, []);
 
+  // Main detection function
+  const detectNeighborhood = useCallback(async (lat: number, lng: number) => {
+    if (!lat || !lng) {
+      setError('Invalid coordinates provided');
+      return;
+    }
+    
+    if (!googleMapsLoaded) {
+      setError('Google Maps not loaded yet');
+      return;
+    }
+
+    try {
+      console.log('🔍 Detecting neighborhood for:', { lat, lng });
+      
+      // First try Places API for neighborhood detection
+      let detectedNeighborhood = await detectNeighborhoodWithPlaces(lat, lng);
+      
+      // If Places API doesn't work, try geocoding
+      if (!detectedNeighborhood) {
+        console.log('📍 Places API failed, trying geocoding...');
+        detectedNeighborhood = await detectNeighborhoodWithGeocoding(lat, lng);
+      }
+      
+      if (detectedNeighborhood) {
+        console.log('✅ Neighborhood detected:', detectedNeighborhood);
+        setNeighborhood(detectedNeighborhood);
+        onNeighborhoodDetected(detectedNeighborhood.neighborhood);
+      } else {
+        console.log('❌ Could not detect neighborhood');
+        setError('Could not determine neighborhood for this location');
+      }
+    } catch (err) {
+      console.error('Error detecting neighborhood:', err);
+      setError('Error detecting neighborhood. Please try again.');
+    }
+  },[googleMapsLoaded, onNeighborhoodDetected]);
+
   // Initialize Google Maps
   useEffect(() => {
     const initializeMap = async () => {
@@ -112,53 +148,15 @@ export default function NeighborhoodDetector({
       try {
         console.log('🗺️ Initializing Google Maps...');
         
-        // Create the map with standard Google Maps styling (like Airbnb)
-        const mapInstance = new google.maps.Map(mapRef.current, {
-          center: { lat: latitude, lng: longitude },
-          zoom: locationType === 'neighborhood' ? 14 : 15,
-          mapTypeId: google.maps.MapTypeId.ROADMAP,
-          
-          // Keep standard Google Maps controls (like Airbnb)
-          zoomControl: true,
-          mapTypeControl: false,
-          scaleControl: false,
-          streetViewControl: false,
-          rotateControl: false,
-          fullscreenControl: false,
-          
-          // Standard Google Maps styling - no custom styles for authentic look
-          styles: [],
-        });
 
-        setMap(mapInstance);
-
-        // Add a simple marker (like Airbnb's black circle with location icon)
-        const marker = new google.maps.Marker({
-          position: { lat: latitude, lng: longitude },
-          map: mapInstance,
-          title: locationName || 'Property Location',
-          icon: {
-            // Custom icon similar to Airbnb's style
-            url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
-              <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <circle cx="16" cy="16" r="16" fill="#000000"/>
-                <path d="M16 8C12.7 8 10 10.7 10 14C10 18.5 16 24 16 24S22 18.5 22 14C22 10.7 19.3 8 16 8ZM16 17C14.3 17 13 15.7 13 14C13 12.3 14.3 11 16 11C17.7 11 19 12.3 19 14C19 15.7 17.7 17 16 17Z" fill="white"/>
-              </svg>
-            `),
-            scaledSize: new google.maps.Size(32, 32),
-            anchor: new google.maps.Point(16, 16),
-          },
-        });
 
         // Detect neighborhood
         await detectNeighborhood(latitude, longitude);
         
         console.log('✅ Map initialized successfully');
-        setIsLoading(false);
       } catch (err) {
         console.error('Error initializing map:', err);
         setError('Failed to load map');
-        setIsLoading(false);
       }
     };
 
@@ -167,9 +165,8 @@ export default function NeighborhoodDetector({
     } else if (latitude && longitude && googleMapsLoaded && !showMap) {
       // Just detect neighborhood without showing map
       detectNeighborhood(latitude, longitude);
-      setIsLoading(false);
     }
-  }, [latitude, longitude, googleMapsLoaded, showMap, locationType, locationName]);
+  }, [latitude, longitude, googleMapsLoaded, showMap, locationType, locationName, detectNeighborhood]);
 
   // Enhanced neighborhood detection using Google Places Nearby Search
   const detectNeighborhoodWithPlaces = async (lat: number, lng: number): Promise<NeighborhoodInfo | null> => {
@@ -286,43 +283,6 @@ export default function NeighborhoodDetector({
     });
   };
 
-  // Main detection function
-  const detectNeighborhood = async (lat: number, lng: number) => {
-    if (!lat || !lng) {
-      setError('Invalid coordinates provided');
-      return;
-    }
-    
-    if (!googleMapsLoaded) {
-      setError('Google Maps not loaded yet');
-      return;
-    }
-
-    try {
-      console.log('🔍 Detecting neighborhood for:', { lat, lng });
-      
-      // First try Places API for neighborhood detection
-      let detectedNeighborhood = await detectNeighborhoodWithPlaces(lat, lng);
-      
-      // If Places API doesn't work, try geocoding
-      if (!detectedNeighborhood) {
-        console.log('📍 Places API failed, trying geocoding...');
-        detectedNeighborhood = await detectNeighborhoodWithGeocoding(lat, lng);
-      }
-      
-      if (detectedNeighborhood) {
-        console.log('✅ Neighborhood detected:', detectedNeighborhood);
-        setNeighborhood(detectedNeighborhood);
-        onNeighborhoodDetected(detectedNeighborhood.neighborhood);
-      } else {
-        console.log('❌ Could not detect neighborhood');
-        setError('Could not determine neighborhood for this location');
-      }
-    } catch (err) {
-      console.error('Error detecting neighborhood:', err);
-      setError('Error detecting neighborhood. Please try again.');
-    }
-  };
 
   const toggleFullscreen = () => {
     setIsFullscreen(!isFullscreen);
@@ -375,7 +335,7 @@ export default function NeighborhoodDetector({
     return (
       <div className="space-y-4">
         <div className="flex items-center justify-between">
-          <h3 className="text-xl font-semibold text-gray-900">Where you'll be</h3>
+          <h3 className="text-xl font-semibold text-gray-900">Where you&apos;ll be</h3>
         </div>
         <div className="w-full h-96 bg-red-50 rounded-lg flex items-center justify-center border border-red-200">
           <div className="text-center">
@@ -392,7 +352,7 @@ export default function NeighborhoodDetector({
     <div className="space-y-4">
       {/* Location Header */}
       <div className="flex items-center justify-between">
-        <h3 className="text-xl font-semibold text-gray-900">Where you'll be</h3>
+        <h3 className="text-xl font-semibold text-gray-900">Where you&apos;ll be</h3>
         <button
           onClick={toggleFullscreen}
           className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
@@ -413,7 +373,7 @@ export default function NeighborhoodDetector({
       <div className={`relative ${isFullscreen ? 'fixed inset-0 z-50 bg-white p-6' : ''}`}>
         {isFullscreen && (
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-2xl font-semibold">Where you'll be</h2>
+            <h2 className="text-2xl font-semibold">Where you&apos;ll be</h2>
             <button
               onClick={toggleFullscreen}
               className="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg font-medium transition-colors"

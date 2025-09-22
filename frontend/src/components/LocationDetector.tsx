@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
-import { Search, MapPin, X, Navigation, Home, Building, Coffee, ShoppingBag, Map, Users, AlertCircle, ChevronRight } from 'lucide-react';
+import { useEffect, useRef, useState, useCallback } from 'react';
+import { Search, MapPin, X, Navigation, Home, Building, Map, AlertCircle } from 'lucide-react';
 
 interface LocationDetectorProps {
   onLocationSelect: (location: { 
@@ -63,7 +63,6 @@ const extractCityFromAddress = (address) => {
 export default function LocationDetector({ 
   onLocationSelect, 
   initialValue,
-  customLocationsData = []
 }: LocationDetectorProps) {
   // State management
   const [searchQuery, setSearchQuery] = useState(initialValue || '');
@@ -71,7 +70,7 @@ export default function LocationDetector({
   const [isDetecting, setIsDetecting] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [isLocatingUser, setIsLocatingUser] = useState(false);
-  const [detectedLocation, setDetectedLocation] = useState<any>(null);
+  const [detectedLocation, setDetectedLocation] = useState(null);
   const [locationError, setLocationError] = useState<string | null>(null);
   const [isGoogleMapsReady, setIsGoogleMapsReady] = useState(false);
   const [mapsError, setMapsError] = useState<string | null>(null);
@@ -87,12 +86,30 @@ export default function LocationDetector({
   const markerInstance = useRef<google.maps.Marker | null>(null);
   const searchTimeout = useRef<NodeJS.Timeout>();
 
-  // Initialize Google Maps
-  useEffect(() => {
-    loadGoogleMaps();
-  }, []);
+  const initializeDetectionServices = useCallback(() => {
+    if (window.google && window.google.maps && window.google.maps.places) {
+      try {
+        // Use newer AutocompleteSuggestion if available, fallback to AutocompleteService
+        if (window.google.maps.places.AutocompleteSuggestion) {
+          // Use the newer API when available
+          setIsGoogleMapsReady(true);
+          setMapsError(null);
+        } else {
+          // Fallback to legacy APIs
+          autocompleteService.current = new window.google.maps.places.AutocompleteService();
+          const div = document.createElement('div');
+          placesService.current = new window.google.maps.places.PlacesService(div);
+          setIsGoogleMapsReady(true);
+          setMapsError(null);
+        }
+      } catch (error) {
+        console.error('Error initializing Google Maps services:', error);
+        setMapsError('Error initializing Google Maps');
+      }
+    }
+  },[]);
 
-  const loadGoogleMaps = async () => {
+  const loadGoogleMaps = useCallback(async () => {
     const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
     
     if (!apiKey) {
@@ -120,30 +137,13 @@ export default function LocationDetector({
     script.onerror = () => setMapsError('Failed to load Google Maps');
     
     document.head.appendChild(script);
-  };
+  },[initializeDetectionServices]);
 
-  const initializeDetectionServices = () => {
-    if (window.google && window.google.maps && window.google.maps.places) {
-      try {
-        // Use newer AutocompleteSuggestion if available, fallback to AutocompleteService
-        if (window.google.maps.places.AutocompleteSuggestion) {
-          // Use the newer API when available
-          setIsGoogleMapsReady(true);
-          setMapsError(null);
-        } else {
-          // Fallback to legacy APIs
-          autocompleteService.current = new window.google.maps.places.AutocompleteService();
-          const div = document.createElement('div');
-          placesService.current = new window.google.maps.places.PlacesService(div);
-          setIsGoogleMapsReady(true);
-          setMapsError(null);
-        }
-      } catch (error) {
-        console.error('Error initializing Google Maps services:', error);
-        setMapsError('Error initializing Google Maps');
-      }
-    }
-  };
+  // Initialize Google Maps
+  useEffect(() => {
+    loadGoogleMaps();
+  }, [loadGoogleMaps]);
+
 
   // Search functions
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -302,7 +302,7 @@ export default function LocationDetector({
   };
 
   const parseAddressComponents = (components: google.maps.GeocoderAddressComponent[]) => {
-    const addressInfo: any = {};
+    const addressInfo = {};
     
     components.forEach(component => {
       const types = component.types;
@@ -321,7 +321,7 @@ export default function LocationDetector({
     return addressInfo;
   };
 
-  const handleLocationDetection = (displayAddress: string, locationData: any) => {
+  const handleLocationDetection = (displayAddress: string, locationData) => {
     setSearchQuery(displayAddress);
     setDetectedLocation(locationData);
     setSuggestions([]);
@@ -418,6 +418,7 @@ export default function LocationDetector({
       (error) => {
         setIsLocatingUser(false);
         setLocationError('Could not get your current location');
+        console.error("Error occured!", error);
       }
     );
   };

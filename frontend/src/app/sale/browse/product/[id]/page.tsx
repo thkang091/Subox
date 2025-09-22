@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, useMemo } from 'react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useParams } from 'next/navigation';
@@ -15,6 +15,8 @@ import { MapPin, Heart, User, Package, Bell, X,
         Check, Star
       } from 'lucide-react';
 import BadgeMoveOutSale from '@/data/badgeMoveOutSale';
+import { useNotifications } from '@/data/notificationlistings';
+
 
 
 // Interfaces
@@ -80,7 +82,7 @@ const ProductDetailPage = () => {
     }
     
     return null;
-  },[params?.id, decodeURIComponent]);
+  },[params?.id]);
 
   const id = extractProductId();
   const [actualId, setActualId] = useState<string | null>(null);
@@ -100,13 +102,15 @@ const ProductDetailPage = () => {
   const [loadingRecommendations, setLoadingRecommendations] = useState(false);
   const [creatingConversation, setCreatingConversation] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
-   const [showReviewModal, setShowReviewModal] = useState(false);
-    const [newReviewRating, setNewReviewRating] = useState(5);
-    const [newReviewComment, setNewReviewComment] = useState('');
-    const [hostReviews, setHostReviews] = useState([]);
-     const [editingReviewId, setEditingReviewId] = useState(null);
-      const [editReviewRating, setEditReviewRating] = useState(5);
-      const [editReviewComment, setEditReviewComment] = useState('');
+  const [showReviewModal, setShowReviewModal] = useState(false);
+  const [newReviewRating, setNewReviewRating] = useState(5);
+  const [newReviewComment, setNewReviewComment] = useState('');
+  const [hostReviews, setHostReviews] = useState([]);
+  const [editingReviewId, setEditingReviewId] = useState(null);
+  const [editReviewRating, setEditReviewRating] = useState(5);
+  const [editReviewComment, setEditReviewComment] = useState('');
+  const {notifications: uNotifications } = useNotifications();
+
   const [seller, setSeller] = useState<SellerInfo>({
     ID: "none",
     name: "seller",
@@ -145,12 +149,6 @@ const ProductDetailPage = () => {
       fetchHostData(product.hostId);
     }
   }, [product?.hostId]);
-
-  const notifications = [
-    { id: 1, type: "price-drop", message: "MacBook Pro price dropped by $50!", time: "2h ago" },
-    { id: 2, type: "new-item", message: "New furniture items in Dinkytown", time: "4h ago" },
-    { id: 3, type: "favorite", message: "Your favorited item is ending soon", time: "1d ago" }
-  ];
 
   // Check if current user is the seller
   const isCurrentUserSeller = user && product && user.uid === product.hostId;
@@ -940,20 +938,22 @@ const ProductDetailPage = () => {
   //   ...(product.images || [])
   // ].filter(Boolean) : [];
 
-  const allImages = product ? [...new Set([
+  const allImages = useMemo(() => {
+    return product ? [...new Set([
     product.image,
     ...(product.additionalImages || []),
     ...(product.images || [])
-  ])].filter(Boolean) : [];
+  ])].filter(Boolean) : []; 
+  }, [product]);
 
   // Image navigation
-  const goToPrevImage = () => {
+  const goToPrevImage = useCallback(() => {
     setActiveImage((prev) => (prev === 0 ? allImages.length - 1 : prev - 1));
-  };
+  },[allImages]);
   
-  const goToNextImage = () => {
+  const goToNextImage = useCallback(() => {
     setActiveImage((prev) => (prev === allImages.length - 1 ? 0 : prev + 1));
-  };
+  },[allImages]);
 
   // Keyboard navigation for images
   useEffect(() => {
@@ -977,6 +977,7 @@ const ProductDetailPage = () => {
 
   const NotificationsButton = ({ notifications }: { notifications: [] }) => {
     const [showNotifications, setShowNotifications] = useState(false);
+
 
     return (
       <div className="relative">
@@ -1006,17 +1007,20 @@ const ProductDetailPage = () => {
                 <h3 className="font-semibold text-gray-900 mb-3">Notifications</h3>
                 <div className="space-y-3 max-h-64 overflow-y-auto">
                   {notifications.map(notif => (
-                    <button
+                    <div
                       key={notif.id}
-                      onClick={() => router.push(`/sale/browse/notificationDetail/${notif.id}`)}
-                      className="w-full flex items-start space-x-3 p-2 rounded-lg hover:bg-gray-50 text-left"
+                      className="w-full flex items-start space-x-3 p-2 rounded-lg hover:bg-orange-50 text-left"
                     >
                       <div className="w-2 h-2 bg-orange-500 rounded-full mt-2"></div>
-                      <div className="flex-1">
+                      <button 
+                        className="flex-1"
+                        onClick={() => router.push(`/notifications`)}  
+                      >
+                        <p className="text-base text-orange-400">{notif.title}</p>
                         <p className="text-sm text-gray-900">{notif.message}</p>
-                        <p className="text-xs text-gray-500">{notif.time}</p>
-                      </div>
-                    </button>
+                        <p className="text-xs text-gray-500">{notif.createdAt?.toLocalString()}</p>
+                      </button>
+                    </div>
                   ))}
                 </div>
                 <button
@@ -1339,7 +1343,7 @@ const ProductDetailPage = () => {
             {/* Header Actions */}
             <div className="flex items-center space-x-4">
               {/* Notifications */}
-              <NotificationsButton notifications={notifications} />
+              <NotificationsButton notifications={uNotifications} />
  
               {/* messages */}
               <motion.button 

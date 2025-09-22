@@ -14,6 +14,9 @@ import {
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/app/contexts/AuthInfo';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useNotifications } from '@/data/notificationlistings';
+import Image from 'next/image';
+
 
 const ConversationListPage = () => {
   const router = useRouter();
@@ -25,6 +28,7 @@ const ConversationListPage = () => {
   const [filterType, setFilterType] = useState('all');
   const [activeTab, setActiveTab] = useState('sublease');
   const [showMenu, setShowMenu] = useState(false);
+  const [notifications] = useNotifications();
   const [showNotifications, setShowNotifications] = useState(false);
 
 
@@ -525,17 +529,20 @@ const ConversationListPage = () => {
                       <h3 className="font-semibold text-gray-900 mb-3">Notifications</h3>
                       <div className="space-y-3 max-h-64 overflow-y-auto">
                         {notifications.map(notif => (
-                          <button
+                          <div
                             key={notif.id}
-                            onClick={() => router.push(`/notifications/${notif.id}`)}
-                            className="w-full flex items-start space-x-3 p-2 rounded-lg hover:bg-gray-50 text-left transition-colors"
+                            className="w-full flex items-start space-x-3 p-2 rounded-lg hover:bg-orange-50 text-left"
                           >
-                            <div className="w-2 h-2 bg-orange-500 rounded-full mt-2 flex-shrink-0"></div>
-                            <div className="flex-1">
+                            <div className="w-2 h-2 bg-orange-500 rounded-full mt-2"></div>
+                            <button 
+                              className="flex-1"
+                              onClick={() => router.push(`/notifications`)}  
+                            >
+                              <p className="text-base text-orange-400">{notif.title}</p>
                               <p className="text-sm text-gray-900">{notif.message}</p>
-                              <p className="text-xs text-gray-500">{notif.time}</p>
-                            </div>
-                          </button>
+                              <p className="text-xs text-gray-500">{notif.createdAt?.toLocalString()}</p>
+                            </button>
+                          </div>
                         ))}
                       </div>
                       <button
@@ -825,7 +832,7 @@ const ConversationListPage = () => {
                   <div className="flex items-start space-x-4">
                     {/* Listing Image */}
                     <div className="w-16 h-16 rounded-lg overflow-hidden flex-shrink-0 relative">
-                      <img 
+                      <Image 
                         src={conversation.listingImage || '/api/placeholder/64/64'}
                         alt={conversation.listingTitle || 'Listing'}
                         className="w-full h-full object-cover"

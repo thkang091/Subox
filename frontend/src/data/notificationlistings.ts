@@ -32,7 +32,7 @@ export function useNotifications() {
         });
 
         const notificationsArray = Array.from(allNotifications.values()).sort(
-          (a: any, b: any) => {
+          (a, b) => {
             if (!a.createdAt || !b.createdAt) return 0;
             return b.createdAt - a.createdAt;
           }

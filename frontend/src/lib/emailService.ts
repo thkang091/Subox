@@ -7,11 +7,11 @@ interface EmailData {
   subject: string;
   type: string;
   template: string;
-  data: Record<string, any>;
+  data: Record<string, unknown>;
   html: string;
   text?: string;
   status?: string;
-  createdAt?: any;
+  createdAt?;
   attempts?: number;
 }
 

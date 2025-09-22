@@ -1,8 +1,9 @@
 "use client"
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import {query, where, getDocs, orderBy, deleteDoc} from 'firebase/firestore';
+import Image from "next/image";
 import { 
   ArrowLeft, 
   Send, 
@@ -22,7 +23,6 @@ import {
   Calendar,
   DollarSign,
   Bed,
-  Bath,
   Wifi,
   Car,
   Shield,
@@ -52,26 +52,7 @@ import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { storage } from '@/lib/firebase'; // Add this to your firebase config
 import { doc, updateDoc } from 'firebase/firestore';
 
-// Mock router and auth for demo
-const mockRouter = {
-  back: () => console.log('Navigate back'),
-  push: (path) => console.log('Navigate to:', path)
-};
 
-const mockUser = {
-  uid: 'demo-user',
-  displayName: 'John Doe',
-  email: 'john.doe@example.com',
-  photoURL: null
-};
-
-const mockAuth = {
-  user: mockUser,
-  loading: false,
-  requireAuth: () => true,
-  showAuthPrompt: () => {},
-  signOut: () => console.log('Sign out')
-};
 
 // Types
 type ListingType = "Sublet" | "Lease Takeover" | "Room in Shared Unit" | null;
@@ -160,7 +141,7 @@ interface ChatMessage {
   input?: {
     type: string;
     placeholder?: string;
-    action: (value: any) => void;
+    action: (value) => void;
     options?: {value: string; label: string}[];
   };
 }
@@ -174,19 +155,15 @@ function ListingFormContent() {
   const timeoutRefs = useRef<NodeJS.Timeout[]>([]);
   const [showIntroScreen, setShowIntroScreen] = useState(true);
   const [savedDrafts, setSavedDrafts] = useState([]);
-  const [loadingDrafts, setLoadingDrafts] = useState(true);
   // State Management
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [currentStep, setCurrentStep] = useState(1);
   const [draftSaved, setDraftSaved] = useState(false);
-const [showPreview, setShowPreview] = useState(false);
 const [completionPercentage, setCompletionPercentage] = useState(0);
   const [inputValue, setInputValue] = useState("");
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
   const [showInput, setShowInput] = useState(false);
-  const [hasInitialized, setHasInitialized] = useState(false);
-  const [editingStep, setEditingStep] = useState<string | null>(null);
 
   const currentListingDataRef = useRef<ListingData | null>(null);
 
@@ -282,11 +259,36 @@ const [completionPercentage, setCompletionPercentage] = useState(0);
   // Don't auto-initialize chat anymore - wait for intro screen completion
 }, [loading, user, requireAuth, showAuthPrompt, router]);
 
+  const fetchSavedDrafts = useCallback(async () => {
+    if (!user) {
+      return;
+    }
+
+    try {
+      const draftsQuery = query(
+        collection(db, 'listing_drafts'),
+        where('hostId', '==', user.uid),
+        orderBy('lastSaved', 'desc')
+      );
+      
+      const draftsSnapshot = await getDocs(draftsQuery);
+      const drafts = draftsSnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+        lastSaved: doc.data().lastSaved?.toDate() || new Date()
+      }));
+      
+      setSavedDrafts(drafts);
+    } catch (error) {
+      console.error('Error fetching drafts:', error);
+    }
+  },[user]);
+
 useEffect(() => {
   if (user && showIntroScreen) {
     fetchSavedDrafts();
   }
-}, [user, showIntroScreen]);
+}, [user, showIntroScreen, fetchSavedDrafts]);
 
 useEffect(() => {
   const completion = calculateCompletion(formData);
@@ -294,8 +296,9 @@ useEffect(() => {
 }, [formData]);
 
   useEffect(() => {
+    const timeoutRefsTemp = timeoutRefs.current;
     return () => {
-      timeoutRefs.current.forEach(timeout => clearTimeout(timeout));
+      timeoutRefsTemp.forEach(timeout => clearTimeout(timeout));
     };
   }, []);
 
@@ -309,34 +312,6 @@ useEffect(() => {
   const formatTime = (date: Date) => {
     return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
-
-  const fetchSavedDrafts = async () => {
-  if (!user) {
-    setLoadingDrafts(false);
-    return;
-  }
-
-  try {
-    const draftsQuery = query(
-      collection(db, 'listing_drafts'),
-      where('hostId', '==', user.uid),
-      orderBy('lastSaved', 'desc')
-    );
-    
-    const draftsSnapshot = await getDocs(draftsQuery);
-    const drafts = draftsSnapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data(),
-      lastSaved: doc.data().lastSaved?.toDate() || new Date()
-    }));
-    
-    setSavedDrafts(drafts);
-  } catch (error) {
-    console.error('Error fetching drafts:', error);
-  } finally {
-    setLoadingDrafts(false);
-  }
-};
 
   const goToNextStep = () => {
     setCurrentStep(prev => prev + 1);
@@ -720,6 +695,7 @@ const saveDraft = async () => {
         
       } catch (error) {
         addSystemMessage("Error setting dates. Please try custom dates.", undefined, undefined, "error");
+        console.error('Error occured!', error);
       }
     }
   };
@@ -727,7 +703,7 @@ const saveDraft = async () => {
  const askLocation = () => {
   addSystemMessage("Please search for and select your specific location:", undefined, {
     type: "location-picker",
-    action: (locationData: any) => {
+    action: (locationData) => {
       setFormData(prev => ({ 
         ...prev, 
         location: "Other",
@@ -740,61 +716,7 @@ const saveDraft = async () => {
     }
   }, "location");
 };
-  const handleLocationSelect = (location: LocationOption) => {
-    setFormData(prev => ({ ...prev, location }));
-    addUserMessage(location as string, "location");
-    
-    if (location === "Other") {
-      setTimeout(() => {
-        addSystemMessage("Please search for and select your specific location:", undefined, {
-          type: "location-picker",
-          action: (locationData: any) => {
-            setFormData(prev => ({ 
-              ...prev, 
-              customLocation: locationData,
-              address: locationData.address
-            }));
-            addUserMessage(`Selected: ${locationData.address}`, "location");
-            goToNextStep();
-            setTimeout(() => askRentPrice(), 500);
-          }
-        }, "location");
-      }, 500);
-    } else {
-      setTimeout(() => {
-        addSystemMessage("Do you want to display the exact address or just the neighborhood?", [
-          { value: "show-address", label: "Show exact address", icon: "mapPin", action: () => handleAddressVisibilitySelect(true) },
-          { value: "hide-address", label: "Only show neighborhood", icon: "eye", action: () => handleAddressVisibilitySelect(false) },
-        ], undefined, "location");
-      }, 500);
-    }
-  };
 
-  const handleAddressVisibilitySelect = (showExact: boolean) => {
-    setFormData(prev => ({ ...prev, showExactAddress: showExact }));
-    addUserMessage(showExact ? "Show exact address" : "Only show neighborhood", "location");
-    
-    if (showExact) {
-      setTimeout(() => {
-        addSystemMessage("Please search for and select your exact address:", undefined, {
-          type: "location-picker",
-          action: (locationData: any) => {
-            setFormData(prev => ({ 
-              ...prev, 
-              address: locationData.address,
-              customLocation: locationData
-            }));
-            addUserMessage(`Address: ${locationData.address}`, "location");
-            goToNextStep();
-            setTimeout(() => askRentPrice(), 500);
-          }
-        }, "location");
-      }, 500);
-    } else {
-      goToNextStep();
-      setTimeout(() => askRentPrice(), 500);
-    }
-  };
 
   const askRentPrice = () => {
     addSystemMessage("How much is the monthly rent?", undefined, {
@@ -1252,14 +1174,14 @@ const saveDraft = async () => {
   const askContactInfo = () => {
     addSystemMessage("How would you like potential renters to contact you? We have our built-in chat system, but you can also provide additional contact methods if you prefer.", undefined, {
       type: "contact-info",
-      action: (contactData: any) => {
+      action: (contactData) => {
         setFormData(prev => {
           const updatedData = { ...prev, contactInfo: contactData };
           
           setTimeout(() => {
             const selectedMethods = contactData.methods
-              .filter((m: any) => m.selected && m.value.trim())
-              .map((m: any) => `${m.name}: ${m.value}`)
+              .filter((m) => m.selected && m.value.trim())
+              .map((m) => `${m.name}: ${m.value}`)
               .join(", ");
             
             addUserMessage(`Contact methods: ${selectedMethods || "Built-in chat only"}${contactData.note ? `\nNote: ${contactData.note}` : ""}`, "contactInfo");
@@ -1504,9 +1426,7 @@ Partial availability: ${currentFormData.partialDatesOk === true ? 'Yes' : curren
     ], undefined, "editMenu");
   };
 
-  const handleEditStep = (step: string) => {
-    setEditingStep(step);
-    
+  const handleEditStep = (step: string) => {    
     setMessages(prev => {
       const stepMessageIndex = prev.findIndex(m => m.step === step && !m.isUser);
       if (stepMessageIndex !== -1) {
@@ -1551,7 +1471,6 @@ Partial availability: ${currentFormData.partialDatesOk === true ? 'Yes' : curren
         case "contactInfo": askContactInfo(); break;
         case "listingTitle": askTitleOfListing(); break;
       }
-      setEditingStep(null);
     }, 100);
   };
 
@@ -1634,6 +1553,7 @@ Partial availability: ${currentFormData.partialDatesOk === true ? 'Yes' : curren
         
       } catch (dateError) {
         addSystemMessage("Error processing dates. Please check your availability dates and try again.", undefined, undefined, "error");
+        console.error('Date error occured!', dateError)
         return;
       }
       
@@ -2001,7 +1921,7 @@ Partial availability: ${currentFormData.partialDatesOk === true ? 'Yes' : curren
               <Phone className="w-5 h-5 text-orange-500" />
               <h3 className="font-semibold text-gray-800">Contact Methods</h3>
             </div>
-            <p className="text-sm text-gray-600">Select and fill in the contact methods you'd like to use:</p>
+            <p className="text-sm text-gray-600">Select and fill in the contact methods you&apos;d like to use:</p>
             
             {formData.contactInfo.methods.map((method) => (
               <div key={method.id} className="space-y-3">
@@ -2253,7 +2173,7 @@ Partial availability: ${currentFormData.partialDatesOk === true ? 'Yes' : curren
               <h3 className="font-semibold text-gray-800">Included Items</h3>
             </div>
             <div className="space-y-3">
-              <p className="text-sm font-medium text-gray-700 mb-4">Select items you're including:</p>
+              <p className="text-sm font-medium text-gray-700 mb-4">Select items you&apos;re including:</p>
               {formData.includedItems.map((item) => (
                 <button
                   key={item.id}
@@ -2281,7 +2201,7 @@ Partial availability: ${currentFormData.partialDatesOk === true ? 'Yes' : curren
             
             <div>
               <label className="block mb-2 text-sm font-medium text-gray-700">
-                Other items you're including (optional)
+                Other items you&apos;re including (optional)
               </label>
               <textarea
                 placeholder="e.g., bed frame, kitchen utensils, cleaning supplies, extra blankets..."
@@ -2405,7 +2325,7 @@ Partial availability: ${currentFormData.partialDatesOk === true ? 'Yes' : curren
                 <div className="grid grid-cols-3 gap-3 mb-4">
                   {formData.photos.slice(0, 9).map((file, index) => (
                     <div key={index} className="relative aspect-square rounded-xl bg-gray-200 overflow-hidden border border-orange-200">
-                      <img
+                      <Image
                         src={URL.createObjectURL(file)}
                         alt={`Preview ${index + 1}`}
                         className="w-full h-full object-cover"
@@ -2528,7 +2448,6 @@ Partial availability: ${currentFormData.partialDatesOk === true ? 'Yes' : curren
           // Load draft data
           setFormData(draft);
           setShowIntroScreen(false);
-          setHasInitialized(true);
           
           // Continue from where user left off
           const timeout = setTimeout(() => {
@@ -2600,7 +2519,6 @@ Partial availability: ${currentFormData.partialDatesOk === true ? 'Yes' : curren
         <button
           onClick={() => {
             setShowIntroScreen(false);
-            setHasInitialized(true);
             const timeout = setTimeout(() => {
               setMessages([{
                 id: Date.now(),

@@ -1,7 +1,7 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { 
-  Search, MapPin, X, Navigation, Car, Bike, Users, 
-  Clock, Route, Settings, Check, DollarSign, Info, AlertCircle, Calculator, Zap, Train, Bus, PersonStanding
+  Search, MapPin, X, Navigation, Car, Bike, 
+  Clock, Route, Settings, DollarSign, AlertCircle, Calculator, Zap, Train, PersonStanding
 } from 'lucide-react';
 
 const calculateDistance = (lat1: number, lng1: number, lat2: number, lng2: number): number => {
@@ -108,8 +108,7 @@ export default function CommuteLocationPicker({
   const [showSuggestions, setShowSuggestions] = useState(false);
   
   // Location state
-  const [isGettingCurrentLocation, setIsGettingCurrentLocation] = useState(false);
-  const [selectedLocation, setSelectedLocation] = useState<any>(null);
+  const [selectedLocation, setSelectedLocation] = useState(null);
   const [locationError, setLocationError] = useState<string | null>(null);
   
   // Enhanced transport preferences
@@ -123,7 +122,6 @@ export default function CommuteLocationPicker({
   
   // Route calculation state
   const [isCalculatingRoutes, setIsCalculatingRoutes] = useState(false);
-  const [routeResults, setRouteResults] = useState<RouteResult[]>([]);
   const [calculationProgress, setCalculationProgress] = useState({ current: 0, total: 0 });
   
   // Google Maps state
@@ -141,11 +139,26 @@ export default function CommuteLocationPicker({
   // GOOGLE MAPS INITIALIZATION
   // =====================
 
-  useEffect(() => {
-    loadGoogleMaps();
-  }, []);
 
-  const loadGoogleMaps = async () => {
+  const initializeServices = useCallback(() => {
+    if (window.google && window.google.maps && window.google.maps.places) {
+      try {
+        autocompleteService.current = new window.google.maps.places.AutocompleteService();
+        directionsService.current = new window.google.maps.DirectionsService();
+        const div = document.createElement('div');
+        placesService.current = new window.google.maps.places.PlacesService(div);
+        setIsGoogleMapsReady(true);
+        setMapsError(null);
+        console.log('Google Maps services initialized for commute search');
+      } catch (error) {
+        console.error('Error initializing Google Maps services:', error);
+        setMapsError('Error initializing Google Maps. Some features may not work.');
+        setIsGoogleMapsReady(true);
+      }
+    }
+  },[]);
+
+  const loadGoogleMaps = useCallback(async () => {
     const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
     
     if (!apiKey) {
@@ -208,25 +221,13 @@ export default function CommuteLocationPicker({
     } catch (error) {
       console.error('Error loading Google Maps:', error);
     }
-  };
+  },[initializeServices]);
 
-  const initializeServices = () => {
-    if (window.google && window.google.maps && window.google.maps.places) {
-      try {
-        autocompleteService.current = new window.google.maps.places.AutocompleteService();
-        directionsService.current = new window.google.maps.DirectionsService();
-        const div = document.createElement('div');
-        placesService.current = new window.google.maps.places.PlacesService(div);
-        setIsGoogleMapsReady(true);
-        setMapsError(null);
-        console.log('Google Maps services initialized for commute search');
-      } catch (error) {
-        console.error('Error initializing Google Maps services:', error);
-        setMapsError('Error initializing Google Maps. Some features may not work.');
-        setIsGoogleMapsReady(true);
-      }
-    }
-  };
+  useEffect(() => {
+    loadGoogleMaps();
+  }, [loadGoogleMaps]);
+
+
 
   // =====================
   // SEARCH FUNCTIONS
@@ -377,7 +378,7 @@ export default function CommuteLocationPicker({
   // ROUTE CALCULATION
   // =====================
 
-  const calculateRoutesToListings = async (fromLocation: any) => {
+  const calculateRoutesToListings = async (fromLocation) => {
     if (!directionsService.current || !nearbyListings.length) {
       console.warn('Cannot calculate routes: missing directions service or listings');
       return;
@@ -469,8 +470,6 @@ export default function CommuteLocationPicker({
         
         return durationMinutes <= maxCommuteTime && distanceMiles <= maxDistance;
       });
-
-      setRouteResults(filteredResults);
       
       if (onRouteCalculated) {
         onRouteCalculated(filteredResults);
@@ -658,7 +657,7 @@ export default function CommuteLocationPicker({
   // =====================
 
   const parseAddressComponents = (components: google.maps.GeocoderAddressComponent[]) => {
-    const addressInfo: any = {};
+    const addressInfo = {};
     
     components.forEach(component => {
       const types = component.types;
@@ -710,16 +709,6 @@ export default function CommuteLocationPicker({
     }
   };
 
-  const getTransportIcon = (mode: TransportMode) => {
-    switch (mode) {
-      case 'walking': return <PersonStanding size={20} />;
-      case 'transit': return <Train size={20} />;
-      case 'bicycling': return <Bike size={20} />;
-      case 'driving': return <Car size={20} />;
-      case 'scooter': return <Zap size={20} />;
-      default: return <Route size={20} />;
-    }
-  };
 
   const getTransportLabel = (mode: TransportMode) => {
     switch (mode) {
@@ -776,7 +765,7 @@ export default function CommuteLocationPicker({
     updateLocationPreferences(newValue);
   };
 
-  const updateLocationPreferences = (updates: any) => {
+  const updateLocationPreferences = (updates) => {
     if (selectedLocation) {
       const updatedLocation = {
         ...selectedLocation,

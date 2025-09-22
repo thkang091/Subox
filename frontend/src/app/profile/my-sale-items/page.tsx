@@ -571,6 +571,11 @@ const MySaleItems = () => {
         }
       };
 
+    if (user?.uid && saleItems.length > 0) {
+      const interval = setInterval(cleanupExpiredItems, 60 * 60 * 1000); // 1 hour
+      return () => clearInterval(interval);
+    }
+
       // NEW: Run cleanup after fetching items
       setTimeout(() => cleanupExpiredItems(), 1000);
     } catch (error) {
@@ -579,7 +584,7 @@ const MySaleItems = () => {
     } finally {
       setLoading(false);
     }
-  }, [user?.uid]);
+  }, [user?.uid, saleItems]);
 
   // Effects
   useEffect(() => {
@@ -590,13 +595,6 @@ const MySaleItems = () => {
     }
   }, [user, authLoading, fetchSaleItems]);
 
-  // NEW: Set up periodic cleanup (check every hour)
-  useEffect(() => {
-    if (user?.uid && saleItems.length > 0) {
-      const interval = setInterval(cleanupExpiredItems, 60 * 60 * 1000); // 1 hour
-      return () => clearInterval(interval);
-    }
-  }, [user, saleItems, cleanupExpiredItems]);
 
   // Render states
   if (authLoading || loading) {

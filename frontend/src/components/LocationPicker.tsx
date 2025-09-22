@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
-import { Search, MapPin, X, Navigation, Home, Building, Coffee, ShoppingBag, Map, Truck, Users, AlertCircle } from 'lucide-react';
+import { useEffect, useRef, useState, useCallback } from 'react';
+import { Search, MapPin, X, Navigation, Building, Coffee, ShoppingBag, Truck, Users, AlertCircle } from 'lucide-react';
 
 interface DeliveryZoneData {
   center: { lat: number; lng: number };
@@ -84,7 +84,7 @@ export default function LocationPicker({
   
   // Location state
   const [isGettingCurrentLocation, setIsGettingCurrentLocation] = useState(false);
-  const [selectedLocation, setSelectedLocation] = useState<any>(null);
+  const [selectedLocation, setSelectedLocation] = useState(null);
   const [locationError, setLocationError] = useState<string | null>(null);
   
   // Google Maps state
@@ -117,14 +117,199 @@ export default function LocationPicker({
   }
 }, [mode, selectedLocation, pickupLocations.length]);
 
+// Update the location data sent to parent
+const updateLocationData = useCallback(() => {
+  if (!selectedLocation) return;
+
+  const updatedLocation = {
+    ...selectedLocation,
+    deliveryAvailable: false,
+    pickupAvailable: false,
+    deliveryZone: undefined as DeliveryZoneData | undefined,
+    pickupLocations: undefined as PickupLocationData[] | undefined,
+  };
+
+  // Handle different modes
+  if (mode === 'delivery') {
+    updatedLocation.deliveryAvailable = true;
+    updatedLocation.pickupAvailable = false; // Explicitly set to false
+    
+    const center = (pickupLocations.length > 0 && 
+                  activeDeliveryCenter.lat && activeDeliveryCenter.lng)
+      ? activeDeliveryCenter
+      : { lat: selectedLocation.lat, lng: selectedLocation.lng };
+      
+    updatedLocation.deliveryZone = {
+      center: center,
+      radius: deliveryRadius,
+      type: 'delivery'
+    };
+    
+    // DO NOT set pickupLocations for delivery-only mode
+    updatedLocation.pickupLocations = undefined;
+    
+  } else if (mode === 'pickup') {
+    updatedLocation.deliveryAvailable = false; // Explicitly set to false
+    updatedLocation.pickupAvailable = true;
+    
+    // DO NOT set deliveryZone for pickup-only mode
+    updatedLocation.deliveryZone = undefined;
+    
+    // Always provide pickup locations for pickup mode
+    if (pickupLocations.length > 0) {
+      updatedLocation.pickupLocations = pickupLocations.map(location => ({
+        lat: location.lat,
+        lng: location.lng,
+        address: location.address,
+        placeName: location.placeName
+      }));
+    } else {
+      // If no pickup locations added yet, use the selected location as default
+      updatedLocation.pickupLocations = [{
+        lat: selectedLocation.lat,
+        lng: selectedLocation.lng,
+        address: selectedLocation.address,
+        placeName: selectedLocation.placeName || 'Pickup Location'
+      }];
+    }
+  } else if (mode === 'both') {
+    updatedLocation.deliveryAvailable = true;
+    updatedLocation.pickupAvailable = true;
+    
+    // Add delivery zone
+    const center = (pickupLocations.length > 0 && 
+                  activeDeliveryCenter.lat && activeDeliveryCenter.lng)
+      ? activeDeliveryCenter
+      : { lat: selectedLocation.lat, lng: selectedLocation.lng };
+      
+    updatedLocation.deliveryZone = {
+      center: center,
+      radius: deliveryRadius,
+      type: 'delivery'
+    };
+    
+    // Add pickup locations
+    if (pickupLocations.length > 0) {
+      updatedLocation.pickupLocations = pickupLocations.map(location => ({
+        lat: location.lat,
+        lng: location.lng,
+        address: location.address,
+        placeName: location.placeName
+      }));
+    } else {
+      // If no pickup locations added yet, use the selected location as default
+      updatedLocation.pickupLocations = [{
+        lat: selectedLocation.lat,
+        lng: selectedLocation.lng,
+        address: selectedLocation.address,
+        placeName: selectedLocation.placeName || 'Pickup Location'
+      }];
+    }
+  }
+
+  onLocationSelect(updatedLocation);
+},[selectedLocation, onLocationSelect, activeDeliveryCenter, deliveryRadius, mode, pickupLocations]);
+
 useEffect(() => {
   if (selectedLocation) {
     updateLocationData();
   }
-}, [mode, deliveryType, deliveryRadius, pickupLocations, activeDeliveryCenter]);
+}, [mode, deliveryType, deliveryRadius, pickupLocations, activeDeliveryCenter, selectedLocation, updateLocationData]);
 
+  const updateLocationWithZone = useCallback((radius?: number, centerLat?: number, centerLng?: number) => {
+    if (!selectedLocation) return;
 
+    const center = centerLat && centerLng 
+      ? { lat: centerLat, lng: centerLng }
+      : activeDeliveryCenter.lat && activeDeliveryCenter.lng
+      ? activeDeliveryCenter
+      : { lat: selectedLocation.lat, lng: selectedLocation.lng };
 
+    const updatedLocation = {
+      ...selectedLocation,
+      deliveryZone: {
+        center: center,
+        radius: radius || deliveryRadius,
+        type: 'delivery'
+      }
+    };
+
+    onLocationSelect(updatedLocation);
+  },[selectedLocation, activeDeliveryCenter, onLocationSelect, deliveryRadius]);
+
+  const addCircleEventListeners = useCallback((circle: google.maps.Circle, map: google.maps.Map, lat: number, lng: number) => {
+    circle.addListener('radius_changed', () => {
+      try {
+        const newRadius = circle.getRadius();
+        if (newRadius && newRadius > 0) {
+          setDeliveryRadius(Math.round(newRadius));
+          const center = circle.getCenter();
+          if (center) {
+            updateLocationWithZone(Math.round(newRadius), center.lat(), center.lng());
+          }
+        }
+      } catch (error) {
+        console.error('Error handling radius change:', error);
+      }
+    });
+
+    circle.addListener('center_changed', () => {
+      try {
+        const center = circle.getCenter();
+        if (center) {
+          const newLat = center.lat();
+          const newLng = center.lng();
+          setActiveDeliveryCenter({ lat: newLat, lng: newLng });
+          updateLocationWithZone(deliveryRadius, newLat, newLng);
+        }
+      } catch (error) {
+        console.error('Error handling center change:', error);
+      }
+    });
+
+    circle.addListener('click', () => {
+      const center = circle.getCenter();
+      const infoWindow = new window.google.maps.InfoWindow({
+        content: `
+          <div style="padding: 8px;">
+            <strong>Delivery Zone</strong><br>
+            Radius: ${(deliveryRadius / 1000).toFixed(1)} km<br>
+            <small>Drag the circle or edge to adjust the area</small>
+          </div>
+        `,
+        position: center ? { lat: center.lat(), lng: center.lng() } : { lat, lng }
+      });
+      infoWindow.open(map);
+    });
+  },[updateLocationWithZone, deliveryRadius]);
+
+  // Create delivery circle
+  const createDeliveryCircle = useCallback((lat: number, lng: number) => {
+    if (!mapInstance.current || !window.google) return;
+
+    // Remove existing circle
+    if (circleInstance.current) {
+      circleInstance.current.setMap(null);
+      circleInstance.current = null;
+    }
+
+    const circle = new window.google.maps.Circle({
+      strokeColor: '#10B981',
+      strokeOpacity: 0.9,
+      strokeWeight: 3,
+      fillColor: '#10B981',
+      fillOpacity: 0.2,
+      map: mapInstance.current,
+      center: { lat, lng },
+      radius: deliveryRadius,
+      editable: true,
+      draggable: true,
+      clickable: true
+    });
+
+    circleInstance.current = circle;
+    addCircleEventListeners(circle, mapInstance.current, lat, lng);
+  },[addCircleEventListeners, deliveryRadius]);
 
 // Handle mode transitions - clear circle for pickup modes
 useEffect(() => {
@@ -141,14 +326,27 @@ useEffect(() => {
       : selectedLocation;
     createDeliveryCircle(centerLocation.lat, centerLocation.lng);
   }
-}, [mode, deliveryType]);
+}, [mode, deliveryType, activeDeliveryCenter, createDeliveryCircle, selectedLocation]);
+
+  const initializeServices = useCallback(() => {
+    if (window.google && window.google.maps && window.google.maps.places) {
+      try {
+        autocompleteService.current = new window.google.maps.places.AutocompleteService();
+        const div = document.createElement('div');
+        placesService.current = new window.google.maps.places.PlacesService(div);
+        setIsGoogleMapsReady(true);
+        setMapsError(null);
+        console.log('Google Maps services initialized');
+      } catch (error) {
+        console.error('Error initializing Google Maps services:', error);
+        setMapsError('Error initializing Google Maps. Some features may not work.');
+        setIsGoogleMapsReady(true); // Still allow basic functionality
+      }
+    }
+  },[]);
 
 
-  useEffect(() => {
-    loadGoogleMaps();
-  }, []);
-
-  const loadGoogleMaps = async () => {
+  const loadGoogleMaps = useCallback(async () => {
     const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
     
     if (!apiKey) {
@@ -211,24 +409,13 @@ useEffect(() => {
     } catch (error) {
       console.error('Error loading Google Maps:', error);
     }
-  };
+  },[initializeServices]);
 
-  const initializeServices = () => {
-    if (window.google && window.google.maps && window.google.maps.places) {
-      try {
-        autocompleteService.current = new window.google.maps.places.AutocompleteService();
-        const div = document.createElement('div');
-        placesService.current = new window.google.maps.places.PlacesService(div);
-        setIsGoogleMapsReady(true);
-        setMapsError(null);
-        console.log('Google Maps services initialized');
-      } catch (error) {
-        console.error('Error initializing Google Maps services:', error);
-        setMapsError('Error initializing Google Maps. Some features may not work.');
-        setIsGoogleMapsReady(true); // Still allow basic functionality
-      }
-    }
-  };
+  useEffect(() => {
+    loadGoogleMaps();
+  }, [loadGoogleMaps]);
+
+
 
   // =====================
   // MAP FUNCTIONS
@@ -411,98 +598,7 @@ useEffect(() => {
     updateLocationData();
   };
 
-// Update the location data sent to parent
-const updateLocationData = () => {
-  if (!selectedLocation) return;
 
-  const updatedLocation = {
-    ...selectedLocation,
-    deliveryAvailable: false,
-    pickupAvailable: false,
-    deliveryZone: undefined as DeliveryZoneData | undefined,
-    pickupLocations: undefined as PickupLocationData[] | undefined,
-  };
-
-  // Handle different modes
-  if (mode === 'delivery') {
-    updatedLocation.deliveryAvailable = true;
-    updatedLocation.pickupAvailable = false; // Explicitly set to false
-    
-    const center = (pickupLocations.length > 0 && 
-                  activeDeliveryCenter.lat && activeDeliveryCenter.lng)
-      ? activeDeliveryCenter
-      : { lat: selectedLocation.lat, lng: selectedLocation.lng };
-      
-    updatedLocation.deliveryZone = {
-      center: center,
-      radius: deliveryRadius,
-      type: 'delivery'
-    };
-    
-    // DO NOT set pickupLocations for delivery-only mode
-    updatedLocation.pickupLocations = undefined;
-    
-  } else if (mode === 'pickup') {
-    updatedLocation.deliveryAvailable = false; // Explicitly set to false
-    updatedLocation.pickupAvailable = true;
-    
-    // DO NOT set deliveryZone for pickup-only mode
-    updatedLocation.deliveryZone = undefined;
-    
-    // Always provide pickup locations for pickup mode
-    if (pickupLocations.length > 0) {
-      updatedLocation.pickupLocations = pickupLocations.map(location => ({
-        lat: location.lat,
-        lng: location.lng,
-        address: location.address,
-        placeName: location.placeName
-      }));
-    } else {
-      // If no pickup locations added yet, use the selected location as default
-      updatedLocation.pickupLocations = [{
-        lat: selectedLocation.lat,
-        lng: selectedLocation.lng,
-        address: selectedLocation.address,
-        placeName: selectedLocation.placeName || 'Pickup Location'
-      }];
-    }
-  } else if (mode === 'both') {
-    updatedLocation.deliveryAvailable = true;
-    updatedLocation.pickupAvailable = true;
-    
-    // Add delivery zone
-    const center = (pickupLocations.length > 0 && 
-                  activeDeliveryCenter.lat && activeDeliveryCenter.lng)
-      ? activeDeliveryCenter
-      : { lat: selectedLocation.lat, lng: selectedLocation.lng };
-      
-    updatedLocation.deliveryZone = {
-      center: center,
-      radius: deliveryRadius,
-      type: 'delivery'
-    };
-    
-    // Add pickup locations
-    if (pickupLocations.length > 0) {
-      updatedLocation.pickupLocations = pickupLocations.map(location => ({
-        lat: location.lat,
-        lng: location.lng,
-        address: location.address,
-        placeName: location.placeName
-      }));
-    } else {
-      // If no pickup locations added yet, use the selected location as default
-      updatedLocation.pickupLocations = [{
-        lat: selectedLocation.lat,
-        lng: selectedLocation.lng,
-        address: selectedLocation.address,
-        placeName: selectedLocation.placeName || 'Pickup Location'
-      }];
-    }
-  }
-
-  onLocationSelect(updatedLocation);
-};
 
 
 
@@ -551,33 +647,6 @@ const updateLocationData = () => {
     }
   };
 
-  // Create delivery circle
-  const createDeliveryCircle = (lat: number, lng: number) => {
-    if (!mapInstance.current || !window.google) return;
-
-    // Remove existing circle
-    if (circleInstance.current) {
-      circleInstance.current.setMap(null);
-      circleInstance.current = null;
-    }
-
-    const circle = new window.google.maps.Circle({
-      strokeColor: '#10B981',
-      strokeOpacity: 0.9,
-      strokeWeight: 3,
-      fillColor: '#10B981',
-      fillOpacity: 0.2,
-      map: mapInstance.current,
-      center: { lat, lng },
-      radius: deliveryRadius,
-      editable: true,
-      draggable: true,
-      clickable: true
-    });
-
-    circleInstance.current = circle;
-    addCircleEventListeners(circle, mapInstance.current, lat, lng);
-  };
 
   // Add a separate function to create main location markers
   const addMainLocationMarker = (map, lat, lng, locationData = null) => {
@@ -669,51 +738,7 @@ const addMapElements = (map, lat, lng) => {
     map.setZoom(14);
   }
 };
-  const addCircleEventListeners = (circle: google.maps.Circle, map: google.maps.Map, lat: number, lng: number) => {
-    circle.addListener('radius_changed', () => {
-      try {
-        const newRadius = circle.getRadius();
-        if (newRadius && newRadius > 0) {
-          setDeliveryRadius(Math.round(newRadius));
-          const center = circle.getCenter();
-          if (center) {
-            updateLocationWithZone(Math.round(newRadius), center.lat(), center.lng());
-          }
-        }
-      } catch (error) {
-        console.error('Error handling radius change:', error);
-      }
-    });
 
-    circle.addListener('center_changed', () => {
-      try {
-        const center = circle.getCenter();
-        if (center) {
-          const newLat = center.lat();
-          const newLng = center.lng();
-          setActiveDeliveryCenter({ lat: newLat, lng: newLng });
-          updateLocationWithZone(deliveryRadius, newLat, newLng);
-        }
-      } catch (error) {
-        console.error('Error handling center change:', error);
-      }
-    });
-
-    circle.addListener('click', () => {
-      const center = circle.getCenter();
-      const infoWindow = new window.google.maps.InfoWindow({
-        content: `
-          <div style="padding: 8px;">
-            <strong>Delivery Zone</strong><br>
-            Radius: ${(deliveryRadius / 1000).toFixed(1)} km<br>
-            <small>Drag the circle or edge to adjust the area</small>
-          </div>
-        `,
-        position: center ? { lat: center.lat(), lng: center.lng() } : { lat, lng }
-      });
-      infoWindow.open(map);
-    });
-  };
 
   const clearMapInstances = () => {
     if (circleInstance.current) {
@@ -726,26 +751,6 @@ const addMapElements = (map, lat, lng) => {
     }
   };
 
-  const updateLocationWithZone = (radius?: number, centerLat?: number, centerLng?: number) => {
-    if (!selectedLocation) return;
-
-    const center = centerLat && centerLng 
-      ? { lat: centerLat, lng: centerLng }
-      : activeDeliveryCenter.lat && activeDeliveryCenter.lng
-      ? activeDeliveryCenter
-      : { lat: selectedLocation.lat, lng: selectedLocation.lng };
-
-    const updatedLocation = {
-      ...selectedLocation,
-      deliveryZone: {
-        center: center,
-        radius: radius || deliveryRadius,
-        type: 'delivery'
-      }
-    };
-
-    onLocationSelect(updatedLocation);
-  };
 
   // =====================
   // SEARCH FUNCTIONS
@@ -958,7 +963,6 @@ const selectPlace = (suggestion: PlaceSuggestion) => {
 
     placesService.current.getDetails(request, (place, status) => {
       if (status === 'OK' && place) {
-        const addressComponents = parseAddressComponents(place.address_components || []);
         const placeName = place.name !== place.formatted_address ? place.name : '';
         
         const newPickupLocation = {
@@ -1128,7 +1132,7 @@ const getCurrentLocation = () => {
   // =====================
 
   const parseAddressComponents = (components: google.maps.GeocoderAddressComponent[]) => {
-    const addressInfo: any = {};
+    const addressInfo = {};
     
     components.forEach(component => {
       const types = component.types;
@@ -1649,7 +1653,7 @@ return (
 
                         {pickupLocations.length === 0 && !isAddingPickupLocation && !showAddPickupButton && (
                           <p className="text-xs text-gray-500 italic text-center py-2">
-                            Click "Add Location" to add your first pickup point
+                            Click &quot;Add Location&quot; to add your first pickup point
                           </p>
                         )}
                       </div>

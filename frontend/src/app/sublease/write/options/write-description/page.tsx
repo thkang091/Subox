@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
+import Image from "next/image";
 import { 
   ArrowLeft, 
   Edit3, 
@@ -11,16 +12,13 @@ import {
   Loader2, 
   MessageSquare,
   DollarSign,
-  Home,
   Calendar,
   Phone,
   Mail,
   MapPin,
   Wifi,
-  Car,
   PawPrint,
   Sofa,
-  User,
   Users,
   Bed,
   Bath,
@@ -29,7 +27,6 @@ import {
   Camera,
   Upload,
   Star,
-  Shield,
   Sparkles,
   Tag,
   Clock,
@@ -55,7 +52,7 @@ interface ChatMessage {
   input?: {
     type: string;
     placeholder?: string;
-    action: (value: any) => void;
+    action: (value) => void;
   };
 }
 
@@ -70,7 +67,7 @@ interface QuestionConfig {
   key: string;
   question: string;
   type: 'text' | 'location' | 'yes-no' | 'multiple-choice' | 'file-upload' | 'rating' | 'multi-select';
-  icon?: any;
+  icon?: unknown;
   required: boolean;
   inputType?: string;
   placeholder?: string;
@@ -122,7 +119,7 @@ interface ListingData {
   contactMethod: string;
   reasonForLeaving: string;
   additionalNotes: string;
-  questionAnswers: any[];
+  questionAnswers: unknown[];
 }
 
 // Campus areas for Minneapolis
@@ -137,25 +134,6 @@ const CAMPUS_AREAS = [
   'Cedar-Riverside',
   'Downtown Minneapolis',
   'Other (use location picker)'
-];
-
-const AMENITIES_OPTIONS = [
-  'Gym/Fitness Center',
-  'Pool',
-  'Laundry in Unit',
-  'Laundry in Building',
-  'Parking Included',
-  'Air Conditioning',
-  'Dishwasher',
-  'Balcony/Patio',
-  'Storage Space',
-  'Bike Storage',
-  'Internet/WiFi Included',
-  'Cable TV Included',
-  'Elevator',
-  'Security System',
-  'Study Room',
-  'Common Areas'
 ];
 
 const LISTING_TYPES = [
@@ -212,18 +190,18 @@ export default function WriteDescriptionPage() {
   const [isTyping, setIsTyping] = useState(false);
   const [showInput, setShowInput] = useState(false);
   const [inputValue, setInputValue] = useState("");
-  const [currentInputAction, setCurrentInputAction] = useState<((value: any) => void) | null>(null);
+  const [currentInputAction, setCurrentInputAction] = useState<((value) => void) | null>(null);
   
   // Question flow state
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [allQuestions, setAllQuestions] = useState<QuestionConfig[]>([]);
-  const [userAnswers, setUserAnswers] = useState<{[key: string]: any}>({});
+  const [userAnswers, setUserAnswers] = useState<{[key: string]: unknown}>({});
   
   // Data state
-  const [extractedData, setExtractedData] = useState<any>(null);
+  const [extractedData, setExtractedData] = useState(null);
   const [cleanedDescription, setCleanedDescription] = useState("");
   const [showAnalyzedData, setShowAnalyzedData] = useState(false);
-  const extractedDataRef = useRef<any>(null);
+  const extractedDataRef = useRef(null);
 
   
   // Processing steps
@@ -414,7 +392,7 @@ export default function WriteDescriptionPage() {
   // API FUNCTIONS
   // ============================================================================
   
-  const callOpenAIAPI = async (step: string, description: string, itemData?: any) => {
+  const callOpenAIAPI = async (step: string, description: string, itemData?) => {
     try {
       const response = await fetch('/api/process-description', {
         method: 'POST',
@@ -443,7 +421,7 @@ export default function WriteDescriptionPage() {
   // ============================================================================
   // ENHANCED QUESTION GENERATION & CONVERSION
   // ============================================================================
-  const convertAPIQuestionsToFormatWithData = (apiQuestions: string[], extractedDataParam: any): QuestionConfig[] => {
+  const convertAPIQuestionsToFormatWithData = (apiQuestions: string[], extractedDataParam): QuestionConfig[] => {
     const questions: QuestionConfig[] = [];
     const extractedData = extractedDataParam;
     
@@ -740,7 +718,7 @@ export default function WriteDescriptionPage() {
   // CHAT FLOW MANAGEMENT
   // ============================================================================
   
-  const startChatFlowWithData = async (questionsData: any, extractedData: any) => {
+  const startChatFlowWithData = async (questionsData, extractedData) => {
     setIsTyping(true);
     await new Promise(resolve => setTimeout(resolve, 1500));
     
@@ -958,17 +936,13 @@ const checkForConditionalQuestions = (): QuestionConfig[] => {
     processUserResponse(questionKey, answers);
   };
 
-  const handleRatingResponse = (questionKey: string, rating: number) => {
-    console.log(`Handling rating response: ${questionKey} = ${rating}`);
-    processUserResponse(questionKey, rating);
-  };
 
   const handleFileUploadResponse = (questionKey: string, files: File[]) => {
     console.log(`Handling file upload response: ${questionKey} = ${files.length} files`);
     processUserResponse(questionKey, files);
   };
 
-  const handleLocationResponse = (questionKey: string, locationData: any) => {
+  const handleLocationResponse = (questionKey: string, locationData) => {
     const userMessage: ChatMessage = {
       role: 'user',
       content: `📍 ${locationData.address}`,
@@ -990,7 +964,7 @@ const checkForConditionalQuestions = (): QuestionConfig[] => {
     showPositiveResponseAndContinue();
   };
 
-  const processUserResponse = (questionKey: string, value: any) => {
+  const processUserResponse = (questionKey: string, value) => {
     console.log(`Processing user response: ${questionKey} = ${value}`);
     
     let displayValue = value;
@@ -1312,7 +1286,7 @@ const checkForConditionalQuestions = (): QuestionConfig[] => {
         </div>
         
         {Object.values(extractedData).filter(v => v !== null && v !== undefined).length === 0 && (
-          <p className="text-gray-600 text-sm">No specific details detected - I'll ask you for the information!</p>
+          <p className="text-gray-600 text-sm">No specific details detected - I&apos;ll ask you for the information!</p>
         )}
       </motion.div>
     );
@@ -1409,19 +1383,10 @@ const checkForConditionalQuestions = (): QuestionConfig[] => {
     );
   };
 
-  // Add this state at the top with other useState hooks
-const [ratingValues, setRatingValues] = useState<{[key: string]: number}>({});
-
 const renderRatingInput = (message: ChatMessage) => {
   if (!message.questionKey || message.type !== 'rating') return null;
 
   const maxRating = 5;
-  const setSelectedRating = (rating: number) => {
-    setRatingValues(prev => ({
-      ...prev,
-      [message.questionKey!]: rating
-    }));
-  };
 
     return (
       <div className="mt-4 space-y-4">
@@ -1487,13 +1452,7 @@ const renderFileUpload = (message: ChatMessage) => {
           [message.questionKey!]: uploadedFiles.filter((_, i) => i !== index)
         }));
       };
-      
-      const setUploadedFiles = (newFiles: File[]) => {
-        setFileUploads(prev => ({
-          ...prev,
-          [message.questionKey!]: newFiles
-        }));
-      };
+
 
       const submitFiles = () => {
         if (uploadedFiles.length >= 3) {
@@ -1533,7 +1492,7 @@ const renderFileUpload = (message: ChatMessage) => {
               {uploadedFiles.map((file, index) => (
                 <div key={index} className="relative">
                   <div className="aspect-square bg-gray-100 rounded-lg overflow-hidden">
-                    <img
+                    <Image
                       src={URL.createObjectURL(file)}
                       alt={`Upload ${index + 1}`}
                       className="w-full h-full object-cover"
@@ -1627,7 +1586,7 @@ const renderFileUpload = (message: ChatMessage) => {
     }, 1000);
   };
 
-  const handleEditExtractedData = (field: string, newValue: any) => {
+  const handleEditExtractedData = (field: string, newValue) => {
     setExtractedData(prev => ({
       ...prev,
       [field]: newValue
@@ -1697,13 +1656,13 @@ const renderFileUpload = (message: ChatMessage) => {
                       input: {
                         type: field.type,
                         placeholder: field.placeholder,
-                        action: (value: any) => handleEditExtractedData(field.key, value)
+                        action: (value) => handleEditExtractedData(field.key, value)
                       }
                     };
                     setChatMessages(prev => [...prev, editFieldMessage]);
                     setIsTyping(false);
                     setShowInput(true);
-                    setCurrentInputAction(() => (value: any) => handleEditExtractedData(field.key, value));
+                    setCurrentInputAction(() => (value) => handleEditExtractedData(field.key, value));
                     setTimeout(() => inputRef.current?.focus(), 100);
                   }, 1000);
                 }}
@@ -1814,7 +1773,7 @@ Your listing is ready to publish! 🚀`,
     console.log("Current listing data state:", listingData);
     
     // Start with the current listing data instead of defaults
-    let finalData = { ...listingData };
+    const finalData = { ...listingData };
     
     // Apply extracted data if available (this should override defaults)
     if (currentExtractedData) {
@@ -2053,7 +2012,7 @@ Your listing is ready to publish! 🚀`,
                     Write Your Description
                   </h1>
                   <p className="text-xl text-gray-600 max-w-2xl mx-auto leading-relaxed">
-                    Just write whatever comes to mind in any language. We'll clean it up and ask for missing details.
+                    Just write whatever comes to mind in any language. We&apos;ll clean it up and ask for missing details.
                   </p>
                 </div>
               </div>
@@ -2082,7 +2041,7 @@ Your listing is ready to publish! 🚀`,
                       disabled={isProcessing}
                     />
                     <div className="flex justify-between items-center text-sm text-gray-500">
-                      <span>Write in any language - we'll handle the rest!</span>
+                      <span>Write in any language - we&apos;ll handle the rest!</span>
                       <span>{description.length} characters</span>
                     </div>
                   </div>
@@ -2154,7 +2113,7 @@ Your listing is ready to publish! 🚀`,
               >
                 <h3 className="text-2xl font-bold text-gray-900">No pressure writing</h3>
                 <p className="text-gray-600 text-lg max-w-2xl mx-auto">
-                  Just dump everything you can think of. Typos, incomplete sentences, mixed languages - we'll sort it all out and create a professional listing.
+                  Just dump everything you can think of. Typos, incomplete sentences, mixed languages - we&apos;ll sort it all out and create a professional listing.
                 </p>
               </motion.div>
             </motion.div>
@@ -2173,7 +2132,7 @@ Your listing is ready to publish! 🚀`,
                   </div>
                   <div>
                     <h3 className="text-xl font-semibold">Subox Assistant</h3>
-                    <p className="text-orange-100">Let's complete your listing</p>
+                    <p className="text-orange-100">Let&apos;s complete your listing</p>
                   </div>
                 </div>
               </div>

@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { 
-  MapPin, Clock, Car, Route, X, Navigation, Users, Heart, Star, 
-  Calendar, BedDouble, Train, Bus, Bike, Zap, ChevronDown, ChevronUp, 
-  Info, AlertCircle, Eye, EyeOff, Home
+  MapPin, Car, Route, X, Users, Heart, Star, 
+  Calendar, BedDouble, Train, Bike, Zap, ChevronDown, ChevronUp, 
+  Info, Eye, EyeOff, Home
 } from 'lucide-react';
 
 // Helper function to calculate distance between two points
@@ -115,7 +115,7 @@ const EnhancedCommuteResultsMap = ({
   };
 
   // Route styling based on transport mode
-  const getRouteStyle = (transportMode, isAlternative = false) => {
+  const getRouteStyle = useCallback((transportMode, isAlternative = false) => {
     const baseStyles = {
       walking: { color: '#22c55e', weight: 4, opacity: 0.8 },
       transit: { color: '#3b82f6', weight: 5, opacity: 0.9 },
@@ -135,7 +135,51 @@ const EnhancedCommuteResultsMap = ({
     }
     
     return style;
-  };
+  },[]);
+
+  // Route rendering function
+  const renderRoute = useCallback((route, transportMode, isAlternative) => {
+    const style = getRouteStyle(transportMode, isAlternative);
+    
+    try {
+      if (route.overview_path && route.overview_path.length > 0) {
+        const routePath = route.overview_path.map(point => ({
+          lat: point.lat(),
+          lng: point.lng()
+        }));
+
+        const polylineOptions = {
+          path: routePath,
+          geodesic: true,
+          strokeColor: style.color,
+          strokeOpacity: style.opacity,
+          strokeWeight: style.weight,
+          map: mapInstanceRef.current
+        };
+
+        // Add dashed pattern for alternatives
+        if (isAlternative) {
+          polylineOptions.strokePattern = [
+            { icon: { path: 'M 0,-1 0,1', strokeOpacity: 1, scale: 2 }, offset: '0', repeat: '8px' }
+          ];
+        }
+
+        const polyline = new window.google.maps.Polyline(polylineOptions);
+
+        if (isAlternative) {
+          alternativeRenderersRef.current.push({
+            setMap: (map) => polyline.setMap(map)
+          });
+        } else {
+          directionsRenderersRef.current.push({
+            setMap: (map) => polyline.setMap(map)
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Error in route rendering:', error);
+    }
+  },[getRouteStyle]);
 
   // Update map with route results
   useEffect(() => {
@@ -256,7 +300,7 @@ const EnhancedCommuteResultsMap = ({
 
           // Render alternatives if enabled
           if (showAlternatives && routeResult.alternatives && routeResult.alternatives.length > 0) {
-            routeResult.alternatives.forEach((alternative, altIndex) => {
+            routeResult.alternatives.forEach((alternative) => {
               renderRoute(
                 alternative.route,
                 routeResult.transportMode,
@@ -322,51 +366,8 @@ const EnhancedCommuteResultsMap = ({
       mapInstanceRef.current.setZoom(13);
     }
     
-  }, [routeResults, selectedDestination, listings, isVisible, mapInitialized, showAlternatives]);
+  }, [routeResults, selectedDestination, listings, isVisible, mapInitialized, showAlternatives, renderRoute, getRouteStyle]);
 
-  // Route rendering function
-  const renderRoute = (route, transportMode, isAlternative) => {
-    const style = getRouteStyle(transportMode, isAlternative);
-    
-    try {
-      if (route.overview_path && route.overview_path.length > 0) {
-        const routePath = route.overview_path.map(point => ({
-          lat: point.lat(),
-          lng: point.lng()
-        }));
-
-        const polylineOptions = {
-          path: routePath,
-          geodesic: true,
-          strokeColor: style.color,
-          strokeOpacity: style.opacity,
-          strokeWeight: style.weight,
-          map: mapInstanceRef.current
-        };
-
-        // Add dashed pattern for alternatives
-        if (isAlternative) {
-          polylineOptions.strokePattern = [
-            { icon: { path: 'M 0,-1 0,1', strokeOpacity: 1, scale: 2 }, offset: '0', repeat: '8px' }
-          ];
-        }
-
-        const polyline = new window.google.maps.Polyline(polylineOptions);
-
-        if (isAlternative) {
-          alternativeRenderersRef.current.push({
-            setMap: (map) => polyline.setMap(map)
-          });
-        } else {
-          directionsRenderersRef.current.push({
-            setMap: (map) => polyline.setMap(map)
-          });
-        }
-      }
-    } catch (error) {
-      console.error('Error in route rendering:', error);
-    }
-  };
 
   // Helper functions
   const getTransportIcon = (mode) => {
@@ -476,7 +477,7 @@ const EnhancedCommuteResultsMap = ({
                       <span className="font-medium text-green-800">At destination</span>
                     </div>
                     <div className="text-xs text-green-700">
-                      No commute needed - you're already here!
+                      No commute needed - you&apos;re already here!
                     </div>
                   </div>
                 ) : (
@@ -643,7 +644,7 @@ const EnhancedCommuteResultsMap = ({
                       }`}
                       onClick={(e) => {
                         e.stopPropagation();
-                        onFavoriteToggle && onFavoriteToggle(listing);
+                        onFavoriteToggle(listing);
                       }}
                     >
                       <Heart size={16} className={isFavorited ? 'fill-current' : ''} />

@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  Calendar, Clock, Video, Users, Check, X, ChevronRight, 
-  MapPin, User, Mail, Phone, AlertCircle, CheckCircle, 
-  XCircle, Filter, Search, RefreshCw, Bell, Settings,
+  Calendar, Clock, Video, Users, Check, X, 
+  MapPin, User, AlertCircle, CheckCircle, 
+  XCircle, Search, RefreshCw,
   Eye, MessageSquare
 } from 'lucide-react';
 import { 
   collection, query, where, orderBy, onSnapshot, doc, updateDoc, 
-  addDoc, serverTimestamp, getDocs
+  addDoc, serverTimestamp
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/app/contexts/AuthInfo';
@@ -224,7 +224,7 @@ export default function HostTourDashboard() {
           </div>
           <div className="bg-white p-6 rounded-xl shadow-sm">
             <div className="text-2xl font-bold text-blue-600">{stats.today}</div>
-            <div className="text-sm text-gray-600">Today's Tours</div>
+            <div className="text-sm text-gray-600">Today&apos;s Tours</div>
           </div>
         </div>
 

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  Clock, Plus, Trash2, Save, ChevronDown, ChevronUp, 
-  Calendar, Info, CheckCircle, X 
+  Clock, Plus, Trash2, Save,
+  Calendar, Info, CheckCircle
 } from 'lucide-react';
 import { 
   doc, setDoc, getDoc, serverTimestamp 
@@ -9,7 +9,6 @@ import {
 import { db } from '@/lib/firebase';
 
 const HostAvailabilitySetup = ({ listingId, hostId, onComplete }) => {
-  const [currentStep, setCurrentStep] = useState(1);
   const [appointmentDuration, setAppointmentDuration] = useState(60); // minutes
   const [availability, setAvailability] = useState({
     0: { available: false, times: [] }, // Sunday
@@ -50,7 +49,7 @@ const HostAvailabilitySetup = ({ listingId, hostId, onComplete }) => {
     if (listingId && hostId) {
       loadExistingAvailability();
     }
-  }, [listingId, hostId]);
+  }, [listingId, hostId, availability]);
 
   const toggleDayAvailability = (dayIndex) => {
     setAvailability(prev => ({

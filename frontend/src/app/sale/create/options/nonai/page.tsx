@@ -949,12 +949,12 @@ const renderHeader = () => (
                 onClick={() => fileInputRef.current?.click()}
                 className="w-full py-3.5 bg-gray-100 text-gray-700 font-medium rounded-lg hover:bg-gray-200 transition-colors flex items-center justify-center space-x-2"
               >
-              <Image
-                src="/path/to/your-icon.svg"
-                alt="Image icon"       
-                width={18}
-                height={18}
-              />
+                <Image
+                  src="/icons/image.svg"
+                  alt="Image icon"
+                  width={18}
+                  height={18}
+                />
                 <span>Choose Photos Instead</span>
               </motion.button>
             </div>
@@ -1222,7 +1222,13 @@ const renderHeader = () => (
               <div className="border-2 border-dashed border-gray-200 rounded-xl p-12 text-center">
                 <div className="space-y-6">
                   <div className="w-16 h-16 bg-orange-50 rounded-full flex items-center justify-center mx-auto">
-                    <Image size={24} className="text-orange-400" />
+                    <Image
+                      src="/icons/image.svg"
+                      alt="Image icon"
+                      width={24}
+                      height={24}
+                      className="text-orange-400"
+                    />
                   </div>
                   
                   <div>
@@ -1244,7 +1250,12 @@ const renderHeader = () => (
                         onClick={() => fileInputRef.current?.click()}
                         className="flex items-center justify-center px-6 py-4 bg-gray-100 text-gray-700 font-medium rounded-lg hover:bg-gray-200 transition-colors shadow-sm space-x-2"
                       >
-                        <Image size={20} />
+                        <Image
+                          src="/icons/image.svg"
+                          alt="Image icon"
+                          width={20}
+                          height={20}
+                        />
                         <span>Choose Photos</span>
                       </motion.button>
                     </div>
@@ -1296,7 +1307,13 @@ const renderHeader = () => (
                     onClick={() => fileInputRef.current?.click()}
                     className="aspect-square border-2 border-dashed border-gray-200 rounded-lg flex flex-col items-center justify-center hover:border-orange-300 hover:bg-orange-25 transition-colors p-4"
                   >
-                    <Image size={20} className="text-gray-400 mb-2" />
+                    <Image
+                      src="/icons/image.svg"
+                      alt="Image icon"
+                      width={20}
+                      height={20}
+                      className="text-gray-400 mb-2"
+                    />
                     <span className="text-sm text-gray-600 text-center">Add New Item</span>
                   </button>
                   
@@ -1435,7 +1452,12 @@ const renderHeader = () => (
                         className="w-11 h-11 bg-blue-500 text-white rounded-full flex items-center justify-center shadow-lg"
                         title="Upload Photos"
                       >
-                        <Image size={18} />
+                        <Image
+                          src="/icons/image.svg"
+                          alt="Image icon"
+                          width={18}
+                          height={18}
+                        />
                       </motion.button>
                       
                       <motion.button
@@ -1602,7 +1624,12 @@ const renderHeader = () => (
                     onClick={() => fileInputRef.current?.click()}
                     className="w-full py-3 bg-gray-100 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-200 transition-colors flex items-center justify-center space-x-2"
                   >
-                    <Image size={16} />
+                    <Image
+                      src="/icons/image.svg"
+                      alt="Image icon"
+                      width={16}
+                      height={16}
+                    />
                     <span>Upload Photos</span>
                   </motion.button>
                 </div>
@@ -1944,7 +1971,12 @@ const renderHeader = () => (
                   onClick={() => triggerAddPhotosUpload(currentItemIndex)}
                   className="w-10 h-10 bg-blue-500 text-white rounded-full flex items-center justify-center shadow-sm"
                 >
-                  <Image size={18} />
+                    <Image
+                      src="/icons/image.svg"
+                      alt="Image icon"
+                      width={18}
+                      height={18}
+                    />
                 </motion.button>
                 
                 {currentItem.images.length > 1 && (
@@ -2604,7 +2636,7 @@ const renderHeader = () => (
                       ) : (
                         <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
                           <p className="text-gray-500 text-sm">
-                            Click "Generate" to create a smart AI description for your item
+                            Click &quot;Generate&quot; to create a smart AI description for your item
                           </p>
                         </div>
                       )}

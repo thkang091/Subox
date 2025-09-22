@@ -72,6 +72,24 @@ const ProfileTourPage = () => {
     return 'guest';
   }, [isUpcoming]);
 
+  // Load host availability settings
+  const loadHostAvailabilities = useCallback(async () => {
+    try {
+      const availabilityQuery = query(
+        collection(db, 'hostAvailability'),
+        where('hostId', '==', user.uid)
+      );
+      const availabilitySnapshot = await getDocs(availabilityQuery);
+      const availabilities = availabilitySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      setHostAvailabilities(availabilities);
+    } catch (error) {
+      console.error('Error loading host availabilities:', error);
+    }
+  },[user?.uid]);
+
   // Load host-specific data
   const loadHostData = useCallback(() => {
     if (!user?.uid) return;
@@ -102,7 +120,7 @@ const ProfileTourPage = () => {
     return () => {
       unsubscribeHostTours();
     };
-  },[user?.uid]);
+  },[user?.uid, loadHostAvailabilities]);
 
 
   
@@ -231,23 +249,6 @@ const ProfileTourPage = () => {
     }
   };
 
-  // Load host availability settings
-  const loadHostAvailabilities = async () => {
-    try {
-      const availabilityQuery = query(
-        collection(db, 'hostAvailability'),
-        where('hostId', '==', user.uid)
-      );
-      const availabilitySnapshot = await getDocs(availabilityQuery);
-      const availabilities = availabilitySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
-      setHostAvailabilities(availabilities);
-    } catch (error) {
-      console.error('Error loading host availabilities:', error);
-    }
-  };
 
   // Calculate stats for host
   const calculateHostStats = (requests) => {
@@ -424,7 +425,7 @@ const ProfileTourPage = () => {
           setMaxBookings(existingAvailability.maxBookings || 3);
         }
       }
-    }, [availability, selectedListing, showAvailabilityModal]);
+    }, [availability]);
 
     const toggleDayAvailability = (dayIndex) => {
       setAvailability(prev => ({
